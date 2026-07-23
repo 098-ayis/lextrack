@@ -1,3 +1,8 @@
-h1 {
-    font-size: 50px;
+@import "tailwindcss";
+@plugin "daisyui";
+
+@custom-variant dark (&:where([data-theme=dark],[data-theme=dark] *));
+@theme{
+    --color-primary: #463581;
+    --color-background: #463581;
 }
