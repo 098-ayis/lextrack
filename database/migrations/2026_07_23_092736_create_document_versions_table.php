@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('document_versions', function (Blueprint $table) {
             $table->id('version_id');
 
-            $table->foreigId('user_id')
+            $table->foreignId('user_id')
                 ->constrined()
                 ->cascadeOnDelete();
 
