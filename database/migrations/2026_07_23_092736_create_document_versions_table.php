@@ -23,7 +23,7 @@ return new class extends Migration
                 ->cascadeOnDelete();
 
             $table->string('version_number');
-            $table->file('file_path');
+            $table->string('file_path');
 
             $table->timestamps();
         });
