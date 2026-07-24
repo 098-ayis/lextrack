@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id('type_id');
             $table->string('type_name');
             $table->text('type_desc');
-            $table->timestamps('created_at');
+            $table->timestamps();
         });
     }
 

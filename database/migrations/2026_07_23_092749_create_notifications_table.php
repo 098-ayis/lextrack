@@ -19,7 +19,7 @@ return new class extends Migration
 
             $table->string('notification_title');
             $table->text('body');
-            $table->timestamps('created_at');
+            $table->timestamps();
             $tabley->boolean('is_read')->default(false);
         });
     }

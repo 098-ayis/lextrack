@@ -25,7 +25,7 @@ return new class extends Migration
             $table->string('version_number');
             $table->file('file_path');
 
-            $table->timestamps('created_at');
+            $table->timestamps();
         });
     }
 

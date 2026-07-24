@@ -23,7 +23,7 @@ return new class extends Migration
                 ->cascadeOnDelete();
             
             $table->text('note');
-            $table->timestamps('created_at');
+            $table->timestamps();
         });
     }
 

@@ -43,7 +43,7 @@ return new class extends Migration
             $table->date('outgoing_date')->nullable();
 
             $table->enum('status',
-                ['pending', 'received', 'ongoing', 'completed', 'returned', 'archived']
+                ['pending', 'in_progress', 'completed', 'returned', 'archived']
             )->default('pending');
 
             $table->timestamps();
