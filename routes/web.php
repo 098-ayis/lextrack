@@ -2,6 +2,9 @@
 
 use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Requests;
+use App\Http\Controllers\AIController;
+Route::view('/ai-test', 'ai-test');
+Route::post('/ask-ai', [AIController::class, 'ask']);
 
 Route::get('/', function () {
     return view('home');
@@ -31,7 +34,7 @@ Route::prefix("login")->group(function () {
 //
 Route::post("/formsubmitted", function( Request $request) {
 
-$requesr->validate([
+$request->validate([
     'email' => 'required|email',
     'password' => 'required|min:8'
 ]);
@@ -40,3 +43,4 @@ $requesr->validate([
     
     return "Email: $email";
 });
+
