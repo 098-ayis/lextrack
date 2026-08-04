@@ -13,7 +13,11 @@ return [
     | a conventional file to locate the various service credentials.
     |
     */
-
+    'ollama' => [
+    'url' => env('OLLAMA_URL', 'http://host.docker.internal:11434'),
+    'model' => env('OLLAMA_MODEL', 'gemma2:2b'),
+    ],
+    
     'postmark' => [
         'key' => env('POSTMARK_API_KEY'),
     ],
