@@ -1,4 +1,10 @@
 import { createApp } from 'vue'
-import HomePage from './components/HomePage.vue'
+import App from './App.vue'
+import router from './router'
+import '../css/app.css'
 
-createApp(HomePage).mount('#app')
+const app = createApp(App)
+
+app.use(router)
+
+app.mount('#app')
