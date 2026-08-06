@@ -19,10 +19,16 @@
       </div>
     </section>-->
 
-    <section class="services" id="services">
+    <section class="services" id="services" ref="servicesSection">
       <h2>Services We Provide</h2>
+
       <div class="services-grid">
-        <div class="service-card" v-for="service in services" :key="service.title">
+        <div
+          class="service-card"
+          :class="{ show: servicesVisible }"
+          v-for="service in services"
+          :key="service.title"
+        >
           <h3>{{ service.title }}</h3>
           <p>{{ service.desc }}</p>
         </div>
@@ -65,6 +71,8 @@ const router = useRouter()
 /* ---------- Mobile nav ---------- */
 const navOpen = ref(false)
 const navRef = ref(null)
+const servicesSection = ref(null)
+const servicesVisible = ref(false)
 
 function toggleNav() {
   navOpen.value = !navOpen.value
@@ -77,7 +85,25 @@ function handleOutsideClick(e) {
     navOpen.value = false
   }
 }
-onMounted(() => document.addEventListener('click', handleOutsideClick))
+onMounted(() => {
+  document.addEventListener("click", handleOutsideClick)
+
+  const observer = new IntersectionObserver(
+    ([entry]) => {
+      if (entry.isIntersecting) {
+        servicesVisible.value = true
+        observer.disconnect() // animation only happens once
+      }
+    },
+    {
+      threshold: 0.25
+    }
+  )
+
+  if (servicesSection.value) {
+    observer.observe(servicesSection.value)
+  }
+})
 onBeforeUnmount(() => document.removeEventListener('click', handleOutsideClick))
 
 /* ---------- Toast helper ---------- */
@@ -418,47 +444,122 @@ footer h5{
   flex-wrap:wrap;
 }
 
-/* Services */
-.services{
-  padding:64px 24px 56px;
-  text-align:center;
+/* ---------- Services ---------- */
+
+.services {
+  padding: 90px 24px;
+  background: #f8fbff;
+  text-align: center;
 }
-.services h2{
-  color:var(--navy);
-  font-size:24px;
-  font-weight:800;
-  margin-bottom:34px;
+
+.services h2 {
+  color: #002347;
+  font-size: 36px;
+  font-weight: 800;
+  margin-bottom: 60px;
+  position: relative;
 }
-.services-grid{
-  display:grid;
-  grid-template-columns:repeat(4,1fr);
-  gap:20px;
-  max-width:1100px;
-  margin:0 auto;
-  text-align:left;
+
+.services h2::after {
+  content: "";
+  display: block;
+  width: 80px;
+  height: 4px;
+  margin: 14px auto 0;
+  border-radius: 999px;
 }
-.service-card{
-  background: var(--sky);
-  border:1px solid var(--sky-border);
-  border-radius: var(--radius);
-  padding:20px 18px;
-  box-shadow: 0 2px 8px rgba(27,58,92,.05);
-  transition: transform .15s ease, box-shadow .15s ease;
+
+.services-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 28px;
+  max-width: 1300px;
+  margin: 0 auto;
+  text-align: left;
 }
-.service-card:hover{
-  transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(27,58,92,.1);
+
+.service-card {
+  background: linear-gradient(180deg, #ffffff, #f8fbff);
+  border: 1px solid #dbe8f4;
+  border-top: 5px solid #fb923c;
+  border-radius: 18px;
+
+  min-height: 280px;
+  padding: 34px 28px;
+
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+
+  box-shadow: 0 10px 24px rgba(0, 35, 71, 0.08);
+
+  transition: all 0.35s ease;
+
+  opacity: 0;
+  transform: translateY(60px);
+  transition:
+    opacity 0.7s ease,
+    transform 0.7s ease,
+    box-shadow 0.35s ease;
 }
-.service-card h3{
-  color:var(--navy);
-  font-size:15px;
-  font-weight:700;
-  margin-bottom:8px;
+
+/* Animation delays */
+.service-card.show {
+  opacity: 1;
+  transform: translateY(0);
 }
-.service-card p{
-  font-size:12.5px;
-  color:var(--text-muted);
+.service-card:nth-child(1) {
+  animation-delay: 0.1s;
 }
+
+.service-card:nth-child(2) {
+  animation-delay: 0.3s;
+}
+
+.service-card:nth-child(3) {
+  animation-delay: 0.5s;
+}
+
+.service-card:nth-child(4) {
+  animation-delay: 0.7s;
+}
+
+.service-card:hover {
+  transform: translateY(-12px) scale(1.03);
+  border-top-color: #f97316;
+  box-shadow: 0 18px 40px rgba(0, 35, 71, 0.18);
+}
+.service-card h3 {
+  color: #002347;
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 16px;
+  transition: color 0.3s ease;
+}
+
+.service-card:hover h3 {
+  color: #f97316;
+}
+
+.service-card p {
+  font-size: 15px;
+  line-height: 1.8;
+  color: #5f6b7a;
+}
+
+/* Fade-up animation */
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(40px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 
 /* How to use */
 .how-to{
