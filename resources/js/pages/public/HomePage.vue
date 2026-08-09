@@ -4,20 +4,7 @@
     
     <!-- Hero Section -->
     <HeroSection />
-    <!--<section class="hero" id="home">
-      <div class="hero-bg"></div>
-      <div class="hero-overlay"></div>
-
-      <div class="hero-inner">
-        <h1>BU LEGAL AFFAIRS OFFICE PORTAL</h1>
-        <p class="lead">Submit documents, track requests in real time, and get official updates from the BU Legal Affairs Office.</p>
-        <p class="hours">Office hours: Monday – Friday, 8:00 AM – 5:00 PM</p>
-        <div class="hero-ctas">
-          <button class="btn btn-outline" type="button" @click="goTo('/signin')">SUBMIT A DOCUMENT</button>
-          <button class="btn btn-solid" type="button" @click="goTo('/track')">TRACK A DOCUMENT</button>
-        </div>
-      </div>
-    </section>-->
+   
 
     <section class="services" id="services">
       <h2>Services We Provide</h2>

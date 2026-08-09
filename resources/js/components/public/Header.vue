@@ -79,7 +79,7 @@
           <span class="font-semibold text-sm">
             SIGN IN
           </span>
-        </RouterLink>
+        </RouterLink> 
 
         <!-- Mobile Button -->
         <button

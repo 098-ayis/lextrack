@@ -1,9 +1,11 @@
+<meta name="csrf-token" content="{{ csrf_token() }}">
+
 @extends('layouts.main')
 
 @section('header')
 <nav>
     <ul>
-        <li><a href="{{ route('login') }}">Login</a></li>
+       
     </ul>
 </nav>
 @endsection
@@ -14,6 +16,3 @@
 
 @endsection
 
-@section('footer')
-<p>&copy; 2024 LexTrack. All rights reserved.</p>
-@endsection

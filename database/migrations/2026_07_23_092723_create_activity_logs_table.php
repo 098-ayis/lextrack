@@ -15,11 +15,11 @@ return new class extends Migration
             $table->id('log_id');
 
             $table->foreignId('user_id')
-                ->constrained()
+                ->constrained('users')
                 ->cascadeOnDelete();
             
             $table->foreignId('document_id')
-                ->constrained()
+                ->constrained('documents', 'document_id')
                 ->cascadeOnDelete();
 
             $table->string('action_type');

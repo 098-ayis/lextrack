@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('calendars', function (Blueprint $table) {
             $table->id('sched_id');
             $table->foreignId('user_id')
-                ->constrained()
+                ->constrained('users')
                 ->restrictOnDelete();
             
             $table->date('date');

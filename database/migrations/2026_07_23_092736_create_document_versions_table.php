@@ -15,11 +15,11 @@ return new class extends Migration
             $table->id('version_id');
 
             $table->foreignId('user_id')
-                ->constrined()
+                ->constrained('users')
                 ->cascadeOnDelete();
 
             $table->foreignId('document_id')
-                ->constrained()
+                ->constrained('documents', 'document_id')
                 ->cascadeOnDelete();
 
             $table->string('version_number');

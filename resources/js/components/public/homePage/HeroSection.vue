@@ -15,7 +15,7 @@
       <p class="hours">Office hours: Monday – Friday, 8:00 AM – 5:00 PM</p>
 
       <div class="hero-ctas">
-        <button class="btn btn-outline" type="button" @click="goTo('/signin')">
+        <button class="btn btn-outline" type="button" @click="goTo('/login')">
           SUBMIT A DOCUMENT
         </button>
         <button class="btn btn-solid" type="button" @click="goTo('/track')">

@@ -3,44 +3,63 @@
 use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Requests;
 use App\Http\Controllers\AIController;
+use App\Http\Controllers\Auth\GoogleAuthController;
+use Illuminate\Support\Facades\Auth;
+
 Route::view('/ai-test', 'ai-test');
 Route::post('/ask-ai', [AIController::class, 'ask']);
 
 Route::get('/', function () {
     return view('home');
+})->name('home');
+
+Route::get('/auth/google', [GoogleAuthController::class, 'redirect'])
+    ->name('google.login');
+
+Route::get('/auth/google/callback', [GoogleAuthController::class, 'callback']);
+
+Route::get('/api/user', function() {
+    if (!Auth::check()) {
+        return response()->json([
+            'authenticated' => false,
+        ], 401);
+    }
+
+    return response()->json([
+        'authenticated' => true,
+        'user' => Auth::user(),
+    ]);
 });
 
-//Named routes
-Route::get('/test', function () {
-    return "This is a test!";
-})->name('testpage');
+Route::post('/logout', function (Request $request) {
+    Auth::logout();
 
+    $request->session()->invalidate();
+    $request->session()->regenerateToken();
 
-//login routes
-Route::get('/login', function () {
-    return view('login');
-})->name('login');
+    return response()->json([
+        'message' => 'Logged out successfully'
+    ]);
+})->middleware('auth');
 
-Route::prefix("login")->group(function () {
-    Route::get("/admin", function () {
-        return view('adminLogin');
-    });
+/*
+Route::middleware(['auth', 'admin'])->group(function () {
 
-    Route::get("/client", function () {
-        return view('clientLogin');
-    });
+    Route::get('/api/admin/users', ...);
+
+    Route::get('/api/admin/documents', ...);
+
+    Route::delete('/api/admin/users/{id}', ...);
+
 });
+*/
 
-//
-Route::post("/formsubmitted", function( Request $request) {
+Route::get('/dashboard', function () {
+    return view('dashboard');
+})->middleware('auth')->name('dashboard');
 
-$request->validate([
-    'email' => 'required|email',
-    'password' => 'required|min:8'
-]);
-    $email = $request->input('email');
-    $password = $request->input('password');
-    
-    return "Email: $email";
-});
+Route::view('/{any}', 'home')
+    ->where('any', '.*');
+
+
 

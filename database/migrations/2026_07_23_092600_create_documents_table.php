@@ -15,15 +15,15 @@ return new class extends Migration
             $table->id('document_id');
 
             $table->foreignId('user_id')
-                ->constrained()
+                ->constrained('users')
                 ->restrictOnDelete();
 
             $table->foreignId('type_id')
-                ->constrained('document_types')
+                ->constrained('document_types', 'type_id')
                 ->restrictOnDelete();
 
             $table->foreignId('client_id')
-                ->constrained()
+                ->constrained('clients', 'client_id')
                 ->restrictOnDelete();
 
             $table->string('lao_number')->nullable();
