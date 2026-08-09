@@ -8,10 +8,11 @@
                 <!-- Logo -->
                 <div class="flex items-center gap-3 mb-4">
 
-                    <div
-                        class="w-10 h-10 rounded-full bg-white text-[#142c47] flex items-center justify-center font-bold">
-                        BU
-                    </div>
+                    <img
+                    :src="logo"
+                    alt="Bicol University Logo"
+                    class="w-10 h-11"
+                    />
 
                     <div>
                         <small class="block text-xs uppercase tracking-wider text-gray-400">
@@ -112,5 +113,7 @@
 </template>
 
 <script setup>
-import { RouterLink } from 'vue-router'
+import { ref } from 'vue'
+import { RouterLink, useRoute } from 'vue-router'
+import logo from '../../../images/bu-logo.png'
 </script>

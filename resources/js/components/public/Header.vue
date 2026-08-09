@@ -23,8 +23,17 @@
       </RouterLink>
 
       <!-- Desktop Navigation -->
-      <nav class="hidden md:block">
-        <ul class="flex gap-8 font-semibold text-sm">
+      <nav class="hidden md:block flex gap-8 font-semibold text-sm space-x-6">
+        <RouterLink
+          v-for="link in links"
+          :key="link.path"
+          :to="link.path"
+          class="hover:text-orange-400 transition-colors duration-200"
+          :class="{ 'text-orange-400': route.path === link.path }"
+        >
+          {{ link.name }}
+        </RouterLink>
+        <!--<ul class="flex gap-8 font-semibold text-sm">
           <li>
             <RouterLink
               to="/"
@@ -64,7 +73,7 @@
               LEGAL FORMS
             </RouterLink>
           </li>
-        </ul>
+        </ul>-->
       </nav>
 
       <!-- Right Side -->
@@ -97,7 +106,7 @@
       class="md:hidden bg-[#142c47]"
     >
       <RouterLink
-        to="/"
+        to="/hero"
         class="block px-6 py-3 hover:bg-[#1b3a5c]"
         @click="menuOpen = false"
       >
@@ -133,8 +142,17 @@
 
 <script setup>
 import { ref } from 'vue'
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRoute } from 'vue-router'
 import logo from '../../../images/bu-logo.png'
+
+const route = useRoute()
+
+const links = [
+  { name: 'HOME', path: '/' },
+  { name: 'ABOUT', path: '/about' },
+  { name: 'TRACK', path: '/track' },
+  { name: 'LEGAL FORMS', path: '/forms' }
+]
 
 const menuOpen = ref(false)
 </script>

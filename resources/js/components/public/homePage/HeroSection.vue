@@ -18,8 +18,9 @@
         <button class="btn btn-outline" type="button" @click="goTo('/login')">
           SUBMIT A DOCUMENT
         </button>
+        
         <button class="btn btn-solid" type="button" @click="goTo('/track')">
-          TRACK A DOCUMENT
+          Track a Document
         </button>
       </div>
     </div>
@@ -93,7 +94,7 @@ function goTo(path) {
 }
 
 .container p.hours {
-  font-size: 13px;
+  font-size: 16px;
   color: #5b6b7c;
   margin: 0 0 100px;
 }
@@ -111,18 +112,17 @@ function goTo(path) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 200px;
-  padding: 14px 28px;
-  border-radius: 6px;
-  border: 1.5px solid transparent;
-  font-size: 13px;
+  min-width: 240px;
+  padding: 18px 36px;
+  border-radius: 10px;
+  border: 2px solid transparent;
+  font-size: 16px;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-align: center;
   text-decoration: none;
   cursor: pointer;
-  transition: transform 0.12s ease, box-shadow 0.12s ease,
-    background-color 0.15s ease, border-color 0.15s ease;
+  transition: all 0.25s ease;
 }
 
 .btn:hover {
@@ -134,30 +134,41 @@ function goTo(path) {
 }
 
 .btn:focus-visible {
-  outline: 2px solid var(--navy);
-  outline-offset: 2px;
+  outline: 3px solid #ff8e00;
+  outline-offset: 3px;
 }
 
+/* Secondary Button */
 .btn-outline {
-  background: var(--sky);
-  border-color: var(--sky-border);
-  color: var(--navy);
+  background: #ffffff;
+  color: #003366;
+  border-color: #003366;
 }
 
 .btn-outline:hover {
-  background: #dcedf9;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  background: #003366;
+  color: #ffffff;
+  border-color: #003f7d;
+  box-shadow: 0 8px 18px rgba(0, 63, 125, 0.25);
 }
 
+/* Primary Button */
 .btn-solid {
-  background: var(--orange);
-  color: var(--white);
-  box-shadow: 0 2px 8px rgba(232, 147, 90, 0.35);
+  background: #ff8e00;
+  color: black;
+  border-color: #ff8e00;
+  box-shadow: 0 4px 12px rgba(255, 142, 0, 0.35);
 }
 
 .btn-solid:hover {
-  background: var(--orange-dark);
-  box-shadow: 0 6px 16px rgba(232, 147, 90, 0.45);
+  background: #fd7702;
+  border-color: #fd7702;
+  box-shadow: 0 8px 18px rgba(253, 119, 2, 0.4);
+}
+
+.btn-solid:active {
+  background: #ff5003;
+  border-color: #ff5003;
 }
 
 /* ---------- Responsive ---------- */
