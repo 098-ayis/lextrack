@@ -1,5 +1,5 @@
 <template>
-    <footer id="forms" class="bg-[#142c47] text-gray-300 pt-11 px-6 pb-7">
+    <footer id="forms" class="bg-[#121722] text-gray-300 pt-11 px-6 pb-7">
         <div class="max-w-7xl mx-auto grid md:grid-cols-[2fr_1fr] gap-10">
 
             <!-- Left Section -->

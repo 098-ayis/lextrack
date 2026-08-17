@@ -1,29 +1,33 @@
-<!-- Hero Section -->
 <template>
-  <section
-    class="hero"
-    :style="{ backgroundImage: `url(${bgImage})` }"
-  >
-    <div class="hero-overlay"></div>
+  <section class="hero-section">
+    <div class="hero-container">
+      <div class="hero-text text-left">
+      <h1>
+          <span class="text-white">BU LEGAL AFFAIRS</span><br />
+          <span class="text-purple">OFFICE PORTAL</span>
+        </h1>
+        <p class="lead text-white">
+          Submit documents, track requests, and get official
+          updates from the BU Legal Affairs Office.
+        </p>
+        <p class="hours text-gray">Office hours : Monday - Friday, 8:00 AM - 5:00 PM</p>
 
-    <div class="container">
-      <h1>BU LEGAL AFFAIRS OFFICE PORTAL</h1>
-      <p class="lead">
-        Submit documents, track requests in real time, and get official
-        updates from the BU Legal Affairs Office.
-      </p>
-      <p class="hours">Office hours: Monday – Friday, 8:00 AM – 5:00 PM</p>
-
-      <div class="hero-ctas">
-        <button class="btn btn-outline" type="button" @click="goTo('/login')">
-          SUBMIT A DOCUMENT
-        </button>
-        
-        <button class="btn btn-solid" type="button" @click="goTo('/track')">
-          Track a Document
-        </button>
+        <div class="hero-ctas">
+          <button class="btn btn-solid" type="button" @click="goTo('/login')">
+            SUBMIT A DOCUMENT
+          </button>
+          
+          <button class="btn btn-outline" type="button" @click="goTo('/track')">
+            TRACK A DOCUMENT
+          </button>
+        </div>
       </div>
     </div>
+
+    <div 
+      class="hero-image-circle" 
+      :style="{ backgroundImage: `url(${bgImage})` }"
+    ></div>
   </section>
 </template>
 
@@ -39,151 +43,141 @@ function goTo(path) {
 </script>
 
 <style scoped>
-/* ---------- Hero shell ---------- */
-.hero {
-  position: relative;
-  height: 100vh;
-  background-size: cover;
-  background-position: center 30%;
-  background-repeat: no-repeat;
+.hero-section {
+  background-color: #121722;
+  min-height: 100vh;
   display: flex;
   align-items: center;
-  justify-content: center;
-}
-
-.hero-overlay {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  background: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.55) 0%,
-    rgba(255, 255, 255, 0.94) 100%
-  );
-  pointer-events: none;
-}
-
-/* ---------- Content container ---------- */
-.container {
+  padding: 80px 0 40px; 
+  overflow: hidden;
   position: relative;
-  z-index: 2;
+}
+
+.hero-container {
   width: 100%;
-  max-width: 1000px;
-  margin: 100px auto;
-  padding: 0 24px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
+  max-width: 1280px !important; 
+  margin: 0 auto !important;
+  padding: 0 40px !important; 
 }
 
-.container h1 {
-  font-size: 50px;
+.hero-text {
+  max-width: 600px;
+  margin-left: 0 !important; 
+  transform: none !important; 
+}
+
+.hero-text h1 {
+  font-size: 64px;
   font-weight: 800;
-  color: var(--navy);
+  line-height: 1.15;
+  margin-bottom: 30px; 
   letter-spacing: 0.02em;
-  margin: 0 0 16px;
-  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4);
 }
 
-.container p.lead {
-  font-size: 20px;
-  color: #2c3e50;
-  margin: 0 0 6px;
-  max-width: 620px;
+.text-white { color: #ffffff; }
+.text-purple { color: #6b77ff; }
+
+.lead {
+  font-size: 19px;
+  color: #f1f5f9;
+  margin-bottom: 16px; 
+  line-height: 1.6;
 }
 
-.container p.hours {
-  font-size: 16px;
-  color: #5b6b7c;
-  margin: 0 0 100px;
+.hours {
+  font-size: 15px;
+  color: #cbd5e1;
+  margin-bottom: 48px; 
 }
 
 .hero-ctas {
   display: flex;
-  gap: 16px;
-  justify-content: center;
+  gap: 20px; 
   flex-wrap: wrap;
-  width: 100%;
+  margin-top: 40px !important;
 }
 
-/* ---------- Buttons ---------- */
 .btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 240px;
-  padding: 18px 36px;
-  border-radius: 10px;
-  border: 2px solid transparent;
-  font-size: 16px;
-  font-weight: 700;
+  padding-top: 16px !important;
+  padding-bottom: 16px !important;
+  padding-left: 40px !important; 
+  padding-right: 40px !important; 
+  
+  border-radius: 8px;
+  font-size: 15px !important;
+  font-weight: 700 !important;
   letter-spacing: 0.04em;
-  text-align: center;
-  text-decoration: none;
   cursor: pointer;
+  border: 2px solid transparent;
   transition: all 0.25s ease;
+  text-transform: uppercase;
+  
+  white-space: nowrap !important; 
 }
 
-.btn:hover {
-  transform: translateY(-2px);
-}
-
-.btn:active {
-  transform: translateY(0);
-}
-
-.btn:focus-visible {
-  outline: 3px solid #ff8e00;
-  outline-offset: 3px;
-}
-
-/* Secondary Button */
-.btn-outline {
-  background: #ffffff;
-  color: #003366;
-  border-color: #003366;
-}
-
-.btn-outline:hover {
-  background: #003366;
-  color: #ffffff;
-  border-color: #003f7d;
-  box-shadow: 0 8px 18px rgba(0, 63, 125, 0.25);
-}
-
-/* Primary Button */
 .btn-solid {
-  background: #ff8e00;
-  color: black;
-  border-color: #ff8e00;
-  box-shadow: 0 4px 12px rgba(255, 142, 0, 0.35);
+  background: #6b77ff;
+  color: #ffffff;
 }
 
 .btn-solid:hover {
-  background: #fd7702;
-  border-color: #fd7702;
-  box-shadow: 0 8px 18px rgba(253, 119, 2, 0.4);
+  background: #5a65e0;
 }
 
-.btn-solid:active {
-  background: #ff5003;
-  border-color: #ff5003;
+.btn-outline {
+  background: #ffffff;
+  color: #6b77ff;
 }
 
-/* ---------- Responsive ---------- */
-@media (max-width: 480px) {
-  .container h1 {
-    font-size: 26px;
+.btn-outline:hover {
+  background: #f1f5f9;
+}
+
+.hero-image-circle {
+  position: absolute;
+  right: 0; 
+  top: 50%;
+  transform: translate(45%, -65%); 
+  width: 1400px;
+  height: 1400px;
+  border-radius: 50%;
+  background-size: cover;
+  background-position: center left;
+  background-repeat: no-repeat;
+  border: 32px solid #6b77ff; 
+  box-shadow: 0 0 0 32px #ffffff; 
+  z-index: 1;
+}
+
+@media (max-width: 1024px) {
+  .hero-image-circle {
+    transform: translate(45%, -65%); 
+    width: 1000px;
+    height: 1000px;
   }
+  .hero-text h1 { font-size: 44px; }
+  .hero-container { padding: 0 24px; } 
+}
 
+@media (max-width: 768px) {
+  .hero-image-circle {
+    opacity: 0.15;
+    transform: translate(50%, -15%);
+    top: 40%;
+    width: 700px;
+    height: 700px;
+  }
+  .hero-text {
+    max-width: 100%;
+    text-align: center;
+  }
   .hero-ctas {
+    justify-content: center;
     flex-direction: column;
-    align-items: stretch;
   }
-
   .btn {
     width: 100%;
   }
+  .hero-text h1 { font-size: 36px; }
 }
 </style>
