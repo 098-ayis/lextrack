@@ -4,12 +4,21 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Document extends Model
 {
     protected $fillable = [
         'name',
         'content',
+        'type_id',
+        'status',
+        'sent_to',
+        'sent_date',
+        'returned_from',
+        'date_returned',
+        'outgoing_date',
+        'uploaded_by',
     ];
 
     public function user(): BelongsTo
@@ -27,7 +36,7 @@ class Document extends Model
         static::created(function (Document $document) {
 
             $document->conversation()->create([
-                'user_id' => $document->uploaded_by,
+                'user_id' => $document->user_id,
             ]);
 
         });

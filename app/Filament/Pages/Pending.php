@@ -9,6 +9,7 @@ use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Actions\Action;
+use Filament\Tables\Filters\SelectFilter;
 use App\Models\PendingDocument;
 
 
@@ -72,6 +73,24 @@ class Pending extends Page implements HasTable
                     ->date('F d, Y')
                     ->sortable(),
             ])
+            ->filters([
+                SelectFilter::make('document_type')
+                    ->options([
+                        'MOA' => 'MOA',
+                        'Correspondence' => 'Correspondence',
+                        'Contract' => 'Contract',
+                        'Proposal' => 'Proposal',
+                        'UCMC' => 'UCMC',
+                        'PROCUREMENT' => 'PROCUREMENT',
+                        'REFERENCE SLIP' => 'REFERENCE SLIP',
+                        'Clearance' => 'Clearance',
+                        'MOU' => 'MOU',
+                        'NDA' => 'NDA',
+                        'DOD' => 'DOD',
+                        'GBA' => 'GBA',
+                    ]),
+            ])
+
             ->actions([
                 Action::make('view')
                     ->icon('heroicon-o-eye')
