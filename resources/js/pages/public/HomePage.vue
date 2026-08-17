@@ -119,13 +119,22 @@
         <!-- Right Side: Accordion Cards -->
         <div class="faq-right">
           <div 
-            class="faq-item" 
+            class="faq-item-wrapper" 
             v-for="(faq, index) in faqs" 
             :key="index"
-            @click="toggleFaq(index)"
           >
-            <span>{{ faq.question }}</span>
-            <span class="faq-icon">{{ faq.open ? '−' : '+' }}</span>
+            <div 
+              class="faq-item" 
+              @click="toggleFaq(index)"
+            >
+              <span>{{ faq.question }}</span>
+              <span class="faq-icon">{{ faq.open ? '−' : '+' }}</span>
+            </div>
+            
+            <!-- Expandable Answer Body -->
+            <div v-show="faq.open" class="faq-answer">
+              <p>{{ faq.answer }}</p>
+            </div>
           </div>
         </div>
 
@@ -263,12 +272,28 @@ const steps = [
   }
 ]
 
-// FAQ Accordion State
+// FAQ Accordion State with sample Q&As
 const faqs = reactive([
-  { question: 'Lorem ipsum dolor sit amet consectetur adipiscing elit.', open: false },
-  { question: 'Lorem ipsum dolor sit amet consectetur adipiscing elit.', open: false },
-  { question: 'Lorem ipsum dolor sit amet consectetur adipiscing elit.', open: false },
-  { question: 'Lorem ipsum dolor sit amet consectetur adipiscing elit.', open: false }
+  { 
+    question: 'How can I track the status of my submitted legal document?', 
+    answer: 'You can check your document progress anytime by heading to the Track page and entering your unique tracking number.',
+    open: false 
+  },
+  { 
+    question: 'What types of documents require Legal Affairs review?', 
+    answer: 'All university contracts, deeds, conveyances, memorandums of agreement, and official legal documents must go through office review.',
+    open: false 
+  },
+  { 
+    question: 'How long does a standard document review take?', 
+    answer: 'Review timelines depend on document scope and complexity, but you can monitor updates directly through the status tracker.',
+    open: false 
+  },
+  { 
+    question: 'Where can I download official legal templates or request forms?', 
+    answer: 'Standard templates and request forms are available for viewing and downloading under the Legal Forms menu section.',
+    open: false 
+  }
 ])
 
 function toggleFaq(index) {
@@ -595,7 +620,7 @@ function openChatbot() {
   display: grid;
   grid-template-columns: 1fr 1.3fr;
   gap: 60px;
-  align-items: center;
+  align-items: start;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
 }
 
@@ -639,30 +664,44 @@ function openChatbot() {
 .faq-right {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 16px;
+}
+
+.faq-item-wrapper {
+  background: #64748b;
+  border-radius: 12px;
+  overflow: hidden;
+  transition: background 0.2s ease;
+}
+
+.faq-item-wrapper:hover {
+  background: #475569;
 }
 
 .faq-item {
-  background: #64748b;
   color: #ffffff;
   padding: 20px 24px;
-  border-radius: 12px;
   font-size: 15px;
   font-weight: 600;
   display: flex;
   justify-content: space-between;
   align-items: center;
   cursor: pointer;
-  transition: background 0.2s ease;
-}
-
-.faq-item:hover {
-  background: #475569;
 }
 
 .faq-icon {
   font-size: 20px;
   font-weight: 700;
+}
+
+.faq-answer {
+  padding: 0 24px 20px 24px;
+  color: #e2e8f0;
+  font-size: 14px;
+  line-height: 1.6;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  margin-top: -4px;
+  padding-top: 14px;
 }
 
 @media (max-width: 900px) {
