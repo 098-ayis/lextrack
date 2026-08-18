@@ -8,13 +8,13 @@ use App\Models\DocumentType;
 use Filament\Actions\Action;
 use Filament\Actions\Concerns\InteractsWithActions;
 use Filament\Actions\Contracts\HasActions;
-use Filament\Forms\Concerns\InteractsWithForms;
-use Filament\Forms\Contracts\HasForms;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Get;
+use Filament\Forms\Concerns\InteractsWithForms;
+use Filament\Forms\Contracts\HasForms;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Pages\Page;
 
 class Incoming extends Page implements HasForms, HasActions
@@ -29,69 +29,132 @@ class Incoming extends Page implements HasForms, HasActions
     public string $search = '';
 
     /**
-     * Card totals shown at the top of the page.
+     * Statistics displayed on the page.
      */
     public function getStats(): array
     {
         return [
             'total' => Document::count(),
-            'pending' => Document::where('status', 'pending')->count(),
-            'active' => Document::where('status', 'in_progress')->count(),
-            'completed' => Document::where('status', 'completed')->count(),
+
+            'pending' => Document::where('status', 'pending')
+                ->count(),
+
+            'active' => Document::where('status', 'in_progress')
+                ->count(),
+
+            'completed' => Document::where('status', 'completed')
+                ->count(),
         ];
     }
 
     /**
-     * Documents grouped by the day they were created, newest group first.
+     * Get incoming documents.
+     *
+     * Documents are grouped by their creation date.
      */
     public function getGroupedDocuments()
     {
         return Document::query()
-            ->when($this->search !== '', function ($query) {
-                $query->where(function ($q) {
-                    $q->where('particulars', 'like', "%{$this->search}%")
-                        ->orWhere('lao_number', 'like', "%{$this->search}%")
-                        ->orWhere('office_unit', 'like', "%{$this->search}%");
-                });
-            })
-            ->with(['type', 'client'])
-            ->orderByDesc('created_at')
+            ->when(
+                $this->search !== '',
+                function ($query) {
+                    $search = trim($this->search);
+
+                    $query->where(function ($q) use ($search) {
+                        $q->where(
+                            'particulars',
+                            'like',
+                            "%{$search}%"
+                        )
+                        ->orWhere(
+                            'lao_number',
+                            'like',
+                            "%{$search}%"
+                        )
+                        ->orWhere(
+                            'office_unit',
+                            'like',
+                            "%{$search}%"
+                        );
+                    });
+                }
+            )
+            ->with([
+                'type',
+                'client',
+            ])
+            ->latest()
             ->get()
-            ->groupBy(fn (Document $document) => $document->created_at->format('F j, Y'));
+            ->groupBy(
+                fn (Document $document) =>
+                    $document->created_at->format('F j, Y')
+            );
     }
 
     /**
-     * Shared field schema for the "Add new document" form,
-     * including the "Others" option for Type and Status.
+     * Form used for adding an incoming document.
      */
     protected function documentFormSchema(): array
     {
         return [
+
             TextInput::make('lao_number')
-                ->label('LAO/E/C/LO NO.'),
+                ->label('LAO/E/C/LO No.')
+                ->placeholder('Enter document number')
+                ->maxLength(255),
 
             Select::make('type_id')
                 ->label('Type')
-                ->options(fn () => DocumentType::pluck('name', 'type_id')->toArray() + ['others' => 'Others'])
+                ->options(
+                    fn () =>
+                        DocumentType::query()
+                            ->orderBy('type_name')
+                            ->pluck('type_name', 'type_id')
+                            ->toArray()
+                            + [
+                                'others' => 'Others',
+                            ]
+                )
+                ->searchable()
+                ->preload()
                 ->live()
                 ->required(),
 
             TextInput::make('type_other')
-                ->label('Specify type')
-                ->visible(fn (Get $get): bool => $get('type_id') === 'others')
-                ->required(fn (Get $get): bool => $get('type_id') === 'others'),
+                ->label('Specify Type')
+                ->placeholder('Enter document type')
+                ->visible(
+                    fn (Get $get): bool =>
+                        $get('type_id') === 'others'
+                )
+                ->required(
+                    fn (Get $get): bool =>
+                        $get('type_id') === 'others'
+                )
+                ->maxLength(255),
 
             Select::make('client_id')
                 ->label('Client')
-                ->options(fn () => Client::pluck('name', 'client_id'))
+                ->options(
+                    fn () =>
+                        Client::query()
+                            ->orderBy('office')
+                            ->pluck('office', 'client_id')
+                            ->toArray()
+                )
                 ->searchable()
+                ->preload()
                 ->required(),
 
             TextInput::make('office_unit')
-                ->label('Office/Unit'),
+                ->label('Office/Unit')
+                ->placeholder('Enter office or unit')
+                ->maxLength(255),
 
             Textarea::make('particulars')
                 ->label('Particulars')
+                ->placeholder('Enter document particulars...')
+                ->rows(4)
                 ->required(),
 
             Select::make('status')
@@ -109,28 +172,51 @@ class Incoming extends Page implements HasForms, HasActions
                 ->required(),
 
             TextInput::make('status_other')
-                ->label('Specify status')
-                ->visible(fn (Get $get): bool => $get('status') === 'others')
-                ->required(fn (Get $get): bool => $get('status') === 'others'),
+                ->label('Specify Status')
+                ->placeholder('Enter document status')
+                ->visible(
+                    fn (Get $get): bool =>
+                        $get('status') === 'others'
+                )
+                ->required(
+                    fn (Get $get): bool =>
+                        $get('status') === 'others'
+                )
+                ->maxLength(255),
 
             DatePicker::make('deadline')
-                ->label('Deadline'),
+                ->label('Deadline')
+                ->native(false),
+
         ];
     }
 
     /**
-     * Turns the "others" placeholder into real data before saving:
-     * - a typed type_other becomes a new (or existing) document_types row
-     * - a typed status_other is kept, otherwise cleared
+     * Resolve "Others" selections before saving.
      */
     protected function resolveOthers(array $data): array
     {
+        /*
+         * Handle document type.
+         */
         if (($data['type_id'] ?? null) === 'others') {
-            $type = DocumentType::firstOrCreate(['name' => $data['type_other']]);
-            $data['type_id'] = $type->type_id;
+
+            $typeName = trim($data['type_other'] ?? '');
+
+            if ($typeName !== '') {
+                $type = DocumentType::firstOrCreate([
+                    'name' => $typeName,
+                ]);
+
+                $data['type_id'] = $type->type_id;
+            }
         }
+
         unset($data['type_other']);
 
+        /*
+         * Handle custom status.
+         */
         if (($data['status'] ?? null) !== 'others') {
             $data['status_other'] = null;
         }
@@ -138,26 +224,42 @@ class Incoming extends Page implements HasForms, HasActions
         return $data;
     }
 
+    /**
+     * Add Document action.
+     */
     public function addDocumentAction(): Action
     {
         return Action::make('addDocument')
             ->label('Add Documents')
-            ->modalHeading('Add new document')
-            ->modalSubmitActionLabel('Save')
+            ->icon('heroicon-o-plus')
+            ->color('primary')
+            ->modalHeading('Add New Document')
+            ->modalDescription(
+                'Enter the details of the incoming document.'
+            )
+            ->modalSubmitActionLabel('Save Document')
+            ->modalCancelActionLabel('Cancel')
             ->form($this->documentFormSchema())
-            ->extraModalFooterActions([
-                Action::make('addToOutgoing')
-                    ->label('Add to Outgoing')
-                    ->color('success')
-                    ->action(function (array $data): void {
-                        $data['user_id'] = auth()->id();
-                        $data['outgoing_date'] = now()->toDateString();
-                        Document::create($this->resolveOthers($data));
-                    }),
-            ])
             ->action(function (array $data): void {
+
+                /*
+                 * Associate the document with
+                 * the currently authenticated user.
+                 */
                 $data['user_id'] = auth()->id();
-                Document::create($this->resolveOthers($data));
+
+                /*
+                 * Resolve "Others" values.
+                 */
+                $data = $this->resolveOthers($data);
+
+                /*
+                 * Create the document.
+                 *
+                 * The Document model's created event
+                 * will automatically create its Conversation.
+                 */
+                Document::create($data);
             });
     }
 }

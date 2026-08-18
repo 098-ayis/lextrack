@@ -359,6 +359,51 @@
 
     </div>
 
+<script>
+    const databaseConvos = @js(
+        $conversations->map(function ($conversation) {
+            $latestMessage = $conversation->messages->last();
+
+            $sender = $latestMessage?->sender;
+
+            return [
+                'id' => (string) $conversation->id,
+
+                'name' => $sender?->name ?? 'Unknown User',
+
+                'subtitle' => 'Document #' . $conversation->document_id,
+
+                'avatar' => $sender
+                    ? collect(explode(' ', $sender->name))
+                        ->map(fn ($part) => strtoupper(substr($part, 0, 1)))
+                        ->take(2)
+                        ->join('')
+                    : '??',
+
+                'unread' => $conversation->messages
+                    ->contains(fn ($message) => !$message->is_read),
+
+                'messages' => $conversation->messages
+                    ->map(function ($message) {
+                        return [
+                            'from' => (int) $message->sender_id === (int) auth()->id()
+                                ? 'me'
+                                : 'them',
+
+                            'text' => $message->body,
+
+                            'time' => $message->created_at
+                                ->format('M d, g:i A'),
+                        ];
+                    })
+                    ->values()
+                    ->all(),
+            ];
+        })
+        ->values()
+        ->all()
+    );
+</script>
 
     <script>
 
@@ -370,7 +415,7 @@
 
         function renderConvoItems() {
 
-            const convos = lxGetConvos();
+            const convos = databaseConvos;
 
             document.getElementById('msgItems').innerHTML =
                 convos.map(c => {
@@ -442,7 +487,7 @@
                 convoId
             );
 
-            const convos = lxGetConvos();
+            const convos = databaseConvos;
 
             const convo =
                 convos.find(c => c.id === convoId);
@@ -481,7 +526,7 @@
 
         function renderThread() {
 
-            const convos = lxGetConvos();
+            const convos = databaseConvos;
 
             const convo =
                 convos.find(c => c.id === activeConvoId);
@@ -651,7 +696,7 @@
             if (!text) return;
 
 
-            const convos = lxGetConvos();
+            const convos = databaseConvos;
 
             const convo =
                 convos.find(c => c.id === activeConvoId);

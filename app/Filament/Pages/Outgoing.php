@@ -22,6 +22,8 @@ use Filament\Actions\Concerns\InteractsWithActions;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Actions\Action;
+use Filament\Tables\Filters\SelectFilter;
+
 use App\Models\Document;
 
 class Outgoing extends Page implements HasTable
@@ -60,6 +62,23 @@ class Outgoing extends Page implements HasTable
                 TextColumn::make('returned_from')->label('RETURNED FROM')->date('F d, Y')->sortable(),
                 TextColumn::make('date_returned')->label('RETURNED DATE')->date('F d, Y')->sortable(),
                 TextColumn::make('outgoing_date')->label('OUTGOING DATE')->date('F d, Y')->sortable(),
+            ])
+            ->filters([
+                SelectFilter::make('document_type')
+                    ->options([
+                        'MOA' => 'MOA',
+                        'Correspondence' => 'Correspondence',
+                        'Contract' => 'Contract',
+                        'Proposal' => 'Proposal',
+                        'UCMC' => 'UCMC',
+                        'PROCUREMENT' => 'PROCUREMENT',
+                        'REFERENCE SLIP' => 'REFERENCE SLIP',
+                        'Clearance' => 'Clearance',
+                        'MOU' => 'MOU',
+                        'NDA' => 'NDA',
+                        'DOD' => 'DOD',
+                        'GBA' => 'GBA',
+                    ]),
             ])
         ->recordActions([
                 Action::make('view')

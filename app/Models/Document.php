@@ -11,9 +11,43 @@ class Document extends Model
     protected $primaryKey = 'document_id';
 
     protected $fillable = [
-        'name',
-        'content',
+        'user_id',
+        'type_id',
+        'client_id',
+        'lao_number',
+        'office_unit',
+        'particulars',
+        'deadline',
+        'action_taken',
+        'sent_to',
+        'sent_date',
+        'returned_from',
+        'date_returned',
+        'outgoing_date',
+        'status',
     ];
+
+    public function statusLabel(): string
+    {
+        return match ($this->status) {
+            'pending' => 'Pending',
+            'in_progress' => 'In Progress',
+            'completed' => 'Completed',
+            'rejected' => 'Rejected',
+            default => ucfirst(str_replace('_', ' ', $this->status ?? 'Unknown')),
+        };
+    }
+
+    public function statusClasses(): string
+    {
+        return match ($this->status) {
+            'pending' => 'bg-yellow-100 text-yellow-700',
+            'in_progress' => 'bg-blue-100 text-blue-700',
+            'completed' => 'bg-green-100 text-green-700',
+            'rejected' => 'bg-red-100 text-red-700',
+            default => 'bg-gray-100 text-gray-700',
+        };
+    }
 
     public function user(): BelongsTo
     {
@@ -38,10 +72,7 @@ class Document extends Model
     protected static function booted(): void
     {
         static::created(function (Document $document) {
-            $document->conversation()->create([
-                'user_id' => $document->uploaded_by,
-            ]);
-
+            $document->conversation()->create();
         });
     }
-}
+}nano app/Models/Document.php

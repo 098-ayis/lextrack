@@ -11,6 +11,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Laravel\Sanctum\HasApiTokens;
+use App\Models\Client;
 
 #[Fillable(['name', 'email', 'password'])]
 #[Hidden(['password', 'remember_token'])]
@@ -32,10 +33,13 @@ class User extends Authenticatable
         ];
     }
 
-    public function conversations(): HasMany
+
+    public function client()
     {
-        return $this->hasMany(Conversation::class);
+        return $this->hasOne(Client::class, 'user_id');
     }
+
+
 
     public function sentMessages(): HasMany
     {
