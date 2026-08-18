@@ -10,17 +10,15 @@ class Conversation extends Model
 {
     protected $fillable = [
         'document_id',
-        'user_id',
     ];
 
     public function document(): BelongsTo
     {
-        return $this->belongsTo(Document::class);
-    }
-
-    public function user(): BelongsTo
-    {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(
+            Document::class,
+            'document_id',
+            'document_id'
+        );
     }
 
     public function messages(): HasMany
