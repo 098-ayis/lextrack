@@ -1,75 +1,92 @@
 <template>
-     <div class="w-full flex items-center justify-center">
+  <!-- Full screen wrapper to center the card -->
+  <div class="min-h-[80vh] w-full flex items-center justify-center p-4 md:p-8">
 
-        <div
-            class="w-full max-w-[530px] bg-white rounded-2xl
-            shadow-[0_4px_5px_rgba(0,0,0,0.25)]
-            px-12 py-8"
+    <!-- Main Card Container -->
+    <div 
+      class="relative w-full max-w-[750px] min-h-[420px] bg-white rounded-3xl 
+             shadow-[0_10px_40px_rgba(0,0,0,0.15)] flex flex-col md:flex-row overflow-hidden"
+    >
+      
+      <!-- ==========================================
+           THE MAGIC CURVE (Desktop Only)
+      =========================================== -->
+      <div 
+        class="hidden md:block absolute top-1/2 -translate-y-1/2 -left-[35%] w-[80%] aspect-square 
+               bg-[#121722] rounded-full border-[8px] border-[#6b77ff] z-0 pointer-events-none"
+      ></div>
+
+      <!-- ==========================================
+           LEFT SIDE (Dark Panel)
+      =========================================== -->
+      <div class="relative z-10 w-full md:w-1/2 pt-6 px-6 pb-0 md:pt-8 md:px-8 md:pb-0 flex flex-col bg-[#121722] md:bg-transparent min-h-[300px] md:min-h-full">
+        
+        <!-- Back Link (FIXED CLICK ZONE) -->
+        <!-- CHANGED: Added `relative z-50` so it strictly sits on top of all invisible boxes -->
+        <router-link 
+          to="/" 
+          class="relative z-50 flex items-center gap-2 text-white/80 hover:text-white transition w-fit mt-2 md:mt-0"
         >
+          <Icon icon="lucide:arrow-left" class="w-4 h-4" />
+          <span class="text-sm font-medium">Back to Home</span>
+        </router-link>
 
-            <a
-                href="/"
-                class="flex items-center gap-3 text-gray-500
-                text-[16px] hover:text-gray-700 transition mb-12"
-            >
-            <Icon
-                icon="lucide:arrow-left"
-                class="w-5 h-5"
-            />
-
-            <span>Back to Home</span>
-            </a>
-
-            <div class="flex items-center gap-4 mb-6 text-[#f58220]">
-                 <Icon
-                    icon="lucide:graduation-cap"
-                    class="w-10 h-10"
-                />
-
-                <div>
-                    <h2 class="text-[17px] font-bold text-gray-900">
-                        Faculty, BU Personnel & Students
-                    </h2>
-
-                    <p class="text-[16px] text-gray-400">
-                        Use your BU email to sign in using the button below.
-                    </p>
-                </div>
-            </div>
-    
-            <a 
-                href="/auth/google"
-                class="w-full h-[47px] border-2 border-[#ff7625]
-                rounded-xl flex items-center justify-center gap-3
-                text-[#f47721] text-[16px] font-medium
-                hover:bg-[#fff5ee] transition"
-            >
-                <Icon
-                    icon="logos:google-icon"
-                    class="w-6 h-6"
-                />
-                Continue with Google
-            </a>
-
-            <p class="text-center text-[15px] text-gray-400 mt-2">
-                Not registered?
-                <a
-                    href="/track"
-                    class="hover:text-gray-600 underline"
-                >
-                    Click here to track your documents.
-                </a>
-            </p>
-
+        <!-- Torch Graphic -->
+        <!-- CHANGED: Added `pointer-events-none` to the wrapper and image so it stops stealing clicks! -->
+        <div class="flex-1 flex items-end justify-center -ml-0 md:-ml-12 mt-6 md:mt-0 pointer-events-none">
+          <img 
+            src="/resources/images/bu-torchv2.png" 
+            alt="BU Torch" 
+            class="h-[280px] md:h-[350px] w-auto object-contain object-bottom drop-shadow-2xl scale-[1.15] origin-bottom pointer-events-none" 
+          />
         </div>
+      </div>
+
+      <!-- ==========================================
+           RIGHT SIDE (White Panel & Form)
+      =========================================== -->
+      <div class="relative z-10 w-full md:w-1/2 p-6 md:py-8 md:pl-0 md:pr-16 flex flex-col justify-center items-center">
+
+        <!-- Title -->
+        <div class="text-center mb-8">
+          <h1 class="text-2xl md:text-3xl font-black text-[#121722] tracking-tight mb-1">
+            BU LEGAL AFFAIRS
+          </h1>
+          <h2 class="text-2xl md:text-3xl font-black text-[#6b77ff] tracking-tight">
+            OFFICE PORTAL
+          </h2>
+        </div>
+
+        <!-- Google Login Button -->
+        <a 
+          href="/auth/google"
+          class="w-auto px-8 h-[50px] border-2 border-[#a5b4fc] bg-white 
+                 hover:bg-[#828cff] hover:border-[#828cff] hover:text-white rounded-xl flex items-center justify-center gap-3 
+                 text-[#334155] text-[14px] font-semibold transition-all duration-300
+                 shadow-sm hover:shadow-md hover:-translate-y-[1px] whitespace-nowrap"
+        >
+          <Icon icon="logos:google-icon" class="w-[20px] h-[20px] flex-shrink-0" />
+          <span>Continue with Google (@bicol-u.edu.ph)</span>
+        </a>
+        
+        <!-- Subtext -->
+        <p class="text-[12px] text-gray-400 mt-6 text-center">
+          Not registered?
+          <br class="block md:hidden" />
+          <a href="/track" class="text-gray-500 hover:text-[#6b77ff] underline underline-offset-2 transition-colors ml-1">
+            Click here to track your documents.
+          </a>
+        </p>
+
+      </div>
+
     </div>
+  </div>
 </template>
 
 <script setup>
 import { Icon } from '@iconify/vue'
-
 </script>
-
-<style>
-
+<style scoped>
+/* No extra CSS needed! Tailwind handles everything. */
 </style>

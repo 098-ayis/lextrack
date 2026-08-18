@@ -4,42 +4,142 @@
     
     <!-- Hero Section -->
     <HeroSection />
-   
 
+    <!-- ==========================================
+         TOP SECTION: Values & Mission (White)
+    =========================================== -->
+    <section class="mission-section">
+      <!-- Massive Faded Background Text -->
+      <div class="bg-text">LEGAL OFFICE</div>
+
+      <!-- Core Values & Torch Graphic -->
+      <div class="core-values">
+        <!-- Left Values -->
+        <div class="value-group">
+          <span>Scholarship</span>
+          <div class="divider"></div>
+          <span>Leadership</span>
+        </div>
+
+        <!-- Torch Image -->
+        <img 
+          src="/resources/images/bu-torch.png" 
+          alt="BU Torch" 
+          class="torch-img" 
+        />
+
+        <!-- Right Values -->
+        <div class="value-group">
+          <span>Character</span>
+          <div class="divider"></div>
+          <span>Service</span>
+        </div>
+      </div>
+
+      <!-- Mission / Vision Statement -->
+      <div class="mission-statement">
+        <h2>
+          <span class="text-light">
+            To be a Premier Model of Legal Integrity and Proactive Governance, Safeguarding the University's Rights and Assets while&nbsp;
+          </span>
+          <span class="text-bold">
+            Providing Efficient, Modern Legal Stewardship that Supports Academic and Institutional Excellence.
+          </span>
+        </h2>
+      </div>
+
+      <!-- Overlapping Circular Button -->
+      <button class="scroll-down-btn" @click="scrollToServices">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+        </svg>
+      </button>
+    </section>
+
+    <!-- ==========================================
+         BOTTOM SECTION: Services Grid (Dark)
+    =========================================== -->
     <section class="services" id="services" ref="servicesSection">
-      <h2>Services We Provide</h2>
+      <div class="services-wrapper">
+        <h2>Services We Provide</h2>
 
-      <div class="services-grid">
-        <div
-          class="service-card"
-          :class="{ show: servicesVisible }"
-          v-for="service in services"
-          :key="service.title"
-        >
-          <h3>{{ service.title }}</h3>
-          <p>{{ service.desc }}</p>
+        <div class="services-grid">
+          <div
+            class="service-card"
+            :class="{ show: servicesVisible }"
+            v-for="service in services"
+            :key="service.title"
+          >
+            <h3>{{ service.title }}</h3>
+            <p>{{ service.desc }}</p>
+          </div>
         </div>
       </div>
     </section>
 
+    <!-- ==========================================
+         HOW TO USE OUR PORTAL SECTION
+    =========================================== -->
     <section class="how-to" id="track">
-      <h2>How To Use Our Portal</h2>
-      <div class="steps">
+      <h2 class="section-title">How To Use Our Portal</h2>
+      
+      <div class="steps-container">
         <template v-for="(step, i) in steps" :key="step.title">
-          <div class="step">
-            <div class="step-icon" v-html="step.icon"></div>
-            <h4>{{ step.title }}</h4>
-            <p>{{ step.desc }}</p>
+          <div class="step-card">
+            <div class="step-icon-wrapper" v-html="step.icon"></div>
+            <h4 class="step-title">{{ step.title }}</h4>
+            <p class="step-desc">{{ step.desc }}</p>
           </div>
-          <div class="step-arrow" v-if="i < steps.length - 1">
-            <span class="dash"></span>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5l10 7-10 7z"/></svg>
+          
+          <!-- Connecting Arrow Line -->
+          <div class="step-connector" v-if="i < steps.length - 1">
+            <svg class="connector-arrow" width="100" height="24" viewBox="0 0 100 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M0 12H92M92 12L82 4M92 12L82 20" stroke="#6b77ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
           </div>
         </template>
       </div>
     </section>
 
-   
+    <!-- ==========================================
+         FREQUENTLY ASKED QUESTIONS (FAQ) SECTION
+    =========================================== -->
+    <section class="faq-section">
+      <div class="faq-container">
+        
+        <!-- Left Side: Header & Chatbot Callout -->
+        <div class="faq-left">
+          <h2 class="faq-heading">Frequently Asked<br />Questions</h2>
+          <p class="faq-subtext">Still have questions?<br />Ask our chatbot for more help.</p>
+          <button class="chat-btn" @click="openChatbot">
+            Chat with Us
+          </button>
+        </div>
+
+        <!-- Right Side: Accordion Cards -->
+        <div class="faq-right">
+          <div 
+            class="faq-item-wrapper" 
+            v-for="(faq, index) in faqs" 
+            :key="index"
+          >
+            <div 
+              class="faq-item" 
+              @click="toggleFaq(index)"
+            >
+              <span>{{ faq.question }}</span>
+              <span class="faq-icon">{{ faq.open ? '−' : '+' }}</span>
+            </div>
+            
+            <!-- Expandable Answer Body -->
+            <div v-show="faq.open" class="faq-answer">
+              <p>{{ faq.answer }}</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
 
     <!-- Toast -->
     <transition name="fade">
@@ -72,6 +172,14 @@ function handleOutsideClick(e) {
     navOpen.value = false
   }
 }
+
+// Function to handle smooth scrolling from the new arrow button
+function scrollToServices() {
+  if (servicesSection.value) {
+    servicesSection.value.scrollIntoView({ behavior: 'smooth' })
+  }
+}
+
 onMounted(() => {
   document.addEventListener("click", handleOutsideClick)
 
@@ -139,30 +247,62 @@ const services = [
 const steps = [
   {
     title: '1. Complete details',
-    desc: 'Fill out our online form and upload required documents.',
-    icon: `<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#d97a3d" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    desc: 'Fill out our online forms and upload required documents.',
+    icon: `<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#6b77ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M9 3h6a1 1 0 0 1 1 1v1H8V4a1 1 0 0 1 1-1z"/>
       <rect x="5" y="4" width="14" height="17" rx="2"/>
       <path d="M8 11h8M8 15h5"/>
     </svg>`
   },
   {
-    title: '2. Submit and track status',
+    title: '2. Submit and Track Status',
     desc: 'Click submit and a tracking number will be generated.',
-    icon: `<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#d97a3d" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    icon: `<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#6b77ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M9 12l2 2 4-4"/>
       <circle cx="12" cy="12" r="9"/>
     </svg>`
   },
   {
-    title: '3. Receive updates',
+    title: '3. Receive Updates',
     desc: 'Monitor status in real-time.',
-    icon: `<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#d97a3d" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    icon: `<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#6b77ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/>
       <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
     </svg>`
   }
 ]
+
+// FAQ Accordion State with sample Q&As
+const faqs = reactive([
+  { 
+    question: 'How can I track the status of my submitted legal document?', 
+    answer: 'You can check your document progress anytime by heading to the Track page and entering your unique tracking number.',
+    open: false 
+  },
+  { 
+    question: 'What types of documents require Legal Affairs review?', 
+    answer: 'All university contracts, deeds, conveyances, memorandums of agreement, and official legal documents must go through office review.',
+    open: false 
+  },
+  { 
+    question: 'How long does a standard document review take?', 
+    answer: 'Review timelines depend on document scope and complexity, but you can monitor updates directly through the status tracker.',
+    open: false 
+  },
+  { 
+    question: 'Where can I download official legal templates or request forms?', 
+    answer: 'Standard templates and request forms are available for viewing and downloading under the Legal Forms menu section.',
+    open: false 
+  }
+])
+
+function toggleFaq(index) {
+  faqs[index].open = !faqs[index].open
+}
+
+function openChatbot() {
+  showToast('Chatbot feature coming soon!')
+}
 </script>
 
 <style scoped>
@@ -182,306 +322,182 @@ const steps = [
   color: var(--text-dark);
   background: var(--white);
   line-height:1.5;
+
+  overflow-x: hidden;
 }
 .bu-portal *{margin:0;padding:0;box-sizing:border-box;}
 .bu-portal a{text-decoration:none;color:inherit;}
 .bu-portal ul{list-style:none;}
 .bu-portal img{max-width:100%;display:block;}
 
-/* Header */
-header{
-  background: var(--navy);
-  color: var(--white);
-}
-.nav-wrap{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  padding:14px 24px;
-  max-width:1100px;
-  margin:0 auto;
-}
-.brand{display:flex;align-items:center;gap:10px;}
-.brand-logo{
-  width:38px;height:38px;border-radius:50%;
+
+/* ---------- New Mission Section CSS ---------- */
+.mission-section {
+  position: relative;
   background: var(--white);
-  display:flex;align-items:center;justify-content:center;
-  font-weight:700;color:var(--navy);font-size:14px;
-  flex-shrink:0;
-}
-.brand-text small{
-  display:block;font-size:10px;letter-spacing:.08em;
-  text-transform:uppercase;color:#fff;
-  font-weight:600;
-}
-.brand-text small .uni{color:var(--orange);}
-.brand-text strong{
-  display:block;font-size:18px;font-weight:700;letter-spacing:.02em;
-}
-nav ul{display:flex;align-items:center;gap:28px;}
-nav a{
-  font-size:13px;font-weight:600;letter-spacing:.04em;
-  color:var(--white);
-  transition:color .15s ease;
-}
-nav a.active,
-nav a:hover{color:var(--orange);}
-.nav-divider{
-  width:1px;
-  height:22px;
-  background:rgba(255,255,255,.28);
-}
-.signin{
-  display:flex;align-items:center;gap:8px;
-  font-size:13px;font-weight:600;
-  transition: color .15s ease;
-}
-.signin:hover{color:var(--orange);}
-.signin .dot{
-  width:26px;height:26px;border-radius:50%;
-  border:1.5px solid rgba(255,255,255,.7);
-  display:flex;align-items:center;justify-content:center;
-  flex-shrink:0;
-}
-.menu-toggle{display:none;background:none;border:0;color:var(--white);font-size:24px;cursor:pointer;}
-
-/* Buttons */
-.btn{
-  display:inline-block;
-  padding:12px 26px;
-  border-radius:4px;
-  font-size:13px;
-  font-weight:700;
-  letter-spacing:.04em;
-  cursor:pointer;
-  border:1.5px solid transparent;
-  text-align:center;
-  text-decoration:none;
-  transition:transform .12s ease, box-shadow .12s ease, background .15s ease;
-}
-.btn:hover{transform:translateY(-1px);}
-.btn:active{transform:translateY(0);}
-.btn-outline{
-  background: var(--sky);
-  border-color: var(--sky-border);
-  color: var(--navy);
-}
-.btn-outline:hover{background:#dcedf9;}
-.btn-solid{
-  background: var(--orange);
-  color: var(--white);
-  box-shadow: 0 2px 8px rgba(232,147,90,.35);
-}
-.btn-solid:hover{background:var(--orange-dark);}
-
-/* Toast */
-.bu-toast{
-  position:fixed;
-  left:50%;
-  bottom:28px;
-  transform:translateX(-50%) translateY(0);
-  background: var(--navy-deep);
-  color:#fff;
-  font-size:13px;
-  font-weight:600;
-  padding:12px 20px;
-  border-radius:8px;
-  box-shadow:0 12px 30px rgba(0,0,0,.25);
-  z-index:100;
-  max-width:90vw;
-  text-align:center;
-}
-.fade-enter-active, .fade-leave-active { transition: opacity .25s ease, transform .25s ease; }
-.fade-enter-from, .fade-leave-to { opacity: 0; transform: translateX(-50%) translateY(20px); }
-
-/* Footer */
-footer{
-  background:var(--navy-deep);
-  color:#cdd9e4;
-  padding:44px 24px 26px;
-}
-.footer-grid{
-  max-width:1100px;
-  margin:0 auto;
-  display:grid;
-  grid-template-columns:2fr 1fr;
-  gap:40px;
-}
-.footer-brand{
-  display:flex;
-  gap:12px;
-  margin-bottom:14px;
-}
-.footer-brand .brand-logo{background:var(--white);color:var(--navy-deep);}
-.footer-brand strong{font-size:16px;color:var(--white);}
-.footer-brand small{color:#8fa5bb;}
-footer p.desc{
-  font-size:12.5px;
-  color:#a9bccd;
-  max-width:400px;
-  margin-bottom:20px;
-}
-.footer-contact{
-  display:flex;
-  flex-direction:column;
-  gap:8px;
-  font-size:12.5px;
-}
-.footer-contact li{display:flex;align-items:center;gap:8px;color:#a9bccd;}
-footer h5{
-  color:var(--white);
-  font-size:13px;
-  font-weight:700;
-  margin-bottom:14px;
-}
-.footer-links li{margin-bottom:8px;}
-.footer-links a{
-  font-size:12.5px;
-  color:#a9bccd;
-  transition:color .15s ease;
-}
-.footer-links a:hover{color:var(--orange);}
-.footer-bottom{
-  max-width:1100px;
-  margin:30px auto 0;
-  padding-top:18px;
-  border-top:1px solid rgba(255,255,255,.08);
-  font-size:11.5px;
-  color:#7f93a8;
-  text-align:center;
+  padding: 80px 24px 140px; 
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
 }
 
-@media (max-width:860px){
-  .footer-grid{grid-template-columns:1fr;}
-}
-@media (max-width:720px){
-  .nav-wrap{position:relative;}
-  nav ul{display:none;}
-  nav.nav-open ul{
-    display:flex;
-    flex-direction:column;
-    align-items:flex-start;
-    position:absolute;
-    top:56px;
-    right:24px;
-    background: var(--navy);
-    padding:16px 22px;
-    border-radius:8px;
-    box-shadow: 0 14px 30px rgba(0,0,0,.28);
-    gap:16px;
-    min-width:180px;
-    z-index:60;
-  }
-  .menu-toggle{display:block;}
-  .signin span.label{display:none;}
+.bg-text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 14vw;
+  font-weight: 900;
+  color: transparent;
+  background: linear-gradient(180deg, #e2e8f0 0%, #ffffff 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  z-index: 0;
+  pointer-events: none;
+  user-select: none;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+  word-spacing: -1vw;
 }
 
-/* Hero */
-.hero{
-  position:relative;
-  padding: 70px 24px 60px;
-  overflow:hidden;
-  isolation:isolate;
-}
-.hero-bg{
-  position:absolute;
-  inset:0;
-  z-index:0;
-  background: var(--sky) center 30%/cover no-repeat;
-  transition: background-image .2s ease;
-}
-.hero-overlay{
-  position:absolute;
-  inset:0;
-  z-index:1;
-  background: linear-gradient(180deg,
-    rgba(255,255,255,.55) 0%,
-    rgba(255,255,255,.94) 100%);
-  pointer-events:none;
-}
-.hero-inner{
-  position:relative;
-  z-index:2;
-  max-width:760px;
-  margin:0 auto;
-  text-align:center;
-}
-.hero h1{
-  font-size:34px;
-  font-weight:800;
-  color:var(--navy);
-  letter-spacing:.02em;
-  margin-bottom:16px;
-  text-shadow: 0 1px 0 rgba(255,255,255,.4);
-}
-.hero p.lead{
-  font-size:16px;
-  color:#2c3e50;
-  margin-bottom:6px;
-}
-.hero p.hours{
-  font-size:13px;
-  color:#5b6b7c;
-  margin-bottom:30px;
-}
-.hero-ctas{
-  display:flex;
-  gap:16px;
-  justify-content:center;
-  flex-wrap:wrap;
+.core-values {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  margin-top: 20px;
 }
 
-/* ---------- Services ---------- */
+.value-group {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  color: #6b77ff; 
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  font-size: 15px;
+}
 
-.services {
-  padding: 90px 24px;
-  background: #f8fbff;
+.value-group .divider {
+  width: 1px;
+  height: 32px;
+  background: #6b77ff;
+  opacity: 0.4;
+}
+
+.torch-img {
+  height: 500px;
+  object-fit: contain;
+  margin: 0 16px;
+  z-index: 20;
+}
+
+.mission-statement {
+  position: relative;
+  z-index: 10;
+  max-width: 900px;
   text-align: center;
+  margin-top: 48px;
+  padding: 0 24px;
+}
+
+.mission-statement h2 {
+  font-size: 30px;
+  line-height: 1.5;
+  letter-spacing: -0.01em;
+}
+
+.mission-statement .text-light {
+  color: #a5b4fc; 
+  font-weight: 700;
+}
+
+.mission-statement .text-bold {
+  color: #000000;
+  font-weight: 900;
+}
+
+/* Overlapping Circular Button */
+.scroll-down-btn {
+  position: absolute;
+  bottom: -46px; 
+  left: 50%;
+  transform: translateX(-50%);
+  width: 80px;
+  height: 80px;
+  background: #ffffff;
+  border-radius: 50%;
+  border: 6px solid #ffffff; 
+  box-shadow: 
+    0 0 0 6px #6b77ff, 
+    0 0 0 12px #ffffff, 
+    0 8px 16px 12px rgba(0,0,0,0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 30;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.scroll-down-btn:hover {
+  background: #f8fafc;
+  transform: translateX(-50%) scale(1.05);
+}
+
+.scroll-down-btn svg {
+  width: 32px;
+  height: 32px;
+  color: #000000;
+}
+
+
+/* ---------- Updated Services (Dark Mode) ---------- */
+.services {
+  padding: 120px 24px 90px;
+  background: #121722;      
+  text-align: left;
+  position: relative;
+  z-index: 5;
+}
+
+.services-wrapper {
+  max-width: 1300px;
+  margin: 0 auto;
 }
 
 .services h2 {
-  color: #002347;
-  font-size: 36px;
+  color: #6b77ff;           
+  font-size: 34px;
   font-weight: 800;
   margin-bottom: 60px;
   position: relative;
 }
 
 .services h2::after {
-  content: "";
-  display: block;
-  width: 80px;
-  height: 4px;
-  margin: 14px auto 0;
-  border-radius: 999px;
+  display: none;
 }
 
 .services-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 28px;
-  max-width: 1300px;
-  margin: 0 auto;
-  text-align: left;
 }
 
 .service-card {
-  background: linear-gradient(180deg, #ffffff, #f8fbff);
-  border: 1px solid #dbe8f4;
-  border-top: 5px solid #fb923c;
-  border-radius: 18px;
-
+  background: #f8fafc; 
+  border-radius: 12px;
   min-height: 280px;
   padding: 34px 28px;
-
   display: flex;
   flex-direction: column;
   justify-content: center;
-
-  box-shadow: 0 10px 24px rgba(0, 35, 71, 0.08);
-
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.2);
   transition: all 0.35s ease;
-
+  
   opacity: 0;
   transform: translateY(60px);
   transition:
@@ -490,153 +506,222 @@ footer h5{
     box-shadow 0.35s ease;
 }
 
-/* Animation delays */
 .service-card.show {
   opacity: 1;
   transform: translateY(0);
 }
-.service-card:nth-child(1) {
-  animation-delay: 0.1s;
-}
-
-.service-card:nth-child(2) {
-  animation-delay: 0.3s;
-}
-
-.service-card:nth-child(3) {
-  animation-delay: 0.5s;
-}
-
-.service-card:nth-child(4) {
-  animation-delay: 0.7s;
-}
+.service-card:nth-child(1) { animation-delay: 0.1s; }
+.service-card:nth-child(2) { animation-delay: 0.3s; }
+.service-card:nth-child(3) { animation-delay: 0.5s; }
+.service-card:nth-child(4) { animation-delay: 0.7s; }
 
 .service-card:hover {
-  transform: translateY(-12px) scale(1.03);
-  border-top-color: #f97316;
-  box-shadow: 0 18px 40px rgba(0, 35, 71, 0.18);
+  transform: translateY(-10px) scale(1.02);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.4);
 }
+
 .service-card h3 {
-  color: #002347;
-  font-size: 22px;
-  font-weight: 700;
+  color: #000000;
+  font-size: 20px;
+  font-weight: 800;
   margin-bottom: 16px;
   transition: color 0.3s ease;
 }
 
 .service-card:hover h3 {
-  color: #f97316;
+  color: #6b77ff; 
 }
 
 .service-card p {
   font-size: 15px;
-  line-height: 1.8;
-  color: #5f6b7a;
-}
-
-/* Fade-up animation */
-@keyframes fadeUp {
-  from {
-    opacity: 0;
-    transform: translateY(40px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  line-height: 1.6;
+  color: #334155;
 }
 
 
-/* How to use */
-.how-to{
-  background:#f4f7f9;
-  padding:56px 24px 70px;
-  text-align:center;
+/* ---------- How To Use Our Portal ---------- */
+.how-to {
+  background: #ffffff;
+  padding: 100px 24px 80px;
+  text-align: center;
 }
-.how-to h2{
-  color:var(--navy);
-  font-size:22px;
-  font-weight:800;
-  margin-bottom:44px;
+
+.section-title {
+  color: #6b77ff;
+  font-size: 34px;
+  font-weight: 800;
+  margin-bottom: 70px;
+  letter-spacing: -0.01em;
 }
-.steps{
-  display:flex;
-  align-items:flex-start;
-  justify-content:center;
-  max-width:900px;
-  margin:0 auto;
-  gap:0;
+
+.steps-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 1100px;
+  margin: 0 auto;
+  gap: 20px;
 }
-.step{
-  flex:1;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  max-width:220px;
+
+.step-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 300px;
 }
-.step-icon{
-  width:62px;height:62px;
-  border-radius:50%;
-  background:#f7dfc9;
-  display:flex;align-items:center;justify-content:center;
-  margin-bottom:16px;
-  font-size:24px;
-  box-shadow: 0 4px 14px rgba(217,122,61,.18);
+
+.step-icon-wrapper {
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  border: 1.5px solid #dbeafe;
+  background: #f8fafc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 24px;
+  box-shadow: 0 10px 25px rgba(107, 119, 255, 0.1);
 }
-.step h4{
-  font-size:14px;
-  font-weight:700;
-  color:var(--text-dark);
-  margin-bottom:6px;
+
+.step-title {
+  font-size: 18px;
+  font-weight: 800;
+  color: #000000;
+  margin-bottom: 12px;
 }
-.step p{
-  font-size:12px;
-  color:var(--text-muted);
+
+.step-desc {
+  font-size: 14px;
+  color: #4b5563;
+  line-height: 1.6;
 }
-.step-arrow{
-  align-self:flex-start;
-  margin-top:52px;
-  display:flex;
-  align-items:center;
-  width:64px;
-  flex-shrink:0;
+
+.step-connector {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: -40px;
 }
-.step-arrow .dash{
-  flex:1;
-  height:0;
-  border-top:2px dashed var(--orange);
+
+
+/* ---------- FAQ Section (Dark Box) ---------- */
+.faq-section {
+  background: #ffffff;
+  padding: 40px 24px 100px;
 }
-.step-arrow svg{
-  flex-shrink:0;
-  color: var(--orange);
-  margin-left:-2px;
+
+.faq-container {
+  max-width: 1250px;
+  margin: 0 auto;
+  background: #121722;
+  border-radius: 24px;
+  padding: 70px 60px;
+  display: grid;
+  grid-template-columns: 1fr 1.3fr;
+  gap: 60px;
+  align-items: start;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+}
+
+.faq-left {
+  color: #ffffff;
+}
+
+.faq-heading {
+  font-size: 40px;
+  font-weight: 900;
+  line-height: 1.2;
+  margin-bottom: 20px;
+  color: #ffffff;
+}
+
+.faq-subtext {
+  font-size: 16px;
+  color: #94a3b8;
+  line-height: 1.6;
+  margin-bottom: 35px;
+}
+
+.chat-btn {
+  background: #6b77ff;
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 15px;
+  padding: 14px 32px;
+  border-radius: 12px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 8px 20px rgba(107, 119, 255, 0.3);
+}
+
+.chat-btn:hover {
+  background: #5763e0;
+  transform: translateY(-2px);
+}
+
+.faq-right {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.faq-item-wrapper {
+  background: #64748b;
+  border-radius: 12px;
+  overflow: hidden;
+  transition: background 0.2s ease;
+}
+
+.faq-item-wrapper:hover {
+  background: #475569;
+}
+
+.faq-item {
+  color: #ffffff;
+  padding: 20px 24px;
+  font-size: 15px;
+  font-weight: 600;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+}
+
+.faq-icon {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.faq-answer {
+  padding: 0 24px 20px 24px;
+  color: #e2e8f0;
+  font-size: 14px;
+  line-height: 1.6;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  margin-top: -4px;
+  padding-top: 14px;
+}
+
+@media (max-width: 900px) {
+  .steps-container { flex-direction: column; gap: 40px; }
+  .step-connector { display: none; }
+  .faq-container { grid-template-columns: 1fr; padding: 40px 24px; }
 }
 
 @media (max-width:860px){
   .services-grid{grid-template-columns:repeat(2,1fr);}
+  .mission-statement h2 { font-size: 24px; }
+  .bg-text { font-size: 18vw; }
 }
+
 @media (max-width:720px){
-  .hero h1{font-size:26px;}
-  .steps{flex-direction:column;align-items:center;gap:8px;}
-  .step-arrow{
-    width:auto;
-    height:36px;
-    margin:0;
-    flex-direction:column;
-  }
-  .step-arrow .dash{
-    width:0;
-    flex:1;
-    border-top:none;
-    border-left:2px dashed var(--orange);
-  }
-  .step-arrow svg{
-    margin-left:0;
-    margin-top:-2px;
-    transform:rotate(90deg);
-  }
+  .core-values { flex-direction: column; }
+  .value-group .divider { width: 32px; height: 1px; }
+  .torch-img { height: 280px; margin: 24px 0; }
 }
+
 @media (max-width:520px){
   .services-grid{grid-template-columns:1fr;}
 }

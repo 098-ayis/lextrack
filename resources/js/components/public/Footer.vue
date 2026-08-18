@@ -1,5 +1,6 @@
+<!-- Footer.vue -->
 <template>
-    <footer id="forms" class="bg-[#142c47] text-gray-300 pt-11 px-6 pb-7">
+    <footer id="forms" class="bg-[#121722] text-gray-300 pt-11 px-6 pb-7">
         <div class="max-w-7xl mx-auto grid md:grid-cols-[2fr_1fr] gap-10">
 
             <!-- Left Section -->
@@ -15,9 +16,9 @@
                     />
 
                     <div>
-                        <small class="block text-xs uppercase tracking-wider text-gray-400">
-                            Bicol
-                            <span class="text-orange-400">University</span>
+                        <small class="block text-xs uppercase tracking-wider">
+                            <span class="text-[#9DD9FB] font-bold">Bicol</span>
+                            <span class="text-orange-500 font-bold ml-1">University</span>
                         </small>
 
                         <h2 class="text-white font-bold text-lg">
@@ -36,18 +37,21 @@
                 </p>
 
                 <!-- Contact -->
-                <ul class="space-y-2 text-sm text-gray-400">
+                <ul class="space-y-2.5 text-sm text-gray-400">
 
-                    <li>
-                        📧 bu-legaloffice@bicol-u.edu.ph
+                    <li class="flex items-center gap-3">
+                        <Icon icon="lucide:mail" class="w-4 h-4 text-[#6b77ff] flex-shrink-0" />
+                        <span>bu-legaloffice@bicol-u.edu.ph</span>
                     </li>
 
-                    <li>
-                        📍 Bicol University Main Campus, Legazpi, Philippines
+                    <li class="flex items-center gap-3">
+                        <Icon icon="lucide:map-pin" class="w-4 h-4 text-[#6b77ff] flex-shrink-0" />
+                        <span>Bicol University Main Campus, Legazpi, Philippines</span>
                     </li>
 
-                    <li>
-                        📞 (0903) 467-0961
+                    <li class="flex items-center gap-3">
+                        <Icon icon="lucide:phone" class="w-4 h-4 text-[#6b77ff] flex-shrink-0" />
+                        <span>(0903) 467-0961</span>
                     </li>
 
                 </ul>
@@ -115,5 +119,6 @@
 <script setup>
 import { ref } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
+import { Icon } from '@iconify/vue'
 import logo from '../../../images/bu-logo.png'
 </script>
