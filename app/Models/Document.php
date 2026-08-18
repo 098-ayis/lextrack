@@ -9,10 +9,22 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 class Document extends Model
 {
     protected $primaryKey = 'document_id';
-
+    
     protected $fillable = [
-        'name',
-        'content',
+        'user_id',
+        'type_id',
+        'client_id',
+        'lao_number',
+        'office_unit',
+        'particulars',
+        'deadline',
+        'action_taken',
+        'sent_to',
+        'sent_date',
+        'returned_from',
+        'date_returned',
+        'outgoing_date',
+        'status',
     ];
 
     public function user(): BelongsTo
@@ -38,9 +50,8 @@ class Document extends Model
     protected static function booted(): void
     {
         static::created(function (Document $document) {
-            $document->conversation()->create([
-                'user_id' => $document->uploaded_by,
-            ]);
+
+        $document->conversation()->create();
 
         });
     }
