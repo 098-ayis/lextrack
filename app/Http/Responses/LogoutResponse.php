@@ -9,6 +9,6 @@ class LogoutResponse implements LogoutResponseContract
 {
     public function toResponse($request): RedirectResponse
     {
-        return redirect('/login');
+        return redirect('/');
     }
 }
