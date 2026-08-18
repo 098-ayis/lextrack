@@ -20,9 +20,7 @@
            LEFT SIDE (Dark Panel)
       =========================================== -->
       <div class="relative z-10 w-full md:w-1/2 pt-6 px-6 pb-0 md:pt-8 md:px-8 md:pb-0 flex flex-col bg-[#121722] md:bg-transparent min-h-[300px] md:min-h-full">
-        
-        <!-- Back Link (FIXED CLICK ZONE) -->
-        <!-- CHANGED: Added `relative z-50` so it strictly sits on top of all invisible boxes -->
+
         <router-link 
           to="/" 
           class="relative z-50 flex items-center gap-2 text-white/80 hover:text-white transition w-fit mt-2 md:mt-0"
@@ -32,7 +30,6 @@
         </router-link>
 
         <!-- Torch Graphic -->
-        <!-- CHANGED: Added `pointer-events-none` to the wrapper and image so it stops stealing clicks! -->
         <div class="flex-1 flex items-end justify-center -ml-0 md:-ml-12 mt-6 md:mt-0 pointer-events-none">
           <img 
             src="/resources/images/bu-torchv2.png" 
@@ -88,5 +85,4 @@
 import { Icon } from '@iconify/vue'
 </script>
 <style scoped>
-/* No extra CSS needed! Tailwind handles everything. */
 </style>
