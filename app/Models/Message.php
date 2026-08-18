@@ -26,13 +26,13 @@ class Message extends Model
         return $this->belongsTo(Conversation::class);
     }
 
-    public function sender(): BelongsTo
+     public function sender(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'sender_id');
+        return $this->belongsTo(User::class, 'sender_id', 'id');
     }
 
     public function recipient(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'recipient_id');
+        return $this->belongsTo(User::class, 'recipient_id', 'id');
     }
 }
