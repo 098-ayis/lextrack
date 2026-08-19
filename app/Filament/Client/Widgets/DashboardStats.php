@@ -3,14 +3,11 @@
 namespace App\Filament\Client\Widgets;
 
 use Filament\Widgets\Widget;
-// use App\Models\Document; // You will use this later to get real database counts
 
 class DashboardStats extends Widget
 {
-    // CHANGED: Removed "static" from this line
     protected string $view = 'filament.client.widgets.dashboard-stats';
     
-    // Makes the widget take up the full width of the dashboard
     protected int | string | array $columnSpan = 'full'; 
 
     protected function getViewData(): array
