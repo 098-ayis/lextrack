@@ -52,73 +52,41 @@
         </button>
     </div>
 
-    {{-- Date groups --}}
-    @forelse ($this->getGroupedDocuments() as $date => $documents)
-        <div class="mb-6 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-            <div class="flex items-center justify-between bg-gray-50 dark:bg-gray-900/40 px-4 py-3">
-                <span class="font-semibold text-gray-800 dark:text-gray-100 flex items-center gap-2">
-                    <svg class="w-4 h-4 text-primary-500"><use href="#icon-folder"/></svg>
-                    {{ $date }}
-                </span>
-                <button
-                    wire:click="mountAction('addDocument')"
-                    class="flex items-center gap-1 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium px-3 py-1.5 rounded-md"
-                >
-                    <svg class="w-4 h-4"><use href="#icon-plus"/></svg>
-                    Add Documents
-                </button>
-            </div>
+        @if ($stats['total'] > 0)
+            {{ $this->table }}
+        @else
+            <div class="text-center text-gray-400 py-16 border border-dashed rounded-lg dark:border-gray-700">
 
-            <table class="w-full text-sm">
-                <thead>
-                    <tr class="text-left text-xs text-gray-500 uppercase border-b dark:border-gray-700">
-                        <th class="px-4 py-2">LAO/E/C/LO No.</th>
-                        <th class="px-4 py-2">Type</th>
-                        <th class="px-4 py-2">Client</th>
-                        <th class="px-4 py-2">Office/Unit</th>
-                        <th class="px-4 py-2">Particulars</th>
-                        <th class="px-4 py-2">Status</th>
-                        <th class="px-4 py-2">Deadline</th>
-                        <th class="px-4 py-2">Action</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach ($documents as $document)
-                        <tr class="border-b last:border-0 dark:border-gray-700">
-                            <td class="px-4 py-3">{{ $document->lao_number ?? '—' }}</td>
-                            <td class="px-4 py-3">{{ $document->type->name ?? '—' }}</td>
-                            <td class="px-4 py-3">{{ $document->client->name ?? '—' }}</td>
-                            <td class="px-4 py-3">{{ $document->office_unit ?? '—' }}</td>
-                            <td class="px-4 py-3">{{ \Illuminate\Support\Str::limit($document->particulars, 40) }}</td>
-                            <td class="px-4 py-3">
-                                <span class="px-2 py-1 rounded-full text-xs font-medium {{ $document->statusClasses() }}">
-                                    {{ $document->statusLabel() }}
-                                </span>
-                            </td>
-                            <td class="px-4 py-3">{{ $document->deadline?->format('m/d/Y') ?? '—' }}</td>
-                            <td class="px-4 py-3">
-                                <div class="flex gap-2">
-                                    <button class="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">
-                                        <svg class="w-4 h-4"><use href="#icon-eye"/></svg>
-                                    </button>
-                                    <button class="w-8 h-8 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center">
-                                        <svg class="w-4 h-4"><use href="#icon-pencil"/></svg>
-                                    </button>
-                                    <button class="w-8 h-8 rounded-full bg-green-100 text-green-600 flex items-center justify-center">
-                                        <svg class="w-4 h-4"><use href="#icon-chat"/></svg>
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
-                    @endforeach
-                </tbody>
-            </table>
-        </div>
-    @empty
-        <div class="text-center text-gray-400 py-16 border border-dashed rounded-lg dark:border-gray-700">
-            No incoming documents yet.
-        </div>
-    @endforelse
+                <div class="flex justify-center mb-4">
+                    <svg class="w-12 h-12 text-gray-300">
+                        <use href="#icon-folder"/>
+                    </svg>
+                </div>
+
+                <h3 class="text-base font-semibold text-gray-700 dark:text-gray-200">
+                    No incoming documents yet
+                </h3>
+
+                <p class="mt-1 text-sm text-gray-500">
+                    Add a new document to get started.
+                </p>
+
+                <div class="mt-5">
+                    <a
+                        href="{{ route('filament.admin.resources.documents.create') }}"
+                        class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary-600 text-white text-sm font-semibold hover:bg-primary-500 transition"
+                    >
+                        <svg class="w-4 h-4">
+                            <use href="#icon-plus"/>
+                        </svg>
+
+                        Add New Document
+                    </a>
+                </div>
+
+            </div>
+        @endif
+    
 
     <x-filament-actions::modals />
 </x-filament-panels::page>

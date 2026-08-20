@@ -95,7 +95,13 @@ class Pending extends Page implements HasTable
                 Action::make('view')
                     ->icon('heroicon-o-eye')
                     ->color('primary')
-                    ->tooltip('View'),
+                    ->tooltip('View')
+                    ->url(fn (PendingDocument $record) =>
+                        $record->file_path
+                            ? asset('storage/' . $record->file_path)
+                            : null
+                    )
+                    ->openUrlInNewTab(),
 
                 Action::make('forward')
                     ->icon('heroicon-o-paper-airplane')
