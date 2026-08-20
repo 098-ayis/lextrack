@@ -28,6 +28,13 @@ class AdminPanelProvider extends PanelProvider
             ->default()
             ->id('admin')
             ->path('admin')
+
+            ->topNavigation()
+            ->databaseNotifications()
+
+            ->brandLogo(fn () => view('filament.components.brand'))
+            ->brandLogoHeight('3rem')
+            
             ->viteTheme('resources/css/filament/admin/theme.css')
             ->login()
             ->colors([

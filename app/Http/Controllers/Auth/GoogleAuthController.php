@@ -12,7 +12,13 @@ class GoogleAuthController extends Controller
 {
     public function redirect()
     {
-        return Socialite::driver('google')->redirect();
+        return Socialite::driver('google')
+        ->scopes([
+            'openid',
+            'profile',
+            'email',
+        ])
+        ->redirect();
     }
 
     private function isValidEmailDomain($email){
@@ -27,41 +33,44 @@ class GoogleAuthController extends Controller
         try {
             $googleUser = Socialite::driver('google')->user();
 
-            $email = strtolower(trim($googleUser->email ?? ''));
+            $email = strtolower(trim($googleUser->getEmail() ?? ''));
 
             if (empty($email)) {
                 abort(403, 'No email was returned from Google.');
             }
 
-            if(! $this->isValidEmailDomain($email)) {
-                abort(403, 'Unauthorized email domain Only Bicol University accounts are allowed');
+            if (! $this->isValidEmailDomain($email)) {
+                abort(403, 'Unauthorized email domain. Only Bicol University accounts are allowed.');
             }
 
-            $user = User::where('google_id', $googleUser->id)
+            $avatar = $googleUser->getAvatar()
+                ?? ($googleUser->user['picture'] ?? null);
+
+            $user = User::where('google_id', $googleUser->getId())
                 ->orWhere('email', $email)
                 ->first();
 
-            if (!$user) {
+            if (! $user) {
                 $user = User::create([
-                    'name' => $googleUser->name,
+                    'name' => $googleUser->getName(),
                     'email' => $email,
-                    'google_id' => $googleUser->id,
+                    'google_id' => $googleUser->getId(),
                     'provider' => 'google',
-                    'avatar' => $googleUser->avatar,
+                    'profile_photo_url' => $avatar,
                     'password' => bcrypt(Str::random(24)),
                     'role_name' => 'Client',
                     'status' => 'Active',
                     'join_date' => now(),
                 ]);
             } else {
-                if (!$user->google_id) {
-                    $user->update([
-                        'google_id' => $googleUser->id,
-                        'provider'  => 'google',
-                    ]);
-                }
+                $user->update([
+                    'name' => $googleUser->getName(),
+                    'google_id' => $googleUser->getId(),
+                    'provider' => 'google',
+                    'profile_photo_url' => $avatar,
+                ]);
 
-                if (!$user->role_name) {
+                if (! $user->role_name) {
                     $user->update([
                         'role_name' => 'Client',
                     ]);
@@ -78,12 +87,11 @@ class GoogleAuthController extends Controller
 
             Auth::login($user);
 
-            if($user->role_name === 'Admin') {
+            if ($user->role_name === 'Admin') {
                 return redirect('/admin');
             }
 
             return redirect('/client');
-
 
         } catch (\Exception $e) {
             \Log::error('Google OAuth Error', [

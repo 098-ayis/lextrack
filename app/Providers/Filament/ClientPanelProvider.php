@@ -26,6 +26,14 @@ class ClientPanelProvider extends PanelProvider
         return $panel
             ->id('client')
             ->path('client')
+
+            ->topNavigation()
+            ->databaseNotifications()
+
+            ->brandLogo(fn () => view('filament.components.brand'))
+            ->brandLogoHeight('3rem')
+
+            ->viteTheme('resources/css/filament/admin/theme.css')
             ->colors([
                 'primary' => Color::Amber,
             ])

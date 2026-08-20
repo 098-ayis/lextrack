@@ -3,3 +3,176 @@
 @source '../../../../app/Filament/**/*';
 @source '../../../../resources/views/filament/**/*';
 
+/* ================================
+   TOPBAR
+================================ */
+
+.fi-topbar {
+    background: #0F172A;
+}
+
+.fi-topbar nav {
+    background: transparent;
+    width: 100%;
+}
+
+.fi-topbar .fi-topbar-item-icon {
+    display: none !important;
+}
+
+/* ================================
+   BRAND LEFT / NAV RIGHT
+================================ */
+
+.fi-topbar-start {
+    flex-shrink: 0;
+}
+
+/* Push main navigation to the right */
+.fi-topbar .fi-topbar-nav {
+    margin-left: auto !important;
+}
+
+/* Keep some space before user avatar */
+.fi-topbar .fi-topbar-nav {
+    margin-right: 24px !important;
+}
+
+/* Navigation spacing */
+.fi-topbar .fi-topbar-nav > ul {
+    gap: 14px;
+}
+
+.fi-topbar .fi-topbar-start {
+    margin-right: auto !important;
+}
+
+
+/* ================================
+   REMOVE FILAMENT BUTTON BG
+================================ */
+
+/* Main item */
+.fi-topbar .fi-topbar-item {
+    position: relative !important;
+    background: transparent !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+}
+
+/* Filament may put background on child link */
+.fi-topbar .fi-topbar-item > a,
+.fi-topbar .fi-topbar-item > button {
+    background: transparent !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+}
+
+/* Hover */
+.fi-topbar .fi-topbar-item:hover,
+.fi-topbar .fi-topbar-item:hover > a,
+.fi-topbar .fi-topbar-item:hover > button {
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+/* Active */
+.fi-topbar .fi-topbar-item.fi-active,
+.fi-topbar .fi-topbar-item.fi-active > a,
+.fi-topbar .fi-topbar-item.fi-active > button {
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+
+/* ================================
+   NAV TEXT
+================================ */
+
+.fi-topbar .fi-topbar-item-label {
+    color: rgba(255,255,255,.85) !important;
+    font-size: 0.75rem !important;
+    font-weight: 700 !important;
+    text-transform: uppercase;
+    transition: color .2s ease;
+}
+
+/* Hover */
+.fi-topbar .fi-topbar-item:hover .fi-topbar-item-label {
+    color: #ffffff !important;
+}
+
+/* Active */
+.fi-topbar .fi-topbar-item.fi-active .fi-topbar-item-label {
+    color: #ffffff !important;
+}
+
+
+/* ================================
+   ACTIVE UNDERLINE
+================================ */
+
+.fi-topbar .fi-topbar-item.fi-active::after {
+    content: '';
+
+    position: absolute;
+
+    left: 12px;
+    right: 12px;
+    bottom: 2px;
+
+    height: 2px;
+
+    background: #ffffff;
+
+    border-radius: 999px;
+}
+
+.fi-topbar .bu-brand {
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+}
+
+.fi-topbar .bu-brand-logo {
+    width: 44px !important;
+    height: 44px !important;
+    max-width: 44px !important;
+    object-fit: contain !important;
+}
+
+.fi-topbar .bu-brand-text {
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    line-height: 1 !important;
+}
+
+.fi-topbar .bu-brand-name {
+    display: flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    line-height: 1 !important;
+}
+
+.fi-topbar .bu-brand-name .bu-bicol {
+    color: #4da3d9 !important;
+    font-size: 11px !important;
+}
+
+.fi-topbar .bu-brand-name .bu-university {
+    color: #f59e0b !important;
+    font-size: 11px !important;
+}
+
+.fi-topbar .bu-brand-office,
+.fi-topbar .bu-office {
+    color: #ffffff !important;
+    font-size: 18px !important;
+    font-weight: 700 !important;
+    line-height: 1.05 !important;
+    margin-top: 3px !important;
+}

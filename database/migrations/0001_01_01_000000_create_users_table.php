@@ -22,6 +22,7 @@ return new class extends Migration
             // social login
             $table->string('google_id')->nullable()->unique();
             $table->string('provider')->nullable();
+            $table->text('profile_photo_url')->nullable();
 
             //user metadata
             $table->string('join_date')->nullable();

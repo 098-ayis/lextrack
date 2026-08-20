@@ -13,7 +13,7 @@ return new class extends Migration
 
             $table->foreignId('document_id')
                 ->unique()
-                ->constrained('documents')
+                ->constrained('documents', 'document_id')
                 ->cascadeOnDelete();
 
             $table->timestamps();
