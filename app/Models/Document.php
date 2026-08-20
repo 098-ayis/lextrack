@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 class Document extends Model
 {
     protected $primaryKey = 'document_id';
-    
+
     protected $fillable = [
         'user_id',
         'type_id',
@@ -72,9 +72,7 @@ class Document extends Model
     protected static function booted(): void
     {
         static::created(function (Document $document) {
-
-        $document->conversation()->create();
-
+            $document->conversation()->create();
         });
     }
 }

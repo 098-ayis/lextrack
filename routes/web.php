@@ -18,18 +18,12 @@ Route::get('/auth/google', [GoogleAuthController::class, 'redirect'])
 
 Route::get('/auth/google/callback', [GoogleAuthController::class, 'callback']);
 
-Route::get('/api/user', function() {
-    if (!Auth::check()) {
+Route::get('/api/user', function(Request $request) {
         return response()->json([
-            'authenticated' => false,
-        ], 401);
-    }
-
-    return response()->json([
-        'authenticated' => true,
-        'user' => Auth::user(),
-    ]);
-});
+            'authenticated' => true,
+            'user' => $request->user(),
+        ]);
+    })->middleware('auth');
 
 Route::post('/logout', function (Request $request) {
     Auth::logout();

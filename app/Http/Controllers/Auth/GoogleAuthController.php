@@ -15,24 +15,36 @@ class GoogleAuthController extends Controller
         return Socialite::driver('google')->redirect();
     }
 
+    private function isValidEmailDomain($email){
+        $email = strtolower(trim($email));
+
+        return filter_var($email, FILTER_VALIDATE_EMAIL) 
+            && str_ends_with($email, '@bicol-u.edu.ph');
+    }
+
     public function callback()
     {
         try {
             $googleUser = Socialite::driver('google')->user();
 
-            if (empty($googleUser->email)) {
-                return redirect()->route('login')
-                    ->withErrors('No email returned from Google account.');
+            $email = strtolower(trim($googleUser->email ?? ''));
+
+            if (empty($email)) {
+                abort(403, 'No email was returned from Google.');
+            }
+
+            if(! $this->isValidEmailDomain($email)) {
+                abort(403, 'Unauthorized email domain Only Bicol University accounts are allowed');
             }
 
             $user = User::where('google_id', $googleUser->id)
-                ->orWhere('email', $googleUser->email)
+                ->orWhere('email', $email)
                 ->first();
 
             if (!$user) {
                 $user = User::create([
                     'name' => $googleUser->name,
-                    'email' => $googleUser->email,
+                    'email' => $email,
                     'google_id' => $googleUser->id,
                     'provider' => 'google',
                     'avatar' => $googleUser->avatar,
@@ -54,6 +66,10 @@ class GoogleAuthController extends Controller
                         'role_name' => 'Client',
                     ]);
                 }
+            }
+
+            if ($user->status !== 'Active') {
+                abort(403, 'Your account is not authorized to access LexTrack.');
             }
 
             $user->update([
