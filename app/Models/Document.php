@@ -75,4 +75,4 @@ class Document extends Model
             $document->conversation()->create();
         });
     }
-}nano app/Models/Document.php
+}

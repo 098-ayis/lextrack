@@ -1,3 +1,1216 @@
 <x-filament-panels::page>
-    {{-- Page content --}}
+
+    @php
+
+        /*
+        |--------------------------------------------------------------------------
+        | SAMPLE DATA
+        |--------------------------------------------------------------------------
+        | Replace this section with your database queries later.
+        |--------------------------------------------------------------------------
+        */
+
+        $cabinet = [
+
+            'Legal Documents' => [
+
+                'College of Science' => [
+                    [
+                        'name' => 'Memorandum on Student Affairs.pdf',
+                        'size' => '1.2 MB',
+                        'date' => 'Aug 20, 2026',
+                        'type' => 'PDF',
+                    ],
+                    [
+                        'name' => 'Request for Legal Review.docx',
+                        'size' => '428 KB',
+                        'date' => 'Aug 19, 2026',
+                        'type' => 'Word Document',
+                    ],
+                    [
+                        'name' => 'MOA Draft.pdf',
+                        'size' => '2.4 MB',
+                        'date' => 'Aug 18, 2026',
+                        'type' => 'PDF',
+                    ],
+                ],
+
+                'College of Education' => [
+                    [
+                        'name' => 'Endorsement Letter.pdf',
+                        'size' => '850 KB',
+                        'date' => 'Aug 17, 2026',
+                        'type' => 'PDF',
+                    ],
+                    [
+                        'name' => 'Faculty Agreement.docx',
+                        'size' => '520 KB',
+                        'date' => 'Aug 16, 2026',
+                        'type' => 'Word Document',
+                    ],
+                ],
+
+                'College of Engineering' => [
+                    [
+                        'name' => 'Engineering Request.pdf',
+                        'size' => '1.1 MB',
+                        'date' => 'Aug 15, 2026',
+                        'type' => 'PDF',
+                    ],
+                ],
+
+            ],
+
+            'Contracts & Agreements' => [
+
+                'Procurement Office' => [
+                    [
+                        'name' => 'Supplier Agreement.pdf',
+                        'size' => '3.1 MB',
+                        'date' => 'Aug 19, 2026',
+                        'type' => 'PDF',
+                    ],
+                    [
+                        'name' => 'Contract Review.docx',
+                        'size' => '730 KB',
+                        'date' => 'Aug 18, 2026',
+                        'type' => 'Word Document',
+                    ],
+                ],
+
+                'Human Resource Office' => [
+                    [
+                        'name' => 'Employment Contract.pdf',
+                        'size' => '1.8 MB',
+                        'date' => 'Aug 17, 2026',
+                        'type' => 'PDF',
+                    ],
+                ],
+
+            ],
+
+            'Administrative Documents' => [
+
+                'Registrar Office' => [
+                    [
+                        'name' => 'Request for Certification.pdf',
+                        'size' => '620 KB',
+                        'date' => 'Aug 16, 2026',
+                        'type' => 'PDF',
+                    ],
+                ],
+
+                'Human Resource Office' => [
+                    [
+                        'name' => 'Personnel Memorandum.pdf',
+                        'size' => '950 KB',
+                        'date' => 'Aug 15, 2026',
+                        'type' => 'PDF',
+                    ],
+                ],
+
+            ],
+
+        ];
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | BASIC STATE
+        |--------------------------------------------------------------------------
+        */
+
+        $documentTypes = array_keys($cabinet);
+
+        $allOffices = collect($cabinet)
+            ->flatMap(fn ($type) => array_keys($type))
+            ->unique()
+            ->sort()
+            ->values();
+
+        $isRoot = $currentType === '';
+
+        $isTypeView = $currentType !== ''
+            && $currentOffice === '';
+
+        $isOfficeView = $currentType !== ''
+            && $currentOffice !== '';
+
+        $currentDocuments = [];
+
+        if (
+            $isOfficeView &&
+            isset($cabinet[$currentType][$currentOffice])
+        ) {
+            $currentDocuments = $cabinet[$currentType][$currentOffice];
+        }
+
+    @endphp
+
+
+    {{-- ============================================================= --}}
+    {{-- MAIN CABINET --}}
+    {{-- ============================================================= --}}
+
+    <div class="space-y-4">
+
+
+        {{-- ============================================================= --}}
+        {{-- BREADCRUMB --}}
+        {{-- ============================================================= --}}
+
+        <div class="flex items-center gap-1.5 text-sm">
+
+            <button
+                wire:click="goToRoot"
+                class="{{ $isRoot
+                    ? 'font-semibold text-gray-950 dark:text-white'
+                    : 'text-gray-500 hover:text-primary-600 dark:text-gray-400' }}
+                    transition"
+            >
+                Cabinet
+            </button>
+
+            @if($currentType)
+
+                <x-heroicon-m-chevron-right
+                    class="h-4 w-4 text-gray-400"
+                />
+
+                <button
+                    wire:click="goToType"
+                    class="{{ $currentOffice
+                        ? 'text-gray-500 hover:text-primary-600 dark:text-gray-400'
+                        : 'font-semibold text-gray-950 dark:text-white' }}
+                        transition"
+                >
+                    {{ $currentType }}
+                </button>
+
+            @endif
+
+            @if($currentOffice)
+
+                <x-heroicon-m-chevron-right
+                    class="h-4 w-4 text-gray-400"
+                />
+
+                <span class="font-semibold text-gray-950 dark:text-white">
+                    {{ $currentOffice }}
+                </span>
+
+            @endif
+
+        </div>
+
+
+        {{-- ============================================================= --}}
+        {{-- HEADER --}}
+        {{-- ============================================================= --}}
+
+        <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+
+            <div>
+
+                <h1 class="text-2xl font-bold tracking-tight text-gray-950 dark:text-white">
+                    @if($isRoot)
+                        Cabinet
+                    @elseif($isTypeView)
+                        {{ $currentType }}
+                    @else
+                        {{ $currentOffice }}
+                    @endif
+                </h1>
+
+                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                    @if($isRoot)
+                        Browse and manage archived legal documents.
+                    @elseif($isTypeView)
+                        Select a college or office to view its documents.
+                    @else
+                        Documents received from {{ $currentOffice }}.
+                    @endif
+                </p>
+
+            </div>
+
+
+            {{-- ========================================================= --}}
+            {{-- ACTIONS --}}
+            {{-- ========================================================= --}}
+
+            <div class="flex flex-wrap items-center gap-2">
+
+                {{-- SORT --}}
+                <div
+                    x-data="{ open: false }"
+                    class="relative"
+                >
+
+                    <button
+                        type="button"
+                        @click="open = !open"
+                        class="inline-flex items-center gap-1.5 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-800"
+                    >
+
+                        Sort
+
+                        <x-heroicon-m-chevron-down
+                            class="h-4 w-4 text-gray-400"
+                        />
+
+                    </button>
+
+
+                    <div
+                        x-show="open"
+                        x-transition
+                        @click.outside="open = false"
+                        class="absolute left-0 z-50 mt-2 w-52 rounded-xl border border-gray-200 bg-white p-1.5 shadow-xl dark:border-gray-700 dark:bg-gray-900"
+                    >
+
+                        <button
+                            wire:click="setSort('name')"
+                            @click="open = false"
+                            class="flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-sm hover:bg-gray-100 dark:hover:bg-gray-800"
+                        >
+
+                            <span>Name</span>
+
+                            @if($sortBy === 'name')
+                                <x-heroicon-m-check class="h-4 w-4 text-primary-600" />
+                            @endif
+
+                        </button>
+
+
+                        <button
+                            wire:click="setSort('date')"
+                            @click="open = false"
+                            class="flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-sm hover:bg-gray-100 dark:hover:bg-gray-800"
+                        >
+
+                            <span>Date modified</span>
+
+                            @if($sortBy === 'date')
+                                <x-heroicon-m-check class="h-4 w-4 text-primary-600" />
+                            @endif
+
+                        </button>
+
+
+                        <button
+                            wire:click="setSort('type')"
+                            @click="open = false"
+                            class="flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-sm hover:bg-gray-100 dark:hover:bg-gray-800"
+                        >
+
+                            <span>Type</span>
+
+                            @if($sortBy === 'type')
+                                <x-heroicon-m-check class="h-4 w-4 text-primary-600" />
+                            @endif
+
+                        </button>
+
+
+                        <button
+                            wire:click="setSort('size')"
+                            @click="open = false"
+                            class="flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-sm hover:bg-gray-100 dark:hover:bg-gray-800"
+                        >
+
+                            <span>Size</span>
+
+                            @if($sortBy === 'size')
+                                <x-heroicon-m-check class="h-4 w-4 text-primary-600" />
+                            @endif
+
+                        </button>
+
+                    </div>
+
+                </div>
+
+
+                {{-- VIEW --}}
+                <div
+                    x-data="{ open: false }"
+                    class="relative"
+                >
+
+                    <button
+                        type="button"
+                        @click="open = !open"
+                        class="inline-flex items-center gap-2 rounded-lg bg-gray-100 px-3 py-2.5 text-sm font-medium text-gray-800 transition hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-gray-700"
+                    >
+
+                        <x-heroicon-o-squares-2x2 class="h-5 w-5" />
+
+                        View
+
+                        <x-heroicon-m-chevron-down
+                            class="h-4 w-4 text-gray-400"
+                        />
+
+                    </button>
+
+
+                    {{-- WINDOWS-STYLE VIEW MENU --}}
+                    <div
+                        x-show="open"
+                        x-transition
+                        @click.outside="open = false"
+                        class="absolute right-0 z-50 mt-2 w-64 overflow-visible rounded-xl border border-gray-200 bg-white py-2 shadow-xl dark:border-gray-700 dark:bg-gray-900"
+                    >
+
+                        {{-- TILES --}}
+                        <button
+                            wire:click="setViewMode('tiles')"
+                            @click="open = false"
+                            class="flex w-full items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-100 dark:hover:bg-gray-800"
+                        >
+
+                            <span class="flex w-4 justify-center">
+
+                                @if($viewMode === 'tiles')
+                                    <span class="h-1.5 w-1.5 rounded-full bg-gray-600 dark:bg-gray-300"></span>
+                                @endif
+
+                            </span>
+
+                            <x-heroicon-o-squares-2x2
+                                class="h-5 w-5 text-gray-500"
+                            />
+
+                            <span>Tiles</span>
+
+                        </button>
+
+
+                        {{-- CONTENT --}}
+                        <button
+                            wire:click="setViewMode('content')"
+                            @click="open = false"
+                            class="flex w-full items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-100 dark:hover:bg-gray-800"
+                        >
+
+                            <span class="flex w-4 justify-center">
+
+                                @if($viewMode === 'content')
+                                    <span class="h-1.5 w-1.5 rounded-full bg-gray-600 dark:bg-gray-300"></span>
+                                @endif
+
+                            </span>
+
+                            <x-heroicon-o-list-bullet
+                                class="h-5 w-5 text-gray-500"
+                            />
+
+                            <span>Content</span>
+
+                        </button>
+
+
+                        <div class="my-2 border-t border-gray-200 dark:border-gray-700"></div>
+
+
+                        {{-- DETAILS PANE --}}
+                        <button
+                            wire:click="toggleDetailsPane"
+                            @click="open = false"
+                            class="flex w-full items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-100 dark:hover:bg-gray-800"
+                        >
+
+                            <span class="flex w-4 justify-center">
+
+                                @if($detailsPane)
+                                    <span class="h-1.5 w-1.5 rounded-full bg-gray-600 dark:bg-gray-300"></span>
+                                @endif
+
+                            </span>
+
+                            <x-heroicon-o-rectangle-group
+                                class="h-5 w-5 text-gray-500"
+                            />
+
+                            <span>Details pane</span>
+
+                        </button>
+
+
+                        {{-- PREVIEW PANE --}}
+                        <button
+                            wire:click="togglePreviewPane"
+                            @click="open = false"
+                            class="flex w-full items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-100 dark:hover:bg-gray-800"
+                        >
+
+                            <span class="flex w-4 justify-center">
+
+                                @if($previewPane)
+                                    <span class="h-1.5 w-1.5 rounded-full bg-gray-600 dark:bg-gray-300"></span>
+                                @endif
+
+                            </span>
+
+                            <x-heroicon-o-document-magnifying-glass
+                                class="h-5 w-5 text-gray-500"
+                            />
+
+                            <span>Preview pane</span>
+
+                        </button>
+
+
+                        <div class="my-2 border-t border-gray-200 dark:border-gray-700"></div>
+
+
+                        {{-- SHOW SUBMENU --}}
+                        <div
+                            x-data="{ show: false }"
+                            class="relative"
+                        >
+
+                            <button
+                                type="button"
+                                @mouseenter="show = true"
+                                @click="show = !show"
+                                class="flex w-full items-center justify-between px-4 py-2.5 text-sm hover:bg-gray-100 dark:hover:bg-gray-800"
+                            >
+
+                                <span class="flex items-center gap-7">
+
+                                    <span class="w-4"></span>
+
+                                    <span>Show</span>
+
+                                </span>
+
+                                <x-heroicon-m-chevron-right
+                                    class="h-4 w-4 text-gray-400"
+                                />
+
+                            </button>
+
+
+                            {{-- SUBMENU --}}
+                            <div
+                                x-show="show"
+                                @mouseleave="show = false"
+                                class="absolute right-full top-0 mr-1 w-56 rounded-xl border border-gray-200 bg-white p-1.5 shadow-xl dark:border-gray-700 dark:bg-gray-900"
+                            >
+
+                                <button
+                                    wire:click="toggleFileExtensions"
+                                    class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-gray-100 dark:hover:bg-gray-800"
+                                >
+
+                                    <span class="w-4">
+
+                                        @if($showFileExtensions)
+                                            ✓
+                                        @endif
+
+                                    </span>
+
+                                    File name extensions
+
+                                </button>
+
+
+                                <button
+                                    class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-gray-100 dark:hover:bg-gray-800"
+                                >
+
+                                    <span class="w-4"></span>
+
+                                    Hidden items
+
+                                </button>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                {{-- FILTER --}}
+                <div
+                    x-data="{ open: false }"
+                    class="relative"
+                >
+
+                    <button
+                        type="button"
+                        @click="open = !open"
+                        class="rounded-lg p-2.5 text-gray-500 transition hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
+                        title="Filter"
+                    >
+
+                        <x-heroicon-o-funnel class="h-5 w-5" />
+
+                    </button>
+
+
+                    <div
+                        x-show="open"
+                        x-transition
+                        @click.outside="open = false"
+                        class="absolute right-0 z-50 mt-2 w-64 rounded-xl border border-gray-200 bg-white p-4 shadow-xl dark:border-gray-700 dark:bg-gray-900"
+                    >
+
+                        <p class="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-500">
+                            Filter by source
+                        </p>
+
+                        <select
+                            wire:model.live="sourceFilter"
+                            class="w-full rounded-lg border-gray-300 bg-gray-50 text-sm dark:border-gray-700 dark:bg-gray-800"
+                        >
+
+                            <option value="all">
+                                All Sources
+                            </option>
+
+                            @foreach($allOffices as $office)
+
+                                <option value="{{ $office }}">
+                                    {{ $office }}
+                                </option>
+
+                            @endforeach
+
+                        </select>
+
+                    </div>
+
+                </div>
+
+
+                {{-- ADD FOLDER --}}
+                <button
+                    type="button"
+                    class="ml-1 inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                >
+
+                    <x-heroicon-o-folder-plus class="h-5 w-5" />
+
+                    Add Folder
+
+                </button>
+
+
+                {{-- ADD DOCUMENT --}}
+                <button
+                    type="button"
+                    class="inline-flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-500"
+                >
+
+                    <x-heroicon-o-document-plus class="h-5 w-5" />
+
+                    Add Document
+
+                </button>
+
+            </div>
+
+        </div>
+
+
+        {{-- ============================================================= --}}
+        {{-- SEARCH --}}
+        {{-- ============================================================= --}}
+
+        <div class="flex items-center gap-3">
+
+            <div class="relative flex-1">
+
+                <x-heroicon-o-magnifying-glass
+                    class="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400"
+                />
+
+                <input
+                    type="text"
+                    wire:model.live.debounce.300ms="search"
+                    placeholder="Search documents, folders, or offices..."
+                    class="w-full rounded-lg border-gray-300 bg-gray-50 py-2.5 pl-10 pr-10 text-sm focus:border-primary-500 focus:ring-primary-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                />
+
+                @if($search)
+
+                    <button
+                        wire:click="clearSearch"
+                        type="button"
+                        class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    >
+
+                        <x-heroicon-m-x-mark class="h-5 w-5" />
+
+                    </button>
+
+                @endif
+
+            </div>
+
+        </div>
+
+
+        {{-- ============================================================= --}}
+        {{-- CONTENT AREA --}}
+        {{-- ============================================================= --}}
+
+        <div class="flex gap-4">
+
+
+            {{-- MAIN CONTENT --}}
+            <div class="min-w-0 flex-1">
+
+
+                {{-- ===================================================== --}}
+                {{-- ROOT: DOCUMENT TYPES --}}
+                {{-- ===================================================== --}}
+
+                @if($isRoot)
+
+                    @if($viewMode === 'tiles')
+
+                        <div class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+
+                            @foreach($documentTypes as $type)
+
+                                @php
+                                    $matchesSearch = $search === ''
+                                        || str_contains(strtolower($type), strtolower($search));
+                                @endphp
+
+                                @if($matchesSearch)
+
+                                    <button
+                                        wire:click="openType('{{ $type }}')"
+                                        wire:click="selectItem('{{ $type }}')"
+                                        class="group rounded-xl border border-gray-200 bg-white p-5 text-left transition hover:border-primary-300 hover:bg-gray-50 hover:shadow-sm dark:border-gray-700 dark:bg-gray-900 dark:hover:border-primary-500 dark:hover:bg-gray-800"
+                                    >
+
+                                        <x-heroicon-o-folder
+                                            class="h-14 w-14 text-primary-500"
+                                        />
+
+                                        <p class="mt-4 truncate text-sm font-semibold text-gray-900 dark:text-white">
+                                            {{ $type }}
+                                        </p>
+
+                                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                            {{ count($cabinet[$type]) }}
+                                            {{ Str::plural('source', count($cabinet[$type])) }}
+                                        </p>
+
+                                    </button>
+
+                                @endif
+
+                            @endforeach
+
+                        </div>
+
+
+                    @else
+
+                        {{-- CONTENT VIEW --}}
+
+                        <div class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
+
+                            @foreach($documentTypes as $type)
+
+                                @php
+                                    $matchesSearch = $search === ''
+                                        || str_contains(strtolower($type), strtolower($search));
+                                @endphp
+
+                                @if($matchesSearch)
+
+                                    <button
+                                        wire:click="openType('{{ $type }}')"
+                                        class="flex w-full items-center gap-4 border-b border-gray-100 px-5 py-4 text-left transition hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800"
+                                    >
+
+                                        <x-heroicon-o-folder
+                                            class="h-9 w-9 shrink-0 text-primary-500"
+                                        />
+
+                                        <div class="min-w-0 flex-1">
+
+                                            <p class="truncate text-sm font-semibold text-gray-900 dark:text-white">
+                                                {{ $type }}
+                                            </p>
+
+                                            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                                {{ count($cabinet[$type]) }} source offices
+                                            </p>
+
+                                        </div>
+
+                                        <span class="text-xs text-gray-400">
+                                            Folder
+                                        </span>
+
+                                    </button>
+
+                                @endif
+
+                            @endforeach
+
+                        </div>
+
+                    @endif
+
+
+                {{-- ===================================================== --}}
+                {{-- DOCUMENT TYPE → OFFICE --}}
+                {{-- ===================================================== --}}
+
+                @elseif($isTypeView)
+
+                    @if($viewMode === 'tiles')
+
+                        <div class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+
+                            @foreach($cabinet[$currentType] as $office => $documents)
+
+                                @php
+
+                                    $matchesSearch = $search === ''
+                                        || str_contains(strtolower($office), strtolower($search));
+
+                                    $matchesSource = $sourceFilter === 'all'
+                                        || $sourceFilter === $office;
+
+                                @endphp
+
+                                @if($matchesSearch && $matchesSource)
+
+                                    <button
+                                        wire:click="openOffice('{{ $office }}')"
+                                        wire:click="selectItem('{{ $office }}')"
+                                        class="group rounded-xl border border-gray-200 bg-white p-5 text-left transition hover:border-primary-300 hover:bg-gray-50 hover:shadow-sm dark:border-gray-700 dark:bg-gray-900 dark:hover:border-primary-500 dark:hover:bg-gray-800"
+                                    >
+
+                                        <x-heroicon-o-folder
+                                            class="h-14 w-14 text-primary-500"
+                                        />
+
+                                        <p class="mt-4 line-clamp-2 text-sm font-semibold text-gray-900 dark:text-white">
+                                            {{ $office }}
+                                        </p>
+
+                                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                            {{ count($documents) }}
+                                            {{ Str::plural('document', count($documents)) }}
+                                        </p>
+
+                                    </button>
+
+                                @endif
+
+                            @endforeach
+
+                        </div>
+
+
+                    @else
+
+                        {{-- CONTENT VIEW --}}
+
+                        <div class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
+
+                            @foreach($cabinet[$currentType] as $office => $documents)
+
+                                @php
+
+                                    $matchesSearch = $search === ''
+                                        || str_contains(strtolower($office), strtolower($search));
+
+                                    $matchesSource = $sourceFilter === 'all'
+                                        || $sourceFilter === $office;
+
+                                @endphp
+
+                                @if($matchesSearch && $matchesSource)
+
+                                    <button
+                                        wire:click="openOffice('{{ $office }}')"
+                                        class="flex w-full items-center gap-4 border-b border-gray-100 px-5 py-4 text-left transition hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800"
+                                    >
+
+                                        <x-heroicon-o-folder
+                                            class="h-9 w-9 shrink-0 text-primary-500"
+                                        />
+
+                                        <div class="min-w-0 flex-1">
+
+                                            <p class="truncate text-sm font-semibold text-gray-900 dark:text-white">
+                                                {{ $office }}
+                                            </p>
+
+                                            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                                {{ count($documents) }} documents
+                                            </p>
+
+                                        </div>
+
+                                        <span class="text-xs text-gray-400">
+                                            Folder
+                                        </span>
+
+                                    </button>
+
+                                @endif
+
+                            @endforeach
+
+                        </div>
+
+                    @endif
+
+
+                {{-- ===================================================== --}}
+                {{-- OFFICE → DOCUMENTS --}}
+                {{-- ===================================================== --}}
+
+                @else
+
+                    <div class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
+
+                        {{-- HEADER --}}
+
+                        <div class="grid grid-cols-[minmax(0,1fr)_120px_160px_60px] border-b border-gray-200 bg-gray-50 px-5 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
+
+                            <div>Name</div>
+
+                            <div>Size</div>
+
+                            <div>Date modified</div>
+
+                            <div></div>
+
+                        </div>
+
+
+                        @forelse($currentDocuments as $document)
+
+                            @php
+
+                                $fileName = $document['name'];
+
+                                $displayName = $showFileExtensions
+                                    ? $fileName
+                                    : pathinfo($fileName, PATHINFO_FILENAME);
+
+                                $matchesSearch = $search === ''
+                                    || str_contains(
+                                        strtolower($fileName),
+                                        strtolower($search)
+                                    );
+
+                            @endphp
+
+
+                            @if($matchesSearch)
+
+                                <button
+                                    wire:click="selectItem('{{ $fileName }}')"
+                                    class="grid w-full grid-cols-[minmax(0,1fr)_120px_160px_60px] items-center border-b border-gray-100 px-5 py-4 text-left transition hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800"
+                                >
+
+                                    {{-- DOCUMENT NAME --}}
+
+                                    <div class="flex min-w-0 items-center gap-3">
+
+                                        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-red-50 text-red-500 dark:bg-red-500/10 dark:text-red-400">
+
+                                            @if(str_ends_with(strtolower($fileName), '.pdf'))
+
+                                                <x-heroicon-o-document-text class="h-6 w-6" />
+
+                                            @else
+
+                                                <x-heroicon-o-document class="h-6 w-6" />
+
+                                            @endif
+
+                                        </div>
+
+
+                                        <div class="min-w-0">
+
+                                            <p class="truncate text-sm font-medium text-gray-900 dark:text-white">
+                                                {{ $displayName }}
+                                            </p>
+
+                                            <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                                                {{ $document['type'] }}
+                                            </p>
+
+                                        </div>
+
+                                    </div>
+
+
+                                    {{-- SIZE --}}
+
+                                    <div class="text-sm text-gray-600 dark:text-gray-300">
+                                        {{ $document['size'] }}
+                                    </div>
+
+
+                                    {{-- DATE --}}
+
+                                    <div class="text-sm text-gray-600 dark:text-gray-300">
+                                        {{ $document['date'] }}
+                                    </div>
+
+
+                                    {{-- ACTIONS --}}
+
+                                    <div class="flex justify-end">
+
+                                        <span class="rounded-lg p-2 text-gray-400">
+                                            <x-heroicon-m-ellipsis-horizontal class="h-5 w-5" />
+                                        </span>
+
+                                    </div>
+
+                                </button>
+
+                            @endif
+
+                        @empty
+
+                            <div class="px-6 py-16 text-center">
+
+                                <x-heroicon-o-document-magnifying-glass
+                                    class="mx-auto h-12 w-12 text-gray-300 dark:text-gray-600"
+                                />
+
+                                <h3 class="mt-3 text-sm font-semibold text-gray-900 dark:text-white">
+                                    No documents found
+                                </h3>
+
+                                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                                    This folder does not contain any documents yet.
+                                </p>
+
+                            </div>
+
+                        @endforelse
+
+                    </div>
+
+                @endif
+
+            </div>
+
+
+            {{-- ========================================================= --}}
+            {{-- DETAILS PANE --}}
+            {{-- ========================================================= --}}
+
+            @if($detailsPane)
+
+                <aside class="hidden w-80 shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm lg:block dark:border-gray-700 dark:bg-gray-900">
+
+                    <div class="flex items-center justify-between border-b border-gray-200 px-5 py-4 dark:border-gray-700">
+
+                        <h3 class="font-semibold text-gray-900 dark:text-white">
+                            Details
+                        </h3>
+
+                        <button
+                            wire:click="toggleDetailsPane"
+                            class="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
+                        >
+
+                            <x-heroicon-m-x-mark class="h-5 w-5" />
+
+                        </button>
+
+                    </div>
+
+
+                    <div class="p-6">
+
+                        @if($selectedItem)
+
+                            <div class="flex justify-center">
+
+                                <div class="flex h-20 w-20 items-center justify-center rounded-xl bg-primary-50 dark:bg-primary-500/10">
+
+                                    @if($currentOffice)
+
+                                        <x-heroicon-o-document-text
+                                            class="h-11 w-11 text-primary-500"
+                                        />
+
+                                    @else
+
+                                        <x-heroicon-o-folder
+                                            class="h-11 w-11 text-primary-500"
+                                        />
+
+                                    @endif
+
+                                </div>
+
+                            </div>
+
+
+                            <h4 class="mt-5 break-words text-center font-semibold text-gray-900 dark:text-white">
+                                {{ $selectedItem }}
+                            </h4>
+
+
+                            <div class="mt-7 space-y-5">
+
+                                <div>
+
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">
+                                        Type
+                                    </p>
+
+                                    <p class="mt-1 text-sm font-medium text-gray-900 dark:text-white">
+                                        {{ $currentOffice ? 'Document' : 'Folder' }}
+                                    </p>
+
+                                </div>
+
+
+                                @if($currentOffice)
+
+                                    <div>
+
+                                        <p class="text-xs text-gray-500 dark:text-gray-400">
+                                            Location
+                                        </p>
+
+                                        <p class="mt-1 break-words text-sm font-medium text-gray-900 dark:text-white">
+                                            Cabinet / {{ $currentType }} / {{ $currentOffice }}
+                                        </p>
+
+                                    </div>
+
+                                @endif
+
+
+                                <div>
+
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">
+                                        Source
+                                    </p>
+
+                                    <p class="mt-1 text-sm font-medium text-gray-900 dark:text-white">
+                                        {{ $currentOffice ?: 'Multiple offices' }}
+                                    </p>
+
+                                </div>
+
+                            </div>
+
+                        @else
+
+                            <div class="py-16 text-center">
+
+                                <x-heroicon-o-information-circle
+                                    class="mx-auto h-10 w-10 text-gray-300 dark:text-gray-600"
+                                />
+
+                                <p class="mt-3 text-sm text-gray-500 dark:text-gray-400">
+                                    Select an item to view its details.
+                                </p>
+
+                            </div>
+
+                        @endif
+
+                    </div>
+
+                </aside>
+
+            @endif
+
+
+            {{-- ========================================================= --}}
+            {{-- PREVIEW PANE --}}
+            {{-- ========================================================= --}}
+
+            @if($previewPane)
+
+                <aside class="hidden w-96 shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm lg:block dark:border-gray-700 dark:bg-gray-900">
+
+                    <div class="flex items-center justify-between border-b border-gray-200 px-5 py-4 dark:border-gray-700">
+
+                        <h3 class="font-semibold text-gray-900 dark:text-white">
+                            Preview
+                        </h3>
+
+                        <button
+                            wire:click="togglePreviewPane"
+                            class="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
+                        >
+
+                            <x-heroicon-m-x-mark class="h-5 w-5" />
+
+                        </button>
+
+                    </div>
+
+
+                    <div class="flex h-[500px] items-center justify-center p-6">
+
+                        @if($selectedItem)
+
+                            <div class="text-center">
+
+                                <x-heroicon-o-document-text
+                                    class="mx-auto h-16 w-16 text-gray-300 dark:text-gray-600"
+                                />
+
+                                <h4 class="mt-4 break-words text-sm font-semibold text-gray-900 dark:text-white">
+                                    {{ $selectedItem }}
+                                </h4>
+
+                                <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                                    Document preview will appear here.
+                                </p>
+
+                            </div>
+
+                        @else
+
+                            <div class="text-center">
+
+                                <x-heroicon-o-document-magnifying-glass
+                                    class="mx-auto h-12 w-12 text-gray-300 dark:text-gray-600"
+                                />
+
+                                <p class="mt-3 text-sm text-gray-500 dark:text-gray-400">
+                                    Select a document to preview it.
+                                </p>
+
+                            </div>
+
+                        @endif
+
+                    </div>
+
+                </aside>
+
+            @endif
+
+        </div>
+
+    </div>
+
 </x-filament-panels::page>
