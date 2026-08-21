@@ -3,6 +3,8 @@
 namespace App\Filament\Pages;
 
 use App\Models\Document;
+use Filament\Pages\Page;
+use Livewire\WithPagination;
 use Filament\Actions\Action;
 use Filament\Actions\Concerns\InteractsWithActions;
 use Filament\Actions\Contracts\HasActions;
@@ -20,10 +22,9 @@ use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 
-class Incoming extends Page implements HasForms, HasTable
+class Incoming extends Page
 {
-    use InteractsWithForms;
-    use InteractsWithTable;
+    use WithPagination;
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-inbox';
 
@@ -38,6 +39,15 @@ class Incoming extends Page implements HasForms, HasTable
     {
         return [
             'total' => Document::count(),
+
+            'pending' => Document::where('status', 'pending')
+                ->count(),
+
+            'active' => Document::where('status', 'in_progress')
+                ->count(),
+
+            'completed' => Document::where('status', 'completed')
+                ->count(),
 
             'pending' => Document::where('status', 'pending')
                 ->count(),

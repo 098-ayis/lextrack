@@ -55,7 +55,11 @@ class User extends Authenticatable implements HasAvatar
         ];
     }
 
-
+    public function documents(): HasMany
+    {
+        return $this->hasMany(Document::class, 'user_id', 'id');
+    }
+    
     public function client()
     {
         return $this->hasOne(Client::class, 'user_id');

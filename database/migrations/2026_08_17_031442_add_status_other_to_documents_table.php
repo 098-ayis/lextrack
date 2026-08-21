@@ -9,7 +9,7 @@ return new class extends Migration
 {
     public function up(): void
     {
-        DB::statement("ALTER TABLE documents MODIFY status ENUM('pending', 'in_progress', 'completed', 'returned', 'archived', 'others') DEFAULT 'pending'");
+        DB::statement("ALTER TABLE documents MODIFY status ENUM('pending', 'in_progress', 'completed', 'returned', 'archived', 'outgoing') DEFAULT 'pending'");
 
         Schema::table('documents', function (Blueprint $table) {
             $table->string('status_other')->nullable()->after('status');

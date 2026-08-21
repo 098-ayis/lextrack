@@ -13,19 +13,30 @@ class Document extends Model
     protected $fillable = [
         'user_id',
         'type_id',
-        'client_id',
+        'action_id',
         'lao_number',
         'office_unit',
         'particulars',
         'deadline',
-        'action_taken',
         'sent_to',
         'sent_date',
         'returned_from',
         'date_returned',
         'outgoing_date',
         'status',
+        'file_path',
     ];
+
+    public function actionType(): BelongsTo
+    {
+        return $this->belongsTo(
+            ActionType::class,
+            'action_id',
+            'action_id'
+        );
+    }
+
+    
 
     public function statusLabel(): string
     {
@@ -51,7 +62,7 @@ class Document extends Model
 
     public function user(): BelongsTo
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(User::class, 'user_id', 'id');
     }
 
     public function type(): BelongsTo
@@ -59,10 +70,6 @@ class Document extends Model
         return $this->belongsTo(DocumentType::class, 'type_id', 'type_id');
     }
 
-    public function client(): BelongsTo
-    {
-        return $this->belongsTo(Client::class, 'client_id', 'client_id');
-    }
 
     public function conversation(): HasOne
     {
@@ -75,4 +82,6 @@ class Document extends Model
             $document->conversation()->create();
         });
     }
+
+
 }
