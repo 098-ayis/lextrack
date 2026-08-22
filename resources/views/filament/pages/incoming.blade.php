@@ -1,360 +1,497 @@
 <x-filament-panels::page>
 
-    {{-- Icon definitions --}}
+    {{-- Icons --}}
     <svg width="0" height="0" style="position:absolute">
         <defs>
-            {{-- Filter --}}
+            <symbol id="icon-search" viewBox="0 0 24 24">
+                <path fill="none" stroke="currentColor" stroke-width="1.75"
+                    stroke-linecap="round" stroke-linejoin="round"
+                    d="M21 21l-4.35-4.35M17 11a6 6 0 1 1-12 0 6 6 0 0 1 12 0Z"/>
+            </symbol>
+
             <symbol id="icon-filter" viewBox="0 0 24 24">
-                <path
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="1.75"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    d="M3 5h18M6 12h12M10 19h4"
-                />
+                <path fill="none" stroke="currentColor" stroke-width="1.75"
+                    stroke-linecap="round" stroke-linejoin="round"
+                    d="M3 5h18M6 12h12M10 19h4"/>
+            </symbol>
+
+            <symbol id="icon-plus" viewBox="0 0 24 24">
+                <path fill="none" stroke="currentColor" stroke-width="1.75"
+                    stroke-linecap="round" stroke-linejoin="round"
+                    d="M12 5v14M5 12h14"/>
+            </symbol>
+
+            <symbol id="icon-download" viewBox="0 0 24 24">
+                <path fill="none" stroke="currentColor" stroke-width="1.75"
+                    stroke-linecap="round" stroke-linejoin="round"
+                    d="M12 3v12m0 0 4-4m-4 4-4-4M5 18v3h14v-3"/>
+            </symbol>
+
+            <symbol id="icon-eye" viewBox="0 0 24 24">
+                <path fill="none" stroke="currentColor" stroke-width="1.75"
+                    stroke-linecap="round" stroke-linejoin="round"
+                    d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/>
+                <circle cx="12" cy="12" r="2.75"
+                    fill="none" stroke="currentColor" stroke-width="1.75"/>
+            </symbol>
+
+            <symbol id="icon-pencil" viewBox="0 0 24 24">
+                <path fill="none" stroke="currentColor" stroke-width="1.75"
+                    stroke-linecap="round" stroke-linejoin="round"
+                    d="m16.5 4.5 3 3L8 19l-4 1 1-4L16.5 4.5Z"/>
+            </symbol>
+
+            <symbol id="icon-chat" viewBox="0 0 24 24">
+                <path fill="none" stroke="currentColor" stroke-width="1.75"
+                    stroke-linecap="round" stroke-linejoin="round"
+                    d="M4 5h16v11H8l-4 4V5Z"/>
+            </symbol>
+
+            <symbol id="icon-folder" viewBox="0 0 24 24">
+                <path fill="none" stroke="currentColor" stroke-width="1.75"
+                    stroke-linecap="round" stroke-linejoin="round"
+                    d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"/>
             </symbol>
         </defs>
     </svg>
 
-    <div class="space-y-6">
+    @php
+        $stats = $this->getStats();
+        $documents = $this->getDocuments();
+    @endphp
 
-        {{-- Header --}}
-        <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-                <h2 class="text-xl font-bold tracking-tight text-gray-950 dark:text-white">
-                    Incoming Documents
-                </h2>
 
-                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                    Manage and track documents received by the Legal Affairs Office.
-                </p>
-            </div>
-
-            <div>
-                {{ $this->addDocumentAction }}
-            </div>
+    {{-- STAT CARDS --}}
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div class="bg-white rounded-lg border-t-4 border-primary-600 p-4 shadow-sm">
+            <p class="text-xs font-semibold text-gray-500">TOTAL DOCUMENTS</p>
+            <p class="text-3xl font-bold mt-1">{{ $stats['total'] }}</p>
         </div>
 
-        {{-- Statistics --}}
-        @php
-            $stats = $this->getStats();
-        @endphp
-
-        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-
-            {{-- Total --}}
-            <div class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-sm font-medium text-gray-500 dark:text-gray-400">
-                            Total Documents
-                        </p>
-
-                        <p class="mt-2 text-2xl font-semibold text-gray-950 dark:text-white">
-                            {{ $stats['total'] }}
-                        </p>
-                    </div>
-
-                    <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-50 text-primary-600 dark:bg-primary-500/10 dark:text-primary-400">
-                        <x-heroicon-o-document-text class="h-5 w-5" />
-                    </div>
-                </div>
-            </div>
-
-            {{-- Pending --}}
-            <div class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-sm font-medium text-gray-500 dark:text-gray-400">
-                            Pending
-                        </p>
-
-                        <p class="mt-2 text-2xl font-semibold text-gray-950 dark:text-white">
-                            {{ $stats['pending'] }}
-                        </p>
-                    </div>
-
-                    <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-warning-50 text-warning-600 dark:bg-warning-500/10 dark:text-warning-400">
-                        <x-heroicon-o-clock class="h-5 w-5" />
-                    </div>
-                </div>
-            </div>
-
-            {{-- Active --}}
-            <div class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-sm font-medium text-gray-500 dark:text-gray-400">
-                            Active
-                        </p>
-
-                        <p class="mt-2 text-2xl font-semibold text-gray-950 dark:text-white">
-                            {{ $stats['active'] }}
-                        </p>
-                    </div>
-
-                    <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-info-50 text-info-600 dark:bg-info-500/10 dark:text-info-400">
-                        <x-heroicon-o-arrow-path class="h-5 w-5" />
-                    </div>
-                </div>
-            </div>
-
-            {{-- Completed --}}
-            <div class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-sm font-medium text-gray-500 dark:text-gray-400">
-                            Completed
-                        </p>
-
-                        <p class="mt-2 text-2xl font-semibold text-gray-950 dark:text-white">
-                            {{ $stats['completed'] }}
-                        </p>
-                    </div>
-
-                    <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-success-50 text-success-600 dark:bg-success-500/10 dark:text-success-400">
-                        <x-heroicon-o-check-circle class="h-5 w-5" />
-                    </div>
-                </div>
-            </div>
-
+        <div class="bg-white rounded-lg border-t-4 border-amber-400 p-4 shadow-sm">
+            <p class="text-xs font-semibold text-gray-500">PENDING</p>
+            <p class="text-3xl font-bold mt-1">{{ $stats['pending'] }}</p>
         </div>
 
-        {{-- Documents Table --}}
-        <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10">
+        <div class="bg-white rounded-lg border-t-4 border-indigo-500 p-4 shadow-sm">
+            <p class="text-xs font-semibold text-gray-500">ACTIVE</p>
+            <p class="text-3xl font-bold mt-1">{{ $stats['active'] }}</p>
+        </div>
 
-            {{-- Table Header / Toolbar --}}
-            <div class="border-b border-gray-200 px-4 py-4 dark:border-white/10 sm:px-6">
+        <div class="bg-white rounded-lg border-t-4 border-green-500 p-4 shadow-sm">
+            <p class="text-xs font-semibold text-gray-500">COMPLETED</p>
+            <p class="text-3xl font-bold mt-1">{{ $stats['completed'] }}</p>
+        </div>
+    </div>
 
-                <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
 
-                    <div>
-                        <h3 class="text-base font-semibold text-gray-950 dark:text-white">
-                            Document List
-                        </h3>
+    {{-- SEARCH + FILTER --}}
+    <div class="flex flex-wrap items-center gap-3 mb-0">
 
-                        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                            All incoming documents received by the office.
-                        </p>
-                    </div>
+        {{-- Search --}}
+        <div class="relative w-full sm:w-80">
+            <input
+                type="text"
+                wire:model.live.debounce.400ms="search"
+                placeholder="Search Document"
+                class="w-full h-10 pl-4 pr-11 rounded-full
+                       border border-gray-300
+                       bg-white text-sm
+                       focus:border-primary-500 focus:ring-primary-500"
+            >
 
-                    <div class="flex flex-col gap-2 sm:flex-row">
+            <svg class="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-800">
+                <use href="#icon-search"/>
+            </svg>
+        </div>
 
-                        {{-- Search --}}
-                        <div class="relative">
-                            <x-heroicon-o-magnifying-glass
-                                class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
-                            />
 
-                            <input
-                                type="text"
-                                wire:model.live.debounce.400ms="search"
-                                placeholder="Search documents..."
-                                class="w-full rounded-lg border-0 bg-gray-50 py-2 pl-9 pr-3 text-sm text-gray-950 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-primary-600 dark:bg-white/5 dark:text-white dark:ring-white/10 dark:placeholder:text-gray-500 sm:w-64"
-                            >
-                        </div>
+        {{-- Filter --}}
+        <div class="relative w-full sm:w-52">
+            <select
+                wire:model.live="statusFilter"
+                class="w-full h-10 pl-4 pr-12 rounded-full
+                    border border-gray-300
+                    bg-white text-sm text-gray-500
+                    appearance-none
+                    focus:border-primary-500 focus:ring-primary-500"
+            >
+                <option value="">Filter</option>
+                <option value="pending">Pending</option>
+                <option value="in_progress">In Progress</option>
+                <option value="completed">Completed</option>
+                <option value="returned">Returned</option>
+                <option value="archived">Archived</option>
+            </select>
 
-                        {{-- Filter --}}
-                        <button
-                            type="button"
-                            class="flex items-center gap-1 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
-                        >
-                            <svg class="h-4 w-4">
-                                <use href="#icon-filter" />
-                            </svg>
-
-                            Filter
-                        </button>
-
-                    </div>
-                </div>
-            </div>
-
-            {{-- Table --}}
-            <div class="overflow-x-auto">
-
-                <table class="w-full text-left">
-
-                    <thead class="bg-gray-50 dark:bg-white/5">
-                        <tr class="border-b border-gray-200 dark:border-white/10">
-
-                            <th class="whitespace-nowrap px-6 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                                LAO/E/C/LO No.
-                            </th>
-
-                            <th class="whitespace-nowrap px-6 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                                Type
-                            </th>
-
-                            <th class="whitespace-nowrap px-6 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                                Client
-                            </th>
-
-                            <th class="whitespace-nowrap px-6 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                                Office/Unit
-                            </th>
-
-                            <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                                Particulars
-                            </th>
-
-                            <th class="whitespace-nowrap px-6 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                                Status
-                            </th>
-
-                            <th class="whitespace-nowrap px-6 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                                Deadline
-                            </th>
-
-                            <th class="whitespace-nowrap px-6 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                                Actions
-                            </th>
-
-                        </tr>
-                    </thead>
-
-                    <tbody class="divide-y divide-gray-200 dark:divide-white/10">
-
-                        @php
-                            $groupedDocuments = $this->getGroupedDocuments();
-                        @endphp
-
-                        @forelse ($groupedDocuments as $date => $documents)
-
-                            @foreach ($documents as $document)
-
-                                <tr class="transition hover:bg-gray-50 dark:hover:bg-white/5">
-
-                                    <td class="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-950 dark:text-white">
-                                        {{ $document->lao_number ?? '—' }}
-                                    </td>
-
-                                    <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-600 dark:text-gray-300">
-                                        {{ $document->type?->name ?? '—' }}
-                                    </td>
-
-                                    <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-600 dark:text-gray-300">
-                                        {{ $document->client?->name ?? '—' }}
-                                    </td>
-
-                                    <td class="px-6 py-4 text-sm text-gray-600 dark:text-gray-300">
-                                        {{ $document->office_unit ?? '—' }}
-                                    </td>
-
-                                    <td class="max-w-xs px-6 py-4 text-sm text-gray-600 dark:text-gray-300">
-                                        {{ \Illuminate\Support\Str::limit($document->particulars, 50) }}
-                                    </td>
-
-                                    <td class="whitespace-nowrap px-6 py-4">
-                                        <span class="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium {{ $document->statusClasses() }}">
-                                            {{ $document->statusLabel() }}
-                                        </span>
-                                    </td>
-
-                                    <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-600 dark:text-gray-300">
-                                        {{ $document->deadline?->format('m/d/Y') ?? '—' }}
-                                    </td>
-
-                                    <td class="whitespace-nowrap px-6 py-4">
-
-                                        <div class="flex justify-end gap-1">
-
-                                            {{-- View --}}
-                                            <button
-                                                type="button"
-                                                title="View Document"
-                                                class="rounded-lg p-2 text-gray-500 transition hover:bg-gray-100 hover:text-primary-600 dark:text-gray-400 dark:hover:bg-white/10 dark:hover:text-primary-400"
-                                            >
-                                                <x-heroicon-o-eye class="h-5 w-5" />
-                                            </button>
-
-                                            {{-- Edit --}}
-                                            <button
-                                                type="button"
-                                                title="Edit Document"
-                                                class="rounded-lg p-2 text-gray-500 transition hover:bg-gray-100 hover:text-warning-600 dark:text-gray-400 dark:hover:bg-white/10 dark:hover:text-warning-400"
-                                            >
-                                                <x-heroicon-o-pencil-square class="h-5 w-5" />
-                                            </button>
-
-                                            {{-- Conversation --}}
-                                            <button
-                                                type="button"
-                                                title="Open Conversation"
-                                                class="rounded-lg p-2 text-gray-500 transition hover:bg-gray-100 hover:text-success-600 dark:text-gray-400 dark:hover:bg-white/10 dark:hover:text-success-400"
-                                            >
-                                                <x-heroicon-o-chat-bubble-left-right class="h-5 w-5" />
-                                            </button>
-
-                                        </div>
-
-                                    </td>
-
-                                </tr>
-
-                            @endforeach
-
-                        @empty
-
-                            {{-- Empty table state --}}
-                            <tr>
-                                <td colspan="8" class="px-6 py-16">
-
-                                    <div class="flex flex-col items-center justify-center text-center">
-
-                                        <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-gray-100 dark:bg-white/5">
-                                            <x-heroicon-o-document-text class="h-6 w-6 text-gray-400" />
-                                        </div>
-
-                                        <h3 class="text-sm font-semibold text-gray-950 dark:text-white">
-                                            No documents found
-                                        </h3>
-
-                                        <p class="mt-1 max-w-sm text-sm text-gray-500 dark:text-gray-400">
-                                            There are currently no incoming documents. Add a document to start tracking it.
-                                        </p>
-
-                                        <div class="mt-4">
-                                            {{ $this->addDocumentAction }}
-                                        </div>
-
-                                    </div>
-
-                                </td>
-                            </tr>
-
-                        @endforelse
-
-                    </tbody>
-
-                </table>
-
-            </div>
-
-            {{-- Table Footer --}}
-            <div class="border-t border-gray-200 px-6 py-3 dark:border-white/10">
-
-                <p class="text-sm text-gray-500 dark:text-gray-400">
-                    Showing
-                    <span class="font-medium text-gray-900 dark:text-white">
-                        {{ $groupedDocuments->flatten()->count() }}
-                    </span>
-
-                    {{ \Illuminate\Support\Str::plural(
-                        'document',
-                        $groupedDocuments->flatten()->count()
-                    ) }}
-                </p>
-
-            </div>
-
+            {{-- Custom dropdown arrow --}}
+            <svg
+                class="pointer-events-none absolute right-2 top-1/2
+                    -translate-y-1/2 w-4 h-4 text-gray-500"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+            >
+                <path
+                    fill-rule="evenodd"
+                    d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.168l3.71-3.938a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .02-1.06Z"
+                    clip-rule="evenodd"
+                />
+            </svg>
         </div>
 
     </div>
+    
+    {{-- TABLE CONTROLS CONTAINER --}}
+    <div class="bg-white border border-gray-300 border-b-0 shadow-sm px-4 pt-4 pb-0 mb-0">
 
-    {{-- Filament action modals --}}
+        <div class="flex flex-wrap items-center justify-between gap-4 pb-4">
+
+            {{-- Entries --}}
+            <div class="flex items-center gap-2 text-sm font-semibold text-gray-700">
+                <span>Show</span>
+
+                <div class="relative w-24">
+                    <select
+                        wire:model.live="perPage"
+                        class="w-full h-9 pl-3 pr-10 py-1
+                            border border-gray-300 rounded-md
+                            text-sm bg-white appearance-none
+                            focus:border-[#0F172A] focus:ring-[#0F172A]"
+                    >
+                        <option value="10">10</option>
+                        <option value="25">25</option>
+                        <option value="50">50</option>
+                    </select>
+
+                    {{-- Custom dropdown arrow --}}
+                    <svg
+                        class="pointer-events-none absolute right-2 top-1/2
+                            -translate-y-1/2 w-4 h-4 text-gray-600"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                    >
+                        <path
+                            fill-rule="evenodd"
+                            d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.168l3.71-3.938a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .02-1.06Z"
+                            clip-rule="evenodd"
+                        />
+                    </svg>
+                </div>
+            </div>
+
+            {{-- Add Document --}}
+            {{ $this->addDocumentAction }}
+
+        </div>
+
+    
+
+    @if ($documents->count())
+
+        {{-- TABLE --}}
+        <div class="overflow-x-auto border border-gray-300 bg-white">
+
+            <table class="w-full border-collapse">
+
+                <thead>
+                    <tr class="border-b border-gray-300 bg-white">
+                        <th class="w-20 px-4 py-4 text-left text-sm font-bold">
+                            NO
+                        </th>
+
+                        <th class="px-4 py-4 text-left text-sm font-bold">
+                            DOCUMENTS
+                        </th>
+
+                        <th class="px-4 py-4 text-left text-sm font-bold">
+                            ^
+                        </th>
+
+                        <th class="px-4 py-4 text-left text-sm font-bold">
+                            ACTION TAKEN
+                        </th>
+
+                        <th class="w-64 px-4 py-4 text-center text-sm font-bold">
+                            FILE
+                        </th>
+
+                        <th class="w-52 px-4 py-4 text-center text-sm font-bold">
+                            ACTION
+                        </th>
+                    </tr>
+                </thead>
+
+
+                <tbody>
+
+                    @foreach ($documents as $document)
+
+                        <tr 
+                            class="border-b border-gray-300 
+                                {{ $loop->odd ? 'bg-[#F2F2F2]' : 'bg-white' }}"
+                        >
+
+                            {{-- Number --}}
+                            <td class="px-5 py-4 text-sm font-semibold align-middle">
+                                {{ $documents->firstItem() + $loop->index }}
+                            </td>
+
+                            {{-- Document Details --}}
+                            <td class="px-4 py-4 align-middle">
+
+                                {{-- BADGES --}}
+                                <div class="flex flex-wrap items-center gap-2 mb-3">
+
+                                    {{-- Upload type --}}
+                                    @php
+                                        $uploaderRole = strtolower($document->user?->role_name ?? '');
+
+                                        $uploadStyle = match ($uploaderRole) {
+                                            'client' => 'bg-emerald-200 text-emerald-900',
+                                            'admin' => 'bg-emerald-600 text-white',
+                                            default => 'bg-emerald-100 text-emerald-800',
+                                        };
+
+                                        $uploadLabel = match ($uploaderRole) {
+                                            'client' => 'Client Upload',
+                                            'admin' => 'Staff Upload',
+                                            default => 'Unknown Uploader',
+                                        };
+                                    @endphp
+
+                                    <span
+                                        class="inline-flex items-center px-3 py-1
+                                            rounded-full text-[11px] font-semibold
+                                            tracking-wide {{ $uploadStyle }}"
+                                    >
+                                        {{ $uploadLabel }}
+                                    </span>
+
+
+                                    {{-- Document type --}}
+                                    @php
+                                        $documentType = $document->type?->type_name ?? 'Unknown';
+
+                                        $documentTypeColor = match ($document->type_id) {
+                                            1 => 'bg-emerald-100 text-emerald-800',
+                                            2 => 'bg-emerald-200 text-emerald-900',
+                                            3 => 'bg-emerald-300 text-emerald-950',
+                                            4 => 'bg-emerald-400 text-emerald-950',
+                                            5 => 'bg-emerald-500 text-white',
+                                            6 => 'bg-emerald-600 text-white',
+                                            7 => 'bg-emerald-700 text-white',
+                                            8 => 'bg-emerald-800 text-white',
+                                            default => 'bg-emerald-600 text-white',
+                                        };
+                                    @endphp
+
+                                    <span
+                                        class="inline-flex items-center px-4 py-1
+                                            rounded-full text-xs font-bold
+                                            {{ $documentTypeColor }}"
+                                    >
+                                        {{ $documentType }}
+                                    </span>
+
+                                </div>
+
+
+                                <div class="text-sm leading-tight font-semibold">
+
+                                    <div>
+                                        LAO NO:
+                                        <span class="font-bold">
+                                            {{ $document->lao_number }}
+                                        </span>
+                                    </div>
+
+                                    <div>
+                                        Office/Unit:
+                                        <span class="font-bold">
+                                            {{ $document->office_unit }}
+                                        </span>
+                                    </div>
+
+                                    <div>
+                                        Particulars:
+                                        <span class="font-bold">
+                                            {{ $document->particulars }}
+                                        </span>
+                                    </div>
+
+                                </div>
+
+                            </td>
+
+                            {{-- Upload Details --}}
+                            <td class="px-4 py-4 align-middle text-center">
+
+                                {{-- Uploaded Date --}}
+                                <div class="text-sm italic font-medium text-gray-500">
+                                    uploaded at
+                                    {{ optional($document->created_at)->format('d, F Y') }}
+                                </div>
+
+                                {{-- File Name --}}
+                                <div class="mt-2">
+                                    <div class="text-[#6366F1] font-semibold text-sm">
+                                        {{ $document->file_path
+                                            ? basename($document->file_path)
+                                            : 'No file'
+                                        }}
+                                    </div>
+                                </div>
+
+                            </td>
+
+                            {{-- Action Taken --}}
+                            <td class="px-4 py-4 align-middle">
+                                <span class="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded-full {{ $document->statusClasses() }}">
+                                    {{ $document->actionType?->action_name ?? 'No action assigned' }}
+                                </span>
+                            </td>
+
+                            {{-- File --}}
+                            <td class="px-4 py-4 align-middle">
+
+                                @if ($document->file_path)
+
+                                    <div class="flex flex-col items-center gap-2">
+
+                                        <a
+                                            href="{{ Storage::url($document->file_path) }}"
+                                            download
+                                            class="inline-flex items-center gap-1
+                                                    bg-[#0F172A] hover:bg-[#1E293B]
+                                                    px-2 py-2 text-white
+                                                    text-xs font-medium transition"
+                                        >
+                                            <svg class="w-4 h-4">
+                                                <use href="#icon-download"/>
+                                            </svg>
+
+                                            Download File
+                                        </a>
+
+
+                                        {{-- Only show View if PDF --}}
+                                        @if (
+                                            strtolower(
+                                                pathinfo(
+                                                    $document->file_path,
+                                                    PATHINFO_EXTENSION
+                                                )
+                                            ) === 'pdf'
+                                        )
+
+                                            <a
+                                                href="{{ Storage::url($document->file_path) }}"
+                                                target="_blank"
+                                                class="inline-flex items-center gap-1
+                                                        bg-[#0F172A] hover:bg-[#1E293B]
+                                                        text-white text-xs
+                                                        px-3 py-1 transition"
+                                            >
+                                                <svg class="w-4 h-4">
+                                                    <use href="#icon-eye"/>
+                                                </svg>
+
+                                                View
+                                            </a>
+
+                                        @else
+
+                                            <span class="text-[10px] text-red-500">
+                                                File cannot be shown because it's not PDF
+                                            </span>
+
+                                        @endif
+
+                                    </div>
+
+                                @else
+
+                                    <span class="text-xs text-gray-400">
+                                        No file
+                                    </span>
+
+                                @endif
+
+                            </td>
+
+
+                            {{-- Actions --}}
+                            <td class="px-4 py-4 align-middle">
+
+                                <div class="flex justify-center gap-2">
+
+                                    {{ ($this->editDocumentAction)([
+                                        'document' => $document->document_id,
+                                    ]) }}
+
+
+                                    <button
+                                        type="button"
+                                        wire:click="messageDocument({{ $document->id }})"
+                                        class="inline-flex items-center gap-1
+                                                rounded-full
+                                                bg-[#0F172A] hover:bg-[#1E293B]
+                                                text-white
+                                                px-3 py-2 text-xs font-medium"
+                                    >
+                                        <svg class="w-4 h-4">
+                                            <use href="#icon-chat"/>
+                                        </svg>
+
+                                        Message
+                                    </button>
+
+                                </div>
+
+                            </td>
+
+                        </tr>
+
+                    @endforeach
+                </tbody>
+
+            </table>
+
+        </div>
+
+
+        {{-- Pagination --}}
+        <div class="mt-4">
+            {{ $documents->links() }}
+        </div>
+
+    @else
+
+        {{-- EMPTY STATE --}}
+        <div
+            class="border border-dashed border-gray-300
+                   bg-white rounded-lg
+                   py-16 text-center"
+        >
+
+            <svg class="w-12 h-12 mx-auto text-gray-300">
+                <use href="#icon-folder"/>
+            </svg>
+
+            <h3 class="mt-4 text-base font-semibold text-gray-800">
+                No incoming documents yet
+            </h3>
+
+            <p class="mt-1 text-sm text-gray-500">
+                Add a new document to get started.
+            </p>
+
+
+        </div>
+
+    @endif
+    </div>
+
     <x-filament-actions::modals />
-
 
 </x-filament-panels::page>
