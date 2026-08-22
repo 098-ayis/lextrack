@@ -10,7 +10,7 @@ use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Actions\Action;
 use Filament\Tables\Filters\SelectFilter;
-use App\Models\PendingDocument;
+use App\Models\Document;
 
 
 class Pending extends Page implements HasTable
@@ -41,7 +41,8 @@ class Pending extends Page implements HasTable
     {
         return $table
             ->query(
-                PendingDocument::query()
+                Document::query()
+                    ->where('status', 'pending')
             )
             ->columns([
                 TextColumn::make('id')
@@ -96,7 +97,7 @@ class Pending extends Page implements HasTable
                     ->icon('heroicon-o-eye')
                     ->color('primary')
                     ->tooltip('View')
-                    ->url(fn (PendingDocument $record) =>
+                    ->url(fn (Document $record) =>
                         $record->file_path
                             ? asset('storage/' . $record->file_path)
                             : null
