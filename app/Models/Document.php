@@ -17,7 +17,7 @@ class Document extends Model
         'lao_number',
         'office_unit',
         'particulars',
-        'deadline',
+        'deadline' => 'date',
         'sent_to',
         'sent_date',
         'returned_from',

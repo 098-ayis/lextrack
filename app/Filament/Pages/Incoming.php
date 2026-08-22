@@ -12,6 +12,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
 use App\Models\ActionType;
+use Filament\Support\Enums\Width;
 
 class Incoming extends Page
 {
@@ -23,9 +24,14 @@ class Incoming extends Page
 
     public string $search = '';
 
-    public string $statusFilter = '';
+    public string $typeFilter = '';
 
     public int $perPage = 10;
+
+    public function getMaxContentWidth(): Width
+    {
+        return Width::ScreenTwoExtraLarge;
+    }
 
     public function getStats(): array
     {
@@ -62,8 +68,8 @@ class Incoming extends Page
             })
 
             // Status filter
-            ->when($this->statusFilter, function ($query) {
-                $query->where('status', $this->statusFilter);
+            ->when($this->typeFilter, function ($query) {
+                $query->where('type_id', $this->typeFilter);
             })
 
             ->latest('created_at')
@@ -77,6 +83,10 @@ class Incoming extends Page
             ->label('Add Document')
             ->icon('heroicon-o-plus')
             ->modalHeading('Add New Document')
+            ->extraAttributes([
+                'class' => 'add-document-button',
+            ])
+
             ->schema([
                 TextInput::make('lao_number')
                     ->label('LAO Number')
@@ -141,6 +151,10 @@ class Incoming extends Page
             ->label('Edit')
             ->icon('heroicon-o-pencil-square')
             ->modalHeading('Edit Document')
+            ->extraAttributes([
+                            'class' => 'edit-document-button',
+            ])
+
             ->schema([
                 TextInput::make('lao_number')
                     ->label('LAO Number')
@@ -221,11 +235,6 @@ class Incoming extends Page
     }
 
     public function updatedSearch(): void
-    {
-        $this->resetPage();
-    }
-
-    public function updatedStatusFilter(): void
     {
         $this->resetPage();
     }

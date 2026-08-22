@@ -13,5 +13,6 @@ class DocumentType extends Model
         'type_desc',
         'created_at',
         'updated_at',
+        'color',
     ];
 }

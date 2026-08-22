@@ -106,27 +106,28 @@
         </div>
 
 
-        {{-- Filter --}}
+        {{-- Document Type Filter --}}
         <div class="relative w-full sm:w-52">
             <select
-                wire:model.live="statusFilter"
+                wire:model.live="typeFilter"
                 class="w-full h-10 pl-4 pr-12 rounded-full
                     border border-gray-300
                     bg-white text-sm text-gray-500
                     appearance-none
                     focus:border-primary-500 focus:ring-primary-500"
             >
-                <option value="">Filter</option>
-                <option value="pending">Pending</option>
-                <option value="in_progress">In Progress</option>
-                <option value="completed">Completed</option>
-                <option value="returned">Returned</option>
-                <option value="archived">Archived</option>
+                <option value="">All Document Types</option>
+
+                @foreach (\App\Models\DocumentType::orderBy('type_name')->get() as $type)
+                    <option value="{{ $type->type_id }}">
+                        {{ $type->type_name }}
+                    </option>
+                @endforeach
             </select>
 
             {{-- Custom dropdown arrow --}}
             <svg
-                class="pointer-events-none absolute right-2 top-1/2
+                class="pointer-events-none absolute right-3 top-1/2
                     -translate-y-1/2 w-4 h-4 text-gray-500"
                 viewBox="0 0 20 20"
                 fill="currentColor"
@@ -142,8 +143,7 @@
     </div>
     
     {{-- TABLE CONTROLS CONTAINER --}}
-    <div class="bg-white border border-gray-300 border-b-0 shadow-sm px-4 pt-4 pb-0 mb-0">
-
+    <div class="w-full bg-white border border-gray-300 border-b-0 shadow-sm px-4 pt-4 pb-0 mb-0">
         <div class="flex flex-wrap items-center justify-between gap-4 pb-4">
 
             {{-- Entries --}}
@@ -189,9 +189,9 @@
     @if ($documents->count())
 
         {{-- TABLE --}}
-        <div class="overflow-x-auto border border-gray-300 bg-white">
+        <div class="w-full overflow-x-auto border border-gray-300 bg-white">
 
-            <table class="w-full border-collapse">
+            <table class="w-full min-w-[1300px] border-collapse">
 
                 <thead>
                     <tr class="border-b border-gray-300 bg-white">
@@ -204,11 +204,15 @@
                         </th>
 
                         <th class="px-4 py-4 text-left text-sm font-bold">
-                            ^
+                            DOCUMENT TYPE
                         </th>
 
                         <th class="px-4 py-4 text-left text-sm font-bold">
                             ACTION TAKEN
+                        </th>
+
+                        <th class="px-4 py-4 text-left text-sm font-bold">
+                            DEADLINE
                         </th>
 
                         <th class="w-64 px-4 py-4 text-center text-sm font-bold">
@@ -239,82 +243,31 @@
                             {{-- Document Details --}}
                             <td class="px-4 py-4 align-middle">
 
-                                {{-- BADGES --}}
-                                <div class="flex flex-wrap items-center gap-2 mb-3">
+                                <div class="space-y-1.5 text-sm">
 
-                                    {{-- Upload type --}}
-                                    @php
-                                        $uploaderRole = strtolower($document->user?->role_name ?? '');
-
-                                        $uploadStyle = match ($uploaderRole) {
-                                            'client' => 'bg-emerald-200 text-emerald-900',
-                                            'admin' => 'bg-emerald-600 text-white',
-                                            default => 'bg-emerald-100 text-emerald-800',
-                                        };
-
-                                        $uploadLabel = match ($uploaderRole) {
-                                            'client' => 'Client Upload',
-                                            'admin' => 'Staff Upload',
-                                            default => 'Unknown Uploader',
-                                        };
-                                    @endphp
-
-                                    <span
-                                        class="inline-flex items-center px-3 py-1
-                                            rounded-full text-[11px] font-semibold
-                                            tracking-wide {{ $uploadStyle }}"
-                                    >
-                                        {{ $uploadLabel }}
-                                    </span>
-
-
-                                    {{-- Document type --}}
-                                    @php
-                                        $documentType = $document->type?->type_name ?? 'Unknown';
-
-                                        $documentTypeColor = match ($document->type_id) {
-                                            1 => 'bg-emerald-100 text-emerald-800',
-                                            2 => 'bg-emerald-200 text-emerald-900',
-                                            3 => 'bg-emerald-300 text-emerald-950',
-                                            4 => 'bg-emerald-400 text-emerald-950',
-                                            5 => 'bg-emerald-500 text-white',
-                                            6 => 'bg-emerald-600 text-white',
-                                            7 => 'bg-emerald-700 text-white',
-                                            8 => 'bg-emerald-800 text-white',
-                                            default => 'bg-emerald-600 text-white',
-                                        };
-                                    @endphp
-
-                                    <span
-                                        class="inline-flex items-center px-4 py-1
-                                            rounded-full text-xs font-bold
-                                            {{ $documentTypeColor }}"
-                                    >
-                                        {{ $documentType }}
-                                    </span>
-
-                                </div>
-
-
-                                <div class="text-sm leading-tight font-semibold">
-
-                                    <div>
-                                        LAO NO:
-                                        <span class="font-bold">
+                                    <div class="flex gap-1.5">
+                                        <span class="text-xs font-medium text-gray-500 uppercase tracking-wide shrink-0">
+                                            LAO No:
+                                        </span>
+                                        <span class="font-semibold text-gray-900">
                                             {{ $document->lao_number }}
                                         </span>
                                     </div>
 
-                                    <div>
-                                        Office/Unit:
-                                        <span class="font-bold">
+                                    <div class="flex gap-1.5">
+                                        <span class="text-xs font-medium text-gray-500 uppercase tracking-wide shrink-0">
+                                            Office/Unit:
+                                        </span>
+                                        <span class="font-semibold text-gray-900">
                                             {{ $document->office_unit }}
                                         </span>
                                     </div>
 
-                                    <div>
-                                        Particulars:
-                                        <span class="font-bold">
+                                    <div class="flex gap-1.5">
+                                        <span class="text-xs font-medium text-gray-500 uppercase tracking-wide shrink-0">
+                                            Particulars:
+                                        </span>
+                                        <span class="font-semibold text-gray-900 leading-snug">
                                             {{ $document->particulars }}
                                         </span>
                                     </div>
@@ -323,92 +276,143 @@
 
                             </td>
 
-                            {{-- Upload Details --}}
+                            {{-- DOCUMENT TYPE --}}
                             <td class="px-4 py-4 align-middle text-center">
 
-                                {{-- Uploaded Date --}}
-                                <div class="text-sm italic font-medium text-gray-500">
-                                    uploaded at
-                                    {{ optional($document->created_at)->format('d, F Y') }}
+                                {{-- BADGES --}}
+                                <div class="flex flex-wrap items-center gap-2 mb-3">
+
+                                    @if ($document->type)
+
+                                        <span
+                                            class="inline-flex items-center px-4 py-1
+                                                rounded-full text-xs font-bold text-white"
+                                            style="background-color: {{ $document->type->color }};"
+                                        >
+                                            {{ $document->type->type_name }}
+                                        </span>
+
+                                    @else
+
+                                        <span class="text-xs italic text-gray-500">
+                                            Unknown Document Type
+                                        </span>
+
+                                    @endif
+
                                 </div>
 
-                                {{-- File Name --}}
-                                <div class="mt-2">
-                                    <div class="text-[#6366F1] font-semibold text-sm">
-                                        {{ $document->file_path
-                                            ? basename($document->file_path)
-                                            : 'No file'
-                                        }}
-                                    </div>
-                                </div>
 
                             </td>
 
                             {{-- Action Taken --}}
-                        <td class="px-4 py-4 align-middle">
+                            <td class="px-4 py-4 align-middle">
 
-                            @if ($document->actionType)
+                                @if ($document->actionType)
 
-                                <span
-                                    class="inline-flex items-center gap-1 px-3 py-1
-                                        text-xs font-semibold rounded-full text-white"
-                                    style="background-color: {{ $document->actionType->color }};"
-                                >
-                                    {{ $document->actionType->action_name }}
-                                </span>
+                                    <span
+                                        class="inline-flex items-center gap-1 px-3 py-1
+                                            text-xs font-semibold rounded-full text-white"
+                                        style="background-color: {{ $document->actionType->color }};"
+                                    >
+                                        {{ $document->actionType->action_name }}
+                                    </span>
 
-                            @else
+                                @else
 
-                                <span class="text-xs italic text-gray-500">
-                                    No action assigned
-                                </span>
+                                    <span class="text-xs italic text-gray-500">
+                                        No action assigned
+                                    </span>
 
-                            @endif
+                                @endif
 
-                        </td>
+                            </td>
 
+                            {{-- Deadline --}}
+                            <td class="px-4 py-4 align-middle">
+
+                                @if ($document->deadline)
+
+                                    @php
+                                        $deadline = \Carbon\Carbon::parse($document->deadline)->startOfDay();
+                                        $today = now()->startOfDay();
+
+                                        $daysRemaining = $today->diffInDays($deadline, false);
+
+                                        if ($daysRemaining < 0) {
+                                            // Deadline already passed
+                                            $urgencyColor = 'bg-red-500';
+                                            $urgencyLabel = 'Overdue';
+                                        } elseif ($daysRemaining <= 1) {
+                                            // Today or tomorrow
+                                            $urgencyColor = 'bg-orange-500';
+                                            $urgencyLabel = $daysRemaining === 0
+                                                ? 'Due today'
+                                                : 'Due tomorrow';
+                                        } else {
+                                            // More than 1 day remaining
+                                            $urgencyColor = 'bg-emerald-500';
+                                            $urgencyLabel = 'On track';
+                                        }
+                                    @endphp
+
+                                    <div class="flex items-center gap-2">
+
+                                        {{-- Urgency dot --}}
+                                        <span
+                                            class="w-2.5 h-2.5 rounded-full shrink-0 {{ $urgencyColor }}"
+                                            title="{{ $urgencyLabel }}"
+                                        ></span>
+
+                                        {{-- Deadline --}}
+                                        <span class="text-sm font-semibold text-gray-800">
+                                            {{ \Carbon\Carbon::parse($document->deadline)->format('F d, Y') }}
+                                        </span>
+
+                                    </div>
+
+                                    {{-- Urgency text --}}
+                                    <div class="mt-1 ml-[18px] text-xs text-gray-500">
+                                        {{ $urgencyLabel }}
+                                    </div>
+
+                                @else
+
+                                    <span class="text-xs italic text-gray-500">
+                                        No deadline set
+                                    </span>
+
+                                @endif
+
+                            </td>                                               
+                            
                             {{-- File --}}
                             <td class="px-4 py-4 align-middle">
 
                                 @if ($document->file_path)
 
-                                    <div class="flex flex-col items-center gap-2">
+                                    <div class="flex items-center justify-center gap-2">
 
-                                        <a
-                                            href="{{ Storage::url($document->file_path) }}"
-                                            download
-                                            class="inline-flex items-center gap-1
-                                                    bg-[#0F172A] hover:bg-[#1E293B]
-                                                    px-2 py-2 text-white
-                                                    text-xs font-medium transition"
-                                        >
-                                            <svg class="w-4 h-4">
-                                                <use href="#icon-download"/>
-                                            </svg>
-
-                                            Download File
-                                        </a>
-
-
-                                        {{-- Only show View if PDF --}}
-                                        @if (
-                                            strtolower(
-                                                pathinfo(
-                                                    $document->file_path,
-                                                    PATHINFO_EXTENSION
-                                                )
-                                            ) === 'pdf'
-                                        )
+                                        {{-- View button: only for PDFs --}}
+                                        @if (strtolower(pathinfo($document->file_path, PATHINFO_EXTENSION)) === 'pdf')
 
                                             <a
                                                 href="{{ Storage::url($document->file_path) }}"
                                                 target="_blank"
-                                                class="inline-flex items-center gap-1
-                                                        bg-[#0F172A] hover:bg-[#1E293B]
-                                                        text-white text-xs
-                                                        px-3 py-1 transition"
+                                                class="inline-flex items-center gap-1.5
+                                                    bg-white hover:bg-blue-50
+                                                    border border-blue-600
+                                                    text-blue-600 hover:text-blue-700
+                                                    text-xs font-semibold
+                                                    px-3 py-1.5 rounded-md
+                                                    transition-colors duration-150"
                                             >
-                                                <svg class="w-4 h-4">
+                                                <svg
+                                                    class="w-3.5 h-3.5"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    stroke-width="2"
+                                                >
                                                     <use href="#icon-eye"/>
                                                 </svg>
 
@@ -418,18 +422,45 @@
                                         @else
 
                                             <span class="text-[10px] text-red-500">
-                                                File cannot be shown because it's not PDF
+                                                Cannot preview (not PDF)
                                             </span>
 
                                         @endif
+
+
+                                        {{-- Download button --}}
+                                        <a
+                                            href="{{ Storage::url($document->file_path) }}"
+                                            download
+                                            class="inline-flex items-center gap-1.5
+                                                bg-slate-800 hover:bg-slate-900
+                                                text-white
+                                                text-xs font-semibold
+                                                px-3 py-1.5 rounded-md
+                                                shadow-sm
+                                                transition-colors duration-150"
+                                        >
+                                            <svg
+                                                class="w-3.5 h-3.5"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                stroke-width="2"
+                                            >
+                                                <use href="#icon-download"/>
+                                            </svg>
+
+                                            Download
+                                        </a>
 
                                     </div>
 
                                 @else
 
-                                    <span class="text-xs text-gray-400">
-                                        No file
-                                    </span>
+                                    <div class="flex justify-center">
+                                        <span class="text-xs italic text-gray-400">
+                                            No file
+                                        </span>
+                                    </div>
 
                                 @endif
 
@@ -439,26 +470,20 @@
                             {{-- Actions --}}
                             <td class="px-4 py-4 align-middle">
 
-                                <div class="flex justify-center gap-2">
+                                <div class="flex items-center justify-center gap-2">
 
                                     {{ ($this->editDocumentAction)([
                                         'document' => $document->document_id,
                                     ]) }}
 
-
                                     <button
                                         type="button"
                                         wire:click="messageDocument({{ $document->id }})"
-                                        class="inline-flex items-center gap-1
-                                                rounded-full
-                                                bg-[#0F172A] hover:bg-[#1E293B]
-                                                text-white
-                                                px-3 py-2 text-xs font-medium"
+                                        class="message-document-button"
                                     >
-                                        <svg class="w-4 h-4">
+                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2">
                                             <use href="#icon-chat"/>
                                         </svg>
-
                                         Message
                                     </button>
 
