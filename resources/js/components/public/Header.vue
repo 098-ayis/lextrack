@@ -98,10 +98,10 @@ const isScrolled = ref(false)
 
 const headerBackground = computed(() => {
   if (!isHomePage.value) {
-    return 'bg-[#121722] shadow-lg'
+    return 'bg-[#0F172A] shadow-lg'
   }
   
-  return isScrolled.value ? 'bg-[#121722] shadow-lg' : 'bg-transparent'
+  return isScrolled.value ? 'bg-[#0F172A] shadow-lg' : 'bg-transparent'
 })
 
 const handleScroll = () => {

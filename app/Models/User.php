@@ -10,7 +10,6 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Laravel\Sanctum\HasApiTokens;
 use App\Models\Client;
 use App\Models\Conversation;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
@@ -22,7 +21,7 @@ use Filament\Models\Contracts\HasAvatar;
 class User extends Authenticatable implements HasAvatar
 {
     /** @use HasFactory<UserFactory> */
-    use HasApiTokens, HasFactory, Notifiable;
+    use HasFactory, Notifiable;
 
     protected $fillable = [
         'name',

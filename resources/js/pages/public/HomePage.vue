@@ -458,7 +458,7 @@ function openChatbot() {
 /* ---------- Updated Services (Dark Mode) ---------- */
 .services {
   padding: 120px 24px 90px;
-  background: #121722;      
+  background: #0F172A;      
   text-align: left;
   position: relative;
   z-index: 5;
@@ -614,7 +614,7 @@ function openChatbot() {
 .faq-container {
   max-width: 1250px;
   margin: 0 auto;
-  background: #121722;
+  background: #0F172A;
   border-radius: 24px;
   padding: 70px 60px;
   display: grid;

@@ -44,7 +44,7 @@ function goTo(path) {
 
 <style scoped>
 .hero-section {
-  background-color: #121722;
+  background-color: #0F172A;
   min-height: 100vh;
   display: flex;
   align-items: center;
