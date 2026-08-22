@@ -159,49 +159,51 @@
         {{-- BREADCRUMB --}}
         {{-- ============================================================= --}}
 
-        <div class="flex items-center gap-1.5 text-sm">
+        @if(! $isRoot)
 
-            <button
-                wire:click="goToRoot"
-                class="{{ $isRoot
-                    ? 'font-semibold text-gray-950 dark:text-white'
-                    : 'text-gray-500 hover:text-primary-600 dark:text-gray-400' }}
-                    transition"
-            >
-                Cabinet
-            </button>
-
-            @if($currentType)
-
-                <x-heroicon-m-chevron-right
-                    class="h-4 w-4 text-gray-400"
-                />
+            <div class="flex items-center gap-1.5 text-sm">
 
                 <button
-                    wire:click="goToType"
-                    class="{{ $currentOffice
-                        ? 'text-gray-500 hover:text-primary-600 dark:text-gray-400'
-                        : 'font-semibold text-gray-950 dark:text-white' }}
-                        transition"
+                    type="button"
+                    wire:click="goToRoot"
+                    class="text-gray-500 transition hover:text-primary-600 dark:text-gray-400"
                 >
-                    {{ $currentType }}
+                    Cabinet
                 </button>
-
-            @endif
-
-            @if($currentOffice)
 
                 <x-heroicon-m-chevron-right
                     class="h-4 w-4 text-gray-400"
                 />
 
-                <span class="font-semibold text-gray-950 dark:text-white">
-                    {{ $currentOffice }}
-                </span>
+                @if($currentOffice)
 
-            @endif
+                    <button
+                        type="button"
+                        wire:click="goToType"
+                        class="text-gray-500 transition hover:text-primary-600 dark:text-gray-400"
+                    >
+                        {{ $currentType }}
+                    </button>
 
-        </div>
+                    <x-heroicon-m-chevron-right
+                        class="h-4 w-4 text-gray-400"
+                    />
+
+                    <span class="font-semibold text-gray-950 dark:text-white">
+                        {{ $currentOffice }}
+                    </span>
+
+                @else
+
+                    <span class="font-semibold text-gray-950 dark:text-white">
+                        {{ $currentType }}
+                    </span>
+
+                @endif
+
+            </div>
+
+        @endif
 
 
         {{-- ============================================================= --}}
@@ -212,17 +214,22 @@
 
             <div>
 
-                <h1 class="text-2xl font-bold tracking-tight text-gray-950 dark:text-white">
-                    @if($isRoot)
-                        Cabinet
-                    @elseif($isTypeView)
-                        {{ $currentType }}
-                    @else
-                        {{ $currentOffice }}
-                    @endif
-                </h1>
+                @if(! $isRoot)
 
-                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                    <h2 class="text-2xl font-bold tracking-tight text-gray-950 dark:text-white">
+
+                        @if($isTypeView)
+                            {{ $currentType }}
+                        @else
+                            {{ $currentOffice }}
+                        @endif
+
+                    </h2>
+
+                @endif
+
+                <p class="{{ $isRoot ? 'text-sm text-gray-500 dark:text-gray-400' : 'mt-1 text-sm text-gray-500 dark:text-gray-400' }}">
+
                     @if($isRoot)
                         Browse and manage archived legal documents.
                     @elseif($isTypeView)
@@ -230,10 +237,10 @@
                     @else
                         Documents received from {{ $currentOffice }}.
                     @endif
+
                 </p>
 
             </div>
-
 
             {{-- ========================================================= --}}
             {{-- ACTIONS --}}
@@ -691,7 +698,6 @@
 
                                     <button
                                         wire:click="openType('{{ $type }}')"
-                                        wire:click="selectItem('{{ $type }}')"
                                         class="group rounded-xl border border-gray-200 bg-white p-5 text-left transition hover:border-primary-300 hover:bg-gray-50 hover:shadow-sm dark:border-gray-700 dark:bg-gray-900 dark:hover:border-primary-500 dark:hover:bg-gray-800"
                                     >
 
@@ -794,7 +800,6 @@
 
                                     <button
                                         wire:click="openOffice('{{ $office }}')"
-                                        wire:click="selectItem('{{ $office }}')"
                                         class="group rounded-xl border border-gray-200 bg-white p-5 text-left transition hover:border-primary-300 hover:bg-gray-50 hover:shadow-sm dark:border-gray-700 dark:bg-gray-900 dark:hover:border-primary-500 dark:hover:bg-gray-800"
                                     >
 
