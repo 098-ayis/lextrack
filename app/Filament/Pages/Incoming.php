@@ -46,7 +46,7 @@ class Incoming extends Page
     public function getDocuments()
     {
         return Document::query()
-            ->with(['user', 'type'])
+            ->with(['user', 'type', 'actionType'])
             ->where('status', 'in_progress')
 
             // Search
@@ -94,9 +94,13 @@ class Incoming extends Page
 
                 Select::make('action_id')
                 ->label('Action Taken')
-                ->relationship('actionType', 'action_name')
+                ->placeholder('Select action')
+                ->options(
+                    \App\Models\ActionType::query()
+                        ->orderBy('action_id')
+                        ->pluck('action_name', 'action_id')
+                )
                 ->searchable()
-                ->preload()
                 ->nullable(),
                     
                 TextInput::make('office_unit')

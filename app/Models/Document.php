@@ -79,7 +79,15 @@ class Document extends Model
     protected static function booted(): void
     {
         static::created(function (Document $document) {
+
+        // Load the uploader
+        $user = $document->user;
+
+        // Only create a conversation for client uploads
+        if ($user?->role_name === 'Client') {
             $document->conversation()->create();
+        }
+    
         });
     }
 

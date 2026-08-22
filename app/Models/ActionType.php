@@ -11,6 +11,7 @@ class ActionType extends Model
 
     protected $fillable = [
         'action_name',
+        'color',
     ];
 
     public function documents(): HasMany

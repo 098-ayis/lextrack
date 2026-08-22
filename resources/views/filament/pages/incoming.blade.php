@@ -345,11 +345,27 @@
                             </td>
 
                             {{-- Action Taken --}}
-                            <td class="px-4 py-4 align-middle">
-                                <span class="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded-full {{ $document->statusClasses() }}">
-                                    {{ $document->actionType?->action_name ?? 'No action assigned' }}
+                        <td class="px-4 py-4 align-middle">
+
+                            @if ($document->actionType)
+
+                                <span
+                                    class="inline-flex items-center gap-1 px-3 py-1
+                                        text-xs font-semibold rounded-full text-white"
+                                    style="background-color: {{ $document->actionType->color }};"
+                                >
+                                    {{ $document->actionType->action_name }}
                                 </span>
-                            </td>
+
+                            @else
+
+                                <span class="text-xs italic text-gray-500">
+                                    No action assigned
+                                </span>
+
+                            @endif
+
+                        </td>
 
                             {{-- File --}}
                             <td class="px-4 py-4 align-middle">
