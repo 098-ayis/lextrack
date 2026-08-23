@@ -389,44 +389,35 @@
                             {{-- File --}}
                             <td class="px-4 py-4 align-middle">
 
-                                @if ($document->file_path)
+                                
 
                                     <div class="flex items-center justify-center gap-2">
 
-                                        {{-- View button: only for PDFs --}}
-                                        @if (strtolower(pathinfo($document->file_path, PATHINFO_EXTENSION)) === 'pdf')
-
                                             <a
-                                                href="{{ Storage::url($document->file_path) }}"
-                                                target="_blank"
-                                                class="inline-flex items-center gap-1.5
-                                                    bg-white hover:bg-blue-50
-                                                    border border-blue-600
-                                                    text-blue-600 hover:text-blue-700
-                                                    text-xs font-semibold
-                                                    px-3 py-1.5 rounded-md
-                                                    transition-colors duration-150"
+                                            href="{{ \App\Filament\Pages\ViewDocument::getUrl(['document' => $document->document_id]) }}"
+                                            class="inline-flex items-center gap-1.5
+                                                bg-white hover:bg-blue-50
+                                                border border-blue-600
+                                                text-blue-600 hover:text-blue-700
+                                                text-xs font-semibold
+                                                px-3 py-1.5 rounded-md
+                                                transition-colors duration-150"
+                                        >
+                                            <svg
+                                                class="w-3.5 h-3.5"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                stroke-width="2"
                                             >
-                                                <svg
-                                                    class="w-3.5 h-3.5"
-                                                    fill="none"
-                                                    stroke="currentColor"
-                                                    stroke-width="2"
-                                                >
-                                                    <use href="#icon-eye"/>
-                                                </svg>
+                                                <use href="#icon-eye"/>
+                                            </svg>
 
-                                                View
-                                            </a>
+                                            View
+                                        </a>
 
-                                        @else
 
-                                            <span class="text-[10px] text-red-500">
-                                                Cannot preview (not PDF)
-                                            </span>
-
-                                        @endif
-
+                                        
+                                        @if ($document->file_path)
 
                                         {{-- Download button --}}
                                         <a
@@ -461,30 +452,72 @@
                                             No file
                                         </span>
                                     </div>
-
+                            
                                 @endif
 
                             </td>
-
 
                             {{-- Actions --}}
                             <td class="px-4 py-4 align-middle">
 
                                 <div class="flex items-center justify-center gap-2">
 
+                                    {{-- Edit: icon only --}}
                                     {{ ($this->editDocumentAction)([
                                         'document' => $document->document_id,
                                     ]) }}
 
+                                    {{-- Message: icon only --}}
                                     <button
                                         type="button"
-                                        wire:click="messageDocument({{ $document->id }})"
-                                        class="message-document-button"
+                                        wire:click="messageDocument({{ $document->document_id }})"
+                                        class="inline-flex items-center justify-center
+                                            w-9 h-9 rounded-md
+                                            border border-[#0F172A]
+                                            text-[#0F172A]
+                                            hover:bg-[#0F172A]
+                                            hover:text-white
+                                            transition-colors duration-150"
+                                        title="Message"
                                     >
-                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2">
+                                        <svg
+                                            class="w-4 h-4"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            stroke-width="2"
+                                        >
                                             <use href="#icon-chat"/>
                                         </svg>
-                                        Message
+                                    </button>
+
+                                    {{-- Outgoing --}}
+                                    <button
+                                        type="button"
+                                        wire:click="markAsOutgoing({{ $document->document_id }})"
+                                        class="inline-flex items-center gap-1.5
+                                            h-9 px-3 rounded-md
+                                            bg-[#334155]
+                                            hover:bg-[#0F172A]
+                                            text-white
+                                            text-xs font-semibold
+                                            transition-colors duration-150"
+                                        title="Mark as Outgoing"
+                                    >
+                                        <svg
+                                            class="w-4 h-4"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            stroke-width="2"
+                                            viewBox="0 0 24 24"
+                                        >
+                                            <path
+                                                stroke-linecap="round"
+                                                stroke-linejoin="round"
+                                                d="M5 12h14m-6-6 6 6-6 6"
+                                            />
+                                        </svg>
+
+                                        Outgoing
                                     </button>
 
                                 </div>

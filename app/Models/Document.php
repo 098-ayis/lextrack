@@ -5,10 +5,13 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Document extends Model
 {
     protected $primaryKey = 'document_id';
+    
+    protected $guarded = [];
 
     protected $fillable = [
         'user_id',
@@ -34,6 +37,32 @@ class Document extends Model
             'action_id',
             'action_id'
         );
+    }
+
+
+    public function notes(): HasMany
+    {
+        return $this->hasMany(
+            Note::class,
+            'document_id',
+            'document_id'
+        );
+    }
+
+    public function versions(): HasMany
+    {
+        return $this->hasMany(
+            DocumentVersion::class,
+            'document_id',
+            'document_id'
+        );
+    }
+
+    public function activityLogs(): HasMany
+    {
+        return $this->hasMany(ActivityLog::class,
+            'document_id',
+            'document_id');
     }
 
     

@@ -145,14 +145,16 @@ class Incoming extends Page
             });
     }
 
+
+
     public function editDocumentAction(): Action
     {
         return Action::make('editDocument')
-            ->label('Edit')
+            ->label('')
             ->icon('heroicon-o-pencil-square')
-            ->modalHeading('Edit Document')
+            ->tooltip('Edit')
             ->extraAttributes([
-                            'class' => 'edit-document-button',
+                'class' => 'edit-document-button',
             ])
 
             ->schema([
@@ -232,6 +234,16 @@ class Incoming extends Page
 
                 $document->update($data);
             });
+    }
+
+        public function markAsOutgoing(int $documentId): void
+    {
+        $document = Document::findOrFail($documentId);
+
+        $document->update([
+            'status' => 'outgoing',
+            'outgoing_date' => now(),
+        ]);
     }
 
     public function updatedSearch(): void
