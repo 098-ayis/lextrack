@@ -128,6 +128,13 @@
     border-radius: 999px;
 }
 
+
+
+
+/* ================================
+   DESKTOP / TOPBAR BRAND
+================================ */
+
 .fi-topbar .bu-brand {
     display: flex !important;
     align-items: center !important;
@@ -152,7 +159,6 @@
     display: flex !important;
     align-items: center !important;
     gap: 4px !important;
-
     font-size: 11px !important;
     font-weight: 700 !important;
     line-height: 1 !important;
@@ -168,7 +174,6 @@
     font-size: 11px !important;
 }
 
-.fi-topbar .bu-brand-office,
 .fi-topbar .bu-office {
     color: #ffffff !important;
     font-size: 18px !important;
@@ -177,6 +182,7 @@
     margin-top: 3px !important;
 }
 
+<<<<<<< HEAD
 /**===============================
    ADD DOCUMENT BUTTON
 ================================ */
@@ -282,3 +288,73 @@ Edit-Button
 .message-document-button:hover svg {
     color: #4F46E5 !important;
 } 
+=======
+/* ================================
+   MOBILE / SIDEBAR BRAND
+================================ */
+
+@media (max-width: 768px) {
+
+    .fi-sidebar .bu-brand,
+    .fi-sidebar-header .bu-brand {
+        display: flex !important;
+        align-items: center !important;
+        gap: 8px !important;
+
+        width: auto !important;
+        max-width: 220px !important;
+    }
+
+    .fi-sidebar .bu-brand-logo,
+    .fi-sidebar-header .bu-brand-logo {
+        width: 38px !important;
+        height: 38px !important;
+        max-width: 38px !important;
+        max-height: 38px !important;
+
+        object-fit: contain !important;
+        flex-shrink: 0 !important;
+    }
+
+    .fi-sidebar .bu-brand-text,
+    .fi-sidebar-header .bu-brand-text {
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: center !important;
+
+        line-height: 1 !important;
+    }
+
+    .fi-sidebar .bu-brand-name,
+    .fi-sidebar-header .bu-brand-name {
+        display: flex !important;
+        align-items: center !important;
+
+        gap: 3px !important;
+
+        font-size: 9px !important;
+        font-weight: 700 !important;
+    }
+
+    .fi-sidebar .bu-bicol,
+    .fi-sidebar-header .bu-bicol {
+        color: #4da3d9 !important;
+        font-size: 9px !important;
+    }
+
+    .fi-sidebar .bu-university,
+    .fi-sidebar-header .bu-university {
+        color: #f59e0b !important;
+        font-size: 9px !important;
+    }
+
+    .fi-sidebar .bu-office,
+    .fi-sidebar-header .bu-office {
+        color: #111827 !important;
+        font-size: 14px !important;
+        font-weight: 700 !important;
+
+        margin-top: 2px !important;
+    }
+}
+>>>>>>> 993d794 (medj responsive)
