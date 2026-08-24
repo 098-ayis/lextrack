@@ -2,125 +2,105 @@
 
 namespace App\Filament\Pages;
 
-use Filament\Pages\Page;
-use Filament\Tables\Table;
-use Filament\Tables\Contracts\HasTable;
-use Filament\Tables\Concerns\InteractsWithTable;
-use Filament\Tables\Columns\IconColumn;
-use Filament\Tables\Columns\TextColumn;
-use Filament\Actions\Action;
-use Filament\Tables\Filters\SelectFilter;
 use App\Models\Document;
+use Filament\Pages\Page;
+use Filament\Support\Enums\Width;
+use Livewire\WithPagination;
 
-
-class Pending extends Page implements HasTable
+class Pending extends Page
 {
-    use InteractsWithTable;
+    use WithPagination;
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-clock';
 
     protected string $view = 'filament.pages.pending';
 
+
+    protected $fillable = [
+    'user_id',
+    'type_id',
+    'action_id',
+    'lao_number',
+    'office_unit',
+    'particulars',
+    'deadline' => 'date',
+    'sent_to',
+    'sent_date',
+    'returned_from',
+    'date_returned',
+    'outgoing_date',
+    'status',
+    'file_path',
+    ];
+
     public string $search = '';
 
-    public string $documentType = '';
+    public string $typeFilter = '';
 
-    public string $priority = '';
+    public int $perPage = 10;
 
-    public string $dateFilter = '';
-
-    public function resetFilters(): void
+    public function getMaxContentWidth(): Width
     {
-        $this->search = '';
-        $this->documentType = '';
-        $this->priority = '';
-        $this->dateFilter = '';
+        return Width::Full;
     }
 
-    public function table(Table $table): Table
+    public function getDocuments()
     {
-        return $table
-            ->query(
-                Document::query()
-                    ->where('status', 'pending')
-            )
-            ->columns([
-                TextColumn::make('id')
-                    ->label('NO.')
-                    ->alignCenter(),
+        return Document::query()
+            ->with(['user', 'type', 'actionType'])
+            ->where('status', 'pending')
 
-                TextColumn::make('document_type')
-                    ->label('TYPE OF DOCUMENT')
-                    ->searchable()
-                    ->sortable(),
+            ->when($this->search, function ($query) {
+                $search = '%' . $this->search . '%';
 
-                TextColumn::make('office_unit')
-                    ->label('OFFICE / UNIT')
-                    ->searchable()
-                    ->sortable(),
+                $query->where(function ($query) use ($search) {
+                    $query
+                        ->where('lao_number', 'like', $search)
+                        ->orWhere('office_unit', 'like', $search)
+                        ->orWhere('particulars', 'like', $search)
+                        ->orWhere('sent_to', 'like', $search)
+                        ->orWhere('returned_from', 'like', $search);
+                });
+            })
 
-                TextColumn::make('particulars')
-                    ->label('PARTICULARS')
-                    ->wrap()
-                    ->searchable(),
+            ->when($this->typeFilter, function ($query) {
+                $query->where('type_id', $this->typeFilter);
+            })
 
-                TextColumn::make('status')
-                    ->label('STATUS')
-                    ->badge()
-                    ->color('warning'),
+            ->latest('outgoing_date')
+            ->paginate($this->perPage);
+    }
 
-                TextColumn::make('date_received')
-                    ->label('DATE RECEIVED')
-                    ->date('F d, Y')
-                    ->sortable(),
-            ])
-            ->filters([
-                SelectFilter::make('document_type')
-                    ->options([
-                        'MOA' => 'MOA',
-                        'Correspondence' => 'Correspondence',
-                        'Contract' => 'Contract',
-                        'Proposal' => 'Proposal',
-                        'UCMC' => 'UCMC',
-                        'PROCUREMENT' => 'PROCUREMENT',
-                        'REFERENCE SLIP' => 'REFERENCE SLIP',
-                        'Clearance' => 'Clearance',
-                        'MOU' => 'MOU',
-                        'NDA' => 'NDA',
-                        'DOD' => 'DOD',
-                        'GBA' => 'GBA',
-                    ]),
-            ])
+    public function acceptDocument(int $documentId): void
+    {
+        $document = Document::findOrFail($documentId);
 
-            ->actions([
-                Action::make('view')
-                    ->icon('heroicon-o-eye')
-                    ->color('primary')
-                    ->tooltip('View')
-                    ->url(fn (Document $record) =>
-                        $record->file_path
-                            ? asset('storage/' . $record->file_path)
-                            : null
-                    )
-                    ->openUrlInNewTab(),
+        $document->update([
+            'status' => 'in_progress',
+        ]);
+    }
 
-                Action::make('forward')
-                    ->icon('heroicon-o-paper-airplane')
-                    ->color('success')
-                    ->tooltip('Forward')
-                    ->requiresConfirmation(),
+    public function rejectDocument(int $documentId): void
+    {
+        $document = Document::findOrFail($documentId);
 
-                Action::make('delete')
-                    ->icon('heroicon-o-trash')
-                    ->color('danger')
-                    ->tooltip('Delete')
-                    ->requiresConfirmation()
-                    ->modalHeading('Delete Document')
-                    ->modalDescription('Are you sure you want to delete this document?')
-                    ->modalSubmitActionLabel('Yes, Delete'),
-            ])
-            ->actionsColumnLabel('ACTION')
-            ->striped()
-            ->paginated([10, 25, 50]);
+        $document->update([
+            'status' => 'rejected',
+        ]);
+    }
+
+    public function updatedSearch(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedTypeFilter(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedPerPage(): void
+    {
+        $this->resetPage();
     }
 }

@@ -496,8 +496,8 @@
                                         wire:click="markAsOutgoing({{ $document->document_id }})"
                                         class="inline-flex items-center gap-1.5
                                             h-9 px-3 rounded-md
-                                            bg-[#334155]
-                                            hover:bg-[#0F172A]
+                                            bg-[#0F172A]
+                                            hover:bg-[#334155]
                                             text-white
                                             text-xs font-semibold
                                             transition-colors duration-150"
