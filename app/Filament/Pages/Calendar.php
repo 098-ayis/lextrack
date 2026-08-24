@@ -15,6 +15,8 @@ use Illuminate\Support\Collection;
 
 class Calendar extends Page
 {
+    protected static ?int $navigationSort = 7;
+
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-calendar-days';
 
     protected static ?string $navigationLabel = 'Calendar';

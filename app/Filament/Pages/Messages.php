@@ -4,12 +4,21 @@ namespace App\Filament\Pages;
 
 use App\Models\Conversation;
 use Filament\Pages\Page;
+use Filament\Support\Enums\Width;
+
 
 class Messages extends Page
 {
+    protected static ?int $navigationSort = 5;
+
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-chat-bubble-left-right';
 
     protected string $view = 'filament.pages.messages';
+
+    public function getMaxContentWidth(): Width
+    {
+        return Width::Full;
+    }
 
     public function getViewData(): array
     {

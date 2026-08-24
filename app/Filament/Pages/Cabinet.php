@@ -6,6 +6,8 @@ use Filament\Pages\Page;
 
 class Cabinet extends Page
 {
+    protected static ?int $navigationSort = 6;
+
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-archive-box';
 
     protected static ?string $navigationLabel = 'Cabinet';

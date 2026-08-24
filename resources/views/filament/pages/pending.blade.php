@@ -331,13 +331,13 @@
                                             <a
                                                 href="{{ Storage::url($document->file_path) }}"
                                                 target="_blank"
-                                                class="inline-flex items-center justify-center
-                                                       w-9 h-9 rounded-md
-                                                       border border-[#2563EB]
-                                                       bg-white
-                                                       text-[#2563EB]
-                                                       hover:bg-blue-50
-                                                       transition"
+                                                 class="inline-flex items-center gap-1.5
+                                                bg-white hover:bg-blue-50
+                                                border border-blue-600
+                                                text-blue-600 hover:text-blue-700
+                                                text-xs font-semibold
+                                                px-3 py-1.5 rounded-md
+                                                transition-colors duration-150"
                                                 title="View"
                                             >
                                                 <svg
@@ -350,6 +350,7 @@
                                                     <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/>
                                                     <circle cx="12" cy="12" r="2.75"/>
                                                 </svg>
+                                                View
                                             </a>
 
                                         @endif
@@ -359,12 +360,13 @@
                                         <a
                                             href="{{ Storage::url($document->file_path) }}"
                                             download
-                                            class="inline-flex items-center justify-center
-                                                   w-9 h-9 rounded-md
-                                                   bg-[#334155]
-                                                   hover:bg-[#0F172A]
-                                                   text-white
-                                                   transition"
+                                            class="inline-flex items-center gap-1.5
+                                                bg-slate-800 hover:bg-slate-900
+                                                text-white
+                                                text-xs font-semibold
+                                                px-3 py-1.5 rounded-md
+                                                shadow-sm
+                                                transition-colors duration-150"
                                             title="Download"
                                         >
                                             <svg
@@ -376,6 +378,7 @@
                                             >
                                                 <path d="M12 3v12m0 0 4-4m-4 4-4-4M5 18v3h14v-3"/>
                                             </svg>
+                                            Download
                                         </a>
 
                                     </div>

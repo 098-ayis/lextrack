@@ -25,6 +25,8 @@ class Outgoing extends Page implements HasTable
 {
     use InteractsWithTable;
 
+    protected static ?int $navigationSort = 4;
+
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-paper-airplane';
     protected string $view = 'filament.pages.outgoing';
 

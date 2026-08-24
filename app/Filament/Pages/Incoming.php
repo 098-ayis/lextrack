@@ -17,6 +17,8 @@ use Filament\Support\Enums\Width;
 class Incoming extends Page
 {
     use WithPagination;
+    
+    protected static ?int $navigationSort = 3;
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-inbox';
 

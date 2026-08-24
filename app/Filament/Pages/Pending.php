@@ -9,6 +9,8 @@ use Livewire\WithPagination;
 
 class Pending extends Page
 {
+    protected static ?int $navigationSort = 2;
+
     use WithPagination;
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-clock';
