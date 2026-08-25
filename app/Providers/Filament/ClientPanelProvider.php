@@ -44,6 +44,8 @@ class ClientPanelProvider extends PanelProvider
             ])
             ->discoverWidgets(in: app_path('Filament/Client/Widgets'), for: 'App\Filament\Client\Widgets')
             ->widgets([
+                \App\Filament\Client\Widgets\DashboardStats::class,
+                \App\Filament\Client\Widgets\DashboardDocumentTable::class,
             ])
             ->middleware([
                 EncryptCookies::class,

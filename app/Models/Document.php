@@ -103,9 +103,9 @@ class Document extends Model
     }
 
 
-    public function conversation(): HasOne
+    public function conversation()
     {
-        return $this->hasOne(Conversation::class);
+        return $this->hasOne(Conversation::class, 'document_id');
     }
 
     protected static function booted(): void

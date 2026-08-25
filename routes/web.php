@@ -1,12 +1,15 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use Illuminate\Http\Requests;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
+use App\Models\Document;
 use App\Http\Controllers\AIController;
 use App\Http\Controllers\Auth\GoogleAuthController;
-use Illuminate\Support\Facades\Auth;
 
 Route::view('/ai-test', 'ai-test');
+
 Route::post('/ask-ai', [AIController::class, 'ask']);
 
 Route::get('/', function () {
@@ -18,12 +21,12 @@ Route::get('/auth/google', [GoogleAuthController::class, 'redirect'])
 
 Route::get('/auth/google/callback', [GoogleAuthController::class, 'callback']);
 
-Route::get('/api/user', function(Request $request) {
-        return response()->json([
-            'authenticated' => true,
-            'user' => $request->user(),
-        ]);
-    })->middleware('auth');
+Route::get('/api/user', function (Request $request) {
+    return response()->json([
+        'authenticated' => true,
+        'user' => $request->user(),
+    ]);
+})->middleware('auth');
 
 Route::post('/logout', function (Request $request) {
     Auth::logout();
@@ -32,28 +35,49 @@ Route::post('/logout', function (Request $request) {
     $request->session()->regenerateToken();
 
     return response()->json([
-        'message' => 'Logged out successfully'
+        'message' => 'Logged out successfully',
     ]);
 })->middleware('auth');
 
+
 /*
-Route::middleware(['auth', 'admin'])->group(function () {
-
-    Route::get('/api/admin/users', ...);
-
-    Route::get('/api/admin/documents', ...);
-
-    Route::delete('/api/admin/users/{id}', ...);
-
-});
+|--------------------------------------------------------------------------
+| Client document preview
+|--------------------------------------------------------------------------
 */
+
+Route::get('/client/document-preview/{document}', function ($document) {
+
+    $documentRecord = Document::query()
+        ->where('document_id', $document)
+        ->where('user_id', auth()->id())
+        ->firstOrFail();
+
+    abort_unless(
+        $documentRecord->file_path &&
+        Storage::disk('local')->exists($documentRecord->file_path),
+        404
+    );
+
+    return response()->file(
+        Storage::disk('local')->path($documentRecord->file_path)
+    );
+
+})
+    ->middleware('auth')
+    ->name('client.document.preview');
+
 
 Route::get('/dashboard', function () {
     return view('dashboard');
 })->middleware('auth')->name('dashboard');
 
+
+/*
+|--------------------------------------------------------------------------
+| Keep this LAST
+|--------------------------------------------------------------------------
+*/
+
 Route::view('/{any}', 'home')
     ->where('any', '.*');
-
-
-

@@ -2,23 +2,36 @@
 
 namespace App\Filament\Client\Widgets;
 
+use App\Models\Document;
 use Filament\Widgets\Widget;
+use Illuminate\Support\Facades\Auth;
 
 class DashboardStats extends Widget
 {
+    protected static ?int $sort = 1;
+
     protected string $view = 'filament.client.widgets.dashboard-stats';
-    
-    protected int | string | array $columnSpan = 'full'; 
+
+    protected int | string | array $columnSpan = 'full';
 
     protected function getViewData(): array
     {
-        // For now, we use dummy data. 
-        // Later, replace with real queries like: Document::where('status', 'Pending')->count()
+        $userId = Auth::id();
+
         return [
-            'total' => 20,
-            'pending' => 2,
-            'active' => 10,
-            'completed' => 8,
+            'total' => Document::where('user_id', $userId)->count(),
+
+            'pending' => Document::where('user_id', $userId)
+                ->where('status', 'pending')
+                ->count(),
+
+            'active' => Document::where('user_id', $userId)
+                ->where('status', 'in_progress')
+                ->count(),
+
+            'completed' => Document::where('user_id', $userId)
+                ->where('status', 'completed')
+                ->count(),
         ];
     }
 }
