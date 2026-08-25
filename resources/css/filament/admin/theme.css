@@ -99,12 +99,12 @@
 
 /* Hover */
 .fi-topbar .fi-topbar-item:hover .fi-topbar-item-label {
-    color: #ffffff !important;
+    color: #623BE7 !important;
 }
 
 /* Active */
 .fi-topbar .fi-topbar-item.fi-active .fi-topbar-item-label {
-    color: #ffffff !important;
+    color: #623BE7 !important;
 }
 
 
@@ -123,7 +123,7 @@
 
     height: 2px;
 
-    background: #ffffff;
+    background: #623BE7;
 
     border-radius: 999px;
 }
@@ -182,7 +182,7 @@
     margin-top: 3px !important;
 }
 
-<<<<<<< HEAD
+
 /**===============================
    ADD DOCUMENT BUTTON
 ================================ */
@@ -288,7 +288,7 @@ Edit-Button
 .message-document-button:hover svg {
     color: #4F46E5 !important;
 } 
-=======
+
 /* ================================
    MOBILE / SIDEBAR BRAND
 ================================ */
@@ -357,4 +357,4 @@ Edit-Button
         margin-top: 2px !important;
     }
 }
->>>>>>> 993d794 (medj responsive)
+
