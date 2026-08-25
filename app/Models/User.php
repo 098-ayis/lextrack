@@ -16,14 +16,18 @@ use Filament\Models\Contracts\HasAvatar;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use App\Models\Conversation;
 use App\Models\Document;
+use Filament\Models\Contracts\HasAvatar;
+use Spatie\Permission\Traits\HasRoles;
 
 #[Fillable(['name', 'email', 'password'])]
 #[Hidden(['password', 'remember_token'])]
+
 
 class User extends Authenticatable implements HasAvatar
 {
     /** @use HasFactory<UserFactory> */
     use HasApiTokens, HasFactory, Notifiable;
+    use HasRoles;
 
     protected $fillable = [
         'name',
