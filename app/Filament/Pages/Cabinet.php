@@ -2,7 +2,15 @@
 
 namespace App\Filament\Pages;
 
+use App\Models\Document;
+use App\Models\DocumentType;
+use Filament\Actions\Action;
+use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Textarea;
 use Filament\Pages\Page;
+use Illuminate\Support\Facades\Storage;
 
 class Cabinet extends Page
 {
@@ -15,6 +23,8 @@ class Cabinet extends Page
     protected static ?string $title = 'Cabinet';
 
     protected string $view = 'filament.pages.cabinet';
+
+    public array $cabinet = [];
 
     public string $search = '';
 
@@ -32,34 +42,252 @@ class Cabinet extends Page
 
     public ?string $selectedItem = null;
 
+    public ?int $selectedDocumentId = null;
+
     public string $currentType = '';
 
     public string $currentOffice = '';
 
+    public function mount(): void
+    {
+        $this->loadCabinet();
+    }
+
+    public function loadCabinet(): void
+    {
+        $documents = Document::query()
+            ->with('type')
+            ->whereNotNull('type_id')
+            ->whereNotNull('office_unit')
+            ->get();
+
+        $this->cabinet = $documents
+            ->filter(
+                fn (Document $document) =>
+                    $document->type !== null
+            )
+            ->groupBy(
+                fn (Document $document) =>
+                    $document->type->type_name
+            )
+            ->map(function ($documentsByType) {
+                return $documentsByType
+                    ->groupBy(function (Document $document) {
+                        $office = trim((string) $document->office_unit);
+
+                        return $office !== ''
+                            ? $office
+                            : 'Unspecified Office';
+                    })
+                    ->map(function ($documents) {
+                        return $documents
+                            ->map(function (Document $document) {
+                                $fileName = $document->file_path
+                                    ? basename($document->file_path)
+                                    : ($document->particulars ?: 'Untitled Document');
+
+                                $fileSize = '—';
+
+                                if (
+                                    $document->file_path &&
+                                    Storage::disk('public')->exists($document->file_path)
+                                ) {
+                                    $bytes = Storage::disk('public')
+                                        ->size($document->file_path);
+
+                                    $fileSize = $this->formatFileSize($bytes);
+                                }
+
+                                return [
+                                    'id' => $document->document_id,
+
+                                    'name' => $fileName,
+
+                                    'particulars' => $document->particulars,
+
+                                    'lao_number' => $document->lao_number,
+
+                                    'size' => $fileSize,
+
+                                    'date' => $document->updated_at
+                                        ? $document->updated_at->format('M d, Y')
+                                        : '—',
+
+                                    'type' => $document->type?->type_name
+                                        ?? 'Unknown',
+
+                                    'other_document_type' =>
+                                        $document->other_document_type,
+
+                                    'office_unit' =>
+                                        $document->office_unit,
+
+                                    'status' =>
+                                        $document->status,
+
+                                    'file_path' =>
+                                        $document->file_path,
+                                ];
+                            })
+                            ->values()
+                            ->toArray();
+                    })
+                    ->toArray();
+            })
+            ->toArray();
+    }
+
+    public function addDocumentAction(): Action
+    {
+        return Action::make('addDocument')
+            ->label('Add Document')
+            ->icon('heroicon-o-document-plus')
+            ->color('primary')
+            ->modalHeading('Add Document')
+            ->modalSubmitActionLabel('Save Document')
+            ->form([
+                Select::make('type_id')
+                    ->label('Document Type')
+                    ->options(
+                        DocumentType::query()
+                            ->orderBy('type_name')
+                            ->pluck('type_name', 'type_id')
+                    )
+                    ->searchable()
+                    ->preload()
+                    ->live()
+                    ->required(),
+
+                TextInput::make('other_document_type')
+                    ->label('Specify Document Type')
+                    ->placeholder('e.g. Affidavit, Certification')
+                    ->maxLength(255)
+                    ->visible(function ($get): bool {
+                        $typeId = $get('type_id');
+
+                        if (! $typeId) {
+                            return false;
+                        }
+
+                        return DocumentType::query()
+                            ->where('type_id', $typeId)
+                            ->where('type_name', 'Others')
+                            ->exists();
+                    })
+                    ->required(function ($get): bool {
+                        $typeId = $get('type_id');
+
+                        if (! $typeId) {
+                            return false;
+                        }
+
+                        return DocumentType::query()
+                            ->where('type_id', $typeId)
+                            ->where('type_name', 'Others')
+                            ->exists();
+                    }),
+
+                TextInput::make('office_unit')
+                    ->label('Office / Unit')
+                    ->required()
+                    ->maxLength(255),
+
+                TextInput::make('lao_number')
+                    ->label('LAO Number')
+                    ->maxLength(255),
+
+                Textarea::make('particulars')
+                    ->label('Particulars')
+                    ->rows(3),
+
+                FileUpload::make('file_path')
+                    ->label('Document File')
+                    ->disk('public')
+                    ->directory('documents')
+                    ->preserveFilenames()
+                    ->acceptedFileTypes([
+                        'application/pdf',
+                        'application/msword',
+                        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                    ])
+                    ->required(),
+            ])
+            ->action(function (array $data): void {
+                $type = DocumentType::find($data['type_id']);
+
+                Document::create([
+                    'user_id' => auth()->id(),
+
+                    'type_id' => $data['type_id'],
+
+                    'other_document_type' =>
+                        $type?->type_name === 'Others'
+                            ? ($data['other_document_type'] ?? null)
+                            : null,
+
+                    'office_unit' =>
+                        $data['office_unit'],
+
+                    'lao_number' =>
+                        $data['lao_number'] ?? null,
+
+                    'particulars' =>
+                        $data['particulars'] ?? null,
+
+                    'file_path' =>
+                        $data['file_path'],
+
+                    'status' =>
+                        'in_progress',
+                ]);
+
+                $this->loadCabinet();
+            });
+    }
+
     public function openType(string $type): void
     {
+        if (! isset($this->cabinet[$type])) {
+            return;
+        }
+
         $this->currentType = $type;
         $this->currentOffice = '';
+
         $this->selectedItem = null;
+        $this->selectedDocumentId = null;
     }
 
     public function openOffice(string $office): void
     {
+        if (
+            $this->currentType === '' ||
+            ! isset($this->cabinet[$this->currentType][$office])
+        ) {
+            return;
+        }
+
         $this->currentOffice = $office;
+
         $this->selectedItem = null;
+        $this->selectedDocumentId = null;
     }
 
     public function goToRoot(): void
     {
         $this->currentType = '';
         $this->currentOffice = '';
+
         $this->selectedItem = null;
+        $this->selectedDocumentId = null;
     }
 
     public function goToType(): void
     {
         $this->currentOffice = '';
+
         $this->selectedItem = null;
+        $this->selectedDocumentId = null;
     }
 
     public function clearSearch(): void
@@ -69,11 +297,19 @@ class Cabinet extends Page
 
     public function setViewMode(string $mode): void
     {
+        if (! in_array($mode, ['tiles', 'content'])) {
+            return;
+        }
+
         $this->viewMode = $mode;
     }
 
     public function setSort(string $sort): void
     {
+        if (! in_array($sort, ['name', 'date', 'type', 'size'])) {
+            return;
+        }
+
         $this->sortBy = $sort;
     }
 
@@ -97,11 +333,42 @@ class Cabinet extends Page
 
     public function toggleFileExtensions(): void
     {
-        $this->showFileExtensions = ! $this->showFileExtensions;
+        $this->showFileExtensions =
+            ! $this->showFileExtensions;
     }
 
-    public function selectItem(string $item): void
-    {
+    public function selectItem(
+        string $item,
+        ?int $documentId = null
+    ): void {
         $this->selectedItem = $item;
+
+        $this->selectedDocumentId = $documentId;
+    }
+
+    protected function formatFileSize(int $bytes): string
+    {
+        if ($bytes >= 1073741824) {
+            return number_format(
+                $bytes / 1073741824,
+                2
+            ) . ' GB';
+        }
+
+        if ($bytes >= 1048576) {
+            return number_format(
+                $bytes / 1048576,
+                2
+            ) . ' MB';
+        }
+
+        if ($bytes >= 1024) {
+            return number_format(
+                $bytes / 1024,
+                2
+            ) . ' KB';
+        }
+
+        return $bytes . ' B';
     }
 }

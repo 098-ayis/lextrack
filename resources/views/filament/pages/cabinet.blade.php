@@ -2,123 +2,7 @@
 
     @php
 
-        /*
-        |--------------------------------------------------------------------------
-        | SAMPLE DATA
-        |--------------------------------------------------------------------------
-        | Replace this section with your database queries later.
-        |--------------------------------------------------------------------------
-        */
-
-        $cabinet = [
-
-            'Legal Documents' => [
-
-                'College of Science' => [
-                    [
-                        'name' => 'Memorandum on Student Affairs.pdf',
-                        'size' => '1.2 MB',
-                        'date' => 'Aug 20, 2026',
-                        'type' => 'PDF',
-                    ],
-                    [
-                        'name' => 'Request for Legal Review.docx',
-                        'size' => '428 KB',
-                        'date' => 'Aug 19, 2026',
-                        'type' => 'Word Document',
-                    ],
-                    [
-                        'name' => 'MOA Draft.pdf',
-                        'size' => '2.4 MB',
-                        'date' => 'Aug 18, 2026',
-                        'type' => 'PDF',
-                    ],
-                ],
-
-                'College of Education' => [
-                    [
-                        'name' => 'Endorsement Letter.pdf',
-                        'size' => '850 KB',
-                        'date' => 'Aug 17, 2026',
-                        'type' => 'PDF',
-                    ],
-                    [
-                        'name' => 'Faculty Agreement.docx',
-                        'size' => '520 KB',
-                        'date' => 'Aug 16, 2026',
-                        'type' => 'Word Document',
-                    ],
-                ],
-
-                'College of Engineering' => [
-                    [
-                        'name' => 'Engineering Request.pdf',
-                        'size' => '1.1 MB',
-                        'date' => 'Aug 15, 2026',
-                        'type' => 'PDF',
-                    ],
-                ],
-
-            ],
-
-            'Contracts & Agreements' => [
-
-                'Procurement Office' => [
-                    [
-                        'name' => 'Supplier Agreement.pdf',
-                        'size' => '3.1 MB',
-                        'date' => 'Aug 19, 2026',
-                        'type' => 'PDF',
-                    ],
-                    [
-                        'name' => 'Contract Review.docx',
-                        'size' => '730 KB',
-                        'date' => 'Aug 18, 2026',
-                        'type' => 'Word Document',
-                    ],
-                ],
-
-                'Human Resource Office' => [
-                    [
-                        'name' => 'Employment Contract.pdf',
-                        'size' => '1.8 MB',
-                        'date' => 'Aug 17, 2026',
-                        'type' => 'PDF',
-                    ],
-                ],
-
-            ],
-
-            'Administrative Documents' => [
-
-                'Registrar Office' => [
-                    [
-                        'name' => 'Request for Certification.pdf',
-                        'size' => '620 KB',
-                        'date' => 'Aug 16, 2026',
-                        'type' => 'PDF',
-                    ],
-                ],
-
-                'Human Resource Office' => [
-                    [
-                        'name' => 'Personnel Memorandum.pdf',
-                        'size' => '950 KB',
-                        'date' => 'Aug 15, 2026',
-                        'type' => 'PDF',
-                    ],
-                ],
-
-            ],
-
-        ];
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | BASIC STATE
-        |--------------------------------------------------------------------------
-        */
+        $cabinet = $this->cabinet;
 
         $documentTypes = array_keys($cabinet);
 
@@ -130,10 +14,12 @@
 
         $isRoot = $currentType === '';
 
-        $isTypeView = $currentType !== ''
+        $isTypeView =
+            $currentType !== ''
             && $currentOffice === '';
 
-        $isOfficeView = $currentType !== ''
+        $isOfficeView =
+            $currentType !== ''
             && $currentOffice !== '';
 
         $currentDocuments = [];
@@ -142,11 +28,13 @@
             $isOfficeView &&
             isset($cabinet[$currentType][$currentOffice])
         ) {
-            $currentDocuments = $cabinet[$currentType][$currentOffice];
+            $currentDocuments =
+                $cabinet[$currentType][$currentOffice];
         }
 
     @endphp
 
+        
 
     {{-- ============================================================= --}}
     {{-- MAIN CABINET --}}
@@ -614,6 +502,7 @@
                 {{-- ADD DOCUMENT --}}
                 <button
                     type="button"
+                    wire:click="mountAction('addDocument')"
                     class="inline-flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-500"
                 >
 
@@ -926,7 +815,7 @@
                             @if($matchesSearch)
 
                                 <button
-                                    wire:click="selectItem('{{ $fileName }}')"
+                                    wire:click="selectItem(@js($fileName), {{ $document['id'] }})"
                                     class="grid w-full grid-cols-[minmax(0,1fr)_120px_160px_60px] items-center border-b border-gray-100 px-5 py-4 text-left transition hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800"
                                 >
 

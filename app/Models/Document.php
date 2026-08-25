@@ -16,11 +16,13 @@ class Document extends Model
     protected $fillable = [
         'user_id',
         'type_id',
+        'other_document_type',
         'action_id',
         'lao_number',
         'office_unit',
         'particulars',
         'deadline' => 'date',
+        'action_taken',
         'sent_to',
         'sent_date',
         'returned_from',
@@ -28,6 +30,7 @@ class Document extends Model
         'outgoing_date',
         'status',
         'file_path',
+        'status_other',
     ];
 
     public function actionType(): BelongsTo
