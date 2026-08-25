@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Calendar extends Model
 {
@@ -19,11 +20,15 @@ class Calendar extends Model
     protected $casts = [
         'date' => 'date',
         'time' => 'datetime:H:i',
+
+        'reminder_3_days_sent_at' => 'datetime',
+        'reminder_1_day_sent_at' => 'datetime',
+        'reminder_10_minutes_sent_at' => 'datetime',
     ];
 
     public function user(): BelongsTo
     {
-         return $this->belongsTo(
+        return $this->belongsTo(
             User::class,
             'user_id',
             'id'

@@ -214,8 +214,28 @@ class Calendar extends Page
                     ->searchable()
                     ->required(),
             ])
+
             ->action(function (array $data) use ($event): void {
+                $dateChanged =
+                    $event->date?->format('Y-m-d') !== $data['date'];
+
+                $timeChanged =
+                    $event->time?->format('H:i:s') !==
+                    \Carbon\Carbon::parse($data['time'])->format('H:i:s');
+
+
+                $userChanged =
+                    (int) $event->user_id !== (int) $data['user_id'];
+
                 $event->update($data);
+
+                if ($dateChanged || $timeChanged || $userChanged) {
+                    $event->forceFill([
+                        'reminder_3_days_sent_at' => null,
+                        'reminder_1_day_sent_at' => null,
+                        'reminder_10_minutes_sent_at' => null,
+                    ])->save();
+                }
 
                 Notification::make()
                     ->title('Event updated')
