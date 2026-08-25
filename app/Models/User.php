@@ -13,6 +13,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Laravel\Sanctum\HasApiTokens;
 use App\Models\Client;
 use Filament\Models\Contracts\HasAvatar;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
+use App\Models\Conversation;
+use App\Models\Document;
 
 #[Fillable(['name', 'email', 'password'])]
 #[Hidden(['password', 'remember_token'])]
@@ -74,5 +77,17 @@ class User extends Authenticatable implements HasAvatar
     public function calendarEvents(): HasMany
     {
         return $this->hasMany(Calendar::class, 'user_id', 'id');
+    }
+
+    public function conversations(): HasManyThrough
+    {
+        return $this->hasManyThrough(
+            Conversation::class,
+            Document::class,
+            'user_id',      
+            'document_id',  
+            'id',           
+            'document_id'   
+        );
     }
 }
