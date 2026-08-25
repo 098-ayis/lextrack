@@ -231,7 +231,7 @@
 
 
             {{-- RIGHT SIDE --}}
-            <div class="space-y-4">
+            <div class="space-y-4 pt-14">
 
                 {{-- CLOCK --}}
                 <div
