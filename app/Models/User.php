@@ -90,7 +90,12 @@ class User extends Authenticatable implements HasAvatar
             'user_id',      
             'document_id',  
             'id',           
-            'document_id'   
+            'document_id'
         );
+    }
+
+    public function documentRequests(): HasMany
+    {
+        return $this->hasMany(DocumentRequest::class, 'user_id');
     }
 }

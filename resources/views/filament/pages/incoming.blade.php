@@ -56,37 +56,47 @@
     </svg>
 
     @php
-        $stats = $this->getStats();
-        $documents = $this->getDocuments();
+        $activeSection = $this->activeSection;
+        $statusCounts = $this->getStatusCounts();
+        $documents = $this->getDocuments($activeSection);
     @endphp
 
+    {{-- STATUS HEADER --}}
 
-    {{-- STAT CARDS --}}
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <div class="bg-white rounded-lg border-t-4 border-primary-600 p-4 shadow-sm">
-            <p class="text-xs font-semibold text-gray-500">TOTAL DOCUMENTS</p>
-            <p class="text-3xl font-bold mt-1">{{ $stats['total'] }}</p>
-        </div>
-
-        <div class="bg-white rounded-lg border-t-4 border-amber-400 p-4 shadow-sm">
-            <p class="text-xs font-semibold text-gray-500">PENDING</p>
-            <p class="text-3xl font-bold mt-1">{{ $stats['pending'] }}</p>
-        </div>
-
-        <div class="bg-white rounded-lg border-t-4 border-indigo-500 p-4 shadow-sm">
-            <p class="text-xs font-semibold text-gray-500">ACTIVE</p>
-            <p class="text-3xl font-bold mt-1">{{ $stats['active'] }}</p>
-        </div>
-
-        <div class="bg-white rounded-lg border-t-4 border-green-500 p-4 shadow-sm">
-            <p class="text-xs font-semibold text-gray-500">COMPLETED</p>
-            <p class="text-3xl font-bold mt-1">{{ $stats['completed'] }}</p>
-        </div>
+    <div class="mb-4 w-full overflow-x-auto rounded-lg border border-gray-300 bg-white shadow-sm">
+        <nav class="flex min-w-max items-center gap-1 p-2" aria-label="Document status">
+            @foreach ([
+                'pending' => 'Pending',
+                'incoming' => 'Incoming',
+                'outgoing' => 'Outgoing',
+                'archive' => 'Archive',
+                'rejected' => 'Rejected',
+            ] as $section => $label)
+                <a
+                    href="{{ request()->fullUrlWithQuery(['section' => $section]) }}"
+                    class="rounded-md px-4 py-2 text-sm font-semibold transition-colors
+                        {{ $activeSection === $section
+                            ? 'bg-[#0F172A] text-white'
+                            : 'text-gray-600 hover:bg-gray-100' }}"
+                >
+                    {{ $label }}
+                    <span
+                        class="ml-2 inline-flex min-w-5 justify-center rounded-full px-1.5 py-0.5 text-xs
+                            {{ $activeSection === $section
+                                ? 'bg-white/20 text-white'
+                                : 'bg-gray-200 text-gray-600' }}"
+                    >
+                        {{ $statusCounts[$section] ?? 0 }}
+                    </span>
+                </a>
+            @endforeach
+        </nav>
     </div>
-
 
     {{-- SEARCH + FILTER --}}
     <div class="flex flex-wrap items-center gap-3 mb-0">
+
+        <div class="flex flex-wrap items-center gap-3">
 
         {{-- Search --}}
         <div class="relative w-full sm:w-80">
@@ -104,7 +114,6 @@
                 <use href="#icon-search"/>
             </svg>
         </div>
-
 
         {{-- Document Type Filter --}}
         <div class="relative w-full sm:w-52">
@@ -140,6 +149,12 @@
             </svg>
         </div>
 
+        </div>
+
+        {{-- Add Document --}}
+        <div class="ml-auto">
+            {{ $this->addDocumentAction }}
+        </div>
     </div>
     
     {{-- TABLE CONTROLS CONTAINER --}}
@@ -179,19 +194,762 @@
                 </div>
             </div>
 
-            {{-- Add Document --}}
-            {{ $this->addDocumentAction }}
-
         </div>
 
     
 
-    @if ($documents->count())
+    @if ($activeSection === 'pending')
+        @if ($documents->count())
 
         {{-- TABLE --}}
         <div class="w-full overflow-x-auto border border-gray-300 bg-white">
 
-            <table class="w-full min-w-[1300px] border-collapse">
+            <table class="w-full min-w-[1000px] lg:min-w-0 border-collapse">
+
+                <thead>
+                    <tr class="border-b border-gray-300 bg-white">
+
+                        <th class="w-16 px-4 py-4 text-left text-sm font-bold">
+                            NO.
+                        </th>
+
+                        <th class="min-w-[280px] px-4 py-4 text-left text-sm font-bold">
+                            DOCUMENT
+                        </th>
+
+                        <th class="min-w-[160px] px-4 py-4 text-left text-sm font-bold">
+                            DOCUMENT TYPE
+                        </th>
+
+                        <th class="min-w-[180px] px-4 py-4 text-left text-sm font-bold">
+                            UPLOADED BY
+                        </th>
+
+                        <th class="min-w-[190px] px-4 py-4 text-center text-sm font-bold">
+                            FILE
+                        </th>
+
+                        <th class="min-w-[150px] px-4 py-4 text-center text-sm font-bold">
+                            ACTION
+                        </th>
+
+                    </tr>
+                </thead>
+
+                <tbody class="text-xs">
+                    @php $currentUploadDate = null; @endphp
+
+                    @foreach ($documents as $document)
+                        @php
+                            $uploadDate = $document->created_at?->format('Y-m-d');
+                        @endphp
+
+                        @if ($uploadDate !== $currentUploadDate)
+                            <tr class="border-y border-blue-200 bg-blue-50">
+                                <td colspan="6" class="px-4 py-2 text-xs font-bold text-blue-900">
+                                    Uploaded {{ $document->created_at?->format('F d, Y') ?? 'Unknown date' }}
+                                </td>
+                            </tr>
+                            @php $currentUploadDate = $uploadDate; @endphp
+                        @endif
+
+                        <tr
+                            data-view-url="{{ \App\Filament\Pages\ViewDocument::getUrl(['document' => $document->document_id]) }}"
+                            onclick="if (!event.target.closest('button, a, input, select, textarea')) window.location.href = this.dataset.viewUrl"
+                            class="border-b border-gray-300
+                                   {{ $loop->odd ? 'bg-[#F2F2F2]' : 'bg-white' }} cursor-pointer hover:bg-blue-50"
+                        >
+
+                            {{-- Number --}}
+                            <td class="px-4 py-4 text-xs font-semibold align-middle">
+                                {{ $documents->firstItem() + $loop->index }}
+                            </td>
+
+                            {{-- Document --}}
+                            <td class="px-4 py-4 align-middle">
+
+                                <div class="space-y-1 text-xs">
+
+                                    <div>
+                                        <span class="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                                            LAO No:
+                                        </span>
+
+                                        <span class="font-semibold text-gray-900">
+                                            {{ $document->lao_number }}
+                                        </span>
+                                    </div>
+
+                                    <div>
+                                        <span class="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                                            Office/Unit:
+                                        </span>
+
+                                        <span class="font-medium text-gray-800">
+                                            {{ $document->office_unit }}
+                                        </span>
+                                    </div>
+
+                                    <div>
+                                        <span class="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                                            Particulars:
+                                        </span>
+
+                                        <span class="font-medium text-gray-800">
+                                            {{ $document->particulars }}
+                                        </span>
+                                    </div>
+
+                                </div>
+
+                            </td>
+
+                            {{-- Document Type --}}
+                            <td class="px-4 py-4 align-middle">
+
+                                @if ($document->type)
+
+                                    <span
+                                        class="inline-flex items-center px-3 py-1
+                                               rounded-full text-xs font-semibold text-white"
+                                        style="background-color: {{ $document->type->color ?? '#059669' }};"
+                                    >
+                                        {{ $document->type->type_name }}
+                                    </span>
+
+                                @else
+
+                                    <span class="text-xs italic text-gray-500">
+                                        Unknown
+                                    </span>
+
+                                @endif
+
+                            </td>
+
+                            {{-- Uploaded By --}}
+                            <td class="px-4 py-4 align-middle">
+
+                                @if ($document->user)
+
+                                    <div class="flex items-center gap-3">
+
+                                        {{-- Profile Picture --}}
+                                        @if ($document->user->profile_photo_url)
+                                            <img
+                                                src="{{ $document->user->profile_photo_url }}"
+                                                alt="{{ $document->user->name }}"
+                                                class="w-9 h-9 rounded-full object-cover
+                                                    border border-gray-300
+                                                    flex-shrink-0"
+                                            >
+                                        @else
+                                            {{-- Fallback Avatar --}}
+                                            <div
+                                                class="w-9 h-9 rounded-full
+                                                    bg-gray-200 border border-gray-300
+                                                    flex items-center justify-center
+                                                    flex-shrink-0"
+                                            >
+                                                <span class="text-xs font-bold text-gray-600">
+                                                    {{ strtoupper(substr($document->user->name ?? 'U', 0, 1)) }}
+                                                </span>
+                                            </div>
+                                        @endif
+
+                                        {{-- User Information --}}
+                                        <div class="flex flex-col min-w-0">
+
+                                            <span class="text-xs font-semibold text-gray-900">
+                                                {{ $document->user->name }}
+                                            </span>
+
+                                            <span class="text-xs text-gray-500 truncate">
+                                                {{ $document->user->email }}
+                                            </span>
+
+                                        </div>
+
+                                    </div>
+
+                                @else
+
+                                    <span class="text-xs italic text-gray-500">
+                                        Unknown
+                                    </span>
+
+                                @endif
+
+                            </td>
+
+                            {{-- File --}}
+                            <td class="px-4 py-4 align-middle">
+
+                                @if ($document->file_path)
+
+                                    <div class="flex items-center justify-center gap-2">
+
+                                        {{-- View --}}
+                                        <a
+                                                href="{{ \App\Filament\Pages\ViewDocument::getUrl(['document' => $document->document_id]) }}"
+                                                 class="inline-flex items-center gap-1.5
+                                                bg-white hover:bg-blue-50
+                                                border border-blue-600
+                                                text-blue-600 hover:text-blue-700
+                                                text-xs font-semibold
+                                                px-3 py-1.5 rounded-md
+                                                transition-colors duration-150"
+                                                title="View"
+                                            >
+                                                <svg
+                                                    class="w-4 h-4"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    stroke-width="2"
+                                                    viewBox="0 0 24 24"
+                                                >
+                                                    <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/>
+                                                    <circle cx="12" cy="12" r="2.75"/>
+                                                </svg>
+                                                View
+                                        </a>
+
+                                        {{-- Download --}}
+                                        <a
+                                            href="{{ Storage::url($document->file_path) }}"
+                                            download
+                                            class="inline-flex items-center gap-1.5
+                                                bg-slate-800 hover:bg-slate-900
+                                                text-white
+                                                text-xs font-semibold
+                                                px-3 py-1.5 rounded-md
+                                                shadow-sm
+                                                transition-colors duration-150"
+                                            title="Download"
+                                        >
+                                            <svg
+                                                class="w-4 h-4"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                stroke-width="2"
+                                                viewBox="0 0 24 24"
+                                            >
+                                                <path d="M12 3v12m0 0 4-4m-4 4-4-4M5 18v3h14v-3"/>
+                                            </svg>
+                                            Download
+                                        </a>
+
+                                    </div>
+
+                                @else
+
+                                    <div class="flex items-center justify-center gap-2">
+                                        <a
+                                            href="{{ \App\Filament\Pages\ViewDocument::getUrl(['document' => $document->document_id]) }}"
+                                            class="inline-flex items-center gap-1.5
+                                                bg-white hover:bg-blue-50
+                                                border border-blue-600
+                                                text-blue-600 hover:text-blue-700
+                                                text-xs font-semibold
+                                                px-3 py-1.5 rounded-md
+                                                transition-colors duration-150"
+                                            title="View"
+                                        >
+                                            <svg
+                                                class="w-4 h-4"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                stroke-width="2"
+                                                viewBox="0 0 24 24"
+                                            >
+                                                <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/>
+                                                <circle cx="12" cy="12" r="2.75"/>
+                                            </svg>
+                                            View
+                                        </a>
+
+                                        <span class="text-xs italic text-gray-400">
+                                            No file
+                                        </span>
+                                    </div>
+
+                                @endif
+
+                            </td>
+
+                            {{-- Actions --}}
+                            <td class="px-4 py-4 align-middle">
+
+                                <div class="flex items-center justify-center gap-2">
+
+                                    {{-- Accept --}}
+                                    <button
+                                        type="button"
+                                        wire:click="acceptDocument({{ $document->document_id }})"
+                                        wire:confirm="Are you sure you want to accept this document?"
+                                        class="inline-flex items-center justify-center
+                                            w-9 h-9 rounded-md
+                                            bg-green-600
+                                            hover:bg-green-700
+                                            text-white
+                                            transition"
+                                        title="Accept"
+                                    >
+                                        <svg
+                                            class="w-4 h-4"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            stroke-width="2"
+                                            viewBox="0 0 24 24"
+                                        >
+                                            <path
+                                                stroke-linecap="round"
+                                                stroke-linejoin="round"
+                                                d="M5 13l4 4L19 7"
+                                            />
+                                        </svg>
+                                    </button>
+
+                                    {{-- Reject --}}
+                                    {{ ($this->rejectDocumentAction)([
+                                        'document' => $document->document_id,
+                                    ]) }}
+
+                                </div>
+
+                            </td>
+
+                        </tr>
+
+                    @endforeach
+                </tbody>
+
+            </table>
+
+        </div>
+
+            <div class="mt-4">
+                {{ $documents->links() }}
+            </div>
+
+        @else
+
+            <div class="border border-dashed border-gray-300 bg-white rounded-lg py-16 text-center">
+                <h3 class="text-base font-semibold text-gray-800">
+                    No pending documents yet
+                </h3>
+                <p class="mt-1 text-sm text-gray-500">
+                    Documents marked as pending will appear here.
+                </p>
+            </div>
+        @endif
+
+    @elseif ($activeSection === 'outgoing')
+        @if ($documents->count())
+
+        {{-- TABLE --}}
+        <div class="w-full overflow-x-auto border border-gray-300 bg-white">
+
+            <table class="w-full min-w-[1500px] lg:min-w-0 border-collapse">
+
+                <thead>
+                    <tr class="border-b border-gray-300 bg-white">
+
+                        <th class="w-16 px-4 py-4 text-left text-sm font-bold">
+                            NO.
+                        </th>
+
+                        <th class="min-w-[280px] px-4 py-4 text-left text-sm font-bold">
+                            DOCUMENT
+                        </th>
+
+                        <th class="min-w-[160px] px-4 py-4 text-left text-sm font-bold">
+                            DOCUMENT TYPE
+                        </th>
+
+                        <th class="min-w-[170px] px-4 py-4 text-left text-sm font-bold">
+                            OUTGOING DATE
+                        </th>
+
+                        <th class="min-w-[180px] px-4 py-4 text-left text-sm font-bold">
+                            SENT TO
+                        </th>
+
+                        <th class="min-w-[160px] px-4 py-4 text-left text-sm font-bold">
+                            SENT DATE
+                        </th>
+
+                        <th class="min-w-[180px] px-4 py-4 text-left text-sm font-bold">
+                            RETURNED FROM
+                        </th>
+
+                        <th class="min-w-[170px] px-4 py-4 text-left text-sm font-bold">
+                            RETURNED DATE
+                        </th>
+
+                        <th class="min-w-[190px] px-4 py-4 text-center text-sm font-bold">
+                            FILE
+                        </th>
+
+                        <th class="min-w-[150px] px-4 py-4 text-center text-sm font-bold">
+                            ACTION
+                        </th>
+
+                    </tr>
+                </thead>
+
+                <tbody class="text-xs">
+                    @php $currentUploadDate = null; @endphp
+
+                    @foreach ($documents as $document)
+                        @php
+                            $uploadDate = $document->created_at?->format('Y-m-d');
+                        @endphp
+
+                        @if ($uploadDate !== $currentUploadDate)
+                            <tr class="border-y border-blue-200 bg-blue-50">
+                                <td colspan="10" class="px-4 py-2 text-xs font-bold text-blue-900">
+                                    Uploaded {{ $document->created_at?->format('F d, Y') ?? 'Unknown date' }}
+                                </td>
+                            </tr>
+                            @php $currentUploadDate = $uploadDate; @endphp
+                        @endif
+
+                        <tr
+                            data-view-url="{{ \App\Filament\Pages\ViewDocument::getUrl(['document' => $document->document_id]) }}"
+                            onclick="if (!event.target.closest('button, a, input, select, textarea')) window.location.href = this.dataset.viewUrl"
+                            class="border-b border-gray-300
+                                   {{ $loop->odd ? 'bg-[#F2F2F2]' : 'bg-white' }} cursor-pointer hover:bg-blue-50"
+                        >
+
+                            {{-- Number --}}
+                            <td class="px-4 py-4 text-xs font-semibold align-middle">
+                                {{ $documents->firstItem() + $loop->index }}
+                            </td>
+
+                            {{-- Document --}}
+                            <td class="px-4 py-4 align-middle">
+
+                                <div class="space-y-1 text-xs">
+
+                                    <div>
+                                        <span class="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                                            LAO No:
+                                        </span>
+
+                                        <span class="font-semibold text-gray-900">
+                                            {{ $document->lao_number }}
+                                        </span>
+                                    </div>
+
+                                    <div>
+                                        <span class="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                                            Office/Unit:
+                                        </span>
+
+                                        <span class="font-medium text-gray-800">
+                                            {{ $document->office_unit }}
+                                        </span>
+                                    </div>
+
+                                    <div>
+                                        <span class="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                                            Particulars:
+                                        </span>
+
+                                        <span class="font-medium text-gray-800">
+                                            {{ $document->particulars }}
+                                        </span>
+                                    </div>
+
+                                </div>
+
+                            </td>
+
+                            {{-- Document Type --}}
+                            <td class="px-4 py-4 align-middle">
+
+                                @if ($document->type)
+
+                                    <span
+                                        class="inline-flex items-center px-3 py-1
+                                               rounded-full text-xs font-semibold text-white"
+                                        style="background-color: {{ $document->type->color ?? '#059669' }};"
+                                    >
+                                        {{ $document->type->type_name }}
+                                    </span>
+
+                                @else
+
+                                    <span class="text-xs italic text-gray-500">
+                                        Unknown
+                                    </span>
+
+                                @endif
+
+                            </td>
+
+                            {{-- Outgoing Date --}}
+                            <td class="px-4 py-4 align-middle">
+
+                                @if ($document->outgoing_date)
+
+                                    <span class="text-xs font-medium text-gray-800">
+                                        {{ \Carbon\Carbon::parse($document->outgoing_date)->format('F d, Y') }}
+                                    </span>
+
+                                @else
+
+                                    <span class="text-xs italic text-gray-500">
+                                        No outgoing date
+                                    </span>
+
+                                @endif
+
+                            </td>
+
+                            {{-- Sent To --}}
+                            <td class="px-4 py-4 align-middle">
+
+                                <span class="text-xs font-medium text-gray-800">
+                                    {{ $document->sent_to ?? 'Not set' }}
+                                </span>
+
+                            </td>
+
+                            {{-- Sent Date --}}
+                            <td class="px-4 py-4 align-middle">
+
+                                @if ($document->sent_date)
+
+                                    <span class="text-xs font-medium text-gray-800">
+                                        {{ \Carbon\Carbon::parse($document->sent_date)->format('F d, Y') }}
+                                    </span>
+
+                                @else
+
+                                    <span class="text-xs italic text-gray-500">
+                                        Not sent
+                                    </span>
+
+                                @endif
+
+                            </td>
+
+                            {{-- Returned From --}}
+                            <td class="px-4 py-4 align-middle">
+
+                                <span class="text-xs font-medium text-gray-800">
+                                    {{ $document->returned_from ?? 'Not returned' }}
+                                </span>
+
+                            </td>
+
+                            {{-- Returned Date --}}
+                            <td class="px-4 py-4 align-middle">
+
+                                @if ($document->date_returned)
+
+                                    <span class="text-xs font-medium text-gray-800">
+                                        {{ \Carbon\Carbon::parse($document->date_returned)->format('F d, Y') }}
+                                    </span>
+
+                                @else
+
+                                    <span class="text-xs italic text-gray-500">
+                                        Not returned
+                                    </span>
+
+                                @endif
+
+                            </td>
+
+                            {{-- File --}}
+                            <td class="px-4 py-4 align-middle">
+
+                                @if ($document->file_path)
+
+                                    <div class="flex items-center justify-center gap-2">
+
+                                        {{-- View --}}
+                                        <a
+                                                href="{{ \App\Filament\Pages\ViewDocument::getUrl(['document' => $document->document_id]) }}"
+                                                class="inline-flex items-center justify-center
+                                                       w-9 h-9 rounded-md
+                                                       border border-[#2563EB]
+                                                       bg-white
+                                                       text-[#2563EB]
+                                                       hover:bg-blue-50
+                                                       transition"
+                                                title="View"
+                                            >
+                                                <svg
+                                                    class="w-4 h-4"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    stroke-width="2"
+                                                    viewBox="0 0 24 24"
+                                                >
+                                                    <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/>
+                                                    <circle cx="12" cy="12" r="2.75"/>
+                                                </svg>
+                                        </a>
+
+                                        {{-- Download --}}
+                                        <a
+                                            href="{{ Storage::url($document->file_path) }}"
+                                            download
+                                            class="inline-flex items-center justify-center
+                                                   w-9 h-9 rounded-md
+                                                   bg-[#334155]
+                                                   hover:bg-[#0F172A]
+                                                   text-white
+                                                   transition"
+                                            title="Download"
+                                        >
+                                            <svg
+                                                class="w-4 h-4"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                stroke-width="2"
+                                                viewBox="0 0 24 24"
+                                            >
+                                                <path d="M12 3v12m0 0 4-4m-4 4-4-4M5 18v3h14v-3"/>
+                                            </svg>
+                                        </a>
+
+                                    </div>
+
+                                @else
+
+                                    <div class="flex items-center justify-center gap-2">
+                                        <a
+                                            href="{{ \App\Filament\Pages\ViewDocument::getUrl(['document' => $document->document_id]) }}"
+                                            class="inline-flex items-center justify-center
+                                                w-9 h-9 rounded-md
+                                                border border-[#2563EB]
+                                                bg-white
+                                                text-[#2563EB]
+                                                hover:bg-blue-50
+                                                transition"
+                                            title="View"
+                                        >
+                                            <svg
+                                                class="w-4 h-4"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                stroke-width="2"
+                                                viewBox="0 0 24 24"
+                                            >
+                                                <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/>
+                                                <circle cx="12" cy="12" r="2.75"/>
+                                            </svg>
+                                        </a>
+
+                                        <span class="text-xs italic text-gray-400">
+                                            No file
+                                        </span>
+                                    </div>
+
+                                @endif
+
+                            </td>
+
+                            {{-- Actions --}}
+                            <td class="px-4 py-4 align-middle">
+
+                                <div class="flex items-center justify-center gap-2">
+
+                                    {{-- Edit --}}
+                                    {{ ($this->editDocumentAction)([
+                                        'document' => $document->document_id,
+                                    ]) }}
+
+                                    {{-- Message --}}
+                                    <button
+                                        type="button"
+                                        wire:click="messageDocument({{ $document->document_id }})"
+                                        class="inline-flex items-center justify-center
+                                               w-9 h-9 rounded-md
+                                               border border-[#0F172A]
+                                               text-[#0F172A]
+                                               bg-white
+                                               hover:bg-[#0F172A]
+                                               hover:text-white
+                                               transition"
+                                        title="Message"
+                                    >
+                                        <svg
+                                            class="w-4 h-4"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            stroke-width="2"
+                                            viewBox="0 0 24 24"
+                                        >
+                                            <path d="M4 5h16v11H8l-4 4V5Z"/>
+                                        </svg>
+                                    </button>
+
+                                    {{-- Archive --}}
+                                    <button
+                                        type="button"
+                                        wire:click="archiveDocument({{ $document->document_id }})"
+                                        class="inline-flex items-center justify-center
+                                               w-9 h-9 rounded-md
+                                               bg-[#334155]
+                                               hover:bg-[#0F172A]
+                                               text-white
+                                               transition"
+                                        title="Archive"
+                                    >
+                                        <svg
+                                            class="w-4 h-4"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            stroke-width="2"
+                                            viewBox="0 0 24 24"
+                                        >
+                                            <path stroke-linecap="round" stroke-linejoin="round"
+                                                d="M4 7h16M5 7l1 13h12l1-13M9 11h6M4 4h16v3H4V4Z"/>
+                                        </svg>
+                                    </button>
+
+                                </div>
+
+                            </td>
+
+                        </tr>
+
+                    @endforeach
+                </tbody>
+
+            </table>
+
+        </div>
+
+            <div class="mt-4">
+                {{ $documents->links() }}
+            </div>
+
+        @else
+
+            <div class="border border-dashed border-gray-300 bg-white rounded-lg py-16 text-center">
+                <h3 class="text-base font-semibold text-gray-800">
+                    No outgoing documents yet
+                </h3>
+                <p class="mt-1 text-sm text-gray-500">
+                    Documents marked as outgoing will appear here.
+                </p>
+            </div>
+        @endif
+
+    @else
+        @if ($documents->count())
+
+        {{-- TABLE --}}
+        <div class="w-full overflow-x-auto border border-gray-300 bg-white">
+
+            <table class="w-full {{ $activeSection === 'archive' ? 'min-w-[1000px]' : 'min-w-[1300px]' }} lg:min-w-0 border-collapse">
 
                 <thead>
                     <tr class="border-b border-gray-300 bg-white">
@@ -207,13 +965,27 @@
                             DOCUMENT TYPE
                         </th>
 
-                        <th class="px-4 py-4 text-left text-sm font-bold">
-                            ACTION TAKEN
-                        </th>
+                        @if ($activeSection === 'archive')
+                            <th class="px-4 py-4 text-left text-sm font-bold">
+                                LAST UPDATE
+                            </th>
+                        @endif
 
-                        <th class="px-4 py-4 text-left text-sm font-bold">
-                            DEADLINE
-                        </th>
+                        @if ($activeSection === 'rejected')
+                            <th class="px-4 py-4 text-left text-sm font-bold">
+                                REJECTION REASON
+                            </th>
+                        @endif
+
+                        @if ($activeSection !== 'archive')
+                            <th class="px-4 py-4 text-left text-sm font-bold">
+                                ACTION TAKEN
+                            </th>
+
+                            <th class="px-4 py-4 text-left text-sm font-bold">
+                                DEADLINE
+                            </th>
+                        @endif
 
                         <th class="w-64 px-4 py-4 text-center text-sm font-bold">
                             FILE
@@ -225,25 +997,39 @@
                     </tr>
                 </thead>
 
-
-                <tbody>
+                <tbody class="text-xs">
+                    @php $currentUploadDate = null; @endphp
 
                     @foreach ($documents as $document)
+                        @php
+                            $uploadDate = $document->created_at?->format('Y-m-d');
+                        @endphp
 
-                        <tr 
+                        @if ($uploadDate !== $currentUploadDate)
+                            <tr class="border-y border-blue-200 bg-blue-50">
+                                <td colspan="{{ $activeSection === 'archive' ? 6 : ($activeSection === 'rejected' ? 8 : 7) }}" class="px-4 py-2 text-xs font-bold text-blue-900">
+                                    Uploaded {{ $document->created_at?->format('F d, Y') ?? 'Unknown date' }}
+                                </td>
+                            </tr>
+                            @php $currentUploadDate = $uploadDate; @endphp
+                        @endif
+
+                    <tr 
+                            data-view-url="{{ \App\Filament\Pages\ViewDocument::getUrl(['document' => $document->document_id]) }}"
+                            onclick="if (!event.target.closest('button, a, input, select, textarea')) window.location.href = this.dataset.viewUrl"
                             class="border-b border-gray-300 
-                                {{ $loop->odd ? 'bg-[#F2F2F2]' : 'bg-white' }}"
+                                {{ $loop->odd ? 'bg-[#F2F2F2]' : 'bg-white' }} cursor-pointer hover:bg-blue-50"
                         >
 
                             {{-- Number --}}
-                            <td class="px-5 py-4 text-sm font-semibold align-middle">
+                            <td class="px-5 py-4 text-xs font-semibold align-middle">
                                 {{ $documents->firstItem() + $loop->index }}
                             </td>
 
                             {{-- Document Details --}}
                             <td class="px-4 py-4 align-middle">
 
-                                <div class="space-y-1.5 text-sm">
+                                <div class="space-y-1.5 text-xs">
 
                                     <div class="flex gap-1.5">
                                         <span class="text-xs font-medium text-gray-500 uppercase tracking-wide shrink-0">
@@ -302,34 +1088,63 @@
 
                                 </div>
 
-
                             </td>
 
-                            {{-- Action Taken --}}
-                            <td class="px-4 py-4 align-middle">
-
-                                @if ($document->actionType)
-
-                                    <span
-                                        class="inline-flex items-center gap-1 px-3 py-1
-                                            text-xs font-semibold rounded-full text-white"
-                                        style="background-color: {{ $document->actionType->color }};"
-                                    >
-                                        {{ $document->actionType->action_name }}
+                            @if ($activeSection === 'archive')
+                                {{-- Latest Updated Date --}}
+                                <td class="px-4 py-4 align-middle">
+                                    <span class="text-xs font-medium text-gray-800">
+                                        {{ $document->updated_at?->format('F d, Y') ?? 'Unknown date' }}
                                     </span>
+                                </td>
+                            @endif
 
-                                @else
+                            @if ($activeSection === 'rejected')
+                                <td class="px-4 py-4 align-middle">
+                                    @php
+                                        $latestRejection = $document->rejections
+                                            ->sortByDesc('created_at')
+                                            ->first();
+                                    @endphp
 
-                                    <span class="text-xs italic text-gray-500">
-                                        No action assigned
-                                    </span>
+                                    @if ($latestRejection)
+                                        {{ ($this->viewRejectionReasonAction)([
+                                            'rejection' => $latestRejection->rejected_id,
+                                        ]) }}
+                                    @else
+                                        <span class="text-xs italic text-gray-500">
+                                            No reason recorded
+                                        </span>
+                                    @endif
+                                </td>
+                            @endif
 
-                                @endif
+                            @if ($activeSection !== 'archive')
+                                {{-- Action Taken --}}
+                                <td class="px-4 py-4 align-middle">
 
-                            </td>
+                                    @if ($document->actionType)
 
-                            {{-- Deadline --}}
-                            <td class="px-4 py-4 align-middle">
+                                        <span
+                                            class="inline-flex items-center gap-1 px-3 py-1
+                                                text-xs font-semibold rounded-full text-white"
+                                            style="background-color: {{ $document->actionType->color }};"
+                                        >
+                                            {{ $document->actionType->action_name }}
+                                        </span>
+
+                                    @else
+
+                                        <span class="text-xs italic text-gray-500">
+                                            No action assigned
+                                        </span>
+
+                                    @endif
+
+                                </td>
+
+                                {{-- Deadline --}}
+                                <td class="px-4 py-4 align-middle">
 
                                 @if ($document->deadline)
 
@@ -365,7 +1180,7 @@
                                         ></span>
 
                                         {{-- Deadline --}}
-                                        <span class="text-sm font-semibold text-gray-800">
+                                        <span class="text-xs font-semibold text-gray-800">
                                             {{ \Carbon\Carbon::parse($document->deadline)->format('F d, Y') }}
                                         </span>
 
@@ -384,7 +1199,8 @@
 
                                 @endif
 
-                            </td>                                               
+                                </td>
+                            @endif
                             
                             {{-- File --}}
                             <td class="px-4 py-4 align-middle">
@@ -414,7 +1230,6 @@
 
                                             View
                                         </a>
-
 
                                         
                                         @if ($document->file_path)
@@ -462,63 +1277,74 @@
 
                                 <div class="flex items-center justify-center gap-2">
 
-                                    {{-- Edit: icon only --}}
-                                    {{ ($this->editDocumentAction)([
-                                        'document' => $document->document_id,
-                                    ]) }}
+                                    @if (in_array($activeSection, ['archive', 'rejected'], true))
 
-                                    {{-- Message: icon only --}}
-                                    <button
-                                        type="button"
-                                        wire:click="messageDocument({{ $document->document_id }})"
-                                        class="inline-flex items-center justify-center
-                                            w-9 h-9 rounded-md
-                                            border border-[#0F172A]
-                                            text-[#0F172A]
-                                            hover:bg-[#0F172A]
-                                            hover:text-white
-                                            transition-colors duration-150"
-                                        title="Message"
-                                    >
-                                        <svg
-                                            class="w-4 h-4"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            stroke-width="2"
+                                        {{-- Return --}}
+                                        {{ ($this->returnDocumentAction)([
+                                            'document' => $document->document_id,
+                                        ]) }}
+
+                                    @else
+
+                                        {{-- Edit: icon only --}}
+                                        {{ ($this->editDocumentAction)([
+                                            'document' => $document->document_id,
+                                        ]) }}
+
+                                        {{-- Message: icon only --}}
+                                        <button
+                                            type="button"
+                                            wire:click="messageDocument({{ $document->document_id }})"
+                                            class="inline-flex items-center justify-center
+                                                w-9 h-9 rounded-md
+                                                border border-[#0F172A]
+                                                text-[#0F172A]
+                                                hover:bg-[#0F172A]
+                                                hover:text-white
+                                                transition-colors duration-150"
+                                            title="Message"
                                         >
-                                            <use href="#icon-chat"/>
-                                        </svg>
-                                    </button>
+                                            <svg
+                                                class="w-4 h-4"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                stroke-width="2"
+                                            >
+                                                <use href="#icon-chat"/>
+                                            </svg>
+                                        </button>
 
-                                    {{-- Outgoing --}}
-                                    <button
-                                        type="button"
-                                        wire:click="markAsOutgoing({{ $document->document_id }})"
-                                        class="inline-flex items-center gap-1.5
-                                            h-9 px-3 rounded-md
-                                            bg-[#0F172A]
-                                            hover:bg-[#334155]
-                                            text-white
-                                            text-xs font-semibold
-                                            transition-colors duration-150"
-                                        title="Mark as Outgoing"
-                                    >
-                                        <svg
-                                            class="w-4 h-4"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            stroke-width="2"
-                                            viewBox="0 0 24 24"
+                                        {{-- Outgoing --}}
+                                        <button
+                                            type="button"
+                                            wire:click="markAsOutgoing({{ $document->document_id }})"
+                                            class="inline-flex items-center gap-1.5
+                                                h-9 px-3 rounded-md
+                                                bg-[#0F172A]
+                                                hover:bg-[#334155]
+                                                text-white
+                                                text-xs font-semibold
+                                                transition-colors duration-150"
+                                            title="Mark as Outgoing"
                                         >
-                                            <path
-                                                stroke-linecap="round"
-                                                stroke-linejoin="round"
-                                                d="M5 12h14m-6-6 6 6-6 6"
-                                            />
-                                        </svg>
+                                            <svg
+                                                class="w-4 h-4"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                stroke-width="2"
+                                                viewBox="0 0 24 24"
+                                            >
+                                                <path
+                                                    stroke-linecap="round"
+                                                    stroke-linejoin="round"
+                                                    d="M5 12h14m-6-6 6 6-6 6"
+                                                />
+                                            </svg>
 
-                                        Outgoing
-                                    </button>
+                                            Outgoing
+                                        </button>
+
+                                    @endif
 
                                 </div>
 
@@ -533,36 +1359,21 @@
 
         </div>
 
+            <div class="mt-4">
+                {{ $documents->links() }}
+            </div>
 
-        {{-- Pagination --}}
-        <div class="mt-4">
-            {{ $documents->links() }}
-        </div>
+        @else
 
-    @else
-
-        {{-- EMPTY STATE --}}
-        <div
-            class="border border-dashed border-gray-300
-                   bg-white rounded-lg
-                   py-16 text-center"
-        >
-
-            <svg class="w-12 h-12 mx-auto text-gray-300">
-                <use href="#icon-folder"/>
-            </svg>
-
-            <h3 class="mt-4 text-base font-semibold text-gray-800">
-                No incoming documents yet
-            </h3>
-
-            <p class="mt-1 text-sm text-gray-500">
-                Add a new document to get started.
-            </p>
-
-
-        </div>
-
+            <div class="border border-dashed border-gray-300 bg-white rounded-lg py-16 text-center">
+                <h3 class="text-base font-semibold text-gray-800">
+                    No incoming documents yet
+                </h3>
+                <p class="mt-1 text-sm text-gray-500">
+                    Add a new document to get started.
+                </p>
+            </div>
+        @endif
     @endif
     </div>
 

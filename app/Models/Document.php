@@ -68,6 +68,24 @@ class Document extends Model
             'document_id');
     }
 
+    public function rejections(): HasMany
+    {
+        return $this->hasMany(
+            RejectedDocument::class,
+            'document_id',
+            'document_id'
+        );
+    }
+
+    public function documentRequests(): HasMany
+    {
+        return $this->hasMany(
+            DocumentRequest::class,
+            'document_id',
+            'document_id'
+        );
+    }
+
     
 
     public function statusLabel(): string
