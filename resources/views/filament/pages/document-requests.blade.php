@@ -213,23 +213,27 @@
                                             Accept
                                         </button>
 
-                                        <button
-                                            type="button"
-                                            wire:click="rejectRequest({{ $request->request_id }})"
-                                            wire:confirm="Are you sure you want to reject this request?"
-                                            class="inline-flex h-9 items-center justify-center rounded-md bg-red-600 px-3 text-xs font-semibold text-white transition hover:bg-red-700"
-                                        >
-                                            Reject
-                                        </button>
+                                        {{-- Reject --}}
+                                        <div>
+                                            {{ ($this->rejectRequestAction)([
+                                                'request' => $request->request_id,
+                                            ]) }}
+                                        </div>
                                     @else
+
+                                        {{-- Return --}}
                                         <button
                                             type="button"
                                             wire:click="returnRequest({{ $request->request_id }})"
                                             wire:confirm="Are you sure you want to return this request to pending?"
-                                            class="inline-flex h-9 items-center justify-center rounded-md border border-amber-600 px-3 text-xs font-semibold text-amber-700 transition hover:bg-amber-50"
+                                            class="inline-flex h-9 items-center justify-center
+                                                rounded-md border border-amber-600 px-3
+                                                text-xs font-semibold text-amber-700
+                                                transition hover:bg-amber-50"
                                         >
                                             Return
                                         </button>
+
                                     @endif
                                 </div>
                             </td>

@@ -17,6 +17,7 @@ use App\Models\ActionType;
 use Filament\Support\Enums\Width;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use Illuminate\Support\Facades\DB;
 
 class Incoming extends Page
 {
@@ -192,7 +193,7 @@ class Incoming extends Page
 
                 FileUpload::make('file_path')
                     ->label('Document File')
-                    ->disk('public')
+                    ->disk('local')
                     ->directory('documents')
                     ->preserveFilenames(),
             ])
@@ -266,7 +267,7 @@ class Incoming extends Page
 
                 FileUpload::make('file_path')
                     ->label('Document File')
-                    ->disk('public')
+                    ->disk('local')
                     ->directory('documents')
                     ->preserveFilenames(),
             ])

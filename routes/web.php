@@ -74,21 +74,29 @@ Route::get('/dashboard', function () {
 })->middleware('auth')->name('dashboard');
 
 
-Route::get('/admin/documents/{document}/file', function (Document $document) {
-    abort_unless(auth()->check(), 403);
+Route::get('/admin/documents/{document}/preview', function (int $document) {
+
+    $documentRecord = Document::findOrFail($document);
 
     abort_unless(
-        $document->file_path &&
-        Storage::disk('local')->exists($document->file_path),
+        $documentRecord->file_path &&
+        Storage::disk('local')->exists($documentRecord->file_path),
         404
     );
 
-    return response()->file(
-        Storage::disk('local')->path($document->file_path)
+    $path = Storage::disk('local')->path(
+        $documentRecord->file_path
     );
+
+    return response()->file($path, [
+        'Content-Type' => 'application/pdf',
+        'Content-Disposition' => 'inline; filename="' .
+            ($documentRecord->original_file_name ?? basename($path)) .
+            '"',
+    ]);
 })
     ->middleware('auth')
-    ->name('admin.documents.file');
+    ->name('admin.documents.preview');
 
 
 /*

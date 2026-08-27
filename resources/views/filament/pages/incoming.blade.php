@@ -667,6 +667,7 @@
                             </td>
 
                             {{-- Document Type --}}
+                            
                             <td class="px-4 py-4 align-middle">
 
                                 @if ($document->type)
@@ -1071,12 +1072,12 @@
                                     @if ($document->type)
 
                                         <span
-                                            class="inline-flex items-center px-4 py-1
-                                                rounded-full text-xs font-bold text-white"
-                                            style="background-color: {{ $document->type->color }};"
+                                            class="inline-flex items-center px-3 py-1
+                                                rounded-full text-xs font-semibold text-white"
+                                            style="background-color: {{ $document->type->color ?? '#059669' }};"
                                         >
                                             {{ $document->type->type_name }}
-                                        </span>
+                                    </span>
 
                                     @else
 
@@ -1236,7 +1237,7 @@
 
                                         {{-- Download button --}}
                                         <a
-                                            href="{{ route('admin.documents.file', [
+                                            href="{{ route('admin.documents.preview', [
                                                 'document' => $document->document_id
                                             ]) }}"
                                             download
@@ -1322,11 +1323,11 @@
                                             wire:click="markAsOutgoing({{ $document->document_id }})"
                                             class="inline-flex items-center gap-1.5
                                                 h-9 px-3 rounded-md
-                                                bg-[#0F172A]
-                                                hover:bg-[#334155]
                                                 text-white
                                                 text-xs font-semibold
-                                                transition-colors duration-150"
+                                                transition-all duration-150
+                                                hover:opacity-80"
+                                            style="background-color: {{ $document->type->color ?? '#059669' }};"
                                             title="Mark as Outgoing"
                                         >
                                             <svg
