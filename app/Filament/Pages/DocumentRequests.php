@@ -255,7 +255,7 @@ class DocumentRequests extends Page
     public function rejectRequestAction(): Action
     {
         return Action::make('rejectRequest')
-            ->label('Reject')
+            ->label('')
             ->icon('heroicon-o-x-mark')
             ->color('danger')
             ->extraAttributes([

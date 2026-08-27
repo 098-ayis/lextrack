@@ -509,6 +509,7 @@
                                             />
                                         </svg>
                                     </button>
+                                    
 
                                     {{-- Reject --}}
                                     {{ ($this->rejectDocumentAction)([

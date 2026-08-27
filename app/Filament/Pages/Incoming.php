@@ -99,6 +99,54 @@ class Incoming extends Page
         ];
     }
 
+    public function acceptDocument(int $documentId): void
+    {
+        DB::transaction(function () use ($documentId) {
+
+            $document = Document::with('user')
+                ->lockForUpdate()
+                ->findOrFail($documentId);
+
+            if ($document->status !== 'pending') {
+                return;
+            }
+
+            $year = now()->format('y');
+
+            $existingNumbers = Document::query()
+                ->whereNotNull('lao_number')
+                ->where('lao_number', 'like', "LAO-{$year}-%")
+                ->pluck('lao_number');
+
+            $highestNumber = $existingNumbers
+                ->map(function ($laoNumber) {
+                    $parts = explode('-', $laoNumber);
+
+                    return isset($parts[2])
+                        ? (int) $parts[2]
+                        : 0;
+                })
+                ->max() ?? 0;
+
+            $nextNumber = $highestNumber + 1;
+
+            $laoNumber = sprintf(
+                'LAO-%s-%03d',
+                $year,
+                $nextNumber
+            );
+
+            $document->update([
+                'lao_number' => $laoNumber,
+                'status' => 'in_progress',
+            ]);
+        });
+
+        $this->redirect(
+            self::getUrl(['section' => 'incoming'])
+        );
+    }
+
     public function getDocuments(string $section = 'incoming')
     {
         $status = match ($section) {
@@ -445,6 +493,17 @@ class Incoming extends Page
         $this->redirect(self::getUrl(['section' => 'archive']));
     }
 
+    public function messageDocument(int $documentId): void
+    {
+        $document = Document::findOrFail($documentId);
+
+        $this->redirect(
+            route('filament.admin.pages.messages', [
+                'document' => $document->document_id,
+            ])
+        );
+    }
+    
     public function updatedSearch(): void
     {
         $this->resetPage();
