@@ -329,15 +329,15 @@
                                         )
 
                                             <a
-                                                href="{{ Storage::url($document->file_path) }}"
+                                                href="{{ route('admin.documents.file', ['document' => $document->document_id]) }}"
                                                 target="_blank"
-                                                 class="inline-flex items-center gap-1.5
-                                                bg-white hover:bg-blue-50
-                                                border border-blue-600
-                                                text-blue-600 hover:text-blue-700
-                                                text-xs font-semibold
-                                                px-3 py-1.5 rounded-md
-                                                transition-colors duration-150"
+                                                class="inline-flex items-center gap-1.5
+                                                    bg-white hover:bg-blue-50
+                                                    border border-blue-600
+                                                    text-blue-600 hover:text-blue-700
+                                                    text-xs font-semibold
+                                                    px-3 py-1.5 rounded-md
+                                                    transition-colors duration-150"
                                                 title="View"
                                             >
                                                 <svg
@@ -357,9 +357,9 @@
 
 
                                         {{-- Download --}}
-                                        <a
-                                            href="{{ Storage::url($document->file_path) }}"
-                                            download
+                                        <button
+                                            type="button"
+                                            wire:click="downloadDocument({{ $document->document_id }})"
                                             class="inline-flex items-center gap-1.5
                                                 bg-slate-800 hover:bg-slate-900
                                                 text-white
@@ -378,8 +378,10 @@
                                             >
                                                 <path d="M12 3v12m0 0 4-4m-4 4-4-4M5 18v3h14v-3"/>
                                             </svg>
+
                                             Download
-                                        </a>
+                                        </button>
+                                           
 
                                     </div>
 
@@ -431,32 +433,12 @@
 
 
                                     {{-- Reject --}}
-                                    <button
-                                        type="button"
-                                        wire:click="rejectDocument({{ $document->document_id }})"
-                                        wire:confirm="Are you sure you want to reject this document?"
-                                        class="inline-flex items-center justify-center
-                                            w-9 h-9 rounded-md
-                                            bg-red-600
-                                            hover:bg-red-700
-                                            text-white
-                                            transition"
-                                        title="Reject"
-                                    >
-                                        <svg
-                                            class="w-4 h-4"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            stroke-width="2"
-                                            viewBox="0 0 24 24"
-                                        >
-                                            <path
-                                                stroke-linecap="round"
-                                                stroke-linejoin="round"
-                                                d="M6 18L18 6M6 6l12 12"
-                                            />
-                                        </svg>
-                                    </button>
+                                    <div>
+                                        {{ ($this->rejectDocumentAction)([
+                                            'document' => $document->document_id,
+                                        ]) }}
+                                    </div>
+                                   
 
                                 </div>
 

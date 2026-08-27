@@ -31,6 +31,7 @@ class Document extends Model
         'status',
         'file_path',
         'status_other',
+        'rejection_reason',
     ];
 
     public function actionType(): BelongsTo

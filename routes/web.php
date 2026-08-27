@@ -8,6 +8,7 @@ use App\Models\Document;
 use App\Http\Controllers\AIController;
 use App\Http\Controllers\Auth\GoogleAuthController;
 
+
 Route::view('/ai-test', 'ai-test');
 
 Route::post('/ask-ai', [AIController::class, 'ask']);
@@ -71,6 +72,23 @@ Route::get('/client/document-preview/{document}', function ($document) {
 Route::get('/dashboard', function () {
     return view('dashboard');
 })->middleware('auth')->name('dashboard');
+
+
+Route::get('/admin/documents/{document}/file', function (Document $document) {
+    abort_unless(auth()->check(), 403);
+
+    abort_unless(
+        $document->file_path &&
+        Storage::disk('local')->exists($document->file_path),
+        404
+    );
+
+    return response()->file(
+        Storage::disk('local')->path($document->file_path)
+    );
+})
+    ->middleware('auth')
+    ->name('admin.documents.file');
 
 
 /*

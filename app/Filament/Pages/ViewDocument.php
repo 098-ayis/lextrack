@@ -73,7 +73,7 @@ class ViewDocument extends Page
         |--------------------------------------------------------------------------
         */
 
-        $disk = Storage::disk('public');
+        $disk = Storage::disk('local');
 
         if (!$disk->exists($path)) {
             return '';

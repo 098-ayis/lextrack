@@ -421,7 +421,9 @@
 
                                         {{-- Download button --}}
                                         <a
-                                            href="{{ Storage::url($document->file_path) }}"
+                                            href="{{ route('admin.documents.file', [
+                                                'document' => $document->document_id
+                                            ]) }}"
                                             download
                                             class="inline-flex items-center gap-1.5
                                                 bg-slate-800 hover:bg-slate-900

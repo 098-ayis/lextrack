@@ -13,6 +13,8 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
 use App\Models\ActionType;
 use Filament\Support\Enums\Width;
+use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class Incoming extends Page
 {
@@ -238,7 +240,25 @@ class Incoming extends Page
             });
     }
 
-        public function markAsOutgoing(int $documentId): void
+    public function downloadDocument(int $documentId): StreamedResponse
+    {
+        $document = Document::findOrFail($documentId);
+
+        abort_unless(
+            $document->file_path &&
+            Storage::disk('local')->exists($document->file_path),
+            404
+        );
+
+        $fileName = basename($document->file_path);
+
+        return Storage::disk('local')->download(
+            $document->file_path,
+            $fileName
+        );
+    }
+
+    public function markAsOutgoing(int $documentId): void
     {
         $document = Document::findOrFail($documentId);
 
