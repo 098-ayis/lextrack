@@ -24,6 +24,15 @@ use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable implements HasAvatar
 {
+    public const DEFAULT_STATUS = 'Active';
+
+    public const STATUS_OPTIONS = [
+        'Active' => 'Active',
+        'Inactive' => 'Inactive',
+        'Pending' => 'Pending',
+        'Suspended' => 'Suspended',
+    ];
+
     /** @use HasFactory<UserFactory> */
     use HasApiTokens, HasFactory, Notifiable;
     use HasRoles;

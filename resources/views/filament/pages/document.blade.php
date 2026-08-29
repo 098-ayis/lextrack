@@ -63,7 +63,7 @@
 
     {{-- STATUS HEADER --}}
 
-    <div class="mb-4 w-full overflow-x-auto rounded-lg border border-gray-300 bg-white shadow-sm">
+    <div class="mb-0 w-full overflow-x-auto border border-gray-300 bg-white shadow-sm">
         <nav class="flex min-w-max items-center gap-1 p-2" aria-label="Document status">
             @foreach ([
                 'pending' => 'Pending',
@@ -93,30 +93,25 @@
         </nav>
     </div>
 
-    {{-- SEARCH + FILTER --}}
-    <div class="flex flex-wrap items-center gap-3 mb-0">
-
-        <div class="flex flex-wrap items-center gap-3">
-
+    {{-- FILTER PILLS --}}
+    <div class="mb-0 flex w-full flex-wrap items-center gap-3 border-x border-gray-300 bg-white px-3 py-7 shadow-sm sm:flex-nowrap sm:justify-start">
         {{-- Search --}}
-        <div class="relative w-full sm:w-80">
+        <div class="relative w-full sm:w-96">
             <input
                 type="text"
                 wire:model.live.debounce.400ms="search"
                 placeholder="Search Document"
-                class="w-full h-10 pl-4 pr-11 rounded-full
-                       border border-gray-300
-                       bg-white text-sm
+                class="w-full h-10 rounded-full border border-gray-300 bg-white pl-4 pr-11 text-sm
                        focus:border-primary-500 focus:ring-primary-500"
             >
 
-            <svg class="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-800">
+            <svg class="absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-800">
                 <use href="#icon-search"/>
             </svg>
         </div>
 
         {{-- Document Type Filter --}}
-        <div class="relative w-full sm:w-52">
+        <div class="relative w-full sm:w-60">
             <select
                 wire:model.live="typeFilter"
                 class="w-full h-10 pl-4 pr-12 rounded-full
@@ -149,10 +144,54 @@
             </svg>
         </div>
 
+        {{-- Upload Date Filter --}}
+        <div class="relative w-full sm:w-60">
+            <input
+                type="date"
+                wire:model.live="dateFilter"
+                aria-label="Filter by upload date"
+                class="peer w-full h-10 appearance-none rounded-full border border-gray-300 bg-white pl-10 pr-4 text-sm
+                       {{ $dateFilter ? 'text-gray-500' : 'text-transparent' }}
+                       focus:border-primary-500 focus:text-gray-500 focus:ring-primary-500"
+            >
+
+            @if (! $dateFilter)
+                <span class="pointer-events-none absolute left-10 top-1/2 -translate-y-1/2 text-sm text-gray-500 peer-focus:hidden">
+                    Date
+                </span>
+            @endif
+
+            <svg
+                class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.75"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+            >
+                <rect x="3.5" y="5" width="17" height="15.5" rx="2"/>
+                <path d="M7.5 3.5v3M16.5 3.5v3M3.5 9h17"/>
+            </svg>
         </div>
 
-        {{-- Add Document --}}
-        <div class="ml-auto">
+        {{-- Export and Add Document --}}
+        <div class="ml-auto flex items-center gap-2">
+            <a
+                href="{{ route('admin.documents.export', [
+                    'section' => $activeSection,
+                    'search' => $search,
+                    'type' => $typeFilter,
+                    'date' => $dateFilter,
+                ]) }}"
+                download
+                class="inline-flex h-10 items-center gap-2 rounded-md border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+            >
+                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                    <use href="#icon-download"/>
+                </svg>
+                Export
+            </a>
             {{ $this->addDocumentAction }}
         </div>
     </div>
@@ -195,18 +234,18 @@
             </div>
 
         </div>
-
+    </div>
     
 
     @if ($activeSection === 'pending')
         @if ($documents->count())
 
         {{-- TABLE --}}
-        <div class="w-full overflow-x-auto border border-gray-300 bg-white">
+        <div class="max-h-[calc(100vh-18rem)] w-full min-h-0 overflow-auto border border-gray-300 bg-white">
 
             <table class="w-full min-w-[1000px] lg:min-w-0 border-collapse">
 
-                <thead>
+                <thead class="sticky top-0 z-10 bg-white">
                     <tr class="border-b border-gray-300 bg-white">
 
                         <th class="w-16 px-4 py-4 text-left text-sm font-bold">
@@ -483,33 +522,9 @@
                                 <div class="flex items-center justify-center gap-2">
 
                                     {{-- Accept --}}
-                                    <button
-                                        type="button"
-                                        wire:click="acceptDocument({{ $document->document_id }})"
-                                        wire:confirm="Are you sure you want to accept this document?"
-                                        class="inline-flex items-center justify-center
-                                            w-9 h-9 rounded-md
-                                            bg-green-600
-                                            hover:bg-green-700
-                                            text-white
-                                            transition"
-                                        title="Accept"
-                                    >
-                                        <svg
-                                            class="w-4 h-4"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            stroke-width="2"
-                                            viewBox="0 0 24 24"
-                                        >
-                                            <path
-                                                stroke-linecap="round"
-                                                stroke-linejoin="round"
-                                                d="M5 13l4 4L19 7"
-                                            />
-                                        </svg>
-                                    </button>
-                                    
+                                    {{ ($this->acceptDocumentAction)([
+                                        'document' => $document->document_id,
+                                    ]) }}
 
                                     {{-- Reject --}}
                                     {{ ($this->rejectDocumentAction)([
@@ -535,7 +550,7 @@
 
         @else
 
-            <div class="border border-dashed border-gray-300 bg-white rounded-lg py-16 text-center">
+            <div class="border border-dashed border-gray-300 bg-white py-16 text-center">
                 <h3 class="text-base font-semibold text-gray-800">
                     No pending documents yet
                 </h3>
@@ -549,11 +564,11 @@
         @if ($documents->count())
 
         {{-- TABLE --}}
-        <div class="w-full overflow-x-auto border border-gray-300 bg-white">
+        <div class="max-h-[calc(100vh-18rem)] w-full min-h-0 overflow-auto border border-gray-300 bg-white">
 
             <table class="w-full min-w-[1500px] lg:min-w-0 border-collapse">
 
-                <thead>
+                <thead class="sticky top-0 z-10 bg-white">
                     <tr class="border-b border-gray-300 bg-white">
 
                         <th class="w-16 px-4 py-4 text-left text-sm font-bold">
@@ -893,28 +908,9 @@
                                     </button>
 
                                     {{-- Archive --}}
-                                    <button
-                                        type="button"
-                                        wire:click="archiveDocument({{ $document->document_id }})"
-                                        class="inline-flex items-center justify-center
-                                               w-9 h-9 rounded-md
-                                               bg-[#334155]
-                                               hover:bg-[#0F172A]
-                                               text-white
-                                               transition"
-                                        title="Archive"
-                                    >
-                                        <svg
-                                            class="w-4 h-4"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            stroke-width="2"
-                                            viewBox="0 0 24 24"
-                                        >
-                                            <path stroke-linecap="round" stroke-linejoin="round"
-                                                d="M4 7h16M5 7l1 13h12l1-13M9 11h6M4 4h16v3H4V4Z"/>
-                                        </svg>
-                                    </button>
+                                    {{ ($this->archiveDocumentAction)([
+                                        'document' => $document->document_id,
+                                    ]) }}
 
                                 </div>
 
@@ -935,7 +931,7 @@
 
         @else
 
-            <div class="border border-dashed border-gray-300 bg-white rounded-lg py-16 text-center">
+            <div class="border border-dashed border-gray-300 bg-white py-16 text-center">
                 <h3 class="text-base font-semibold text-gray-800">
                     No outgoing documents yet
                 </h3>
@@ -949,11 +945,11 @@
         @if ($documents->count())
 
         {{-- TABLE --}}
-        <div class="w-full overflow-x-auto border border-gray-300 bg-white">
+        <div class="max-h-[calc(100vh-18rem)] w-full min-h-0 overflow-auto border border-gray-300 bg-white">
 
             <table class="w-full {{ $activeSection === 'archive' ? 'min-w-[1000px]' : 'min-w-[1300px]' }} lg:min-w-0 border-collapse">
 
-                <thead>
+                <thead class="sticky top-0 z-10 bg-white">
                     <tr class="border-b border-gray-300 bg-white">
                         <th class="w-20 px-4 py-4 text-left text-sm font-bold">
                             NO
@@ -1319,34 +1315,9 @@
                                         </button>
 
                                         {{-- Outgoing --}}
-                                        <button
-                                            type="button"
-                                            wire:click="markAsOutgoing({{ $document->document_id }})"
-                                            class="inline-flex items-center gap-1.5
-                                                h-9 px-3 rounded-md
-                                                text-white
-                                                text-xs font-semibold
-                                                transition-all duration-150
-                                                hover:opacity-80"
-                                            style="background-color: {{ $document->type->color ?? '#059669' }};"
-                                            title="Mark as Outgoing"
-                                        >
-                                            <svg
-                                                class="w-4 h-4"
-                                                fill="none"
-                                                stroke="currentColor"
-                                                stroke-width="2"
-                                                viewBox="0 0 24 24"
-                                            >
-                                                <path
-                                                    stroke-linecap="round"
-                                                    stroke-linejoin="round"
-                                                    d="M5 12h14m-6-6 6 6-6 6"
-                                                />
-                                            </svg>
-
-                                            Outgoing
-                                        </button>
+                                        {{ ($this->markAsOutgoingAction)([
+                                            'document' => $document->document_id,
+                                        ]) }}
 
                                     @endif
 
@@ -1369,7 +1340,7 @@
 
         @else
 
-            <div class="border border-dashed border-gray-300 bg-white rounded-lg py-16 text-center">
+            <div class="border border-dashed border-gray-300 bg-white py-16 text-center">
                 <h3 class="text-base font-semibold text-gray-800">
                     No incoming documents yet
                 </h3>
@@ -1379,7 +1350,70 @@
             </div>
         @endif
     @endif
-    </div>
+    
+
+    <style>
+        /* Keep the document sections visually connected without page-level gaps. */
+        .fi-page-content {
+            gap: 0 !important;
+        }
+    </style>
+
+    @if ($showAcceptedModal)
+        <div
+            wire:click="redirectToIncoming"
+            class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="document-accepted-title"
+        >
+            <div
+                wire:click.stop
+                class="w-full max-w-md rounded-2xl bg-white px-7 py-8 text-center shadow-2xl"
+            >
+                <div class="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-blue-50">
+                    <div
+                        class="flex h-14 w-14 items-center justify-center rounded-full text-white shadow-lg"
+                        style="background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%); box-shadow: 0 4px 10px rgba(37, 99, 235, 0.3);"
+                    >
+                        <svg
+                            class="h-8 w-8"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2.5"
+                            viewBox="0 0 24 24"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                d="m5 12 4 4L19 7"
+                            />
+                        </svg>
+                    </div>
+                </div>
+
+                <h2 id="document-accepted-title" class="mt-6 text-xl font-bold text-gray-900">
+                    Document Accepted Successfully
+                </h2>
+
+                <p class="mt-2 text-sm leading-6 text-gray-500">
+                    The document uploaded by
+                    <span class="font-semibold text-gray-700">
+                        {{ $acceptedDocumentUploader ?? 'the user' }}
+                    </span>
+                    has been accepted and is now available in Incoming documents.
+                </p>
+
+                <button
+                    type="button"
+                    wire:click="redirectToIncoming"
+                    class="mt-7 w-full rounded-lg bg-blue-50 px-4 py-3 text-sm font-semibold text-gray-600 transition hover:bg-blue-100"
+                >
+                    Close
+                </button>
+            </div>
+        </div>
+    @endif
 
     <x-filament-actions::modals />
 
