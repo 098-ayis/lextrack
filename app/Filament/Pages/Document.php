@@ -756,6 +756,16 @@ class Document extends Page
         );
     }
     
+    protected function casts(): array
+    {
+        return [
+            'deadline' => 'date',
+            'sent_date' => 'date',
+            'date_returned' => 'date',
+            'outgoing_date' => 'date',
+        ];
+    }
+
     public function updatedSearch(): void
     {
         $this->resetPage();
