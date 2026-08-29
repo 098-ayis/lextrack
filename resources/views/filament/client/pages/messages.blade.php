@@ -309,9 +309,14 @@
         }
     </style>
 
-    <div class="msg-wrap">
+    <div
+        class="msg-wrap"
+        x-data="{ search: '' }"
+    >
 
-        {{-- CONVERSATION LIST --}}
+        {{-- =========================
+            CONVERSATION LIST
+        ========================== --}}
         <div class="msg-list">
 
             <div class="msg-list-header">
@@ -326,22 +331,157 @@
 
                     <input
                         type="text"
-                        id="msgSearch"
                         placeholder="Search Messages"
-                        oninput="filterConvos(this.value)"
+                        x-model="search"
                     >
 
                 </div>
 
             </div>
 
-            <div class="msg-items" id="msgItems"></div>
+
+            <div class="msg-items">
+
+                @forelse ($conversations as $conversation)
+
+                    @php
+                        $latestMessage = $conversation->messages->last();
+
+                        $otherParticipant = $conversation
+                            ->participants
+                            ->firstWhere('id', '!=', auth()->id());
+
+                        $displayName = $otherParticipant?->name
+                            ?? 'Legal Office';
+
+                        $initials = collect(
+                            explode(' ', $displayName)
+                        )
+                            ->filter()
+                            ->map(
+                                fn ($part) =>
+                                    strtoupper(
+                                        substr($part, 0, 1)
+                                    )
+                            )
+                            ->take(2)
+                            ->join('');
+
+                        $searchText = strtolower(
+                            $displayName . ' ' .
+                            ($conversation->document?->particulars ?? '') . ' ' .
+                            ($latestMessage?->body ?? '')
+                        );
+                    @endphp
+
+
+                    <div
+                        class="
+                            msg-item
+                            {{ $conversation->unread_messages_count > 0 ? 'unread' : '' }}
+                            {{ (int) $selectedConversation === (int) $conversation->id
+                                ? 'active'
+                                : '' }}
+                        "
+                        wire:click="selectConversation({{ $conversation->id }})"
+                    >
+
+                    @if ($conversation->unread_messages_count > 0)
+
+                        <span class="unread-count">
+                            {{ $conversation->unread_messages_count }}
+                        </span>
+
+                    @endif
+
+                        <div class="m-avatar">
+
+                            {{ $initials ?: 'CL' }}
+
+                            @if ($conversation->unread_messages_count > 0)
+                                <span class="dot"></span>
+                            @endif
+
+                        </div>
+
+                        <div class="m-info">
+
+                            <div class="m-sub">
+
+                                @if ($conversation->document)
+                                    Document #{{ $conversation->document_id }}
+                                @else
+                                    General Conversation
+                                @endif
+
+                            </div>
+
+
+                            <div class="m-name">
+
+                                <span>
+                                    {{ $displayName }}
+                                </span>
+
+                                <span class="m-time">
+
+                                    @if ($latestMessage)
+                                        {{ $latestMessage
+                                            ->created_at
+                                            ->format('M d') }}
+                                    @endif
+
+                                </span>
+
+                            </div>
+
+
+                            <div class="m-preview">
+
+                                @if ($latestMessage)
+
+                                    @if (
+                                        $latestMessage->sender_id
+                                        === auth()->id()
+                                    )
+                                        You:
+                                    @endif
+
+                                    {{ \Illuminate\Support\Str::limit(
+                                        $latestMessage->body,
+                                        60
+                                    ) }}
+
+                                @else
+                                    No messages yet
+                                @endif
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                @empty
+
+                    <div class="p-6 text-center text-gray-500">
+                        No conversations yet.
+                    </div>
+
+                @endforelse
+
+            </div>
 
         </div>
 
 
-        {{-- MESSAGE THREAD --}}
-        <div class="msg-thread" id="msgThread">
+       {{-- MESSAGE THREAD --}}
+    <div
+        class="msg-thread"
+        wire:poll.4s="refreshConversation"
+    >
+
+        @if (! $selectedConversation)
 
             <div class="empty-thread">
 
@@ -355,473 +495,215 @@
 
             </div>
 
+        @else
+
+            @php
+                $activeConversation = $conversations
+                    ->firstWhere('id', $selectedConversation);
+
+                $otherParticipant = $activeConversation
+                    ?->participants
+                    ->firstWhere('id', '!=', auth()->id());
+
+                $threadName = $otherParticipant?->name
+                    ?? 'Legal Office';
+
+                $threadInitials = collect(explode(' ', $threadName))
+                    ->filter()
+                    ->map(
+                        fn ($part) =>
+                            strtoupper(substr($part, 0, 1))
+                    )
+                    ->take(2)
+                    ->join('');
+            @endphp
+
+
+            {{-- THREAD HEADER --}}
+            <div class="thread-header">
+
+                <div class="t-avatar">
+                    {{ $threadInitials ?: 'LO' }}
+                </div>
+
+                <div style="flex: 1;">
+
+                    <div class="t-name">
+                        {{ $threadName }}
+                    </div>
+
+                    <div class="t-sub">
+
+                        @if ($activeConversation?->document)
+                            Document #{{ $activeConversation->document_id }}
+                        @endif
+
+                        @if ($activeConversation?->assignedStaff)
+                            • Primary handler:
+                            {{ $activeConversation->assignedStaff->name }}
+                        @endif
+
+                    </div>
+
+                </div>
+
+                <button
+                    type="button"
+                    wire:click="$set('selectedConversation', null)"
+                    title="Close conversation"
+                >
+                    ✕
+                </button>
+
+            </div>
+
+
+            {{-- MESSAGES --}}
+            <div
+                class="thread-body"
+                id="threadBody"
+            >
+
+                @forelse ($messages as $message)
+
+                    @php
+                        $isOwn =
+                            (int) $message->sender_id
+                            === (int) auth()->id();
+
+                        $senderName =
+                            $message->sender?->name
+                            ?? 'Unknown User';
+
+                        $senderInitials = collect(
+                            explode(' ', $senderName)
+                        )
+                            ->filter()
+                            ->map(
+                                fn ($part) =>
+                                    strtoupper(substr($part, 0, 1))
+                            )
+                            ->take(2)
+                            ->join('');
+                    @endphp
+
+                    <div
+                        class="t-msg-row {{ $isOwn ? 'own' : '' }}"
+                        wire:key="message-{{ $message->id }}"
+                    >
+
+                        <div class="t-msg-avatar">
+
+                            @if ($isOwn)
+                                You
+                            @else
+                                {{ $senderInitials ?: '?' }}
+                            @endif
+
+                        </div>
+
+                        <div>
+
+                            @unless ($isOwn)
+
+                                <div class="t-sender-name">
+                                    {{ $senderName }}
+                                </div>
+
+                            @endunless
+
+                            <div class="t-bubble">
+                                {{ $message->body }}
+                            </div>
+
+                            <div class="t-time">
+                                {{ $message->created_at->format('M d, g:i A') }}
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                @empty
+
+                    <div class="empty-thread">
+                        No messages yet. Start the conversation.
+                    </div>
+
+                @endforelse
+
+            </div>
+
+
+            {{-- MESSAGE INPUT --}}
+    @if ($activeConversation && $activeConversation->status === 'active')
+
+        <div class="thread-footer">
+
+            <input
+                type="text"
+                wire:model="newMessage"
+                wire:keydown.enter="sendMessage"
+                placeholder="Type a message..."
+                maxlength="5000"
+                autocomplete="off"
+            >
+
+            <button
+                type="button"
+                wire:click="sendMessage"
+                wire:loading.attr="disabled"
+                title="Send message"
+            >
+                <span wire:loading.remove wire:target="sendMessage">
+                    ➤
+                </span>
+
+                <span wire:loading wire:target="sendMessage">
+                    ...
+                </span>
+            </button>
+
         </div>
+
+        @error('newMessage')
+            <div
+                style="
+                    color: #dc2626;
+                    font-size: 12px;
+                    padding: 4px 16px 10px;
+                "
+            >
+                {{ $message }}
+            </div>
+        @enderror
+
+    @else
+
+        <div
+            class="thread-footer"
+            style="
+                justify-content: center;
+                color: #6b7280;
+            "
+        >
+            This conversation is closed.
+        </div>
+
+    @endif
+
+    @endif
 
     </div>
 
+</div>
+
 <script>
-    const databaseConvos = @js(
-        $conversations->map(function ($conversation) {
-            $latestMessage = $conversation->messages->last();
-
-            $sender = $latestMessage?->sender;
-
-            return [
-                'id' => (string) $conversation->id,
-
-                'name' => $sender?->name ?? 'Unknown User',
-
-                'subtitle' => 'Document #' . $conversation->document_id,
-
-                'avatar' => $sender
-                    ? collect(explode(' ', $sender->name))
-                        ->map(fn ($part) => strtoupper(substr($part, 0, 1)))
-                        ->take(2)
-                        ->join('')
-                    : '??',
-
-                'unread' => $conversation->messages
-                    ->contains(fn ($message) => !$message->is_read),
-
-                'messages' => $conversation->messages
-                    ->map(function ($message) {
-                        return [
-                            'from' => (int) $message->sender_id === (int) auth()->id()
-                                ? 'me'
-                                : 'them',
-
-                            'text' => $message->body,
-
-                            'time' => $message->created_at
-                                ->format('M d, g:i A'),
-                        ];
-                    })
-                    ->values()
-                    ->all(),
-            ];
-        })
-        ->values()
-        ->all()
-    );
+    document.addEventListener('livewire:init', () => {
+        Livewire.on('messages-read', () => {
+            window.location.reload();
+        });
+    });
 </script>
-
-    <script>
-
-        const ACTIVE_CONVO_KEY = 'lextrack_active_convo_v1';
-
-        let activeConvoId =
-            localStorage.getItem(ACTIVE_CONVO_KEY) || null;
-
-
-        function renderConvoItems() {
-
-            const convos = databaseConvos;
-
-            document.getElementById('msgItems').innerHTML =
-                convos.map(c => {
-
-                    const last =
-                        c.messages[c.messages.length - 1];
-
-                    return `
-                        <div
-                            class="msg-item
-                                ${c.unread ? 'unread' : ''}
-                                ${c.id === activeConvoId ? 'active' : ''}"
-                            onclick="openThread('${c.id}')"
-                        >
-
-                            <div class="m-avatar">
-
-                                ${c.avatar}
-
-                                ${
-                                    c.unread
-                                        ? '<span class="dot"></span>'
-                                        : ''
-                                }
-
-                            </div>
-
-                            <div class="m-info">
-
-                                <div class="m-sub">
-                                    ${c.subtitle}
-                                </div>
-
-                                <div class="m-name">
-
-                                    <span>
-                                        ${c.name}
-                                    </span>
-
-                                    <span class="m-time">
-                                        ${
-                                            last
-                                                ? last.time.split(',')[0]
-                                                : ''
-                                        }
-                                    </span>
-
-                                </div>
-
-                                <div class="m-preview">
-                                    ${last ? last.text : ''}
-                                </div>
-
-                            </div>
-
-                        </div>
-                    `;
-
-                }).join('');
-        }
-
-
-        function openThread(convoId) {
-
-            activeConvoId = convoId;
-
-            localStorage.setItem(
-                ACTIVE_CONVO_KEY,
-                convoId
-            );
-
-            const convos = databaseConvos;
-
-            const convo =
-                convos.find(c => c.id === convoId);
-
-            if (!convo) return;
-
-            if (convo.unread) {
-
-                convo.unread = false;
-
-                lxSaveConvos(convos);
-
-            }
-
-            renderConvoItems();
-
-            renderThread();
-
-        }
-
-
-        function closeThread() {
-
-            activeConvoId = null;
-
-            localStorage.removeItem(
-                ACTIVE_CONVO_KEY
-            );
-
-            renderConvoItems();
-
-            renderThread();
-
-        }
-
-
-        function renderThread() {
-
-            const convos = databaseConvos;
-
-            const convo =
-                convos.find(c => c.id === activeConvoId);
-
-            const thread =
-                document.getElementById('msgThread');
-
-
-            if (!convo) {
-
-                activeConvoId = null;
-
-                localStorage.removeItem(
-                    ACTIVE_CONVO_KEY
-                );
-
-                thread.innerHTML = `
-                    <div class="empty-thread">
-
-                        <svg
-                            width="40"
-                            height="40"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="1.5"
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                        >
-
-                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-
-                        </svg>
-
-                        <span>
-                            Select a conversation to start messaging
-                        </span>
-
-                    </div>
-                `;
-
-                return;
-            }
-
-
-            thread.innerHTML = `
-
-                <div class="thread-header">
-
-                    <div class="t-avatar">
-                        ${convo.avatar}
-                    </div>
-
-                    <div style="flex:1;">
-
-                        <div class="t-name">
-                            ${convo.name}
-                        </div>
-
-                        <div class="t-sub">
-                            ${convo.subtitle}
-                        </div>
-
-                    </div>
-
-                    <button
-                        onclick="closeThread()"
-                        title="Close conversation"
-                        style="
-                            background:none;
-                            border:none;
-                            font-size:18px;
-                            color:#6b7280;
-                            cursor:pointer;
-                        "
-                    >
-                        ✕
-                    </button>
-
-                </div>
-
-
-                <div
-                    class="thread-body"
-                    id="threadBody"
-                >
-
-                    ${convo.messages.map(m => `
-
-                        <div
-                            class="t-msg-row
-                                ${m.from === 'me' ? 'own' : ''}"
-                        >
-
-                            <div class="t-msg-avatar">
-
-                                ${
-                                    m.from === 'me'
-                                        ? 'MD'
-                                        : convo.avatar
-                                }
-
-                            </div>
-
-                            <div>
-
-                                <div class="t-bubble">
-                                    ${m.text}
-                                </div>
-
-                                <div class="t-time">
-                                    ${m.time}
-                                </div>
-
-                            </div>
-
-                        </div>
-
-                    `).join('')}
-
-                </div>
-
-
-                <div class="thread-footer">
-
-                    <input
-                        type="text"
-                        id="threadInput"
-                        placeholder="Type a message..."
-                        onkeydown="
-                            if(event.key === 'Enter')
-                                sendThreadMsg()
-                        "
-                    >
-
-                    <button
-                        onclick="sendThreadMsg()"
-                        title="Send message"
-                    >
-                        ➤
-                    </button>
-
-                </div>
-
-            `;
-
-
-            const body =
-                document.getElementById('threadBody');
-
-            body.scrollTop =
-                body.scrollHeight;
-
-        }
-
-
-        function sendThreadMsg() {
-
-            const input =
-                document.getElementById('threadInput');
-
-            if (!input) return;
-
-            const text =
-                input.value.trim();
-
-            if (!text) return;
-
-
-            const convos = databaseConvos;
-
-            const convo =
-                convos.find(c => c.id === activeConvoId);
-
-            if (!convo) return;
-
-
-            const time =
-                new Date().toLocaleString(
-                    'en-US',
-                    {
-                        month: 'short',
-                        day: 'numeric',
-                        hour: 'numeric',
-                        minute: '2-digit'
-                    }
-                );
-
-
-            convo.messages.push({
-                from: 'me',
-                text: text,
-                time: time
-            });
-
-
-            lxSaveConvos(convos);
-
-            input.value = '';
-
-            renderThread();
-
-            renderConvoItems();
-
-
-            setTimeout(() => {
-
-                const c2s = lxGetConvos();
-
-                const c2 =
-                    c2s.find(
-                        c => c.id === activeConvoId
-                    );
-
-                if (!c2) return;
-
-
-                const t2 =
-                    new Date().toLocaleString(
-                        'en-US',
-                        {
-                            month: 'short',
-                            day: 'numeric',
-                            hour: 'numeric',
-                            minute: '2-digit'
-                        }
-                    );
-
-
-                c2.messages.push({
-                    from: 'them',
-                    text: 'Noted, thank you for the update!',
-                    time: t2
-                });
-
-
-                lxSaveConvos(c2s);
-
-                if (
-                    c2.id === activeConvoId
-                ) {
-                    renderThread();
-                }
-
-                renderConvoItems();
-
-            }, 1400);
-
-        }
-
-
-        function filterConvos(q) {
-
-            document
-                .querySelectorAll('#msgItems .msg-item')
-                .forEach(item => {
-
-                    item.style.display =
-                        item.textContent
-                            .toLowerCase()
-                            .includes(
-                                q.toLowerCase()
-                            )
-                            ? ''
-                            : 'none';
-
-                });
-
-        }
-
-
-        document.addEventListener(
-            'DOMContentLoaded',
-            () => {
-
-                renderConvoItems();
-
-                if (
-                    activeConvoId &&
-                    lxGetConvos().some(
-                        c => c.id === activeConvoId
-                    )
-                ) {
-
-                    openThread(activeConvoId);
-
-                } else {
-
-                    renderThread();
-
-                }
-
-            }
-        );
-
-    </script>
 
 </x-filament-panels::page>

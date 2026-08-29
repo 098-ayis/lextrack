@@ -57,6 +57,15 @@ class SendCalendarReminders extends Command
                     new CalendarEventReminder($event, '3_days')
                 );
 
+                // Notification bell
+                \Filament\Notifications\Notification::make()
+                    ->title('Calendar Reminder')
+                    ->body(
+                        $event->event . ' is scheduled in 3 days.'
+                    )
+                    ->info()
+                    ->sendToDatabase($event->user);
+
                 $event->update([
                     'reminder_3_days_sent_at' => now(),
                 ]);
@@ -80,6 +89,14 @@ class SendCalendarReminders extends Command
                     new CalendarEventReminder($event, '1_day')
                 );
 
+                \Filament\Notifications\Notification::make()
+                    ->title('Calendar Reminder')
+                    ->body(
+                        $event->event . ' is scheduled for tomorrow.'
+                    )
+                    ->warning()
+                    ->sendToDatabase($event->user);
+
                 $event->update([
                     'reminder_1_day_sent_at' => now(),
                 ]);
@@ -100,6 +117,14 @@ class SendCalendarReminders extends Command
                 $event->user->notify(
                     new CalendarEventReminder($event, '10_minutes')
                 );
+
+                \Filament\Notifications\Notification::make()
+                    ->title('Upcoming Calendar Event')
+                    ->body(
+                        $event->event . ' will start in 10 minutes.'
+                    )
+                    ->warning()
+                    ->sendToDatabase($event->user);
 
                 $event->update([
                     'reminder_10_minutes_sent_at' => now(),

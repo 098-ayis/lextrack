@@ -1,0 +1,45 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('conversations', function (Blueprint $table) {
+            $table->foreignId('created_by')
+                ->nullable()
+                ->after('document_id')
+                ->constrained('users')
+                ->nullOnDelete();
+
+            $table->foreignId('assigned_to')
+                ->nullable()
+                ->after('created_by')
+                ->constrained('users')
+                ->nullOnDelete();
+
+            $table->string('status')
+                ->default('active')
+                ->after('assigned_to');
+
+            $table->index('status');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('conversations', function (Blueprint $table) {
+            $table->dropForeign(['created_by']);
+            $table->dropForeign(['assigned_to']);
+
+            $table->dropColumn([
+                'created_by',
+                'assigned_to',
+                'status',
+            ]);
+        });
+    }
+};

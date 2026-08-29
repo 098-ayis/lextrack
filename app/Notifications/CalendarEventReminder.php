@@ -18,14 +18,14 @@ class CalendarEventReminder extends Notification
 
     public function via(object $notifiable): array
     {
-        return ['mail', 'database'];
+        return ['mail'];
     }
 
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
             ->subject('LexTrack Calendar Reminder: ' . $this->event->event)
-            ->greeting('Hello ' . $notifiable->name . ',')
+            ->greeting('Hello, ' . $notifiable->name . '!')
             ->line($this->getReminderMessage())
             ->line('Event: ' . $this->event->event)
             ->line('Details: ' . $this->event->details)
@@ -42,19 +42,6 @@ class CalendarEventReminder extends Notification
             ->line(
                 'This is an automated reminder from LexTrack.'
             );
-    }
-
-    public function toDatabase(object $notifiable): array
-    {
-        return [
-            'calendar_id' => $this->event->getKey(),
-            'title' => 'Calendar Reminder',
-            'message' => $this->getReminderMessage(),
-            'event' => $this->event->event,
-            'date' => $this->event->date->format('Y-m-d'),
-            'time' => $this->event->time->format('H:i:s'),
-            'reminder_type' => $this->reminderType,
-        ];
     }
 
     private function getReminderMessage(): string

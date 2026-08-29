@@ -1,0 +1,783 @@
+<?php
+
+namespace App\Filament\Pages;
+
+use App\Models\Document as DocumentModel;
+use App\Models\RejectedDocument;
+use App\Notifications\DocumentRejectedNotification;
+use App\Notifications\DocumentAcceptedNotification;
+use Filament\Pages\Page;
+use Filament\Notifications\Notification;
+use Livewire\WithPagination;
+use Filament\Actions\Action;
+use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Textarea;
+use Filament\Schemas\Components\Utilities\Get;
+use App\Models\ActionType;
+use Filament\Support\Enums\Alignment;
+use Filament\Support\Enums\Width;
+use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpFoundation\StreamedResponse;
+use App\Models\Conversation;
+use App\Models\Message;
+use App\Models\User;
+use Illuminate\Support\Facades\DB;
+
+class Document extends Page
+{
+    use WithPagination;
+
+    protected static ?string $slug = 'incoming';
+
+    protected static ?int $navigationSort = 2;
+
+    protected static ?string $navigationLabel = 'Documents';
+
+    protected static ?string $title = 'Documents';
+
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-inbox';
+
+    protected string $view = 'filament.pages.document';
+
+    public string $search = '';
+
+    public string $typeFilter = '';
+
+    public string $dateFilter = '';
+
+    public int $perPage = 10;
+
+    public string $activeSection = 'incoming';
+
+    public bool $showAcceptedModal = false;
+
+    public ?string $acceptedDocumentUploader = null;
+
+    public function mount(): void
+    {
+        $section = request()->query('section', 'incoming');
+
+        $this->activeSection = in_array($section, [
+            'pending',
+            'incoming',
+            'outgoing',
+            'completed',
+            'rejected',
+        ], true) ? $section : 'incoming';
+    }
+
+    public function getMaxContentWidth(): Width
+    {
+        return Width::Full;
+    }
+
+    public function getStats(): array
+    {
+        return [
+            'total' => DocumentModel::count(),
+
+            'pending' => DocumentModel::where('status', 'pending')
+                ->count(),
+
+            'active' => DocumentModel::where('status', 'in_progress')
+                ->count(),
+
+            'completed' => DocumentModel::where('status', 'completed')
+                ->count(),
+        ];
+    }
+
+    public function getStatusCounts(): array
+    {
+        $counts = DocumentModel::query()
+            ->select('status')
+            ->selectRaw('COUNT(*) as count')
+            ->whereIn('status', [
+                'pending',
+                'in_progress',
+                'outgoing',
+                'completed',
+                'rejected',
+            ])
+            ->groupBy('status')
+            ->pluck('count', 'status');
+
+        return [
+            'pending' => (int) ($counts['pending'] ?? 0),
+            'incoming' => (int) ($counts['in_progress'] ?? 0),
+            'outgoing' => (int) ($counts['outgoing'] ?? 0),
+            'completed' => (int) ($counts['completed'] ?? 0),
+            'rejected' => (int) ($counts['rejected'] ?? 0),
+        ];
+    }
+
+    public function acceptDocument(int $documentId): void
+    {
+        $result = DB::transaction(function () use ($documentId) {
+
+            $document = DocumentModel::with('user')
+                ->lockForUpdate()
+                ->findOrFail($documentId);
+
+            if ($document->status !== 'pending') {
+                return [
+                    'document' => $document,
+                    'accepted' => false,
+                ];
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | 1. Generate LAO number
+            |--------------------------------------------------------------------------
+            */
+
+            $year = now()->format('y');
+
+            $existingNumbers = DocumentModel::query()
+                ->whereNotNull('lao_number')
+                ->where('lao_number', 'like', "LAO-{$year}-%")
+                ->pluck('lao_number');
+
+            $highestNumber = $existingNumbers
+                ->map(function ($laoNumber) {
+                    $parts = explode('-', $laoNumber);
+
+                    return isset($parts[2])
+                        ? (int) $parts[2]
+                        : 0;
+                })
+                ->max() ?? 0;
+
+            $nextNumber = $highestNumber + 1;
+
+            $laoNumber = sprintf(
+                'LAO-%s-%03d',
+                $year,
+                $nextNumber
+            );
+
+            /*
+            |--------------------------------------------------------------------------
+            | 2. Accept document
+            |--------------------------------------------------------------------------
+            */
+
+            $document->update([
+                'lao_number' => $laoNumber,
+                'status' => 'in_progress',
+            ]);
+
+            /*
+            |--------------------------------------------------------------------------
+            | 3. Create conversation
+            |--------------------------------------------------------------------------
+            */
+
+            $conversation = Conversation::firstOrCreate(
+                [
+                    'document_id' => $document->document_id,
+                ],
+                [
+                    'created_by' => $document->user_id,
+                    'assigned_to' => null,
+                    'status' => 'active',
+                ]
+            );
+
+            /*
+            |--------------------------------------------------------------------------
+            | 4. Add client as participant
+            |--------------------------------------------------------------------------
+            */
+
+            if ($document->user_id) {
+                $conversation->participants()->syncWithoutDetaching([
+                    $document->user_id => [
+                        'joined_at' => now(),
+                    ],
+                ]);
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | 5. Add staff participants
+            |--------------------------------------------------------------------------
+            */
+
+            $staffIds = User::where('role_name', 'Admin')
+                ->pluck('id');
+
+            foreach ($staffIds as $staffId) {
+                $conversation->participants()->syncWithoutDetaching([
+                    $staffId => [
+                        'joined_at' => now(),
+                    ],
+                ]);
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | 6. Create initial message
+            |--------------------------------------------------------------------------
+            */
+
+            if (! $conversation->messages()->exists()) {
+                Message::create([
+                    'conversation_id' => $conversation->id,
+                    'sender_id' => auth()->id(),
+                    'body' => 'Your document has been accepted by the Legal Affairs Office and is now being processed.',
+                ]);
+            }
+
+            $conversation->touch();
+
+            return [
+                'document' => $document,
+                'accepted' => true,
+            ];
+        });
+
+        $document = $result['document'];
+
+        /*
+        |--------------------------------------------------------------------------
+        | 7. Send acceptance notification
+        |--------------------------------------------------------------------------
+        */
+
+        if ($result['accepted'] && $document->user) {
+            $document->user->notify(
+                new DocumentAcceptedNotification($document)
+            );
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | 8. Redirect
+        |--------------------------------------------------------------------------
+        */
+
+        $this->redirect(
+            self::getUrl(['section' => 'incoming'])
+        );
+    }
+
+    public function getDocuments(string $section = 'incoming')
+    {
+        $status = match ($section) {
+            'pending' => 'pending',
+            'incoming' => 'in_progress',
+            'outgoing' => 'outgoing',
+            'rejected' => 'rejected',
+            'completed' => 'completed',
+            default => 'in_progress',
+        };
+
+        return DocumentModel::query()
+            ->with(['user', 'type', 'actionType', 'rejections'])
+            ->where('status', $status)
+
+            // Search
+            ->when($this->search, function ($query) {
+                $search = '%' . $this->search . '%';
+
+                $query->where(function ($query) use ($search) {
+                    $query
+                        ->where('lao_number', 'like', $search)
+                        ->orWhere('office_unit', 'like', $search)
+                        ->orWhere('particulars', 'like', $search);
+                });
+            })
+
+            // Status filter
+            ->when($this->typeFilter, function ($query) {
+                $query->where('type_id', $this->typeFilter);
+            })
+
+            // Upload date filter
+            ->when($this->dateFilter, function ($query) {
+                $query->whereDate('created_at', $this->dateFilter);
+            })
+
+            ->latest('created_at')
+
+            ->paginate($this->perPage);
+    }
+
+    public function addDocumentAction(): Action
+    {
+        return Action::make('addDocument')
+            ->label('Add Document')
+            ->icon('heroicon-o-plus')
+            ->modalHeading('Add New Document')
+            ->extraAttributes([
+                'class' => 'add-document-button',
+            ])
+
+            ->schema([
+                TextInput::make('lao_number')
+                    ->label('LAO Number')
+                    ->required(),
+
+                Select::make('type_id')
+                ->label('Document Type')
+                ->placeholder('Select document type')
+                ->options(
+                    \App\Models\DocumentType::query()
+                        ->pluck('type_name', 'type_id')
+                )
+                ->searchable()
+                ->required(),
+
+                Select::make('action_id')
+                ->label('Action Taken')
+                ->placeholder('Select action')
+                ->options(
+                    \App\Models\ActionType::query()
+                        ->orderBy('action_id')
+                        ->pluck('action_name', 'action_id')
+                )
+                ->searchable()
+                ->nullable(),
+                    
+                TextInput::make('office_unit')
+                    ->label('Office / Unit')
+                    ->required(),
+
+                Textarea::make('particulars')
+                    ->label('Particulars')
+                    ->required(),
+
+                DatePicker::make('deadline')
+                    ->label('Deadline'),
+
+                Select::make('status')
+                    ->options([
+                        'pending' => 'Pending',
+                        'in_progress' => 'In Progress',
+                    ])
+                    ->default('in_progress')
+                    ->required(),
+
+                FileUpload::make('file_path')
+                    ->label('Document File')
+                    ->disk('local')
+                    ->directory('documents')
+                    ->preserveFilenames(),
+            ])
+            ->action(function (array $data) {
+                $data['user_id'] = auth()->id();
+
+                DocumentModel::create($data);
+            });
+    }
+
+
+
+    public function editDocumentAction(): Action
+    {
+        return Action::make('editDocument')
+            ->label('')
+            ->icon('heroicon-o-pencil-square')
+            ->tooltip('Edit')
+            ->extraAttributes([
+                'class' => 'edit-document-button',
+            ])
+
+            ->schema([
+                TextInput::make('lao_number')
+                    ->label('LAO Number')
+                    ->required(),
+
+                Select::make('type_id')
+                    ->label('Document Type')
+                    ->placeholder('Select document type')
+                    ->options(
+                        \App\Models\DocumentType::query()
+                            ->pluck('type_name', 'type_id')
+                    )
+                    ->searchable()
+                    ->required(),
+
+                Select::make('action_id')
+                ->label('Action Taken')
+                ->placeholder('Select action')
+                ->options(
+                    ActionType::query()
+                        ->orderBy('action_name')
+                        ->pluck('action_name', 'action_id')
+                )
+                ->searchable()
+                ->preload()
+                ->nullable(),
+
+                TextInput::make('office_unit')
+                    ->label('Office / Unit')
+                    ->required(),
+
+                Textarea::make('particulars')
+                    ->label('Particulars')
+                    ->required(),
+
+                DatePicker::make('deadline')
+                    ->label('Deadline'),
+
+                Select::make('status')
+                    ->options([
+                        'pending' => 'Pending',
+                        'in_progress' => 'In Progress',
+                        'completed' => 'Completed',
+                        'returned' => 'Returned',
+                        'outgoing' => 'Outgoing',
+                    ])
+                    ->required(),
+
+                FileUpload::make('file_path')
+                    ->label('Document File')
+                    ->disk('local')
+                    ->directory('documents')
+                    ->preserveFilenames(),
+            ])
+            ->fillForm(function (array $arguments): array {
+                $document = DocumentModel::findOrFail($arguments['document']);
+
+                return [
+                    'lao_number' => $document->lao_number,
+                    'type_id' => $document->type_id,
+
+                    // Important: preload current Action Taken
+                    'action_id' => $document->action_id,
+
+                    'office_unit' => $document->office_unit,
+                    'particulars' => $document->particulars,
+                    'deadline' => $document->deadline,
+                    'status' => $document->status,
+                    'file_path' => $document->file_path,
+                ];
+            })
+            ->action(function (array $data, array $arguments): void {
+                $document = DocumentModel::findOrFail($arguments['document']);
+
+                $document->update($data);
+            });
+    }
+
+    public function downloadDocument(int $documentId): StreamedResponse
+    {
+        $document = DocumentModel::with('user')->findOrFail($documentId);
+
+        abort_unless(
+            $document->file_path &&
+            Storage::disk('local')->exists($document->file_path),
+            404
+        );
+
+        $fileName = basename($document->file_path);
+
+        return Storage::disk('local')->download(
+            $document->file_path,
+            $fileName
+        );
+    }
+
+    public function redirectToIncoming(): void
+    {
+        $this->redirect(self::getUrl(['section' => 'incoming']));
+    }
+
+    public function acceptDocumentAction(): Action
+    {
+        return Action::make('acceptDocument')
+            ->label('Accept')
+            ->icon('heroicon-o-check')
+            ->color('success')
+            ->modalHeading('Accept Document')
+            ->modalDescription(function (array $arguments): string {
+                $document = DocumentModel::with('user')->find($arguments['document'] ?? null);
+                $uploader = $document?->user?->name ?? 'Unknown user';
+
+                return "Are you sure you want to accept this document uploaded by {$uploader}? It will be moved to the Incoming table.";
+            })
+            ->modalIcon('heroicon-o-check-circle')
+            ->modalIconColor('success')
+            ->modalAlignment(Alignment::Center)
+            ->modalFooterActionsAlignment(Alignment::Center)
+            ->modalSubmitActionLabel('Accept document')
+            ->modalCancelActionLabel('Cancel')
+            ->action(function (array $arguments): void {
+                $this->acceptDocument((int) $arguments['document']);
+            });
+    }
+
+    public function markAsOutgoing(int $documentId, string $sentDate, string $sentTo): void
+    {
+        $document = DocumentModel::findOrFail($documentId);
+
+        $document->update([
+            'status' => 'outgoing',
+            'sent_date' => $sentDate,
+            'sent_to' => $sentTo,
+        ]);
+
+        Notification::make()
+            ->success()
+            ->title('Document added to Outgoing')
+            ->body('The document was successfully added to the Outgoing table.')
+            ->send();
+
+        $this->redirect(self::getUrl(['section' => 'outgoing']));
+    }
+
+    public function markAsOutgoingAction(): Action
+    {
+        return Action::make('markAsOutgoing')
+            ->label('Outgoing')
+            ->icon('heroicon-o-arrow-right')
+            ->color('gray')
+            ->modalHeading('Add Document to Outgoing')
+            ->modalDescription('Provide the destination and sent date for this document.')
+            ->modalAlignment(Alignment::Center)
+            ->modalFooterActionsAlignment(Alignment::Center)
+            ->modalSubmitActionLabel('Add to outgoing')
+            ->modalCancelActionLabel('Cancel')
+            ->extraAttributes([
+                'class' => 'outgoing-document-button',
+            ])
+            ->schema([
+                TextInput::make('sent_to')
+                    ->label('Sent To')
+                    ->required()
+                    ->maxLength(255),
+
+                DatePicker::make('sent_date')
+                    ->label('Sent Date')
+                    ->default(now())
+                    ->required(),
+            ])
+            ->action(function (array $data, array $arguments): void {
+                $this->markAsOutgoing(
+                    (int) $arguments['document'],
+                    $data['sent_date'],
+                    $data['sent_to'],
+                );
+            });
+    }
+
+    public function rejectDocumentAction(): Action
+    {
+        return Action::make('rejectDocument')
+            ->label('Reject')
+            ->icon('heroicon-o-x-mark')
+            ->color('danger')
+            ->modalHeading('Reject Document')
+            ->modalDescription('Please provide a reason for rejecting this document.')
+            ->schema([
+                Select::make('reason')
+                    ->label('Rejection Reason')
+                    ->placeholder('Select a reason')
+                    ->options([
+                        'Incomplete or missing information' => 'Incomplete or missing information',
+                        'Incorrect document type' => 'Incorrect document type',
+                        'Missing signature or approval' => 'Missing signature or approval',
+                        'Duplicate document' => 'Duplicate document',
+                        'Incorrect recipient or office' => 'Incorrect recipient or office',
+                        'Unreadable or corrupted file' => 'Unreadable or corrupted file',
+                        'other' => 'Other',
+                    ])
+                    ->live()
+                    ->required(),
+
+                Textarea::make('custom_reason')
+                    ->label('Specify Other Reason')
+                    ->placeholder('Type the reason for rejecting this document')
+                    ->visible(fn (Get $get): bool => $get('reason') === 'other')
+                    ->required(fn (Get $get): bool => $get('reason') === 'other')
+                    ->rows(4)
+                    ->maxLength(5000),
+            ])
+            ->action(function (array $data, array $arguments): void {
+                $reason = $data['reason'] === 'other'
+                    ? trim((string) ($data['custom_reason'] ?? ''))
+                    : $data['reason'];
+
+                $this->rejectDocument(
+                    (int) $arguments['document'],
+                    $reason,
+                );
+            });
+    }
+
+    public function rejectDocument(int $documentId, string $reason): void
+    {
+        $document = DocumentModel::with('user')->findOrFail($documentId);
+
+        $rejection = DB::transaction(function () use ($document, $reason): RejectedDocument {
+            $rejection = RejectedDocument::create([
+                'document_id' => $document->document_id,
+                'reason' => $reason,
+            ]);
+
+            $document->update([
+                'status' => 'rejected',
+            ]);
+
+            return $rejection;
+        });
+
+        if ($document->user) {
+            $document->user->notify(
+                new DocumentRejectedNotification($document, $rejection)
+            );
+        }
+
+        $this->redirect(self::getUrl(['section' => 'rejected']));
+    }
+
+    public function returnDocumentAction(): Action
+    {
+        return Action::make('returnDocument')
+            ->label('Return')
+            ->icon('heroicon-o-arrow-uturn-left')
+            ->color('success')
+            ->tooltip('Return Document')
+            ->extraAttributes([
+                'class' => 'return-document-button',
+            ])
+            ->modalHeading('Return Document')
+            ->modalDescription('Choose which document section this document should be returned to.')
+            ->schema([
+                Select::make('destination')
+                    ->label('Return to')
+                    ->options([
+                        'incoming' => 'Incoming',
+                        'outgoing' => 'Outgoing',
+                    ])
+                    ->required(),
+            ])
+            ->action(function (array $data, array $arguments): void {
+                        $document = DocumentModel::findOrFail($arguments['document']);
+                $isOutgoing = $data['destination'] === 'outgoing';
+
+                $document->update([
+                    'status' => $isOutgoing ? 'outgoing' : 'in_progress',
+                ]);
+
+                $this->redirect(self::getUrl([
+                    'section' => $isOutgoing ? 'outgoing' : 'incoming',
+                ]));
+            });
+    }
+
+    public function viewRejectionReasonAction(): Action
+    {
+        return Action::make('viewRejectionReason')
+            ->label('View reason')
+            ->link()
+            ->color('danger')
+            ->modalHeading('Rejection Reason')
+            ->modalSubmitAction(false)
+            ->modalCancelActionLabel('Close')
+            ->fillForm(function (array $arguments): array {
+                $rejection = RejectedDocument::findOrFail(
+                    (int) $arguments['rejection']
+                );
+
+                return [
+                    'reason' => $rejection->reason,
+                ];
+            })
+            ->schema([
+                Textarea::make('reason')
+                    ->label('Reason')
+                    ->disabled()
+                    ->rows(5)
+                    ->dehydrated(false),
+            ]);
+    }
+
+    public function completeDocument(int $documentId): void
+    {
+        $document = DocumentModel::findOrFail($documentId);
+
+        $document->update([
+            'status' => 'completed',
+        ]);
+
+        Notification::make()
+            ->success()
+            ->title('Document completed')
+            ->body('The document was successfully marked as completed and moved to the Completed table.')
+            ->send();
+
+        $this->redirect(self::getUrl(['section' => 'completed']));
+    }
+
+    public function completeDocumentAction(): Action
+    {
+        return Action::make('completeDocument')
+            ->label('')
+            ->icon('heroicon-o-check-circle')
+            ->color('gray')
+            ->tooltip('Complete')
+            ->modalHeading('Complete Document')
+            ->modalDescription('Are you sure you want to mark this document as completed? It will be moved to the Completed table.')
+            ->modalIcon('heroicon-o-check-circle')
+            ->modalIconColor('gray')
+            ->modalAlignment(Alignment::Center)
+            ->modalFooterActionsAlignment(Alignment::Center)
+            ->modalSubmitActionLabel('Complete document')
+            ->modalCancelActionLabel('Cancel')
+            ->extraAttributes([
+                'class' => 'inline-flex items-center justify-center w-9 h-9 rounded-md bg-[#334155] hover:bg-[#0F172A] text-white transition',
+            ])
+            ->action(function (array $arguments): void {
+                $this->completeDocument((int) $arguments['document']);
+            });
+    }
+
+    public function updatedPerPage(): void
+    {
+        $this->resetPage();
+    }
+
+
+    public function messageDocument(int $documentId): void
+    {
+        $document = DocumentModel::findOrFail($documentId);
+
+        $this->redirect(
+            route('filament.admin.pages.messages', [
+                'document' => $document->document_id,
+            ])
+        );
+    }
+    
+    protected function casts(): array
+    {
+        return [
+            'deadline' => 'date',
+            'sent_date' => 'date',
+            'date_returned' => 'date',
+            'outgoing_date' => 'date',
+        ];
+    }
+
+    public function updatedSearch(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedTypeFilter(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedDateFilter(): void
+    {
+        $this->resetPage();
+    }
+}

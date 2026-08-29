@@ -307,41 +307,211 @@
                 min-height: 500px;
             }
         }
+
+        .unread-count {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 18px;
+            height: 18px;
+            padding: 0 5px;
+            border-radius: 999px;
+            background: #dc2626;
+            color: white;
+            font-size: 10px;
+            font-weight: 700;
+        }
     </style>
 
-    <div class="msg-wrap">
+    <div
+    class="msg-wrap"
+    x-data="{ search: '' }"
+>
 
-        {{-- CONVERSATION LIST --}}
-        <div class="msg-list">
+    {{-- =========================================================
+        CONVERSATION LIST
+    ========================================================== --}}
+    <div class="msg-list">
 
-            <div class="msg-list-header">
+        <div class="msg-list-header">
 
-                <h3>Conversations</h3>
+            <h3>Conversations</h3>
 
-                <div class="msg-search">
+            <div class="msg-search">
 
-                    <span class="s-icon">
-                        <x-heroicon-o-magnifying-glass class="w-4 h-4" />
-                    </span>
+                <span class="s-icon">
+                    <x-heroicon-o-magnifying-glass class="w-4 h-4" />
+                </span>
 
-                    <input
-                        type="text"
-                        id="msgSearch"
-                        placeholder="Search Messages"
-                        oninput="filterConvos(this.value)"
-                    >
-
-                </div>
+                <input
+                    type="text"
+                    placeholder="Search Messages"
+                    x-model="search"
+                >
 
             </div>
-
-            <div class="msg-items" id="msgItems"></div>
 
         </div>
 
 
-        {{-- MESSAGE THREAD --}}
-        <div class="msg-thread" id="msgThread">
+        <div class="msg-items">
+
+            @forelse ($conversations as $conversation)
+
+                @php
+                    /*
+                     * For the staff inbox, show the client who
+                     * originally owns/created the conversation.
+                     */
+                    $client = $conversation->creator;
+
+                    $clientName = $client?->name ?? 'Unknown Client';
+
+                    $initials = collect(explode(' ', $clientName))
+                        ->filter()
+                        ->map(fn ($part) => strtoupper(substr($part, 0, 1)))
+                        ->take(2)
+                        ->join('');
+
+                    $latestMessage = $conversation
+                        ->messages
+                        ->sortBy('created_at')
+                        ->last();
+
+                    $searchText = strtolower(
+                        $clientName . ' ' .
+                        ($conversation->document?->lao_number ?? '') . ' ' .
+                        ($conversation->document?->particulars ?? '')
+                    );
+                @endphp
+
+
+                <div
+                    class="
+                        msg-item
+                        {{ $conversation->unread_messages_count > 0 ? 'unread' : '' }}
+                        {{ (int) $selectedConversation === (int) $conversation->id
+                            ? 'active'
+                            : '' }}
+                    "
+                    wire:click="selectConversation({{ $conversation->id }})"
+                >
+
+                @if ($conversation->unread_messages_count > 0)
+
+                    <span class="unread-count">
+                        {{ $conversation->unread_messages_count }}
+                    </span>
+
+                @endif
+
+                    <div class="m-avatar">
+
+                        {{ $initials ?: 'CL' }}
+
+                        @if ($conversation->unread_messages_count > 0)
+                            <span class="dot"></span>
+                        @endif
+
+                    </div>
+
+
+                    <div class="m-info">
+
+                        <div class="m-sub">
+
+                            @if ($conversation->document?->lao_number)
+
+                                {{ $conversation->document->lao_number }}
+
+                            @else
+
+                                Document #{{ $conversation->document_id }}
+
+                            @endif
+
+                        </div>
+
+
+                        <div class="m-name">
+
+                            <span>
+                                {{ $clientName }}
+                            </span>
+
+                            <span class="m-time">
+
+                                @if ($latestMessage)
+
+                                    {{ $latestMessage
+                                        ->created_at
+                                        ->format('M d') }}
+
+                                @endif
+
+                            </span>
+
+                        </div>
+
+
+                        <div class="m-preview">
+
+                            @if ($latestMessage)
+
+                                @if (
+                                    (int) $latestMessage->sender_id
+                                    === (int) auth()->id()
+                                )
+                                    You:
+                                @endif
+
+                                {{ \Illuminate\Support\Str::limit(
+                                    $latestMessage->body,
+                                    55
+                                ) }}
+
+                            @else
+
+                                No messages yet
+
+                            @endif
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            @empty
+
+                <div
+                    style="
+                        padding: 24px;
+                        text-align: center;
+                        color: #6b7280;
+                        font-size: 13px;
+                    "
+                >
+                    No conversations available.
+                </div>
+
+            @endforelse
+
+        </div>
+
+    </div>
+
+
+
+    {{-- =========================================================
+        MESSAGE THREAD
+    ========================================================== --}}
+    <div
+        class="msg-thread"
+        wire:poll.4s="refreshConversation"
+    >
+
+        @if (! $selectedConversation)
 
             <div class="empty-thread">
 
@@ -355,473 +525,335 @@
 
             </div>
 
-        </div>
+        @else
 
-    </div>
+            @php
+                $activeConversation = $conversations
+                    ->firstWhere(
+                        'id',
+                        $selectedConversation
+                    );
 
-<script>
-    const databaseConvos = @js(
-        $conversations->map(function ($conversation) {
-            $latestMessage = $conversation->messages->last();
+                $client = $activeConversation?->creator;
 
-            $sender = $latestMessage?->sender;
+                $clientName = $client?->name
+                    ?? 'Unknown Client';
 
-            return [
-                'id' => (string) $conversation->id,
-
-                'name' => $sender?->name ?? 'Unknown User',
-
-                'subtitle' => 'Document #' . $conversation->document_id,
-
-                'avatar' => $sender
-                    ? collect(explode(' ', $sender->name))
-                        ->map(fn ($part) => strtoupper(substr($part, 0, 1)))
-                        ->take(2)
-                        ->join('')
-                    : '??',
-
-                'unread' => $conversation->messages
-                    ->contains(fn ($message) => !$message->is_read),
-
-                'messages' => $conversation->messages
-                    ->map(function ($message) {
-                        return [
-                            'from' => (int) $message->sender_id === (int) auth()->id()
-                                ? 'me'
-                                : 'them',
-
-                            'text' => $message->body,
-
-                            'time' => $message->created_at
-                                ->format('M d, g:i A'),
-                        ];
-                    })
-                    ->values()
-                    ->all(),
-            ];
-        })
-        ->values()
-        ->all()
-    );
-</script>
-
-    <script>
-
-        const ACTIVE_CONVO_KEY = 'lextrack_active_convo_v1';
-
-        let activeConvoId =
-            localStorage.getItem(ACTIVE_CONVO_KEY) || null;
+                $clientInitials = collect(
+                    explode(' ', $clientName)
+                )
+                    ->filter()
+                    ->map(
+                        fn ($part) =>
+                            strtoupper(substr($part, 0, 1))
+                    )
+                    ->take(2)
+                    ->join('');
+            @endphp
 
 
-        function renderConvoItems() {
+            {{-- =====================================================
+                THREAD HEADER
+            ====================================================== --}}
+            <div class="thread-header">
 
-            const convos = databaseConvos;
+                <div class="t-avatar">
+                    {{ $clientInitials ?: 'CL' }}
+                </div>
 
-            document.getElementById('msgItems').innerHTML =
-                convos.map(c => {
 
-                    const last =
-                        c.messages[c.messages.length - 1];
+                <div style="flex: 1;">
 
-                    return `
-                        <div
-                            class="msg-item
-                                ${c.unread ? 'unread' : ''}
-                                ${c.id === activeConvoId ? 'active' : ''}"
-                            onclick="openThread('${c.id}')"
-                        >
+                    <div class="t-name">
+                        {{ $clientName }}
+                    </div>
 
-                            <div class="m-avatar">
 
-                                ${c.avatar}
+                    <div class="t-sub">
 
-                                ${
-                                    c.unread
-                                        ? '<span class="dot"></span>'
-                                        : ''
-                                }
+                        @if ($activeConversation?->document?->lao_number)
+
+                            {{ $activeConversation->document->lao_number }}
+
+                        @elseif ($activeConversation?->document_id)
+
+                            Document #{{ $activeConversation->document_id }}
+
+                        @endif
+
+
+                        @if ($activeConversation?->assignedStaff)
+
+                            &nbsp; • &nbsp;
+
+                            Primary handler:
+                            {{ $activeConversation->assignedStaff->name }}
+
+                        @else
+
+                            &nbsp; • &nbsp;
+
+                            Unassigned
+
+                        @endif
+
+                    </div>
+
+                </div>
+
+
+                {{-- Optional Assign to Me --}}
+                @if (
+                    $activeConversation
+                    && ! $activeConversation->assigned_to
+                )
+
+                    <button
+                        type="button"
+                        wire:click="assignToMe({{ $activeConversation->id }})"
+                        style="
+                            background: #1b6ca8;
+                            color: white;
+                            border: none;
+                            border-radius: 7px;
+                            padding: 7px 12px;
+                            font-size: 12px;
+                            font-weight: 600;
+                            cursor: pointer;
+                        "
+                    >
+                        Assign to Me
+                    </button>
+
+                @endif
+
+
+                <button
+                    type="button"
+                    wire:click="$set('selectedConversation', null)"
+                    title="Close thread"
+                    style="
+                        background: none;
+                        border: none;
+                        font-size: 18px;
+                        color: #6b7280;
+                        cursor: pointer;
+                        margin-left: 8px;
+                    "
+                >
+                    ✕
+                </button>
+
+            </div>
+
+
+
+            {{-- =====================================================
+                MESSAGE BODY
+            ====================================================== --}}
+            <div
+                class="thread-body"
+                id="threadBody"
+            >
+
+                @forelse ($messages as $message)
+
+                    @php
+                        $isOwn =
+                            (int) $message->sender_id
+                            === (int) auth()->id();
+
+                        $senderName =
+                            $message->sender?->name
+                            ?? 'Unknown User';
+
+                        $senderInitials = collect(
+                            explode(' ', $senderName)
+                        )
+                            ->filter()
+                            ->map(
+                                fn ($part) =>
+                                    strtoupper(substr($part, 0, 1))
+                            )
+                            ->take(2)
+                            ->join('');
+                    @endphp
+
+
+                    <div
+                        class="t-msg-row {{ $isOwn ? 'own' : '' }}"
+                        wire:key="message-{{ $message->id }}"
+                    >
+
+                        <div class="t-msg-avatar">
+
+                            @if ($isOwn)
+
+                                {{ collect(explode(' ', auth()->user()->name))
+                                    ->filter()
+                                    ->map(
+                                        fn ($part) =>
+                                            strtoupper(substr($part, 0, 1))
+                                    )
+                                    ->take(2)
+                                    ->join('') }}
+
+                            @else
+
+                                {{ $senderInitials ?: '?' }}
+
+                            @endif
+
+                        </div>
+
+
+                        <div>
+
+                            {{-- Important because multiple staff can reply --}}
+                            <div
+                                style="
+                                    font-size: 11px;
+                                    margin-bottom: 3px;
+                                    color: #6b7280;
+                                    {{ $isOwn ? 'text-align:right;' : '' }}
+                                "
+                            >
+
+                                @if ($isOwn)
+                                    You
+                                @else
+                                    {{ $senderName }}
+                                @endif
 
                             </div>
 
-                            <div class="m-info">
 
-                                <div class="m-sub">
-                                    ${c.subtitle}
-                                </div>
+                            <div class="t-bubble">
 
-                                <div class="m-name">
+                                {{ $message->body }}
 
-                                    <span>
-                                        ${c.name}
-                                    </span>
+                            </div>
 
-                                    <span class="m-time">
-                                        ${
-                                            last
-                                                ? last.time.split(',')[0]
-                                                : ''
-                                        }
-                                    </span>
 
-                                </div>
+                            <div class="t-time">
 
-                                <div class="m-preview">
-                                    ${last ? last.text : ''}
-                                </div>
+                                {{ $message
+                                    ->created_at
+                                    ->format('M d, g:i A') }}
 
                             </div>
 
                         </div>
-                    `;
 
-                }).join('');
-        }
+                    </div>
 
+                @empty
 
-        function openThread(convoId) {
-
-            activeConvoId = convoId;
-
-            localStorage.setItem(
-                ACTIVE_CONVO_KEY,
-                convoId
-            );
-
-            const convos = databaseConvos;
-
-            const convo =
-                convos.find(c => c.id === convoId);
-
-            if (!convo) return;
-
-            if (convo.unread) {
-
-                convo.unread = false;
-
-                lxSaveConvos(convos);
-
-            }
-
-            renderConvoItems();
-
-            renderThread();
-
-        }
-
-
-        function closeThread() {
-
-            activeConvoId = null;
-
-            localStorage.removeItem(
-                ACTIVE_CONVO_KEY
-            );
-
-            renderConvoItems();
-
-            renderThread();
-
-        }
-
-
-        function renderThread() {
-
-            const convos = databaseConvos;
-
-            const convo =
-                convos.find(c => c.id === activeConvoId);
-
-            const thread =
-                document.getElementById('msgThread');
-
-
-            if (!convo) {
-
-                activeConvoId = null;
-
-                localStorage.removeItem(
-                    ACTIVE_CONVO_KEY
-                );
-
-                thread.innerHTML = `
                     <div class="empty-thread">
 
-                        <svg
-                            width="40"
-                            height="40"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="1.5"
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                        >
-
-                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-
-                        </svg>
+                        <x-heroicon-o-chat-bubble-left-right
+                            class="w-8 h-8 opacity-40"
+                        />
 
                         <span>
-                            Select a conversation to start messaging
+                            No messages yet.
                         </span>
 
                     </div>
-                `;
 
-                return;
-            }
+                @endforelse
 
-
-            thread.innerHTML = `
-
-                <div class="thread-header">
-
-                    <div class="t-avatar">
-                        ${convo.avatar}
-                    </div>
-
-                    <div style="flex:1;">
-
-                        <div class="t-name">
-                            ${convo.name}
-                        </div>
-
-                        <div class="t-sub">
-                            ${convo.subtitle}
-                        </div>
-
-                    </div>
-
-                    <button
-                        onclick="closeThread()"
-                        title="Close conversation"
-                        style="
-                            background:none;
-                            border:none;
-                            font-size:18px;
-                            color:#6b7280;
-                            cursor:pointer;
-                        "
-                    >
-                        ✕
-                    </button>
-
-                </div>
+            </div>
 
 
-                <div
-                    class="thread-body"
-                    id="threadBody"
-                >
 
-                    ${convo.messages.map(m => `
-
-                        <div
-                            class="t-msg-row
-                                ${m.from === 'me' ? 'own' : ''}"
-                        >
-
-                            <div class="t-msg-avatar">
-
-                                ${
-                                    m.from === 'me'
-                                        ? 'MD'
-                                        : convo.avatar
-                                }
-
-                            </div>
-
-                            <div>
-
-                                <div class="t-bubble">
-                                    ${m.text}
-                                </div>
-
-                                <div class="t-time">
-                                    ${m.time}
-                                </div>
-
-                            </div>
-
-                        </div>
-
-                    `).join('')}
-
-                </div>
-
+            {{-- =====================================================
+                MESSAGE INPUT
+            ====================================================== --}}
+            @if (
+                $activeConversation
+                && $activeConversation->status === 'active'
+            )
 
                 <div class="thread-footer">
 
                     <input
                         type="text"
-                        id="threadInput"
+                        wire:model="newMessage"
+                        wire:keydown.enter="sendMessage"
                         placeholder="Type a message..."
-                        onkeydown="
-                            if(event.key === 'Enter')
-                                sendThreadMsg()
-                        "
+                        maxlength="5000"
+                        autocomplete="off"
                     >
 
                     <button
-                        onclick="sendThreadMsg()"
+                        type="button"
+                        wire:click="sendMessage"
+                        wire:loading.attr="disabled"
+                        wire:target="sendMessage"
                         title="Send message"
                     >
-                        ➤
+
+                        <span
+                            wire:loading.remove
+                            wire:target="sendMessage"
+                        >
+                            ➤
+                        </span>
+
+                        <span
+                            wire:loading
+                            wire:target="sendMessage"
+                        >
+                            ...
+                        </span>
+
                     </button>
 
                 </div>
 
-            `;
 
+                @error('newMessage')
 
-            const body =
-                document.getElementById('threadBody');
+                    <div
+                        style="
+                            color: #dc2626;
+                            font-size: 12px;
+                            padding: 0 18px 12px;
+                        "
+                    >
+                        {{ $message }}
+                    </div>
 
-            body.scrollTop =
-                body.scrollHeight;
+                @enderror
 
-        }
+            @else
 
+                <div
+                    class="thread-footer"
+                    style="
+                        justify-content: center;
+                        color: #6b7280;
+                        font-size: 13px;
+                    "
+                >
+                    This conversation is closed.
+                </div>
 
-        function sendThreadMsg() {
+            @endif
 
-            const input =
-                document.getElementById('threadInput');
+        @endif
 
-            if (!input) return;
+    </div>
 
-            const text =
-                input.value.trim();
+</div>
 
-            if (!text) return;
-
-
-            const convos = databaseConvos;
-
-            const convo =
-                convos.find(c => c.id === activeConvoId);
-
-            if (!convo) return;
-
-
-            const time =
-                new Date().toLocaleString(
-                    'en-US',
-                    {
-                        month: 'short',
-                        day: 'numeric',
-                        hour: 'numeric',
-                        minute: '2-digit'
-                    }
-                );
-
-
-            convo.messages.push({
-                from: 'me',
-                text: text,
-                time: time
-            });
-
-
-            lxSaveConvos(convos);
-
-            input.value = '';
-
-            renderThread();
-
-            renderConvoItems();
-
-
-            setTimeout(() => {
-
-                const c2s = lxGetConvos();
-
-                const c2 =
-                    c2s.find(
-                        c => c.id === activeConvoId
-                    );
-
-                if (!c2) return;
-
-
-                const t2 =
-                    new Date().toLocaleString(
-                        'en-US',
-                        {
-                            month: 'short',
-                            day: 'numeric',
-                            hour: 'numeric',
-                            minute: '2-digit'
-                        }
-                    );
-
-
-                c2.messages.push({
-                    from: 'them',
-                    text: 'Noted, thank you for the update!',
-                    time: t2
-                });
-
-
-                lxSaveConvos(c2s);
-
-                if (
-                    c2.id === activeConvoId
-                ) {
-                    renderThread();
-                }
-
-                renderConvoItems();
-
-            }, 1400);
-
-        }
-
-
-        function filterConvos(q) {
-
-            document
-                .querySelectorAll('#msgItems .msg-item')
-                .forEach(item => {
-
-                    item.style.display =
-                        item.textContent
-                            .toLowerCase()
-                            .includes(
-                                q.toLowerCase()
-                            )
-                            ? ''
-                            : 'none';
-
-                });
-
-        }
-
-
-        document.addEventListener(
-            'DOMContentLoaded',
-            () => {
-
-                renderConvoItems();
-
-                if (
-                    activeConvoId &&
-                    lxGetConvos().some(
-                        c => c.id === activeConvoId
-                    )
-                ) {
-
-                    openThread(activeConvoId);
-
-                } else {
-
-                    renderThread();
-
-                }
-
-            }
-        );
-
-    </script>
+<script>
+    document.addEventListener('livewire:init', () => {
+        Livewire.on('messages-read', () => {
+            window.location.reload();
+        });
+    });
+</script>
 
 </x-filament-panels::page>
