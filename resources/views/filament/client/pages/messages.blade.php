@@ -93,17 +93,6 @@
             position: relative;
         }
 
-        .m-avatar .dot {
-            position: absolute;
-            bottom: -2px;
-            right: -2px;
-            width: 11px;
-            height: 11px;
-            border-radius: 50%;
-            background: #3ab66b;
-            border: 2px solid white;
-        }
-
         .m-info {
             overflow: hidden;
             flex: 1;
@@ -293,6 +282,20 @@
             gap: 10px;
         }
 
+        .unread-count {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 18px;
+            height: 18px;
+            padding: 0 5px;
+            border-radius: 999px;
+            background: #dc2626;
+            color: white;
+            font-size: 10px;
+            font-weight: 700;
+        }
+        
         @media (max-width: 900px) {
             .msg-wrap {
                 grid-template-columns: 1fr;
@@ -307,6 +310,7 @@
                 min-height: 500px;
             }
         }
+
     </style>
 
     <div
