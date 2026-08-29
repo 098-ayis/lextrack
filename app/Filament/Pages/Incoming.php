@@ -358,7 +358,7 @@ class Incoming extends Page
 
     public function downloadDocument(int $documentId): StreamedResponse
     {
-        $document = Document::with('user')->findOrFail($documentId);
+        $document = Document::findOrFail($documentId);
 
         abort_unless(
             $document->file_path &&
@@ -366,18 +366,19 @@ class Incoming extends Page
             404
         );
 
-        $this->acceptedDocumentUploader = $document->user?->name;
-        $this->showAcceptedModal = true;
-    }
-
-    public function redirectToIncoming(): void
-    {
-        $this->redirect(self::getUrl(['section' => 'incoming']));
-        $fileName = basename($document->file_path);
+        $fileName = $document->original_file_name
+            ?: basename($document->file_path);
 
         return Storage::disk('local')->download(
             $document->file_path,
             $fileName
+        );
+    }
+
+    public function redirectToIncoming(): void
+    {
+        $this->redirect(
+            self::getUrl(['section' => 'incoming'])
         );
     }
 
