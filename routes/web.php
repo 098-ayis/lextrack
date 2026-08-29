@@ -7,6 +7,9 @@ use Illuminate\Support\Facades\Storage;
 use App\Models\Document;
 use App\Http\Controllers\AIController;
 use App\Http\Controllers\Auth\GoogleAuthController;
+use App\Http\Controllers\UserExportController;
+use App\Http\Controllers\DocumentExportController;
+use App\Http\Middleware\AdminMiddleware;
 
 Route::view('/ai-test', 'ai-test');
 
@@ -38,6 +41,14 @@ Route::post('/logout', function (Request $request) {
         'message' => 'Logged out successfully',
     ]);
 })->middleware('auth');
+
+Route::get('/admin/users/export', [UserExportController::class, '__invoke'])
+    ->middleware(['auth', AdminMiddleware::class])
+    ->name('admin.users.export');
+
+Route::get('/admin/documents/export', [DocumentExportController::class, '__invoke'])
+    ->middleware(['auth', AdminMiddleware::class])
+    ->name('admin.documents.export');
 
 
 /*

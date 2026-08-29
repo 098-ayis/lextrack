@@ -2,7 +2,9 @@
 
 namespace App\Filament\Resources\Users\Schemas;
 
+use App\Models\User;
 use Filament\Forms\Components\DateTimePicker;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
 use Filament\Schemas\Schema;
@@ -28,7 +30,9 @@ class UserForm
                 TextInput::make('last_login'),
                 TextInput::make('phone_number')
                     ->tel(),
-                TextInput::make('status'),
+                Select::make('status')
+                    ->options(User::STATUS_OPTIONS)
+                    ->default(User::DEFAULT_STATUS),
                 TextInput::make('role_name'),
                 TextInput::make('avatar'),
                 DateTimePicker::make('email_verified_at'),

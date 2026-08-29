@@ -2,8 +2,8 @@
 
 namespace App\Providers\Filament;
 
-use Filament\Http\Middleware\Authenticate;
 use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
+use App\Http\Middleware\FilamentAuthenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
@@ -32,13 +32,13 @@ class AdminPanelProvider extends PanelProvider
             ->path('admin')
 
             ->topNavigation()
+            ->globalSearch(false)
             ->databaseNotifications()
 
             ->brandLogo(fn () => view('filament.components.brand'))
             ->brandLogoHeight('3rem')
             
             ->viteTheme('resources/css/filament/admin/theme.css')
-            ->login()
             ->colors([
                 'primary' => Color::Amber,
             ])
@@ -63,10 +63,11 @@ class AdminPanelProvider extends PanelProvider
                 DispatchServingFilamentEvent::class,
             ])
             ->plugins([
-                FilamentShieldPlugin::make(),
+                FilamentShieldPlugin::make()
+                    ->navigationGroup('Access Control'),
             ])
             ->authMiddleware([
-                Authenticate::class,
+                FilamentAuthenticate::class,
             ])
             ->userMenuItems([
                 'profile' => MenuItem::make()

@@ -6,7 +6,7 @@
     @endphp
 
     {{-- STATUS HEADER --}}
-    <div class="mb-4 w-full overflow-x-auto rounded-lg border border-gray-300 bg-white shadow-sm">
+    <div class="mb-0 w-full overflow-x-auto border border-gray-300 bg-white shadow-sm">
         <nav class="flex min-w-max items-center gap-1 p-2" aria-label="Document request status">
             @foreach ([
                 'pending' => 'Pending',
@@ -35,8 +35,8 @@
     </div>
 
     {{-- SEARCH + FILTER --}}
-    <div class="mb-4 flex flex-wrap items-center gap-3">
-        <div class="relative w-full sm:w-80">
+    <div class="mb-0 flex w-full flex-wrap items-center gap-3 border-x border-gray-300 bg-white px-3 py-7 shadow-sm">
+        <div class="relative w-full sm:w-96">
             <input
                 type="text"
                 wire:model.live.debounce.400ms="search"
@@ -58,7 +58,7 @@
             </svg>
         </div>
 
-        <div class="relative w-full sm:w-52">
+        <div class="relative w-full sm:w-60">
             <select
                 wire:model.live="typeFilter"
                 class="h-10 w-full appearance-none rounded-full border border-gray-300 bg-white pl-4 pr-12
@@ -85,11 +85,42 @@
                 />
             </svg>
         </div>
+
+        {{-- Request Date Filter --}}
+        <div class="relative w-full sm:w-60">
+            <input
+                type="date"
+                wire:model.live="dateFilter"
+                aria-label="Filter by request date"
+                class="peer h-10 w-full appearance-none rounded-full border border-gray-300 bg-white pl-10 pr-4 text-sm
+                       {{ $dateFilter ? 'text-gray-500' : 'text-transparent' }}
+                       focus:border-primary-500 focus:text-gray-500 focus:ring-primary-500"
+            >
+
+            @if (! $dateFilter)
+                <span class="pointer-events-none absolute left-10 top-1/2 -translate-y-1/2 text-sm text-gray-500 peer-focus:hidden">
+                    Date
+                </span>
+            @endif
+
+            <svg
+                class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.75"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+            >
+                <rect x="3.5" y="5" width="17" height="15.5" rx="2"/>
+                <path d="M7.5 3.5v3M16.5 3.5v3M3.5 9h17"/>
+            </svg>
+        </div>
     </div>
 
     @if ($requests->count())
-        <div class="w-full overflow-x-auto border border-gray-300 bg-white shadow-sm">
-            <div class="flex flex-wrap items-center justify-between gap-4 border-b border-gray-300 px-4 py-4">
+        <div class="w-full bg-white border border-gray-300 border-b-0 shadow-sm px-4 pt-4 pb-0 mb-0">
+            <div class="flex flex-wrap items-center justify-between gap-4 pb-4">
                 <div class="flex items-center gap-2 text-sm font-semibold text-gray-700">
                     <span>Show</span>
 
@@ -103,12 +134,15 @@
                     </select>
                 </div>
             </div>
+        </div>
 
+        <div class="max-h-[calc(100vh-18rem)] w-full min-h-0 overflow-auto border border-gray-300 bg-white">
             <table class="w-full min-w-[1100px] border-collapse text-xs lg:min-w-0">
-                <thead>
+                <thead class="sticky top-0 z-10 bg-white">
                     <tr class="border-b border-gray-300 bg-white">
                         <th class="w-20 px-4 py-4 text-left text-sm font-bold">NO.</th>
                         <th class="px-4 py-4 text-left text-sm font-bold">DOCUMENT</th>
+                        <th class="px-4 py-4 text-left text-sm font-bold">PURPOSE</th>
                         <th class="px-4 py-4 text-left text-sm font-bold">DOCUMENT TYPE</th>
                         <th class="px-4 py-4 text-left text-sm font-bold">REQUESTED BY</th>
                         <th class="px-4 py-4 text-left text-sm font-bold">DATE OF REQUEST</th>
@@ -122,7 +156,22 @@
                 </thead>
 
                 <tbody>
+                    @php $currentRequestDate = null; @endphp
+
                     @foreach ($requests as $request)
+                        @php
+                            $requestDate = $request->date_of_request?->format('Y-m-d') ?? 'unknown';
+                        @endphp
+
+                        @if ($requestDate !== $currentRequestDate)
+                            <tr class="border-y border-blue-200 bg-blue-50">
+                                <td colspan="{{ $activeSection === 'pending' ? 8 : 9 }}" class="px-4 py-2 text-xs font-bold text-blue-900">
+                                    Requested {{ $request->date_of_request?->format('F d, Y') ?? 'Unknown date' }}
+                                </td>
+                            </tr>
+                            @php $currentRequestDate = $requestDate; @endphp
+                        @endif
+
                         <tr
                             data-view-url="{{ \App\Filament\Pages\ViewDocument::getUrl(['document' => $request->document_id]) }}"
                             onclick="if (!event.target.closest('button, a, input, select, textarea')) window.location.href = this.dataset.viewUrl"
@@ -163,6 +212,10 @@
                                 @else
                                     <span class="italic text-gray-500">Document unavailable</span>
                                 @endif
+                            </td>
+
+                            <td class="px-4 py-4 align-middle">
+                                {{ $request->purpose ?? '—' }}
                             </td>
 
                             <td class="px-4 py-4 align-middle">
@@ -226,7 +279,7 @@
                                             type="button"
                                             wire:click="returnRequest({{ $request->request_id }})"
                                             wire:confirm="Are you sure you want to return this request to pending?"
-                                            class="inline-flex h-9 items-center justify-center rounded-md border border-amber-600 px-3 text-xs font-semibold text-amber-700 transition hover:bg-amber-50"
+                                            class="inline-flex h-9 items-center justify-center rounded-md border-0 bg-[#DCFCE7] px-3 text-xs font-semibold text-[#15803D] transition hover:bg-[#BBF7D0]"
                                         >
                                             Return
                                         </button>
@@ -252,4 +305,11 @@
             </p>
         </div>
     @endif
+
+    <style>
+        /* Keep the document request sections visually connected without page-level gaps. */
+        .fi-page-content {
+            gap: 0 !important;
+        }
+    </style>
 </x-filament-panels::page>

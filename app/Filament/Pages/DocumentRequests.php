@@ -27,6 +27,8 @@ class DocumentRequests extends Page
 
     public string $typeFilter = '';
 
+    public string $dateFilter = '';
+
     public int $perPage = 10;
 
     public function mount(): void
@@ -94,6 +96,9 @@ class DocumentRequests extends Page
                     $query->where('type_id', $this->typeFilter);
                 });
             })
+            ->when($this->dateFilter, function ($query) {
+                $query->whereDate('date_of_request', $this->dateFilter);
+            })
             ->latest('date_of_request')
             ->latest('request_id')
             ->paginate($this->perPage);
@@ -135,6 +140,11 @@ class DocumentRequests extends Page
     }
 
     public function updatedTypeFilter(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedDateFilter(): void
     {
         $this->resetPage();
     }
