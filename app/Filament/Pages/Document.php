@@ -60,7 +60,7 @@ class Document extends Page
             'pending',
             'incoming',
             'outgoing',
-            'archive',
+            'completed',
             'rejected',
         ], true) ? $section : 'incoming';
     }
@@ -95,7 +95,7 @@ class Document extends Page
                 'pending',
                 'in_progress',
                 'outgoing',
-                'archived',
+                'completed',
                 'rejected',
             ])
             ->groupBy('status')
@@ -105,7 +105,7 @@ class Document extends Page
             'pending' => (int) ($counts['pending'] ?? 0),
             'incoming' => (int) ($counts['in_progress'] ?? 0),
             'outgoing' => (int) ($counts['outgoing'] ?? 0),
-            'archive' => (int) ($counts['archived'] ?? 0),
+            'completed' => (int) ($counts['completed'] ?? 0),
             'rejected' => (int) ($counts['rejected'] ?? 0),
         ];
     }
@@ -165,7 +165,7 @@ class Document extends Page
             'incoming' => 'in_progress',
             'outgoing' => 'outgoing',
             'rejected' => 'rejected',
-            'archive' => 'archived',
+            'completed' => 'completed',
             default => 'in_progress',
         };
 
@@ -324,7 +324,6 @@ class Document extends Page
                         'in_progress' => 'In Progress',
                         'completed' => 'Completed',
                         'returned' => 'Returned',
-                        'archived' => 'Archived',
                         'outgoing' => 'Outgoing',
                     ])
                     ->required(),
@@ -592,43 +591,43 @@ class Document extends Page
             ]);
     }
 
-    public function archiveDocument(int $documentId): void
+    public function completeDocument(int $documentId): void
     {
         $document = DocumentModel::findOrFail($documentId);
 
         $document->update([
-            'status' => 'archived',
+            'status' => 'completed',
         ]);
 
         Notification::make()
             ->success()
-            ->title('Document archived')
-            ->body('The document was successfully marked as completed and moved to the Archive table.')
+            ->title('Document completed')
+            ->body('The document was successfully marked as completed and moved to the Completed table.')
             ->send();
 
-        $this->redirect(self::getUrl(['section' => 'archive']));
+        $this->redirect(self::getUrl(['section' => 'completed']));
     }
 
-    public function archiveDocumentAction(): Action
+    public function completeDocumentAction(): Action
     {
-        return Action::make('archiveDocument')
+        return Action::make('completeDocument')
             ->label('')
-            ->icon('heroicon-o-archive-box')
+            ->icon('heroicon-o-check-circle')
             ->color('gray')
-            ->tooltip('Archive')
-            ->modalHeading('Archive Document')
-            ->modalDescription('Are you sure you want to archive this document? It will be marked as completed and moved to the Archive table.')
-            ->modalIcon('heroicon-o-archive-box')
+            ->tooltip('Complete')
+            ->modalHeading('Complete Document')
+            ->modalDescription('Are you sure you want to mark this document as completed? It will be moved to the Completed table.')
+            ->modalIcon('heroicon-o-check-circle')
             ->modalIconColor('gray')
             ->modalAlignment(Alignment::Center)
             ->modalFooterActionsAlignment(Alignment::Center)
-            ->modalSubmitActionLabel('Archive document')
+            ->modalSubmitActionLabel('Complete document')
             ->modalCancelActionLabel('Cancel')
             ->extraAttributes([
                 'class' => 'inline-flex items-center justify-center w-9 h-9 rounded-md bg-[#334155] hover:bg-[#0F172A] text-white transition',
             ])
             ->action(function (array $arguments): void {
-                $this->archiveDocument((int) $arguments['document']);
+                $this->completeDocument((int) $arguments['document']);
             });
     }
 

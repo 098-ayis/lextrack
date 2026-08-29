@@ -25,7 +25,7 @@ class DocumentExportController
                 'pending' => 'pending',
                 'incoming' => 'in_progress',
                 'outgoing' => 'outgoing',
-                'archive' => 'archived',
+                'completed' => 'completed',
                 'rejected' => 'rejected',
             };
 
@@ -51,7 +51,7 @@ class DocumentExportController
                 ->latest('created_at')
                 ->get();
 
-            $sectionLabel = $section === 'archive' ? 'Archive' : ucfirst($section);
+            $sectionLabel = ucfirst($section);
             $csv = $this->buildCsv($documents, $sectionLabel);
         } catch (Throwable $exception) {
             Log::error('Document export failed.', [
@@ -154,7 +154,7 @@ class DocumentExportController
             'pending',
             'incoming',
             'outgoing',
-            'archive',
+            'completed',
             'rejected',
         ], true) ? $section : 'incoming';
     }
