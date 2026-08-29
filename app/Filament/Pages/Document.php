@@ -2,7 +2,7 @@
 
 namespace App\Filament\Pages;
 
-use App\Models\Document;
+use App\Models\Document as DocumentModel;
 use App\Models\RejectedDocument;
 use App\Notifications\DocumentRejectedNotification;
 use Filament\Pages\Page;
@@ -14,6 +14,7 @@ use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
+use Filament\Schemas\Components\Utilities\Get;
 use App\Models\ActionType;
 use Filament\Support\Enums\Alignment;
 use Filament\Support\Enums\Width;
@@ -21,9 +22,11 @@ use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Illuminate\Support\Facades\DB;
 
-class Incoming extends Page
+class Document extends Page
 {
     use WithPagination;
+
+    protected static ?string $slug = 'incoming';
 
     protected static ?int $navigationSort = 2;
 
@@ -33,7 +36,7 @@ class Incoming extends Page
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-inbox';
 
-    protected string $view = 'filament.pages.incoming';
+    protected string $view = 'filament.pages.document';
 
     public string $search = '';
 
@@ -70,22 +73,22 @@ class Incoming extends Page
     public function getStats(): array
     {
         return [
-            'total' => Document::count(),
+            'total' => DocumentModel::count(),
 
-            'pending' => Document::where('status', 'pending')
+            'pending' => DocumentModel::where('status', 'pending')
                 ->count(),
 
-            'active' => Document::where('status', 'in_progress')
+            'active' => DocumentModel::where('status', 'in_progress')
                 ->count(),
 
-            'completed' => Document::where('status', 'completed')
+            'completed' => DocumentModel::where('status', 'completed')
                 ->count(),
         ];
     }
 
     public function getStatusCounts(): array
     {
-        $counts = Document::query()
+        $counts = DocumentModel::query()
             ->select('status')
             ->selectRaw('COUNT(*) as count')
             ->whereIn('status', [
@@ -111,7 +114,7 @@ class Incoming extends Page
     {
         DB::transaction(function () use ($documentId) {
 
-            $document = Document::with('user')
+            $document = DocumentModel::with('user')
                 ->lockForUpdate()
                 ->findOrFail($documentId);
 
@@ -121,7 +124,7 @@ class Incoming extends Page
 
             $year = now()->format('y');
 
-            $existingNumbers = Document::query()
+            $existingNumbers = DocumentModel::query()
                 ->whereNotNull('lao_number')
                 ->where('lao_number', 'like', "LAO-{$year}-%")
                 ->pluck('lao_number');
@@ -166,7 +169,7 @@ class Incoming extends Page
             default => 'in_progress',
         };
 
-        return Document::query()
+        return DocumentModel::query()
             ->with(['user', 'type', 'actionType', 'rejections'])
             ->where('status', $status)
 
@@ -261,7 +264,7 @@ class Incoming extends Page
             ->action(function (array $data) {
                 $data['user_id'] = auth()->id();
 
-                Document::create($data);
+                DocumentModel::create($data);
             });
     }
 
@@ -333,7 +336,7 @@ class Incoming extends Page
                     ->preserveFilenames(),
             ])
             ->fillForm(function (array $arguments): array {
-                $document = Document::findOrFail($arguments['document']);
+                $document = DocumentModel::findOrFail($arguments['document']);
 
                 return [
                     'lao_number' => $document->lao_number,
@@ -350,7 +353,7 @@ class Incoming extends Page
                 ];
             })
             ->action(function (array $data, array $arguments): void {
-                $document = Document::findOrFail($arguments['document']);
+                $document = DocumentModel::findOrFail($arguments['document']);
 
                 $document->update($data);
             });
@@ -358,7 +361,7 @@ class Incoming extends Page
 
     public function downloadDocument(int $documentId): StreamedResponse
     {
-        $document = Document::with('user')->findOrFail($documentId);
+        $document = DocumentModel::with('user')->findOrFail($documentId);
 
         abort_unless(
             $document->file_path &&
@@ -366,19 +369,17 @@ class Incoming extends Page
             404
         );
 
-        $this->acceptedDocumentUploader = $document->user?->name;
-        $this->showAcceptedModal = true;
-    }
-
-    public function redirectToIncoming(): void
-    {
-        $this->redirect(self::getUrl(['section' => 'incoming']));
         $fileName = basename($document->file_path);
 
         return Storage::disk('local')->download(
             $document->file_path,
             $fileName
         );
+    }
+
+    public function redirectToIncoming(): void
+    {
+        $this->redirect(self::getUrl(['section' => 'incoming']));
     }
 
     public function acceptDocumentAction(): Action
@@ -389,7 +390,7 @@ class Incoming extends Page
             ->color('success')
             ->modalHeading('Accept Document')
             ->modalDescription(function (array $arguments): string {
-                $document = Document::with('user')->find($arguments['document'] ?? null);
+                $document = DocumentModel::with('user')->find($arguments['document'] ?? null);
                 $uploader = $document?->user?->name ?? 'Unknown user';
 
                 return "Are you sure you want to accept this document uploaded by {$uploader}? It will be moved to the Incoming table.";
@@ -407,7 +408,7 @@ class Incoming extends Page
 
     public function markAsOutgoing(int $documentId, string $sentDate, string $sentTo): void
     {
-        $document = Document::findOrFail($documentId);
+        $document = DocumentModel::findOrFail($documentId);
 
         $document->update([
             'status' => 'outgoing',
@@ -468,23 +469,44 @@ class Incoming extends Page
             ->modalHeading('Reject Document')
             ->modalDescription('Please provide a reason for rejecting this document.')
             ->schema([
-                Textarea::make('reason')
+                Select::make('reason')
                     ->label('Rejection Reason')
-                    ->required()
+                    ->placeholder('Select a reason')
+                    ->options([
+                        'Incomplete or missing information' => 'Incomplete or missing information',
+                        'Incorrect document type' => 'Incorrect document type',
+                        'Missing signature or approval' => 'Missing signature or approval',
+                        'Duplicate document' => 'Duplicate document',
+                        'Incorrect recipient or office' => 'Incorrect recipient or office',
+                        'Unreadable or corrupted file' => 'Unreadable or corrupted file',
+                        'other' => 'Other',
+                    ])
+                    ->live()
+                    ->required(),
+
+                Textarea::make('custom_reason')
+                    ->label('Specify Other Reason')
+                    ->placeholder('Type the reason for rejecting this document')
+                    ->visible(fn (Get $get): bool => $get('reason') === 'other')
+                    ->required(fn (Get $get): bool => $get('reason') === 'other')
                     ->rows(4)
                     ->maxLength(5000),
             ])
             ->action(function (array $data, array $arguments): void {
+                $reason = $data['reason'] === 'other'
+                    ? trim((string) ($data['custom_reason'] ?? ''))
+                    : $data['reason'];
+
                 $this->rejectDocument(
                     (int) $arguments['document'],
-                    $data['reason'],
+                    $reason,
                 );
             });
     }
 
     public function rejectDocument(int $documentId, string $reason): void
     {
-        $document = Document::with('user')->findOrFail($documentId);
+        $document = DocumentModel::with('user')->findOrFail($documentId);
 
         $rejection = DB::transaction(function () use ($document, $reason): RejectedDocument {
             $rejection = RejectedDocument::create([
@@ -530,7 +552,7 @@ class Incoming extends Page
                     ->required(),
             ])
             ->action(function (array $data, array $arguments): void {
-                $document = Document::findOrFail($arguments['document']);
+                        $document = DocumentModel::findOrFail($arguments['document']);
                 $isOutgoing = $data['destination'] === 'outgoing';
 
                 $document->update([
@@ -572,7 +594,7 @@ class Incoming extends Page
 
     public function archiveDocument(int $documentId): void
     {
-        $document = Document::findOrFail($documentId);
+        $document = DocumentModel::findOrFail($documentId);
 
         $document->update([
             'status' => 'archived',
@@ -618,7 +640,7 @@ class Incoming extends Page
 
     public function messageDocument(int $documentId): void
     {
-        $document = Document::findOrFail($documentId);
+        $document = DocumentModel::findOrFail($documentId);
 
         $this->redirect(
             route('filament.admin.pages.messages', [
