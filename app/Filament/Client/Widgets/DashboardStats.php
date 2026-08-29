@@ -26,11 +26,11 @@ class DashboardStats extends Widget
                 ->count(),
 
             'active' => Document::where('user_id', $userId)
-                ->where('status', 'in_progress')
+                ->whereIn('status', ['in_progress', 'outgoing'])
                 ->count(),
 
             'completed' => Document::where('user_id', $userId)
-                ->where('status', 'completed')
+                ->where('status', 'archived')
                 ->count(),
         ];
     }

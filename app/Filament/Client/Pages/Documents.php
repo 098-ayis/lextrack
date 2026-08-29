@@ -4,28 +4,31 @@ namespace App\Filament\Client\Pages;
 
 use App\Models\Document;
 use Filament\Pages\Page;
+use Filament\Tables\Contracts\HasTable;
+use Filament\Tables\Concerns\InteractsWithTable;
+use Filament\Tables\Table;
+use Filament\Tables\Columns\TextColumn;
 
-class Documents extends Page
+class Documents extends Page implements HasTable
 {
-    protected static bool $shouldRegisterNavigation = false;
+    use InteractsWithTable;
 
-    protected static ?string $title = 'Document Details';
+    protected static ?string $navigationLabel = 'Documents';
+    protected static ?string $title = 'Documents';
+    protected static ?string $slug = 'documents';
 
-    protected static ?string $slug = 'documents/{document}';
+    protected string $view = 'filament.client.pages.documents'; 
 
-    protected string $view = 'filament.client.pages.documents';
+    public string $activeTab = 'all'; 
 
-    public Document $documentRecord;
-
-    public function mount(int $document): void
+    // This method sets the tab AND instantly refreshes the table data
+    public function updateTab($tab)
     {
-        $this->documentRecord = Document::query()
-            ->where('document_id', $document)
-            ->where('user_id', auth()->id())
-            ->firstOrFail();
+        $this->activeTab = $tab;
+        $this->resetTable(); 
     }
 
-    public function getHeading(): string
+    public function table(Table $table): Table
     {
         return $table
             ->query(
@@ -67,22 +70,5 @@ class Documents extends Page
                         }
                     ),
             ]);
-    }
-
-    public function getViewData(): array
-    {
-        $previewUrl = null;
-
-        if ($this->documentRecord->file_path) {
-            $previewUrl = route(
-                'client.document.preview',
-                ['document' => $this->documentRecord->document_id]
-            );
-        }
-
-        return [
-            'documentRecord' => $this->documentRecord,
-            'previewUrl' => $previewUrl,
-        ];
     }
 }
