@@ -27,7 +27,46 @@ class Documents extends Page
 
     public function getHeading(): string
     {
-        return '';
+        return $table
+            ->query(
+                Document::query()
+                    ->where('user_id', auth()->id())
+                    ->when($this->activeTab !== 'all', function ($query) {
+                        if ($this->activeTab === 'in_progress') {
+                            $query->whereIn('status', [
+                                'in_progress',
+                                'outgoing',
+                            ]);
+
+                            return;
+                        }
+
+                        if ($this->activeTab === 'completed') {
+                            $query->whereIn('status', [
+                                'completed',
+                                'archived',
+                            ]);
+
+                            return;
+                        }
+
+                        $query->where('status', $this->activeTab);
+                    })
+                    ->latest()
+            )
+            ->columns([
+                TextColumn::make('id')->label('LAO #'),
+                TextColumn::make('particulars')->label('PARTICULARS'),
+                TextColumn::make('status')
+                    ->badge()
+                    ->formatStateUsing(
+                        fn (?string $state): string => match (strtolower((string) $state)) {
+                            'archived' => 'Completed',
+                            'outgoing' => 'In Progress',
+                            default => ucwords(str_replace('_', ' ', (string) $state)),
+                        }
+                    ),
+            ]);
     }
 
     public function getViewData(): array

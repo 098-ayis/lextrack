@@ -5,17 +5,19 @@
         <!-- Total Documents -->
         <div
             class="rounded-lg border-t-[6px] border-t-orange-600 bg-white
-                   p-4 shadow-sm sm:p-5 lg:p-6"
+                   p-4 shadow-sm dark:bg-gray-800 dark:ring-1 dark:ring-white/10
+                   sm:p-5 lg:p-6"
         >
             <h3
-                class="mb-2 text-xs font-bold uppercase tracking-wide text-gray-500"
+                class="mb-2 text-xs font-bold uppercase tracking-wide text-gray-500
+                       dark:text-gray-400"
             >
                 Total Documents
             </h3>
 
             <p
                 class="text-3xl font-bold leading-none text-gray-900
-                       sm:text-4xl"
+                       dark:text-gray-100 sm:text-4xl"
             >
                 {{ $total ?? 0 }}
             </p>
@@ -24,17 +26,19 @@
         <!-- Pending -->
         <div
             class="rounded-lg border-t-[6px] border-t-yellow-500 bg-white
-                   p-4 shadow-sm sm:p-5 lg:p-6"
+                   p-4 shadow-sm dark:bg-gray-800 dark:ring-1 dark:ring-white/10
+                   sm:p-5 lg:p-6"
         >
             <h3
-                class="mb-2 text-xs font-bold uppercase tracking-wide text-gray-500"
+                class="mb-2 text-xs font-bold uppercase tracking-wide text-gray-500
+                       dark:text-gray-400"
             >
                 Pending
             </h3>
 
             <p
                 class="text-3xl font-bold leading-none text-gray-900
-                       sm:text-4xl"
+                       dark:text-gray-100 sm:text-4xl"
             >
                 {{ $pending ?? 0 }}
             </p>
@@ -43,17 +47,19 @@
         <!-- Active -->
         <div
             class="rounded-lg border-t-[6px] border-t-indigo-500 bg-white
-                   p-4 shadow-sm sm:p-5 lg:p-6"
+                   p-4 shadow-sm dark:bg-gray-800 dark:ring-1 dark:ring-white/10
+                   sm:p-5 lg:p-6"
         >
             <h3
-                class="mb-2 text-xs font-bold uppercase tracking-wide text-gray-500"
+                class="mb-2 text-xs font-bold uppercase tracking-wide text-gray-500
+                       dark:text-gray-400"
             >
                 Active
             </h3>
 
             <p
                 class="text-3xl font-bold leading-none text-gray-900
-                       sm:text-4xl"
+                       dark:text-gray-100 sm:text-4xl"
             >
                 {{ $active ?? 0 }}
             </p>
@@ -62,17 +68,19 @@
         <!-- Completed -->
         <div
             class="rounded-lg border-t-[6px] border-t-green-500 bg-white
-                   p-4 shadow-sm sm:p-5 lg:p-6"
+                   p-4 shadow-sm dark:bg-gray-800 dark:ring-1 dark:ring-white/10
+                   sm:p-5 lg:p-6"
         >
             <h3
-                class="mb-2 text-xs font-bold uppercase tracking-wide text-gray-500"
+                class="mb-2 text-xs font-bold uppercase tracking-wide text-gray-500
+                       dark:text-gray-400"
             >
                 Completed
             </h3>
 
             <p
                 class="text-3xl font-bold leading-none text-gray-900
-                       sm:text-4xl"
+                       dark:text-gray-100 sm:text-4xl"
             >
                 {{ $completed ?? 0 }}
             </p>

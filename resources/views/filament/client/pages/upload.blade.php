@@ -18,6 +18,11 @@
             transition: background-color 0.3s ease-in-out !important;
         }
 
+        .dark .client-upload-page .filepond--root {
+            background-color: #1f2937 !important;
+            border-color: #818cf8 !important;
+        }
+
         .filepond--panel-root {
             background-color: transparent !important;
             border: none !important;
@@ -27,6 +32,10 @@
             min-height: 140px !important;
             color: #4b5563 !important;
             transition: color 0.3s ease-in-out !important;
+        }
+
+        .dark .client-upload-page .filepond--drop-label {
+            color: #d1d5db !important;
         }
 
         .filepond--root:has(.filepond--item) {
@@ -41,9 +50,17 @@
         .filepond--item-panel {
             background-color: #ffffff !important; 
         }
+
+        .dark .client-upload-page .filepond--item-panel {
+            background-color: #374151 !important;
+        }
         
         .filepond--file-info {
             color: #1f2937 !important;
+        }
+
+        .dark .client-upload-page .filepond--file-info {
+            color: #f3f4f6 !important;
         }
 
         .filepond--label-action {
@@ -58,6 +75,10 @@
             text-decoration: underline !important;
         }
 
+        .dark .client-upload-page .filepond--label-action {
+            color: #a5b4fc !important;
+        }
+
         .btn-custom-primary {
             background-color: #623BE7 !important;
             color: white !important;
@@ -69,7 +90,7 @@
         }
     </style>
 
-    <div class="bg-white rounded-xl shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10">
+    <div class="client-upload-page bg-white rounded-xl shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10">
         
         <div style="background-color: #0F172A; border-top-left-radius: 0.75rem; border-top-right-radius: 0.75rem; padding: 1.5rem;">
             <h2 style="color: #6366f1; font-size: 1.5rem; font-weight: 600; margin: 0;">

@@ -748,3 +748,48 @@ Edit-Button
         margin-top: 2px !important;
     }
 }
+
+/* ================================
+   CLIENT DASHBOARD DARK MODE
+================================ */
+
+.dark .client-dashboard-documents .fi-ta-content,
+.dark .client-dashboard-documents .fi-ta-footer {
+    background-color: #171717 !important;
+    border-color: #374151 !important;
+    box-shadow: none !important;
+    color: #e5e7eb !important;
+}
+
+.dark .client-dashboard-documents .fi-ta-table {
+    color: #e5e7eb !important;
+}
+
+.dark .client-dashboard-documents .fi-ta-table thead tr {
+    background-color: #262626 !important;
+}
+
+.dark .client-dashboard-documents .fi-ta-table thead .fi-ta-header-cell,
+.dark .client-dashboard-documents .fi-ta-table thead .fi-ta-header-cell button,
+.dark .client-dashboard-documents .fi-ta-table thead .fi-ta-actions-header-cell {
+    border-color: #374151 !important;
+    color: #f3f4f6 !important;
+}
+
+.dark .client-dashboard-documents .fi-ta-table tbody tr {
+    background-color: #171717 !important;
+}
+
+.dark .client-dashboard-documents .fi-ta-table tbody tr:hover {
+    background-color: #374151 !important;
+}
+
+.dark .client-dashboard-documents .fi-ta-table tbody .fi-ta-cell {
+    border-color: #374151 !important;
+    color: #e5e7eb !important;
+}
+
+.dark .client-dashboard-documents .fi-ta-footer,
+.dark .client-dashboard-documents .fi-ta-footer * {
+    color: #d1d5db;
+}
