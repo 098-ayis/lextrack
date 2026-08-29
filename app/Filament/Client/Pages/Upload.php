@@ -78,21 +78,20 @@ class Upload extends Page implements HasForms
                     
                 FileUpload::make('file_path')
                     ->label('Upload Document')
-                    ->acceptedFileTypes(['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'])
-                    ->maxSize(5120) 
+                    ->acceptedFileTypes([
+                        'application/pdf',
+                        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                    ])
+                    ->maxSize(5120)
+                    ->disk('local')
                     ->directory('client-documents')
+                    ->preserveFilenames()
                     ->columnSpan('full')
                     ->required(),
-                    
-                Checkbox::make('certification')
-                    ->label('I certify that the information provided is accurate and complete to the best of my knowledge.')
-                    ->accepted()
-                    ->columnSpan('full')
-                    ->required(),
-            ])
-            ->columns(2)
-            ->statePath('data');
-    }
+                            ])
+                            ->columns(2)
+                            ->statePath('data');
+                    }
 
     public function submit(): void
     {

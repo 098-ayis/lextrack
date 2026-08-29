@@ -683,6 +683,7 @@
                             </td>
 
                             {{-- Document Type --}}
+                            
                             <td class="px-4 py-4 align-middle">
 
                                 @if ($document->type)
@@ -1068,12 +1069,12 @@
                                     @if ($document->type)
 
                                         <span
-                                            class="inline-flex items-center px-4 py-1
-                                                rounded-full text-xs font-bold text-white"
-                                            style="background-color: {{ $document->type->color }};"
+                                            class="inline-flex items-center px-3 py-1
+                                                rounded-full text-xs font-semibold text-white"
+                                            style="background-color: {{ $document->type->color ?? '#059669' }};"
                                         >
                                             {{ $document->type->type_name }}
-                                        </span>
+                                    </span>
 
                                     @else
 
@@ -1233,7 +1234,9 @@
 
                                         {{-- Download button --}}
                                         <a
-                                            href="{{ Storage::url($document->file_path) }}"
+                                            href="{{ route('admin.documents.preview', [
+                                                'document' => $document->document_id
+                                            ]) }}"
                                             download
                                             class="inline-flex items-center gap-1.5
                                                 bg-slate-800 hover:bg-slate-900

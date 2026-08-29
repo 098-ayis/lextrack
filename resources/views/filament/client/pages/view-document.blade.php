@@ -79,10 +79,7 @@
 
                             @elseif (in_array($extension, ['jpg', 'jpeg', 'png', 'webp']))
 
-                                <div
-                                    class="flex h-full items-center
-                                           justify-center overflow-auto p-4"
-                                >
+                                <div class="flex h-full items-center justify-center overflow-auto p-4">
                                     <img
                                         src="{{ $previewUrl }}"
                                         alt="Document Preview"
@@ -92,28 +89,7 @@
 
                             @else
 
-                                <div
-                                    class="flex h-full flex-col items-center
-                                           justify-center gap-3 p-6 text-center"
-                                >
-                                    <svg
-                                        class="h-12 w-12 text-gray-400"
-                                        fill="none"
-                                        viewBox="0 0 24 24"
-                                        stroke="currentColor"
-                                    >
-                                        <path
-                                            stroke-linecap="round"
-                                            stroke-linejoin="round"
-                                            stroke-width="1.5"
-                                            d="M19.5 14.25v-2.625a3.375
-                                               3.375 0 00-3.375-3.375h-1.5
-                                               V6.75A3.375 3.375 0
-                                               0011.25 3.375H8.25m6.75
-                                               11.25l-3 3m0 0l-3-3m3
-                                               3V9"
-                                        />
-                                    </svg>
+                                <div class="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
 
                                     <p class="font-medium text-gray-700">
                                         Preview is not available for this file type.
@@ -122,21 +98,18 @@
                                     <a
                                         href="{{ $previewUrl }}"
                                         target="_blank"
-                                        class="text-sm font-semibold text-primary-600
-                                               hover:underline"
+                                        class="text-sm font-semibold text-primary-600 hover:underline"
                                     >
                                         Open document
                                     </a>
+
                                 </div>
 
                             @endif
 
                         @else
 
-                            <div
-                                class="flex h-full items-center justify-center
-                                       p-6 text-center"
-                            >
+                            <div class="flex h-full items-center justify-center p-6 text-center">
                                 <p class="text-sm text-gray-500">
                                     No document file available.
                                 </p>

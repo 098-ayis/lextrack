@@ -11,6 +11,7 @@ use App\Http\Controllers\UserExportController;
 use App\Http\Controllers\DocumentExportController;
 use App\Http\Middleware\AdminMiddleware;
 
+
 Route::view('/ai-test', 'ai-test');
 
 Route::post('/ask-ai', [AIController::class, 'ask']);
@@ -82,6 +83,31 @@ Route::get('/client/document-preview/{document}', function ($document) {
 Route::get('/dashboard', function () {
     return view('dashboard');
 })->middleware('auth')->name('dashboard');
+
+
+Route::get('/admin/documents/{document}/preview', function (int $document) {
+
+    $documentRecord = Document::findOrFail($document);
+
+    abort_unless(
+        $documentRecord->file_path &&
+        Storage::disk('local')->exists($documentRecord->file_path),
+        404
+    );
+
+    $path = Storage::disk('local')->path(
+        $documentRecord->file_path
+    );
+
+    return response()->file($path, [
+        'Content-Type' => 'application/pdf',
+        'Content-Disposition' => 'inline; filename="' .
+            ($documentRecord->original_file_name ?? basename($path)) .
+            '"',
+    ]);
+})
+    ->middleware('auth')
+    ->name('admin.documents.preview');
 
 
 /*

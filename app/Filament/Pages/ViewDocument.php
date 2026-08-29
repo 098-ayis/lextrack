@@ -67,13 +67,7 @@ class ViewDocument extends Page
             return '';
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | Use the public disk
-        |--------------------------------------------------------------------------
-        */
-
-        $disk = Storage::disk('public');
+        $disk = Storage::disk('local');
 
         if (!$disk->exists($path)) {
             return '';
@@ -83,90 +77,48 @@ class ViewDocument extends Page
             pathinfo($path, PATHINFO_EXTENSION)
         );
 
-        /*
-        |--------------------------------------------------------------------------
-        | PDF - display directly
-        |--------------------------------------------------------------------------
-        */
-
+        // PDF
         if ($extension === 'pdf') {
-            return $disk->url($path);
+            return route(
+                'admin.documents.preview',
+                [
+                    'document' => $this->documentRecord->document_id,
+                ]
+            );
         }
-
-        /*
-        |--------------------------------------------------------------------------
-        | Only Word documents need conversion
-        |--------------------------------------------------------------------------
-        */
 
         if (!in_array($extension, ['doc', 'docx'], true)) {
             return '';
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | Original Word file
-        |--------------------------------------------------------------------------
-        */
-
         $source = $disk->path($path);
 
-        /*
-        |--------------------------------------------------------------------------
-        | Temporary preview directory
-        |--------------------------------------------------------------------------
-        */
-
         $previewDirectory = storage_path(
-            'app/public/temp-previews'
+            'app/private/temp-previews'
         );
 
         if (!is_dir($previewDirectory)) {
             mkdir($previewDirectory, 0775, true);
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | Unique temporary PDF
-        |--------------------------------------------------------------------------
-        */
-
         $previewName = md5($path) . '.pdf';
 
-        $previewPath = $previewDirectory
-            . '/'
-            . $previewName;
-
-        /*
-        |--------------------------------------------------------------------------
-        | Reuse existing preview if original hasn't changed
-        |--------------------------------------------------------------------------
-        */
+        $previewPath =
+            $previewDirectory . '/' . $previewName;
 
         if (
             file_exists($previewPath) &&
             filemtime($previewPath) >= filemtime($source)
         ) {
-            return asset(
-                'storage/temp-previews/' . $previewName
+            return route(
+                'admin.document.temp-preview',
+                ['file' => $previewName]
             );
         }
-
-        /*
-        |--------------------------------------------------------------------------
-        | Remove outdated preview
-        |--------------------------------------------------------------------------
-        */
 
         if (file_exists($previewPath)) {
             unlink($previewPath);
         }
-
-        /*
-        |--------------------------------------------------------------------------
-        | Convert Word -> PDF
-        |--------------------------------------------------------------------------
-        */
 
         $command = sprintf(
             'libreoffice --headless --convert-to pdf --outdir %s %s 2>&1',
@@ -184,42 +136,39 @@ class ViewDocument extends Page
         );
 
         if ($exitCode !== 0) {
-            logger()->error('LibreOffice conversion failed', [
-                'document_id' => $this->documentRecord->document_id,
-                'source' => $source,
-                'exit_code' => $exitCode,
-                'output' => $output,
-            ]);
+            logger()->error(
+                'LibreOffice conversion failed',
+                [
+                    'document_id' =>
+                        $this->documentRecord->document_id,
+                    'source' => $source,
+                    'exit_code' => $exitCode,
+                    'output' => $output,
+                ]
+            );
 
             return '';
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | LibreOffice output filename
-        |--------------------------------------------------------------------------
-        */
-
-        $generatedPdf = $previewDirectory
-            . '/'
-            . pathinfo($source, PATHINFO_FILENAME)
-            . '.pdf';
+        $generatedPdf =
+            $previewDirectory .
+            '/' .
+            pathinfo($source, PATHINFO_FILENAME) .
+            '.pdf';
 
         if (!file_exists($generatedPdf)) {
-            logger()->error('LibreOffice PDF was not generated', [
-                'document_id' => $this->documentRecord->document_id,
-                'expected' => $generatedPdf,
-                'output' => $output,
-            ]);
+            logger()->error(
+                'LibreOffice PDF was not generated',
+                [
+                    'document_id' =>
+                        $this->documentRecord->document_id,
+                    'expected' => $generatedPdf,
+                    'output' => $output,
+                ]
+            );
 
             return '';
         }
-
-        /*
-        |--------------------------------------------------------------------------
-        | Rename to our unique preview filename
-        |--------------------------------------------------------------------------
-        */
 
         if ($generatedPdf !== $previewPath) {
             rename(
@@ -228,14 +177,9 @@ class ViewDocument extends Page
             );
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | Browser-accessible URL
-        |--------------------------------------------------------------------------
-        */
-
-        return asset(
-            'storage/temp-previews/' . $previewName
+        return route(
+            'admin.document.temp-preview',
+            ['file' => $previewName]
         );
     }
 }

@@ -17,6 +17,8 @@ use Filament\Forms\Components\Textarea;
 use App\Models\ActionType;
 use Filament\Support\Enums\Alignment;
 use Filament\Support\Enums\Width;
+use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use Illuminate\Support\Facades\DB;
 
 class Incoming extends Page
@@ -103,6 +105,54 @@ class Incoming extends Page
             'archive' => (int) ($counts['archived'] ?? 0),
             'rejected' => (int) ($counts['rejected'] ?? 0),
         ];
+    }
+
+    public function acceptDocument(int $documentId): void
+    {
+        DB::transaction(function () use ($documentId) {
+
+            $document = Document::with('user')
+                ->lockForUpdate()
+                ->findOrFail($documentId);
+
+            if ($document->status !== 'pending') {
+                return;
+            }
+
+            $year = now()->format('y');
+
+            $existingNumbers = Document::query()
+                ->whereNotNull('lao_number')
+                ->where('lao_number', 'like', "LAO-{$year}-%")
+                ->pluck('lao_number');
+
+            $highestNumber = $existingNumbers
+                ->map(function ($laoNumber) {
+                    $parts = explode('-', $laoNumber);
+
+                    return isset($parts[2])
+                        ? (int) $parts[2]
+                        : 0;
+                })
+                ->max() ?? 0;
+
+            $nextNumber = $highestNumber + 1;
+
+            $laoNumber = sprintf(
+                'LAO-%s-%03d',
+                $year,
+                $nextNumber
+            );
+
+            $document->update([
+                'lao_number' => $laoNumber,
+                'status' => 'in_progress',
+            ]);
+        });
+
+        $this->redirect(
+            self::getUrl(['section' => 'incoming'])
+        );
     }
 
     public function getDocuments(string $section = 'incoming')
@@ -204,7 +254,7 @@ class Incoming extends Page
 
                 FileUpload::make('file_path')
                     ->label('Document File')
-                    ->disk('public')
+                    ->disk('local')
                     ->directory('documents')
                     ->preserveFilenames(),
             ])
@@ -278,7 +328,7 @@ class Incoming extends Page
 
                 FileUpload::make('file_path')
                     ->label('Document File')
-                    ->disk('public')
+                    ->disk('local')
                     ->directory('documents')
                     ->preserveFilenames(),
             ])
@@ -306,13 +356,15 @@ class Incoming extends Page
             });
     }
 
-    public function acceptDocument(int $documentId): void
+    public function downloadDocument(int $documentId): StreamedResponse
     {
         $document = Document::with('user')->findOrFail($documentId);
 
-        $document->update([
-            'status' => 'in_progress',
-        ]);
+        abort_unless(
+            $document->file_path &&
+            Storage::disk('local')->exists($document->file_path),
+            404
+        );
 
         $this->acceptedDocumentUploader = $document->user?->name;
         $this->showAcceptedModal = true;
@@ -321,6 +373,12 @@ class Incoming extends Page
     public function redirectToIncoming(): void
     {
         $this->redirect(self::getUrl(['section' => 'incoming']));
+        $fileName = basename($document->file_path);
+
+        return Storage::disk('local')->download(
+            $document->file_path,
+            $fileName
+        );
     }
 
     public function acceptDocumentAction(): Action
@@ -557,6 +615,18 @@ class Incoming extends Page
         $this->resetPage();
     }
 
+
+    public function messageDocument(int $documentId): void
+    {
+        $document = Document::findOrFail($documentId);
+
+        $this->redirect(
+            route('filament.admin.pages.messages', [
+                'document' => $document->document_id,
+            ])
+        );
+    }
+    
     public function updatedSearch(): void
     {
         $this->resetPage();

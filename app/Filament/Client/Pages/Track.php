@@ -2,7 +2,7 @@
 
 namespace App\Filament\Client\Pages;
 
-use app\Models\Document;
+use App\Models\Document;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 
@@ -24,20 +24,24 @@ class Track extends Page
 
         $this->hasSearched = true;
 
-        $this->document = Document::where(
-            'tracking_number',
-            $this->trackingNumber
-        )->first();
+        $trackingNumber = strtoupper(
+            trim($this->trackingNumber)
+        );
 
-        if(!$this->document){
+        $this->document = Document::query()
+            ->with(['type', 'actionType'])
+            ->where('lao_number', $trackingNumber)
+            ->where('user_id', auth()->id())
+            ->first();
+
+        if (!$this->document) {
             Notification::make()
                 ->title('Document not found')
+                ->body('Please check your LAO number and try again.')
                 ->danger()
                 ->send();
 
             return;
         }
-        
     }
-
 }
