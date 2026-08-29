@@ -29,6 +29,12 @@ class Dashboard extends Page
 
     public int $year;
 
+    /*
+    |--------------------------------------------------------------------------
+    | MOUNT
+    |--------------------------------------------------------------------------
+    */
+
     public function mount(): void
     {
         $now = now();
@@ -46,18 +52,18 @@ class Dashboard extends Page
     public function getStats(): array
     {
         return [
-            // All documents regardless of status.
+            // All documents
             'total' => Document::count(),
 
-            // Pending only.
+            // Pending only
             'pending' => Document::where('status', 'pending')
                 ->count(),
 
-            // In progress only.
+            // In progress only
             'active' => Document::where('status', 'in_progress')
                 ->count(),
 
-            // Completed ONLY.
+            // Completed ONLY
             'completed' => Document::where('status', 'completed')
                 ->count(),
         ];
@@ -72,6 +78,12 @@ class Dashboard extends Page
     public function getRecentDocuments()
     {
         return Document::query()
+
+            /*
+            |--------------------------------------------------------------------------
+            | SEARCH
+            |--------------------------------------------------------------------------
+            */
 
             ->when(
                 trim($this->search) !== '',
@@ -89,13 +101,35 @@ class Dashboard extends Page
                 }
             )
 
+            /*
+            |--------------------------------------------------------------------------
+            | STATUS FILTER
+            |--------------------------------------------------------------------------
+            */
+
             ->when(
                 $this->statusFilter !== '',
-                fn ($query) =>
-                    $query->where('status', $this->statusFilter)
+                function ($query) {
+                    $query->where(
+                        'status',
+                        $this->statusFilter
+                    );
+                }
             )
 
+            /*
+            |--------------------------------------------------------------------------
+            | MOST RECENTLY UPDATED
+            |--------------------------------------------------------------------------
+            */
+
             ->latest('updated_at')
+
+            /*
+            |--------------------------------------------------------------------------
+            | SHOW ONLY 6
+            |--------------------------------------------------------------------------
+            */
 
             ->limit(6)
 
@@ -104,7 +138,7 @@ class Dashboard extends Page
 
     /*
     |--------------------------------------------------------------------------
-    | CALENDAR NAVIGATION
+    | PREVIOUS MONTH
     |--------------------------------------------------------------------------
     */
 
@@ -119,6 +153,12 @@ class Dashboard extends Page
         $this->month = $date->month;
         $this->year = $date->year;
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | NEXT MONTH
+    |--------------------------------------------------------------------------
+    */
 
     public function nextMonth(): void
     {
@@ -149,11 +189,12 @@ class Dashboard extends Page
 
     /*
     |--------------------------------------------------------------------------
-    | CALENDAR EVENTS FOR CURRENT DISPLAYED MONTH
+    | CALENDAR EVENTS FOR DISPLAYED MONTH
     |--------------------------------------------------------------------------
     |
-    | No user_id restriction is used here because the calendar is shared
-    | between authorized Legal Office admin/staff users.
+    | Shared calendar:
+    | Walang user_id restriction para makita ng authorized admin/staff users
+    | ang parehong office calendar events.
     |
     */
 
@@ -165,15 +206,24 @@ class Dashboard extends Page
             1
         )->startOfMonth();
 
-        $end = $start->copy()->endOfMonth();
+        $end = $start
+            ->copy()
+            ->endOfMonth();
 
         return Calendar::query()
-            ->whereBetween('date', [
-                $start->toDateString(),
-                $end->toDateString(),
-            ])
+
+            ->whereBetween(
+                'date',
+                [
+                    $start->toDateString(),
+                    $end->toDateString(),
+                ]
+            )
+
             ->orderBy('date')
+
             ->orderBy('time')
+
             ->get();
     }
 
@@ -185,28 +235,62 @@ class Dashboard extends Page
 
     public function getCalendarCells(): array
     {
+        /*
+        |--------------------------------------------------------------------------
+        | START OF CURRENT MONTH
+        |--------------------------------------------------------------------------
+        */
+
         $monthStart = Carbon::create(
             $this->year,
             $this->month,
             1
         )->startOfMonth();
 
+        /*
+        |--------------------------------------------------------------------------
+        | END OF CURRENT MONTH
+        |--------------------------------------------------------------------------
+        */
+
         $monthEnd = $monthStart
             ->copy()
             ->endOfMonth();
+
+        /*
+        |--------------------------------------------------------------------------
+        | START CALENDAR GRID ON SUNDAY
+        |--------------------------------------------------------------------------
+        */
 
         $gridStart = $monthStart
             ->copy()
             ->startOfWeek(Carbon::SUNDAY);
 
+        /*
+        |--------------------------------------------------------------------------
+        | END CALENDAR GRID ON SATURDAY
+        |--------------------------------------------------------------------------
+        */
+
         $gridEnd = $monthEnd
             ->copy()
             ->endOfWeek(Carbon::SATURDAY);
 
-        $events = $this->getCalendarEvents()
+        /*
+        |--------------------------------------------------------------------------
+        | GROUP CALENDAR EVENTS BY DATE
+        |--------------------------------------------------------------------------
+        */
+
+        $events = $this
+            ->getCalendarEvents()
             ->groupBy(
-                fn ($event) =>
-                    $event->date->format('Y-m-d')
+                function ($event) {
+                    return $event
+                        ->date
+                        ->format('Y-m-d');
+                }
             );
 
         $today = now()->format('Y-m-d');
@@ -214,6 +298,12 @@ class Dashboard extends Page
         $cells = [];
 
         $date = $gridStart->copy();
+
+        /*
+        |--------------------------------------------------------------------------
+        | CREATE COMPLETE CALENDAR GRID
+        |--------------------------------------------------------------------------
+        */
 
         while ($date->lte($gridEnd)) {
             $dateKey = $date->format('Y-m-d');
@@ -224,7 +314,8 @@ class Dashboard extends Page
                 'date' => $dateKey,
 
                 'isCurrentMonth' =>
-                    $date->month === $this->month &&
+                    $date->month === $this->month
+                    &&
                     $date->year === $this->year,
 
                 'isToday' =>
@@ -245,16 +336,33 @@ class Dashboard extends Page
     | UPCOMING DOCUMENT DEADLINES
     |--------------------------------------------------------------------------
     |
-    | Only Pending and In Progress documents are considered active deadlines.
-    | Completed, returned, archived, outgoing and rejected documents are not
-    | included.
+    | Rules:
+    |
+    | 1. Document must have a deadline.
+    | 2. Deadline must be today or in the future.
+    | 3. Deadline must be within the next 14 days.
+    | 4. Completed documents are excluded.
+    | 5. Show nearest deadlines first.
     |
     */
 
     public function getUpcomingDeadlines()
     {
         return Document::query()
+
+            /*
+            |--------------------------------------------------------------------------
+            | MUST HAVE DEADLINE
+            |--------------------------------------------------------------------------
+            */
+
             ->whereNotNull('deadline')
+
+            /*
+            |--------------------------------------------------------------------------
+            | TODAY OR FUTURE
+            |--------------------------------------------------------------------------
+            */
 
             ->whereDate(
                 'deadline',
@@ -262,18 +370,46 @@ class Dashboard extends Page
                 today()
             )
 
+            /*
+            |--------------------------------------------------------------------------
+            | WITHIN NEXT 14 DAYS
+            |--------------------------------------------------------------------------
+            */
+
             ->whereDate(
                 'deadline',
                 '<=',
                 today()->copy()->addDays(14)
             )
 
-            ->whereIn('status', [
-                'pending',
-                'in_progress',
-            ])
+            /*
+            |--------------------------------------------------------------------------
+            | DON'T SHOW COMPLETED DOCUMENTS
+            |--------------------------------------------------------------------------
+            */
 
-            ->orderBy('deadline')
+            ->where(
+                'status',
+                '!=',
+                'completed'
+            )
+
+            /*
+            |--------------------------------------------------------------------------
+            | NEAREST DEADLINE FIRST
+            |--------------------------------------------------------------------------
+            */
+
+            ->orderBy(
+                'deadline',
+                'asc'
+            )
+
+            /*
+            |--------------------------------------------------------------------------
+            | SHOW ONLY 5
+            |--------------------------------------------------------------------------
+            */
 
             ->limit(5)
 
@@ -286,22 +422,53 @@ class Dashboard extends Page
     |--------------------------------------------------------------------------
     |
     | Shared reminders:
-    | No user_id condition is used, therefore upcoming events can be seen
-    | by authorized users who have access to this dashboard.
+    |
+    | Walang user_id restriction dito, kaya ang upcoming reminders na
+    | naka-save sa calendars table ay makikita ng authorized admin/staff
+    | users na may access sa dashboard.
     |
     */
 
     public function getUpcomingEvents()
     {
         return Calendar::query()
+
+            /*
+            |--------------------------------------------------------------------------
+            | TODAY OR FUTURE
+            |--------------------------------------------------------------------------
+            */
+
             ->whereDate(
                 'date',
                 '>=',
                 today()
             )
-            ->orderBy('date')
-            ->orderBy('time')
+
+            /*
+            |--------------------------------------------------------------------------
+            | EARLIEST EVENT FIRST
+            |--------------------------------------------------------------------------
+            */
+
+            ->orderBy(
+                'date',
+                'asc'
+            )
+
+            ->orderBy(
+                'time',
+                'asc'
+            )
+
+            /*
+            |--------------------------------------------------------------------------
+            | SHOW ONLY 5
+            |--------------------------------------------------------------------------
+            */
+
             ->limit(5)
+
             ->get();
     }
 }
