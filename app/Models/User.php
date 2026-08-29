@@ -10,10 +10,10 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Laravel\Sanctum\HasApiTokens;
 use App\Models\Client;
 use Filament\Models\Contracts\HasAvatar;
-use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use App\Models\Conversation;
 use App\Models\Document;
 use Spatie\Permission\Traits\HasRoles;
@@ -74,11 +74,20 @@ class User extends Authenticatable implements HasAvatar
         return $this->hasOne(Client::class, 'user_id');
     }
 
-
+    public function documents(): HasMany
+    {
+        return $this->hasMany(
+            Document::class,
+            'user_id'
+        );
+    }
 
     public function sentMessages(): HasMany
     {
-        return $this->hasMany(Message::class, 'sender_id');
+        return $this->hasMany(
+            Message::class,
+            'sender_id'
+        );
     }
 
     public function receivedMessages(): HasMany
@@ -91,15 +100,23 @@ class User extends Authenticatable implements HasAvatar
         return $this->hasMany(Calendar::class, 'user_id', 'id');
     }
 
-    public function conversations(): HasManyThrough
+    public function conversations(): BelongsToMany
     {
-        return $this->hasManyThrough(
+        return $this->belongsToMany(
             Conversation::class,
-            Document::class,
-            'user_id',      
-            'document_id',  
-            'id',           
-            'document_id'
+            'conversation_participants',
+            'user_id',
+            'conversation_id'
+        )
+        ->withPivot('joined_at')
+        ->withTimestamps();
+    }
+
+    public function assignedConversations(): HasMany
+    {
+        return $this->hasMany(
+            Conversation::class,
+            'assigned_to'
         );
     }
 

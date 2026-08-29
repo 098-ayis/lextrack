@@ -309,6 +309,8 @@
         }
     </style>
 
+    <x-filament-panels::page>
+
     <div
         class="msg-wrap"
         x-data="{ search: '' }"
@@ -376,33 +378,24 @@
 
 
                     <div
-                        class="
-                            msg-item
-                            {{ $conversation->unread_messages_count > 0 ? 'unread' : '' }}
-                            {{ (int) $selectedConversation === (int) $conversation->id
+                        class="msg-item
+                            {{ $selectedConversation === $conversation->id
                                 ? 'active'
-                                : '' }}
-                        "
+                                : '' }}"
                         wire:click="selectConversation({{ $conversation->id }})"
+                        x-show="
+                            '{{ addslashes($searchText) }}'
+                                .includes(search.toLowerCase())
+                        "
+                        style="cursor: pointer;"
                     >
-
-                    @if ($conversation->unread_messages_count > 0)
-
-                        <span class="unread-count">
-                            {{ $conversation->unread_messages_count }}
-                        </span>
-
-                    @endif
 
                         <div class="m-avatar">
 
-                            {{ $initials ?: 'CL' }}
-
-                            @if ($conversation->unread_messages_count > 0)
-                                <span class="dot"></span>
-                            @endif
+                            {{ $initials ?: 'LO' }}
 
                         </div>
+
 
                         <div class="m-info">
 
@@ -478,7 +471,7 @@
        {{-- MESSAGE THREAD --}}
     <div
         class="msg-thread"
-        wire:poll.4s="refreshConversation"
+        wire:poll.4s="loadMessages"
     >
 
         @if (! $selectedConversation)
@@ -636,74 +629,70 @@
 
 
             {{-- MESSAGE INPUT --}}
-    @if ($activeConversation && $activeConversation->status === 'active')
+            @if ($activeConversation?->status === 'active')
 
-        <div class="thread-footer">
+                <div class="thread-footer">
 
-            <input
-                type="text"
-                wire:model="newMessage"
-                wire:keydown.enter="sendMessage"
-                placeholder="Type a message..."
-                maxlength="5000"
-                autocomplete="off"
-            >
+                    <input
+                        type="text"
+                        wire:model="newMessage"
+                        wire:keydown.enter="sendMessage"
+                        placeholder="Type a message..."
+                        maxlength="5000"
+                        autocomplete="off"
+                    >
 
-            <button
-                type="button"
-                wire:click="sendMessage"
-                wire:loading.attr="disabled"
-                title="Send message"
-            >
-                <span wire:loading.remove wire:target="sendMessage">
-                    ➤
-                </span>
+                    <button
+                        type="button"
+                        wire:click="sendMessage"
+                        wire:loading.attr="disabled"
+                        title="Send message"
+                    >
 
-                <span wire:loading wire:target="sendMessage">
-                    ...
-                </span>
-            </button>
+                        <span wire:loading.remove wire:target="sendMessage">
+                            ➤
+                        </span>
 
-        </div>
+                        <span wire:loading wire:target="sendMessage">
+                            ...
+                        </span>
 
-        @error('newMessage')
-            <div
-                style="
-                    color: #dc2626;
-                    font-size: 12px;
-                    padding: 4px 16px 10px;
-                "
-            >
-                {{ $message }}
-            </div>
-        @enderror
+                    </button>
 
-    @else
+                </div>
 
-        <div
-            class="thread-footer"
-            style="
-                justify-content: center;
-                color: #6b7280;
-            "
-        >
-            This conversation is closed.
-        </div>
+                @error('newMessage')
 
-    @endif
+                    <div
+                        style="
+                            color: #dc2626;
+                            font-size: 12px;
+                            padding: 4px 16px 10px;
+                        "
+                    >
+                        {{ $message }}
+                    </div>
 
-    @endif
+                @enderror
+
+            @else
+
+                <div
+                    class="thread-footer"
+                    style="
+                        justify-content: center;
+                        color: #6b7280;
+                    "
+                >
+                    This conversation is closed.
+                </div>
+
+            @endif
+
+        @endif
 
     </div>
 
 </div>
-
-<script>
-    document.addEventListener('livewire:init', () => {
-        Livewire.on('messages-read', () => {
-            window.location.reload();
-        });
-    });
-</script>
 
 </x-filament-panels::page>

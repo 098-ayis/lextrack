@@ -5,6 +5,7 @@ namespace App\Filament\Pages;
 use App\Models\Document as DocumentModel;
 use App\Models\RejectedDocument;
 use App\Notifications\DocumentRejectedNotification;
+use App\Notifications\DocumentAcceptedNotification;
 use Filament\Pages\Page;
 use Filament\Notifications\Notification;
 use Livewire\WithPagination;
@@ -20,6 +21,9 @@ use Filament\Support\Enums\Alignment;
 use Filament\Support\Enums\Width;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use App\Models\Conversation;
+use App\Models\Message;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
 
 class Document extends Page
@@ -112,15 +116,24 @@ class Document extends Page
 
     public function acceptDocument(int $documentId): void
     {
-        DB::transaction(function () use ($documentId) {
+        $result = DB::transaction(function () use ($documentId) {
 
             $document = DocumentModel::with('user')
                 ->lockForUpdate()
                 ->findOrFail($documentId);
 
             if ($document->status !== 'pending') {
-                return;
+                return [
+                    'document' => $document,
+                    'accepted' => false,
+                ];
             }
+
+            /*
+            |--------------------------------------------------------------------------
+            | 1. Generate LAO number
+            |--------------------------------------------------------------------------
+            */
 
             $year = now()->format('y');
 
@@ -147,11 +160,106 @@ class Document extends Page
                 $nextNumber
             );
 
+            /*
+            |--------------------------------------------------------------------------
+            | 2. Accept document
+            |--------------------------------------------------------------------------
+            */
+
             $document->update([
                 'lao_number' => $laoNumber,
                 'status' => 'in_progress',
             ]);
+
+            /*
+            |--------------------------------------------------------------------------
+            | 3. Create conversation
+            |--------------------------------------------------------------------------
+            */
+
+            $conversation = Conversation::firstOrCreate(
+                [
+                    'document_id' => $document->document_id,
+                ],
+                [
+                    'created_by' => $document->user_id,
+                    'assigned_to' => null,
+                    'status' => 'active',
+                ]
+            );
+
+            /*
+            |--------------------------------------------------------------------------
+            | 4. Add client as participant
+            |--------------------------------------------------------------------------
+            */
+
+            if ($document->user_id) {
+                $conversation->participants()->syncWithoutDetaching([
+                    $document->user_id => [
+                        'joined_at' => now(),
+                    ],
+                ]);
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | 5. Add staff participants
+            |--------------------------------------------------------------------------
+            */
+
+            $staffIds = User::where('role_name', 'Admin')
+                ->pluck('id');
+
+            foreach ($staffIds as $staffId) {
+                $conversation->participants()->syncWithoutDetaching([
+                    $staffId => [
+                        'joined_at' => now(),
+                    ],
+                ]);
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | 6. Create initial message
+            |--------------------------------------------------------------------------
+            */
+
+            if (! $conversation->messages()->exists()) {
+                Message::create([
+                    'conversation_id' => $conversation->id,
+                    'sender_id' => auth()->id(),
+                    'body' => 'Your document has been accepted by the Legal Affairs Office and is now being processed.',
+                ]);
+            }
+
+            $conversation->touch();
+
+            return [
+                'document' => $document,
+                'accepted' => true,
+            ];
         });
+
+        $document = $result['document'];
+
+        /*
+        |--------------------------------------------------------------------------
+        | 7. Send acceptance notification
+        |--------------------------------------------------------------------------
+        */
+
+        if ($result['accepted'] && $document->user) {
+            $document->user->notify(
+                new DocumentAcceptedNotification($document)
+            );
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | 8. Redirect
+        |--------------------------------------------------------------------------
+        */
 
         $this->redirect(
             self::getUrl(['section' => 'incoming'])
