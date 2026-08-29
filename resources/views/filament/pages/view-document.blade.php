@@ -9,10 +9,10 @@
     <nav class="mb-3 flex items-center gap-2 text-sm">
 
     <a
-        href="{{ \App\Filament\Pages\Incoming::getUrl() }}"
+        href="{{ \App\Filament\Pages\Document::getUrl() }}"
         class="font-medium text-blue-600 hover:underline"
     >
-        Incoming
+        Documents
     </a>
 
     <span class="text-gray-400">/</span>

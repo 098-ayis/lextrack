@@ -2,7 +2,7 @@
 
 namespace App\Filament\Pages;
 
-use App\Models\Document;
+use App\Models\Document as DocumentModel;
 use App\Models\RejectedDocument;
 use App\Notifications\DocumentRejectedNotification;
 use Filament\Pages\Page;
@@ -14,6 +14,7 @@ use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
+use Filament\Schemas\Components\Utilities\Get;
 use App\Models\ActionType;
 use Filament\Support\Enums\Alignment;
 use Filament\Support\Enums\Width;
@@ -21,9 +22,11 @@ use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Illuminate\Support\Facades\DB;
 
-class Incoming extends Page
+class Document extends Page
 {
     use WithPagination;
+
+    protected static ?string $slug = 'incoming';
 
     protected static ?int $navigationSort = 2;
 
@@ -33,7 +36,7 @@ class Incoming extends Page
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-inbox';
 
-    protected string $view = 'filament.pages.incoming';
+    protected string $view = 'filament.pages.document';
 
     public string $search = '';
 
@@ -57,7 +60,7 @@ class Incoming extends Page
             'pending',
             'incoming',
             'outgoing',
-            'archive',
+            'completed',
             'rejected',
         ], true) ? $section : 'incoming';
     }
@@ -70,29 +73,29 @@ class Incoming extends Page
     public function getStats(): array
     {
         return [
-            'total' => Document::count(),
+            'total' => DocumentModel::count(),
 
-            'pending' => Document::where('status', 'pending')
+            'pending' => DocumentModel::where('status', 'pending')
                 ->count(),
 
-            'active' => Document::where('status', 'in_progress')
+            'active' => DocumentModel::where('status', 'in_progress')
                 ->count(),
 
-            'completed' => Document::where('status', 'completed')
+            'completed' => DocumentModel::where('status', 'completed')
                 ->count(),
         ];
     }
 
     public function getStatusCounts(): array
     {
-        $counts = Document::query()
+        $counts = DocumentModel::query()
             ->select('status')
             ->selectRaw('COUNT(*) as count')
             ->whereIn('status', [
                 'pending',
                 'in_progress',
                 'outgoing',
-                'archived',
+                'completed',
                 'rejected',
             ])
             ->groupBy('status')
@@ -102,7 +105,7 @@ class Incoming extends Page
             'pending' => (int) ($counts['pending'] ?? 0),
             'incoming' => (int) ($counts['in_progress'] ?? 0),
             'outgoing' => (int) ($counts['outgoing'] ?? 0),
-            'archive' => (int) ($counts['archived'] ?? 0),
+            'completed' => (int) ($counts['completed'] ?? 0),
             'rejected' => (int) ($counts['rejected'] ?? 0),
         ];
     }
@@ -111,7 +114,7 @@ class Incoming extends Page
     {
         DB::transaction(function () use ($documentId) {
 
-            $document = Document::with('user')
+            $document = DocumentModel::with('user')
                 ->lockForUpdate()
                 ->findOrFail($documentId);
 
@@ -121,7 +124,7 @@ class Incoming extends Page
 
             $year = now()->format('y');
 
-            $existingNumbers = Document::query()
+            $existingNumbers = DocumentModel::query()
                 ->whereNotNull('lao_number')
                 ->where('lao_number', 'like', "LAO-{$year}-%")
                 ->pluck('lao_number');
@@ -162,11 +165,11 @@ class Incoming extends Page
             'incoming' => 'in_progress',
             'outgoing' => 'outgoing',
             'rejected' => 'rejected',
-            'archive' => 'archived',
+            'completed' => 'completed',
             default => 'in_progress',
         };
 
-        return Document::query()
+        return DocumentModel::query()
             ->with(['user', 'type', 'actionType', 'rejections'])
             ->where('status', $status)
 
@@ -261,7 +264,7 @@ class Incoming extends Page
             ->action(function (array $data) {
                 $data['user_id'] = auth()->id();
 
-                Document::create($data);
+                DocumentModel::create($data);
             });
     }
 
@@ -321,7 +324,6 @@ class Incoming extends Page
                         'in_progress' => 'In Progress',
                         'completed' => 'Completed',
                         'returned' => 'Returned',
-                        'archived' => 'Archived',
                         'outgoing' => 'Outgoing',
                     ])
                     ->required(),
@@ -333,7 +335,7 @@ class Incoming extends Page
                     ->preserveFilenames(),
             ])
             ->fillForm(function (array $arguments): array {
-                $document = Document::findOrFail($arguments['document']);
+                $document = DocumentModel::findOrFail($arguments['document']);
 
                 return [
                     'lao_number' => $document->lao_number,
@@ -350,7 +352,7 @@ class Incoming extends Page
                 ];
             })
             ->action(function (array $data, array $arguments): void {
-                $document = Document::findOrFail($arguments['document']);
+                $document = DocumentModel::findOrFail($arguments['document']);
 
                 $document->update($data);
             });
@@ -358,7 +360,7 @@ class Incoming extends Page
 
     public function downloadDocument(int $documentId): StreamedResponse
     {
-        $document = Document::findOrFail($documentId);
+        $document = DocumentModel::with('user')->findOrFail($documentId);
 
         abort_unless(
             $document->file_path &&
@@ -366,8 +368,7 @@ class Incoming extends Page
             404
         );
 
-        $fileName = $document->original_file_name
-            ?: basename($document->file_path);
+        $fileName = basename($document->file_path);
 
         return Storage::disk('local')->download(
             $document->file_path,
@@ -377,9 +378,7 @@ class Incoming extends Page
 
     public function redirectToIncoming(): void
     {
-        $this->redirect(
-            self::getUrl(['section' => 'incoming'])
-        );
+        $this->redirect(self::getUrl(['section' => 'incoming']));
     }
 
     public function acceptDocumentAction(): Action
@@ -390,7 +389,7 @@ class Incoming extends Page
             ->color('success')
             ->modalHeading('Accept Document')
             ->modalDescription(function (array $arguments): string {
-                $document = Document::with('user')->find($arguments['document'] ?? null);
+                $document = DocumentModel::with('user')->find($arguments['document'] ?? null);
                 $uploader = $document?->user?->name ?? 'Unknown user';
 
                 return "Are you sure you want to accept this document uploaded by {$uploader}? It will be moved to the Incoming table.";
@@ -408,7 +407,7 @@ class Incoming extends Page
 
     public function markAsOutgoing(int $documentId, string $sentDate, string $sentTo): void
     {
-        $document = Document::findOrFail($documentId);
+        $document = DocumentModel::findOrFail($documentId);
 
         $document->update([
             'status' => 'outgoing',
@@ -469,23 +468,44 @@ class Incoming extends Page
             ->modalHeading('Reject Document')
             ->modalDescription('Please provide a reason for rejecting this document.')
             ->schema([
-                Textarea::make('reason')
+                Select::make('reason')
                     ->label('Rejection Reason')
-                    ->required()
+                    ->placeholder('Select a reason')
+                    ->options([
+                        'Incomplete or missing information' => 'Incomplete or missing information',
+                        'Incorrect document type' => 'Incorrect document type',
+                        'Missing signature or approval' => 'Missing signature or approval',
+                        'Duplicate document' => 'Duplicate document',
+                        'Incorrect recipient or office' => 'Incorrect recipient or office',
+                        'Unreadable or corrupted file' => 'Unreadable or corrupted file',
+                        'other' => 'Other',
+                    ])
+                    ->live()
+                    ->required(),
+
+                Textarea::make('custom_reason')
+                    ->label('Specify Other Reason')
+                    ->placeholder('Type the reason for rejecting this document')
+                    ->visible(fn (Get $get): bool => $get('reason') === 'other')
+                    ->required(fn (Get $get): bool => $get('reason') === 'other')
                     ->rows(4)
                     ->maxLength(5000),
             ])
             ->action(function (array $data, array $arguments): void {
+                $reason = $data['reason'] === 'other'
+                    ? trim((string) ($data['custom_reason'] ?? ''))
+                    : $data['reason'];
+
                 $this->rejectDocument(
                     (int) $arguments['document'],
-                    $data['reason'],
+                    $reason,
                 );
             });
     }
 
     public function rejectDocument(int $documentId, string $reason): void
     {
-        $document = Document::with('user')->findOrFail($documentId);
+        $document = DocumentModel::with('user')->findOrFail($documentId);
 
         $rejection = DB::transaction(function () use ($document, $reason): RejectedDocument {
             $rejection = RejectedDocument::create([
@@ -531,7 +551,7 @@ class Incoming extends Page
                     ->required(),
             ])
             ->action(function (array $data, array $arguments): void {
-                $document = Document::findOrFail($arguments['document']);
+                        $document = DocumentModel::findOrFail($arguments['document']);
                 $isOutgoing = $data['destination'] === 'outgoing';
 
                 $document->update([
@@ -571,43 +591,43 @@ class Incoming extends Page
             ]);
     }
 
-    public function archiveDocument(int $documentId): void
+    public function completeDocument(int $documentId): void
     {
-        $document = Document::findOrFail($documentId);
+        $document = DocumentModel::findOrFail($documentId);
 
         $document->update([
-            'status' => 'archived',
+            'status' => 'completed',
         ]);
 
         Notification::make()
             ->success()
-            ->title('Document archived')
-            ->body('The document was successfully marked as completed and moved to the Archive table.')
+            ->title('Document completed')
+            ->body('The document was successfully marked as completed and moved to the Completed table.')
             ->send();
 
-        $this->redirect(self::getUrl(['section' => 'archive']));
+        $this->redirect(self::getUrl(['section' => 'completed']));
     }
 
-    public function archiveDocumentAction(): Action
+    public function completeDocumentAction(): Action
     {
-        return Action::make('archiveDocument')
+        return Action::make('completeDocument')
             ->label('')
-            ->icon('heroicon-o-archive-box')
+            ->icon('heroicon-o-check-circle')
             ->color('gray')
-            ->tooltip('Archive')
-            ->modalHeading('Archive Document')
-            ->modalDescription('Are you sure you want to archive this document? It will be marked as completed and moved to the Archive table.')
-            ->modalIcon('heroicon-o-archive-box')
+            ->tooltip('Complete')
+            ->modalHeading('Complete Document')
+            ->modalDescription('Are you sure you want to mark this document as completed? It will be moved to the Completed table.')
+            ->modalIcon('heroicon-o-check-circle')
             ->modalIconColor('gray')
             ->modalAlignment(Alignment::Center)
             ->modalFooterActionsAlignment(Alignment::Center)
-            ->modalSubmitActionLabel('Archive document')
+            ->modalSubmitActionLabel('Complete document')
             ->modalCancelActionLabel('Cancel')
             ->extraAttributes([
                 'class' => 'inline-flex items-center justify-center w-9 h-9 rounded-md bg-[#334155] hover:bg-[#0F172A] text-white transition',
             ])
             ->action(function (array $arguments): void {
-                $this->archiveDocument((int) $arguments['document']);
+                $this->completeDocument((int) $arguments['document']);
             });
     }
 
@@ -619,7 +639,7 @@ class Incoming extends Page
 
     public function messageDocument(int $documentId): void
     {
-        $document = Document::findOrFail($documentId);
+        $document = DocumentModel::findOrFail($documentId);
 
         $this->redirect(
             route('filament.admin.pages.messages', [

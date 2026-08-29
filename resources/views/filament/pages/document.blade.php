@@ -69,7 +69,7 @@
                 'pending' => 'Pending',
                 'incoming' => 'Incoming',
                 'outgoing' => 'Outgoing',
-                'archive' => 'Archive',
+                'completed' => 'Completed',
                 'rejected' => 'Rejected',
             ] as $section => $label)
                 <a
@@ -907,8 +907,8 @@
                                         </svg>
                                     </button>
 
-                                    {{-- Archive --}}
-                                    {{ ($this->archiveDocumentAction)([
+                                    {{-- Complete --}}
+                                    {{ ($this->completeDocumentAction)([
                                         'document' => $document->document_id,
                                     ]) }}
 
@@ -947,7 +947,7 @@
         {{-- TABLE --}}
         <div class="max-h-[calc(100vh-18rem)] w-full min-h-0 overflow-auto border border-gray-300 bg-white">
 
-            <table class="w-full {{ $activeSection === 'archive' ? 'min-w-[1000px]' : 'min-w-[1300px]' }} lg:min-w-0 border-collapse">
+            <table class="w-full {{ $activeSection === 'completed' ? 'min-w-[1000px]' : 'min-w-[1300px]' }} lg:min-w-0 border-collapse">
 
                 <thead class="sticky top-0 z-10 bg-white">
                     <tr class="border-b border-gray-300 bg-white">
@@ -963,7 +963,7 @@
                             DOCUMENT TYPE
                         </th>
 
-                        @if ($activeSection === 'archive')
+                        @if ($activeSection === 'completed')
                             <th class="px-4 py-4 text-left text-sm font-bold">
                                 LAST UPDATE
                             </th>
@@ -975,7 +975,7 @@
                             </th>
                         @endif
 
-                        @if ($activeSection !== 'archive')
+                        @if ($activeSection !== 'completed')
                             <th class="px-4 py-4 text-left text-sm font-bold">
                                 ACTION TAKEN
                             </th>
@@ -1005,7 +1005,7 @@
 
                         @if ($uploadDate !== $currentUploadDate)
                             <tr class="border-y border-blue-200 bg-blue-50">
-                                <td colspan="{{ $activeSection === 'archive' ? 6 : ($activeSection === 'rejected' ? 8 : 7) }}" class="px-4 py-2 text-xs font-bold text-blue-900">
+                                <td colspan="{{ $activeSection === 'completed' ? 6 : ($activeSection === 'rejected' ? 8 : 7) }}" class="px-4 py-2 text-xs font-bold text-blue-900">
                                     Uploaded {{ $document->created_at?->format('F d, Y') ?? 'Unknown date' }}
                                 </td>
                             </tr>
@@ -1088,7 +1088,7 @@
 
                             </td>
 
-                            @if ($activeSection === 'archive')
+                            @if ($activeSection === 'completed')
                                 {{-- Latest Updated Date --}}
                                 <td class="px-4 py-4 align-middle">
                                     <span class="text-xs font-medium text-gray-800">
@@ -1117,7 +1117,7 @@
                                 </td>
                             @endif
 
-                            @if ($activeSection !== 'archive')
+                            @if ($activeSection !== 'completed')
                                 {{-- Action Taken --}}
                                 <td class="px-4 py-4 align-middle">
 
@@ -1277,7 +1277,7 @@
 
                                 <div class="flex items-center justify-center gap-2">
 
-                                    @if (in_array($activeSection, ['archive', 'rejected'], true))
+                                    @if (in_array($activeSection, ['completed', 'rejected'], true))
 
                                         {{-- Return --}}
                                         {{ ($this->returnDocumentAction)([
