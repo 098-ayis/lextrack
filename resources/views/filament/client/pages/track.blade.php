@@ -6,7 +6,7 @@
         <div class="w-full max-w-3xl overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-[0_10px_40px_rgba(0,0,0,0.08)] mb-6 dark:border-gray-700 dark:bg-[#17181c] dark:shadow-[0_10px_40px_rgba(0,0,0,0.25)]">
 
             {{-- Header --}}
-            <div class="bg-[#121722] px-6 py-5 md:px-8 md:py-6">
+            <div class="bg-[#0F172A] px-6 py-5 md:px-8 md:py-6">
                 <h2 class="text-lg md:text-xl font-bold text-[#828cff] mb-1">
                     Track your Document
                 </h2>
