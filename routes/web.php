@@ -81,6 +81,26 @@ Route::get('/client/document-preview/{document}', function ($document) {
     ->middleware('auth')
     ->name('client.document.preview');
 
+Route::get('/client/document-download/{document}', function (int $document) {
+    $documentRecord = Document::query()
+        ->where('document_id', $document)
+        ->where('user_id', auth()->id())
+        ->firstOrFail();
+
+    abort_unless(
+        $documentRecord->file_path &&
+        Storage::disk('local')->exists($documentRecord->file_path),
+        404
+    );
+
+    return Storage::disk('local')->download(
+        $documentRecord->file_path,
+        basename($documentRecord->file_path)
+    );
+})
+    ->middleware('auth')
+    ->name('client.document.download');
+
 
 Route::get('/dashboard', function () {
     return view('dashboard');

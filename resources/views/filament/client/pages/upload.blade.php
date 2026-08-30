@@ -97,7 +97,7 @@
                 Submit A Document
             </h2>
             <p style="color: #e5e7eb; margin-top: 0.25rem; font-size: 0.875rem;">
-                Please provide the details of your request and upload the necessary files.
+                Please provide the details of your document and upload the necessary files.
             </p>
         </div>
 

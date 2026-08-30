@@ -104,6 +104,15 @@ class DashboardDocumentTable extends BaseWidget
                                 return;
                             }
 
+                            if ($this->documentStatus === 'completed') {
+                                $query->whereIn('status', [
+                                    'completed',
+                                    'archived',
+                                ]);
+
+                                return;
+                            }
+
                             $query->where('status', $this->documentStatus);
                         }
                     )
@@ -207,6 +216,8 @@ class DashboardDocumentTable extends BaseWidget
 
                             'completed',
                             'archived' => 'success',
+
+                            'rejected' => 'danger',
 
                             'active',
                             'in_progress',

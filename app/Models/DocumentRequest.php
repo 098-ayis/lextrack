@@ -12,6 +12,7 @@ class DocumentRequest extends Model
     protected $fillable = [
         'document_id',
         'purpose',
+        'attachment_path',
         'user_id',
         'status',
         'date_of_request',

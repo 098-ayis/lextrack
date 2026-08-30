@@ -20,6 +20,15 @@ class Messages extends Page
 
     public $messages = [];
 
+    public function mount(): void
+    {
+        $documentId = (int) request()->query('document', 0);
+
+        if ($documentId > 0) {
+            $this->openDocumentConversation($documentId);
+        }
+    }
+
     /**
      * Conversations visible to the logged-in client.
      */

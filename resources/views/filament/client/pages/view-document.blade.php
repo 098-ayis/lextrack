@@ -9,7 +9,8 @@
                 type="button"
                 onclick="window.history.back()"
                 class="inline-flex items-center justify-center rounded-lg border border-gray-300
-                       bg-white p-2 text-gray-700 shadow-sm transition hover:bg-gray-50"
+                       bg-white p-2 text-gray-700 shadow-sm transition hover:bg-gray-50
+                       dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-gray-700"
                 title="Back"
             >
                 <svg
@@ -28,11 +29,11 @@
             </button>
 
             <div>
-                <h1 class="text-2xl font-bold text-gray-900">
-                    Document Details
+                <h1 class="text-2xl font-bold text-gray-900 dark:text-white">
+                    {{ $documentRecord->particulars ?: 'Document Details' }}
                 </h1>
 
-                <p class="mt-1 text-sm text-gray-500">
+                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
                     {{ $documentRecord->lao_number ?: 'LAO number not yet assigned' }}
                 </p>
             </div>
@@ -47,16 +48,16 @@
 
                 <div
                     class="overflow-hidden rounded-xl border border-gray-200
-                           bg-white shadow-sm"
+                           bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800"
                 >
 
-                    <div class="border-b border-gray-200 px-5 py-4">
-                        <h2 class="font-semibold text-gray-900">
+                    <div class="border-b border-gray-200 px-5 py-4 dark:border-gray-700">
+                        <h2 class="font-semibold text-gray-900 dark:text-white">
                             Document Preview
                         </h2>
                     </div>
 
-                    <div class="h-[70vh] min-h-[500px] bg-gray-100">
+                    <div class="h-[70vh] min-h-[500px] bg-gray-100 dark:bg-gray-900">
 
                         @if ($previewUrl)
 
@@ -91,14 +92,14 @@
 
                                 <div class="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
 
-                                    <p class="font-medium text-gray-700">
+                                    <p class="font-medium text-gray-700 dark:text-gray-300">
                                         Preview is not available for this file type.
                                     </p>
 
                                     <a
                                         href="{{ $previewUrl }}"
                                         target="_blank"
-                                        class="text-sm font-semibold text-primary-600 hover:underline"
+                                        class="text-sm font-semibold text-primary-600 hover:underline dark:text-primary-400"
                                     >
                                         Open document
                                     </a>
@@ -110,7 +111,7 @@
                         @else
 
                             <div class="flex h-full items-center justify-center p-6 text-center">
-                                <p class="text-sm text-gray-500">
+                                <p class="text-sm text-gray-500 dark:text-gray-400">
                                     No document file available.
                                 </p>
                             </div>
@@ -128,11 +129,11 @@
 
                 <div
                     class="rounded-xl border border-gray-200
-                           bg-white shadow-sm"
+                           bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800"
                 >
 
-                    <div class="border-b border-gray-200 px-5 py-4">
-                        <h2 class="font-semibold text-gray-900">
+                    <div class="border-b border-gray-200 px-5 py-4 dark:border-gray-700">
+                        <h2 class="font-semibold text-gray-900 dark:text-white">
                             Document Information
                         </h2>
                     </div>
@@ -141,44 +142,44 @@
 
                         {{-- LAO NUMBER --}}
                         <div>
-                            <p class="text-xs font-bold uppercase text-gray-500">
+                            <p class="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">
                                 LAO Number
                             </p>
 
-                            <p class="mt-1 text-sm font-medium text-gray-900">
+                            <p class="mt-1 text-sm font-medium text-gray-900 dark:text-gray-100">
                                 {{ $documentRecord->lao_number ?: 'Not yet assigned' }}
                             </p>
                         </div>
 
                         {{-- DOCUMENT TYPE --}}
                         <div>
-                            <p class="text-xs font-bold uppercase text-gray-500">
+                            <p class="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">
                                 Document Type
                             </p>
 
-                            <p class="mt-1 text-sm font-medium text-gray-900">
+                            <p class="mt-1 text-sm font-medium text-gray-900 dark:text-gray-100">
                                 {{ $documentRecord->type?->type_name ?? 'N/A' }}
                             </p>
                         </div>
 
                         {{-- PARTICULARS --}}
                         <div>
-                            <p class="text-xs font-bold uppercase text-gray-500">
+                            <p class="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">
                                 Particulars
                             </p>
 
-                            <p class="mt-1 text-sm text-gray-900">
+                            <p class="mt-1 text-sm text-gray-900 dark:text-gray-100">
                                 {{ $documentRecord->particulars ?: 'N/A' }}
                             </p>
                         </div>
 
                         {{-- STATUS --}}
                         <div>
-                            <p class="text-xs font-bold uppercase text-gray-500">
+                            <p class="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">
                                 Status
                             </p>
 
-                            <p class="mt-1 text-sm font-medium text-gray-900">
+                            <p class="mt-1 text-sm font-medium {{ $documentRecord->status === 'rejected' ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-gray-100' }}">
                                 {{ ucwords(
                                     str_replace(
                                         '_',
@@ -189,13 +190,32 @@
                             </p>
                         </div>
 
+                        {{-- REJECTION REASON --}}
+                        @if ($documentRecord->status === 'rejected')
+                            @php
+                                $rejectionReason =
+                                    $documentRecord->rejections->first()?->reason
+                                    ?? $documentRecord->rejection_reason;
+                            @endphp
+
+                            <div>
+                                <p class="text-xs font-bold uppercase text-red-600 dark:text-red-400">
+                                    Reason for Rejection
+                                </p>
+
+                                <p class="mt-1 whitespace-pre-line text-sm text-red-700 dark:text-red-400">
+                                    {{ $rejectionReason ?: 'No rejection reason provided.' }}
+                                </p>
+                            </div>
+                        @endif
+
                         {{-- DATE SUBMITTED --}}
                         <div>
-                            <p class="text-xs font-bold uppercase text-gray-500">
+                            <p class="text-xs font-bold uppercase text-gray-500 dark:text-gray-400">
                                 Date Submitted
                             </p>
 
-                            <p class="mt-1 text-sm text-gray-900">
+                            <p class="mt-1 text-sm text-gray-900 dark:text-gray-100">
                                 {{ $documentRecord->created_at?->format('M d, Y h:i A') }}
                             </p>
                         </div>

@@ -23,7 +23,12 @@ class ViewDocument extends Page
         $this->documentRecord = Document::query()
             ->where('document_id', $document)
             ->where('user_id', auth()->id())
-            ->with('type')
+            ->with([
+                'type',
+                'rejections' => fn ($query) => $query
+                    ->latest('created_at')
+                    ->latest('rejected_id'),
+            ])
             ->firstOrFail();
 
         if ($this->documentRecord->file_path) {
