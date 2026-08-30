@@ -69,7 +69,10 @@ class Document extends Model
             DocumentVersion::class,
             'document_id',
             'document_id'
-        )->latestOfMany('created_at');
+        )->ofMany([
+            'created_at' => 'max',
+            'version_id' => 'max',
+        ]);
     }
 
     /**

@@ -4,6 +4,7 @@ namespace App\Filament\Client\Widgets;
 
 use App\Models\Document;
 use Filament\Widgets\Widget;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
 
 class DashboardStats extends Widget
@@ -19,19 +20,33 @@ class DashboardStats extends Widget
         $userId = Auth::id();
 
         return [
-            'total' => Document::where('user_id', $userId)->count(),
+            'total' => $this->accessibleDocumentsQuery($userId)->count(),
 
-            'pending' => Document::where('user_id', $userId)
+            'pending' => $this->accessibleDocumentsQuery($userId)
                 ->where('status', 'pending')
                 ->count(),
 
-            'active' => Document::where('user_id', $userId)
+            'active' => $this->accessibleDocumentsQuery($userId)
                 ->whereIn('status', ['in_progress', 'outgoing'])
                 ->count(),
 
-            'completed' => Document::where('user_id', $userId)
-                ->where('status', 'archived')
+            'completed' => $this->accessibleDocumentsQuery($userId)
+                ->whereIn('status', ['completed', 'archived'])
                 ->count(),
         ];
+    }
+
+    protected function accessibleDocumentsQuery(int $userId): Builder
+    {
+        return Document::query()
+            ->where(function (Builder $query) use ($userId): void {
+                $query
+                    ->where('user_id', $userId)
+                    ->orWhereHas(
+                        'documentRequests',
+                        fn (Builder $requestQuery) => $requestQuery
+                            ->where('user_id', $userId)
+                    );
+            });
     }
 }

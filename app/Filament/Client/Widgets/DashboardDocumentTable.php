@@ -2,13 +2,12 @@
 
 namespace App\Filament\Client\Widgets;
 
-use App\Models\Document;
 use App\Filament\Client\Pages\ViewDocument;
-use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Table;
-use Filament\Widgets\TableWidget as BaseWidget;
+use App\Models\Document;
+use Filament\Widgets\Widget;
+use Illuminate\Database\Eloquent\Builder;
 
-class DashboardDocumentTable extends BaseWidget
+class DashboardDocumentTable extends Widget
 {
     protected static ?int $sort = 2;
 
@@ -22,230 +21,92 @@ class DashboardDocumentTable extends BaseWidget
 
     public string $documentStatus = '';
 
-    /*
-    |--------------------------------------------------------------------------
-    | Livewire filter updates
-    |--------------------------------------------------------------------------
-    */
-
-    public function updatedDocumentSearch(): void
-    {
-        $this->resetTable();
-    }
-
-    public function updatedDocumentType(): void
-    {
-        $this->resetTable();
-    }
-
-    public function updatedDocumentStatus(): void
-    {
-        $this->resetTable();
-    }
-
     public function clearSearch(): void
     {
         $this->documentSearch = '';
-
-        $this->resetTable();
     }
 
     public function clearType(): void
     {
         $this->documentType = '';
-
-        $this->resetTable();
     }
 
     public function clearStatus(): void
     {
         $this->documentStatus = '';
-
-        $this->resetTable();
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | Table
-    |--------------------------------------------------------------------------
-    */
-
-    public function table(Table $table): Table
+    public function getDocuments(): \Illuminate\Support\Collection
     {
-        return $table
-            ->heading('')
-
-            ->query(
-                Document::query()
-
-                    // Only documents submitted by the logged-in client
+        return $this->documentsQuery()
+            ->with([
+                'type',
+                'latestVersion',
+                'documentRequests' => fn ($query) => $query
                     ->where('user_id', auth()->id())
-
-                    // Document Type
-                    ->when(
-                        $this->documentType !== '',
-                        fn ($query) =>
-                            $query->where(
-                                'type_id',
-                                (int) $this->documentType
-                            )
-                    )
-
-                    // Status
-                    ->when(
-                        $this->documentStatus !== '',
-                        function ($query) {
-                            if ($this->documentStatus === 'in_progress') {
-                                $query->whereIn('status', [
-                                    'in_progress',
-                                    'outgoing',
-                                ]);
-
-                                return;
-                            }
-
-                            if ($this->documentStatus === 'completed') {
-                                $query->whereIn('status', [
-                                    'completed',
-                                    'archived',
-                                ]);
-
-                                return;
-                            }
-
-                            $query->where('status', $this->documentStatus);
-                        }
-                    )
-
-                    // Search
-                    ->when(
-                        trim($this->documentSearch) !== '',
-                        function ($query) {
-                            $search = trim($this->documentSearch);
-
-                            $query->where(function ($query) use ($search) {
-                                $query
-                                    ->where(
-                                        'particulars',
-                                        'like',
-                                        "%{$search}%"
-                                    )
-                                    ->orWhere(
-                                        'office_unit',
-                                        'like',
-                                        "%{$search}%"
-                                    )
-                                    ->orWhere(
-                                        'lao_number',
-                                        'like',
-                                        "%{$search}%"
-                                    );
-                            });
-                        }
-                    )
-
-                    // Newest documents first
-                    ->orderByDesc('created_at')
-
-                    // Only show the 10 most recent documents
-                    ->limit(10)
-            )
-
-            /*
-            |--------------------------------------------------------------------------
-            | Click row → View Document
-            |--------------------------------------------------------------------------
-            */
-
-            ->recordUrl(
-                fn (Document $record): string =>
-                    ViewDocument::getUrl([
-                        'document' => $record->document_id,
-                    ])
-            )
-
-            /*
-            |--------------------------------------------------------------------------
-            | Columns
-            |--------------------------------------------------------------------------
-            */
-
-            ->columns([
-
-                TextColumn::make('lao_number')
-                    ->label('LAO #')
-                    ->formatStateUsing(
-                        fn ($state) => $state ?? ''
-                    ),
-
-                TextColumn::make('type_id')
-                    ->label('TYPE')
-                    ->formatStateUsing(
-                        fn ($state): string => match ((string) $state) {
-                            '1' => 'MOA',
-                            '2' => 'Correspondence',
-                            '3' => 'Contract',
-                            '4' => 'Proposal',
-                            '5' => 'PROCUREMENT',
-                            '6' => 'REFERENCE SLIP',
-                            '7' => 'Clearance',
-                            '8' => 'MOU',
-                            '9' => 'NDA',
-                            '10' => 'DOD',
-                            '11' => 'GBA',
-                            '12' => 'Others',
-                            default => 'Unknown',
-                        }
-                    ),
-
-                TextColumn::make('particulars')
-                    ->label('PARTICULARS'),
-
-                TextColumn::make('created_at')
-                    ->label('DATE SUBMITTED')
-                    ->date('M d, Y'),
-
-                TextColumn::make('status')
-                    ->label('STATUS')
-                    ->color(
-                        fn (string $state): string => match (
-                            strtolower($state)
-                        ) {
-                            'pending',
-                            'for filing' => 'warning',
-
-                            'completed',
-                            'archived' => 'success',
-
-                            'rejected' => 'danger',
-
-                            'active',
-                            'in_progress',
-                            'outgoing' => 'info',
-
-                            default => 'gray',
-                        }
-                    )
-                    ->formatStateUsing(
-                        fn (?string $state): string => match (strtolower((string) $state)) {
-                            'archived' => 'Completed',
-                            'outgoing' => 'In Progress',
-                            default => ucwords(
-                                str_replace('_', ' ', (string) $state)
-                            ),
-                        },
-                    ),
+                    ->latest('created_at')
+                    ->latest('request_id'),
             ])
+            ->latest('created_at')
+            ->limit(8)
+            ->get();
+    }
 
-            /*
-            |--------------------------------------------------------------------------
-            | Pagination
-            |--------------------------------------------------------------------------
-            |
-            | Since this is "Recent Documents", pagination is unnecessary.
-            |
-            */
+    protected function documentsQuery(): Builder
+    {
+        return Document::query()
+            ->where(function (Builder $query): void {
+                $query
+                    ->where('user_id', auth()->id())
+                    ->orWhereHas(
+                        'documentRequests',
+                        fn (Builder $requestQuery) => $requestQuery
+                            ->where('user_id', auth()->id())
+                    );
+            })
+            ->when(
+                $this->documentType !== '',
+                fn (Builder $query) => $query->where(
+                    'type_id',
+                    (int) $this->documentType
+                )
+            )
+            ->when(
+                $this->documentStatus !== '',
+                function (Builder $query): void {
+                    if ($this->documentStatus === 'in_progress') {
+                        $query->whereIn('status', [
+                            'in_progress',
+                            'outgoing',
+                        ]);
 
-            ->paginated(false);
+                        return;
+                    }
+
+                    if ($this->documentStatus === 'completed') {
+                        $query->whereIn('status', [
+                            'completed',
+                            'archived',
+                        ]);
+
+                        return;
+                    }
+
+                    $query->where('status', $this->documentStatus);
+                }
+            )
+            ->when(
+                trim($this->documentSearch) !== '',
+                function (Builder $query): void {
+                    $search = trim($this->documentSearch);
+
+                    $query->where(function (Builder $query) use ($search): void {
+                        $query
+                            ->where('particulars', 'like', "%{$search}%")
+                            ->orWhere('office_unit', 'like', "%{$search}%")
+                            ->orWhere('lao_number', 'like', "%{$search}%");
+                    });
+                }
+            );
     }
 }

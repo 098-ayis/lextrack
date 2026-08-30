@@ -2,32 +2,14 @@
 
     <div class="client-dashboard-documents space-y-4">
 
-        {{-- RECENT DOCUMENTS TITLE --}}
-        <div class="flex items-center justify-between">
-
-    <h2 class="text-lg font-bold text-gray-900 dark:text-gray-100">
-        Recent Documents
-    </h2>
-
-    <a
-        href="{{ \App\Filament\Client\Pages\Documents::getUrl() }}"
-        class="text-sm font-semibold text-[#6366F1] dark:text-indigo-400
-               transition hover:underline"
-    >
-        View all
-    </a>
-
-</div>
-
-
         {{-- SEARCH / FILTERS / ACTIONS --}}
-        <div class="flex flex-col justify-between w-full gap-4 sm:flex-row sm:items-start">
+        <div class="flex w-full flex-col gap-4">
 
             {{-- LEFT SIDE --}}
-            <div class="w-full max-w-md space-y-3">
+            <div class="order-2 flex w-full min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-center">
 
                 {{-- SEARCH --}}
-                <div class="relative w-full">
+                <div class="relative w-full sm:max-w-md sm:flex-none">
 
                     <div class="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
                         <svg
@@ -230,7 +212,7 @@
 
 
             {{-- RIGHT SIDE --}}
-            <div class="flex items-center w-full gap-3 sm:w-auto">
+            <div class="order-1 flex w-full items-center justify-end gap-3">
 
                 {{-- REQUEST --}}
                 <a
@@ -300,11 +282,152 @@
         </div>
 
 
-        {{-- TABLE --}}
-        <div class="overflow-hidden rounded-xl border border-gray-200 bg-white
-                    dark:border-gray-700 dark:bg-gray-900">
-            {{ $this->table }}
+        {{-- RECENT DOCUMENTS TITLE --}}
+        <div class="flex items-center justify-between">
+            <h2 class="text-lg font-bold text-gray-900 dark:text-gray-100">
+                Recent Documents
+            </h2>
+
+            <a
+                href="{{ \App\Filament\Client\Pages\Documents::getUrl() }}"
+                class="text-sm font-semibold text-[#6366F1] transition hover:underline dark:text-indigo-400"
+            >
+                View all
+            </a>
         </div>
+
+        {{-- DOCUMENT CARDS --}}
+        @php
+            $documents = $this->getDocuments();
+        @endphp
+
+        @if ($documents->isNotEmpty())
+            <div class="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
+                @foreach ($documents as $document)
+                    @php
+                        $isRequested = (int) $document->user_id !== (int) auth()->id();
+                        $cardStatus = $isRequested
+                            ? ($document->documentRequests->first()?->status ?? $document->status)
+                            : $document->status;
+
+                        $statusLabel = match ($cardStatus) {
+                            'in_progress' => 'In Progress',
+                            'outgoing' => 'In Progress',
+                            'completed' => 'Completed',
+                            'archived' => 'Completed',
+                            'accepted' => 'Accepted',
+                            default => ucwords(str_replace('_', ' ', (string) $cardStatus)),
+                        };
+
+                        $statusClasses = match ($cardStatus) {
+                            'pending' => 'border-yellow-200 bg-yellow-50 text-yellow-700 dark:border-yellow-800 dark:bg-yellow-950 dark:text-yellow-300',
+                            'in_progress', 'outgoing' => 'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-300',
+                            'completed', 'archived' => 'border-green-200 bg-green-50 text-green-700 dark:border-green-800 dark:bg-green-950 dark:text-green-300',
+                            'accepted' => 'border-green-200 bg-green-50 text-green-700 dark:border-green-800 dark:bg-green-950 dark:text-green-300',
+                            'rejected' => 'border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-300',
+                            default => 'border-gray-200 bg-gray-50 text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300',
+                        };
+
+                        $previewUrl = $document->latestVersion?->file_path
+                            ? route('client.document.preview', ['document' => $document->document_id])
+                            : null;
+
+                        $extension = strtolower(pathinfo(
+                            (string) $document->latestVersion?->file_path,
+                            PATHINFO_EXTENSION
+                        ));
+                    @endphp
+
+                    <a
+                        href="{{ \App\Filament\Client\Pages\ViewDocument::getUrl([
+                            'document' => $document->document_id,
+                            'from' => 'dashboard',
+                        ]) }}"
+                        class="group relative flex aspect-square min-h-0 flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition duration-200 hover:-translate-y-1 hover:border-[#6366F1] hover:shadow-lg dark:border-gray-700 dark:bg-[#17181c] dark:hover:border-indigo-400"
+                    >
+                        <span class="absolute right-3 top-3 z-10 rounded-md border px-2 py-0.5 text-[11px] font-semibold shadow-sm {{ $isRequested
+                            ? 'border-purple-200 bg-purple-50 text-purple-700 dark:border-purple-800 dark:bg-purple-950 dark:text-purple-300'
+                            : 'border-gray-200 bg-gray-50 text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300' }}">
+                            {{ $isRequested ? 'Requested' : 'Uploaded' }}
+                        </span>
+
+                        {{-- PREVIEW --}}
+                        <div class="relative aspect-[4/3] overflow-hidden border-b border-gray-200 bg-gray-100 dark:border-gray-700 dark:bg-gray-900">
+                            @if ($previewUrl && in_array($extension, ['jpg', 'jpeg', 'png', 'webp']))
+                                <img
+                                    src="{{ $previewUrl }}"
+                                    alt="{{ $document->particulars ?: 'Document preview' }}"
+                                    class="h-full w-full object-cover object-top transition duration-300 group-hover:scale-105"
+                                >
+                            @elseif ($previewUrl && $extension === 'pdf')
+                                <iframe
+                                    src="{{ $previewUrl }}"
+                                    title="{{ $document->particulars ?: 'Document preview' }}"
+                                    class="pointer-events-none h-full w-full border-0"
+                                ></iframe>
+                            @else
+                                <div class="flex h-full items-center justify-center text-gray-400 dark:text-gray-500">
+                                    <svg
+                                        class="h-16 w-16"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        stroke="currentColor"
+                                        stroke-width="1.25"
+                                    >
+                                        <path
+                                            stroke-linecap="round"
+                                            stroke-linejoin="round"
+                                            d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V9.75M10.5 2.25V7.125c0 .621.504 1.125 1.125 1.125h4.875"
+                                        />
+                                    </svg>
+                                </div>
+                            @endif
+                        </div>
+
+                        {{-- DETAILS --}}
+                        <div class="flex flex-1 flex-col p-3">
+                            <h3 class="line-clamp-2 text-sm font-bold text-gray-900 dark:text-gray-100">
+                                {{ $document->particulars ?: 'Untitled document' }}
+                            </h3>
+
+                            <p class="mt-2 text-xs font-medium text-gray-500 dark:text-gray-400">
+                                {{ $document->lao_number ?: 'LAO number not assigned' }}
+                            </p>
+
+                            <div class="mt-auto flex items-center justify-between gap-3 pt-5">
+                                <span class="inline-flex items-center rounded-lg border px-3 py-1 text-xs font-semibold {{ $statusClasses }}">
+                                    {{ $statusLabel }}
+                                </span>
+
+                                <span class="text-xs text-gray-400 dark:text-gray-500">
+                                    {{ $document->created_at?->diffForHumans() }}
+                                </span>
+                            </div>
+                        </div>
+                    </a>
+                @endforeach
+            </div>
+        @else
+            <div class="rounded-2xl border border-gray-200 bg-white px-6 py-12 text-center shadow-sm dark:border-gray-700 dark:bg-[#17181c]">
+                <svg
+                    class="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                >
+                    <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V9.75M10.5 2.25V7.125c0 .621.504 1.125 1.125 1.125h4.875"
+                    />
+                </svg>
+
+                <p class="mt-3 text-sm font-medium text-gray-500 dark:text-gray-400">
+                    No documents found
+                </p>
+            </div>
+        @endif
 
     </div>
 

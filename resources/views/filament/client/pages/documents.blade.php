@@ -10,7 +10,7 @@
         >
             All
             <span class="flex items-center justify-center rounded-full px-2 py-0.5 text-xs {{ $activeTab === 'all' ? 'bg-white/20 text-white' : 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300' }}">
-                {{ \App\Models\Document::where('user_id', auth()->id())->count() }}
+                {{ $this->getAllDocumentsCount() }}
             </span>
         </button>
 

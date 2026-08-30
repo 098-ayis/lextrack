@@ -21,8 +21,14 @@ class ViewDocument extends Page
 
     public string $returnTab = 'all';
 
+    public string $returnPage = 'documents';
+
     public function mount($document): void
     {
+        $this->returnPage = request()->query('from') === 'dashboard'
+            ? 'dashboard'
+            : 'documents';
+
         $tab = request()->query('tab', 'all');
 
         $this->returnTab = in_array($tab, [

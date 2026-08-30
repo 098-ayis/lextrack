@@ -33,6 +33,21 @@ class Documents extends Page implements HasTable
         return '';
     }
 
+    public function getAllDocumentsCount(): int
+    {
+        return Document::query()
+            ->where(function (Builder $query): void {
+                $query
+                    ->where('user_id', auth()->id())
+                    ->orWhereHas(
+                        'documentRequests',
+                        fn (Builder $requestQuery) => $requestQuery
+                            ->where('user_id', auth()->id())
+                    );
+            })
+            ->count();
+    }
+
     public function mount(): void
     {
         $tab = request()->query('tab', 'all');
@@ -119,29 +134,42 @@ class Documents extends Page implements HasTable
                     )
                 );
         } else {
-            $query
-                ->where('user_id', auth()->id())
-                ->when($this->activeTab !== 'all', function ($documentQuery) {
-                    if ($this->activeTab === 'in_progress') {
-                        $documentQuery->whereIn('status', [
-                            'in_progress',
-                            'outgoing',
-                        ]);
+            if ($this->activeTab === 'all') {
+                $query
+                    ->where(function (Builder $documentQuery): void {
+                        $documentQuery
+                            ->where('user_id', auth()->id())
+                            ->orWhereHas(
+                                'documentRequests',
+                                fn (Builder $requestQuery) => $requestQuery
+                                    ->where('user_id', auth()->id())
+                            );
+                    })
+                    ->with([
+                        'documentRequests' => function ($requestQuery) {
+                            $requestQuery
+                                ->where('user_id', auth()->id())
+                                ->latest('created_at')
+                                ->latest('request_id');
+                        },
+                    ]);
+            } else {
+                $query->where('user_id', auth()->id());
 
-                        return;
-                    }
-
-                    if ($this->activeTab === 'completed') {
-                        $documentQuery->whereIn('status', [
-                            'completed',
-                            'archived',
-                        ]);
-
-                        return;
-                    }
-
-                    $documentQuery->where('status', $this->activeTab);
-                });
+                if ($this->activeTab === 'in_progress') {
+                    $query->whereIn('status', [
+                        'in_progress',
+                        'outgoing',
+                    ]);
+                } elseif ($this->activeTab === 'completed') {
+                    $query->whereIn('status', [
+                        'completed',
+                        'archived',
+                    ]);
+                } else {
+                    $query->where('status', $this->activeTab);
+                }
+            }
         }
 
         return $query
@@ -194,6 +222,7 @@ class Documents extends Page implements HasTable
             ->recordUrl(
                 fn (Document $record): string => ViewDocument::getUrl([
                     'document' => $record->document_id,
+                    'from' => 'documents',
                     'tab' => $this->activeTab,
                 ])
             )
@@ -224,6 +253,20 @@ class Documents extends Page implements HasTable
 
                 TextColumn::make('particulars')
                     ->label('PARTICULARS'),
+
+                TextColumn::make('source')
+                    ->label('SOURCE')
+                    ->state(
+                        fn (Document $record): string => (int) $record->user_id === (int) auth()->id()
+                            ? 'Uploaded'
+                            : 'Requested'
+                    )
+                    ->badge()
+                    ->color(
+                        fn (string $state): string => $state === 'Requested'
+                            ? 'info'
+                            : 'gray'
+                    ),
 
                 TextColumn::make('created_at')
                     ->label('DATE SUBMITTED')
