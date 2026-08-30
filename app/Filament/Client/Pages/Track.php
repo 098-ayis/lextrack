@@ -8,6 +8,8 @@ use Filament\Pages\Page;
 
 class Track extends Page
 {
+    protected static bool $shouldRegisterNavigation = false;
+
     protected string $view = 'filament.client.pages.track';
 
     public function getHeading(): string
