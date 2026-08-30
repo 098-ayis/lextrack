@@ -256,6 +256,7 @@ class Documents extends Page implements HasTable
 
                 TextColumn::make('source')
                     ->label('SOURCE')
+                    ->visible(fn (): bool => $this->activeTab === 'all')
                     ->state(
                         fn (Document $record): string => (int) $record->user_id === (int) auth()->id()
                             ? 'Uploaded'
@@ -264,7 +265,7 @@ class Documents extends Page implements HasTable
                     ->badge()
                     ->color(
                         fn (string $state): string => $state === 'Requested'
-                            ? 'info'
+                            ? 'purple'
                             : 'gray'
                     ),
 
