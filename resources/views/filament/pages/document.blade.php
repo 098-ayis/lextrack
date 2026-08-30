@@ -27,6 +27,12 @@
                     d="M12 3v12m0 0 4-4m-4 4-4-4M5 18v3h14v-3"/>
             </symbol>
 
+            <symbol id="icon-qr-code" viewBox="0 0 24 24">
+                <path fill="none" stroke="currentColor" stroke-width="1.75"
+                    stroke-linecap="round" stroke-linejoin="round"
+                    d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2v2h-2zM18 14h2v6h-6v-2h4zM14 18h2v2h-2z"/>
+            </symbol>
+
             <symbol id="icon-eye" viewBox="0 0 24 24">
                 <path fill="none" stroke="currentColor" stroke-width="1.75"
                     stroke-linecap="round" stroke-linejoin="round"
@@ -265,10 +271,6 @@
                         </th>
 
                         <th class="min-w-[190px] px-4 py-4 text-center text-sm font-bold">
-                            FILE
-                        </th>
-
-                        <th class="min-w-[150px] px-4 py-4 text-center text-sm font-bold">
                             ACTION
                         </th>
 
@@ -285,7 +287,7 @@
 
                         @if ($uploadDate !== $currentUploadDate)
                             <tr class="border-y border-blue-200 bg-blue-50">
-                                <td colspan="6" class="px-4 py-2 text-xs font-bold text-blue-900">
+                                <td colspan="5" class="px-4 py-2 text-xs font-bold text-blue-900">
                                     Uploaded {{ $document->created_at?->format('F d, Y') ?? 'Unknown date' }}
                                 </td>
                             </tr>
@@ -294,7 +296,7 @@
 
                         <tr
                             data-view-url="{{ \App\Filament\Pages\ViewDocument::getUrl(['document' => $document->document_id]) }}"
-                            onclick="if (!event.target.closest('button, a, input, select, textarea')) window.location.href = this.dataset.viewUrl"
+                            onclick="if (!event.target.closest('button, a, input, select, textarea, summary, details')) window.location.href = this.dataset.viewUrl"
                             class="border-b border-gray-300
                                    {{ $loop->odd ? 'bg-[#F2F2F2]' : 'bg-white' }} cursor-pointer hover:bg-blue-50"
                         >
@@ -421,105 +423,61 @@
 
                             </td>
 
-                            {{-- File --}}
-                            <td class="px-4 py-4 align-middle">
-
-                                @if ($document->file_path)
-
-                                    <div class="flex items-center justify-center gap-2">
-
-                                        {{-- View --}}
-                                        <a
-                                                href="{{ \App\Filament\Pages\ViewDocument::getUrl(['document' => $document->document_id]) }}"
-                                                 class="inline-flex items-center gap-1.5
-                                                bg-white hover:bg-blue-50
-                                                border border-blue-600
-                                                text-blue-600 hover:text-blue-700
-                                                text-xs font-semibold
-                                                px-3 py-1.5 rounded-md
-                                                transition-colors duration-150"
-                                                title="View"
-                                            >
-                                                <svg
-                                                    class="w-4 h-4"
-                                                    fill="none"
-                                                    stroke="currentColor"
-                                                    stroke-width="2"
-                                                    viewBox="0 0 24 24"
-                                                >
-                                                    <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/>
-                                                    <circle cx="12" cy="12" r="2.75"/>
-                                                </svg>
-                                                View
-                                        </a>
-
-                                        {{-- Download --}}
-                                        <a
-                                            href="{{ Storage::url($document->file_path) }}"
-                                            download
-                                            class="inline-flex items-center gap-1.5
-                                                bg-slate-800 hover:bg-slate-900
-                                                text-white
-                                                text-xs font-semibold
-                                                px-3 py-1.5 rounded-md
-                                                shadow-sm
-                                                transition-colors duration-150"
-                                            title="Download"
-                                        >
-                                            <svg
-                                                class="w-4 h-4"
-                                                fill="none"
-                                                stroke="currentColor"
-                                                stroke-width="2"
-                                                viewBox="0 0 24 24"
-                                            >
-                                                <path d="M12 3v12m0 0 4-4m-4 4-4-4M5 18v3h14v-3"/>
-                                            </svg>
-                                            Download
-                                        </a>
-
-                                    </div>
-
-                                @else
-
-                                    <div class="flex items-center justify-center gap-2">
-                                        <a
-                                            href="{{ \App\Filament\Pages\ViewDocument::getUrl(['document' => $document->document_id]) }}"
-                                            class="inline-flex items-center gap-1.5
-                                                bg-white hover:bg-blue-50
-                                                border border-blue-600
-                                                text-blue-600 hover:text-blue-700
-                                                text-xs font-semibold
-                                                px-3 py-1.5 rounded-md
-                                                transition-colors duration-150"
-                                            title="View"
-                                        >
-                                            <svg
-                                                class="w-4 h-4"
-                                                fill="none"
-                                                stroke="currentColor"
-                                                stroke-width="2"
-                                                viewBox="0 0 24 24"
-                                            >
-                                                <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/>
-                                                <circle cx="12" cy="12" r="2.75"/>
-                                            </svg>
-                                            View
-                                        </a>
-
-                                        <span class="text-xs italic text-gray-400">
-                                            No file
-                                        </span>
-                                    </div>
-
-                                @endif
-
-                            </td>
-
                             {{-- Actions --}}
                             <td class="px-4 py-4 align-middle">
 
                                 <div class="flex items-center justify-center gap-2">
+
+                                    {{-- View and Download menu --}}
+                                    <details class="document-options-menu relative order-last shrink-0">
+                                        <summary
+                                            class="flex h-9 w-7 cursor-pointer list-none items-center justify-center text-gray-700 transition hover:text-gray-900 [&::-webkit-details-marker]:hidden"
+                                            title="More options"
+                                        >
+                                            <span class="sr-only">More options</span>
+                                            <span class="flex flex-col items-center gap-0.5">
+                                                <span class="h-1 w-1 rounded-full bg-current"></span>
+                                                <span class="h-1 w-1 rounded-full bg-current"></span>
+                                                <span class="h-1 w-1 rounded-full bg-current"></span>
+                                            </span>
+                                        </summary>
+
+                                        <div class="absolute bottom-full right-0 z-50 mb-2 w-32 rounded-md border border-gray-200 bg-white p-1 text-left shadow-lg">
+                                            <a
+                                                href="{{ \App\Filament\Pages\ViewDocument::getUrl(['document' => $document->document_id]) }}"
+                                                class="flex items-center gap-2 rounded px-3 py-2 text-xs text-gray-700 hover:bg-gray-100"
+                                            >
+                                                <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
+                                                    <use href="#icon-eye"/>
+                                                </svg>
+                                                View
+                                            </a>
+
+                                            @if ($document->latestVersion?->file_path)
+                                                <a
+                                                    href="{{ route('admin.documents.download', ['document' => $document->document_id]) }}"
+                                                    download
+                                                    class="flex items-center gap-2 rounded px-3 py-2 text-xs text-gray-700 hover:bg-gray-100"
+                                                >
+                                                    <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
+                                                        <use href="#icon-download"/>
+                                                    </svg>
+                                                    Download
+                                                </a>
+                                            @endif
+
+                                            <button
+                                                type="button"
+                                                wire:click="openQrCode({{ $document->document_id }})"
+                                                class="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-xs text-gray-700 hover:bg-gray-100"
+                                            >
+                                                <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
+                                                    <use href="#icon-qr-code"/>
+                                                </svg>
+                                                QR Code
+                                            </button>
+                                        </div>
+                                    </details>
 
                                     {{-- Accept --}}
                                     {{ ($this->acceptDocumentAction)([
@@ -566,12 +524,12 @@
         {{-- TABLE --}}
         <div class="max-h-[calc(100vh-18rem)] w-full min-h-0 overflow-auto border border-gray-300 bg-white">
 
-            <table class="w-full min-w-[1500px] lg:min-w-0 border-collapse">
+            <table class="w-full min-w-[1300px] lg:min-w-0 border-collapse text-center">
 
                 <thead class="sticky top-0 z-10 bg-white">
                     <tr class="border-b border-gray-300 bg-white">
 
-                        <th class="w-16 px-4 py-4 text-left text-sm font-bold">
+                        <th class="w-16 px-4 py-4 text-sm font-bold">
                             NO.
                         </th>
 
@@ -579,35 +537,23 @@
                             DOCUMENT
                         </th>
 
-                        <th class="min-w-[160px] px-4 py-4 text-left text-sm font-bold">
+                        <th class="min-w-[160px] px-4 py-4 text-sm font-bold">
                             DOCUMENT TYPE
                         </th>
 
-                        <th class="min-w-[170px] px-4 py-4 text-left text-sm font-bold">
+                        <th class="min-w-[170px] px-4 py-4 text-sm font-bold">
                             OUTGOING DATE
                         </th>
 
-                        <th class="min-w-[180px] px-4 py-4 text-left text-sm font-bold">
-                            SENT TO
+                        <th class="min-w-[220px] px-4 py-4 text-sm font-bold">
+                            SENT
                         </th>
 
-                        <th class="min-w-[160px] px-4 py-4 text-left text-sm font-bold">
-                            SENT DATE
+                        <th class="min-w-[220px] px-4 py-4 text-sm font-bold">
+                            RETURNED
                         </th>
 
-                        <th class="min-w-[180px] px-4 py-4 text-left text-sm font-bold">
-                            RETURNED FROM
-                        </th>
-
-                        <th class="min-w-[170px] px-4 py-4 text-left text-sm font-bold">
-                            RETURNED DATE
-                        </th>
-
-                        <th class="min-w-[190px] px-4 py-4 text-center text-sm font-bold">
-                            FILE
-                        </th>
-
-                        <th class="min-w-[150px] px-4 py-4 text-center text-sm font-bold">
+                        <th class="min-w-[190px] px-4 py-4 text-sm font-bold">
                             ACTION
                         </th>
 
@@ -624,7 +570,7 @@
 
                         @if ($uploadDate !== $currentUploadDate)
                             <tr class="border-y border-blue-200 bg-blue-50">
-                                <td colspan="10" class="px-4 py-2 text-xs font-bold text-blue-900">
+                                <td colspan="7" class="px-4 py-2 text-left text-xs font-bold text-blue-900">
                                     Uploaded {{ $document->created_at?->format('F d, Y') ?? 'Unknown date' }}
                                 </td>
                             </tr>
@@ -633,7 +579,7 @@
 
                         <tr
                             data-view-url="{{ \App\Filament\Pages\ViewDocument::getUrl(['document' => $document->document_id]) }}"
-                            onclick="if (!event.target.closest('button, a, input, select, textarea')) window.location.href = this.dataset.viewUrl"
+                            onclick="if (!event.target.closest('button, a, input, select, textarea, summary, details')) window.location.href = this.dataset.viewUrl"
                             class="border-b border-gray-300
                                    {{ $loop->odd ? 'bg-[#F2F2F2]' : 'bg-white' }} cursor-pointer hover:bg-blue-50"
                         >
@@ -644,9 +590,9 @@
                             </td>
 
                             {{-- Document --}}
-                            <td class="px-4 py-4 align-middle">
+                            <td class="px-4 py-4 text-left align-middle">
 
-                                <div class="space-y-1 text-xs">
+                                <div class="space-y-1 text-left text-xs">
 
                                     <div>
                                         <span class="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
@@ -725,157 +671,99 @@
 
                             </td>
 
-                            {{-- Sent To --}}
+                            {{-- Sent --}}
                             <td class="px-4 py-4 align-middle">
-
-                                <span class="text-xs font-medium text-gray-800">
-                                    {{ $document->sent_to ?? 'Not set' }}
-                                </span>
-
-                            </td>
-
-                            {{-- Sent Date --}}
-                            <td class="px-4 py-4 align-middle">
-
-                                @if ($document->sent_date)
-
+                                <div class="flex flex-col gap-1">
                                     <span class="text-xs font-medium text-gray-800">
-                                        {{ \Carbon\Carbon::parse($document->sent_date)->format('F d, Y') }}
+                                        {{ $document->sent_to ?? 'Not set' }}
                                     </span>
 
-                                @else
-
-                                    <span class="text-xs italic text-gray-500">
-                                        Not sent
-                                    </span>
-
-                                @endif
-
-                            </td>
-
-                            {{-- Returned From --}}
-                            <td class="px-4 py-4 align-middle">
-
-                                <span class="text-xs font-medium text-gray-800">
-                                    {{ $document->returned_from ?? 'Not returned' }}
-                                </span>
-
-                            </td>
-
-                            {{-- Returned Date --}}
-                            <td class="px-4 py-4 align-middle">
-
-                                @if ($document->date_returned)
-
-                                    <span class="text-xs font-medium text-gray-800">
-                                        {{ \Carbon\Carbon::parse($document->date_returned)->format('F d, Y') }}
-                                    </span>
-
-                                @else
-
-                                    <span class="text-xs italic text-gray-500">
-                                        Not returned
-                                    </span>
-
-                                @endif
-
-                            </td>
-
-                            {{-- File --}}
-                            <td class="px-4 py-4 align-middle">
-
-                                @if ($document->file_path)
-
-                                    <div class="flex items-center justify-center gap-2">
-
-                                        {{-- View --}}
-                                        <a
-                                                href="{{ \App\Filament\Pages\ViewDocument::getUrl(['document' => $document->document_id]) }}"
-                                                class="inline-flex items-center justify-center
-                                                       w-9 h-9 rounded-md
-                                                       border border-[#2563EB]
-                                                       bg-white
-                                                       text-[#2563EB]
-                                                       hover:bg-blue-50
-                                                       transition"
-                                                title="View"
-                                            >
-                                                <svg
-                                                    class="w-4 h-4"
-                                                    fill="none"
-                                                    stroke="currentColor"
-                                                    stroke-width="2"
-                                                    viewBox="0 0 24 24"
-                                                >
-                                                    <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/>
-                                                    <circle cx="12" cy="12" r="2.75"/>
-                                                </svg>
-                                        </a>
-
-                                        {{-- Download --}}
-                                        <a
-                                            href="{{ Storage::url($document->file_path) }}"
-                                            download
-                                            class="inline-flex items-center justify-center
-                                                   w-9 h-9 rounded-md
-                                                   bg-[#334155]
-                                                   hover:bg-[#0F172A]
-                                                   text-white
-                                                   transition"
-                                            title="Download"
-                                        >
-                                            <svg
-                                                class="w-4 h-4"
-                                                fill="none"
-                                                stroke="currentColor"
-                                                stroke-width="2"
-                                                viewBox="0 0 24 24"
-                                            >
-                                                <path d="M12 3v12m0 0 4-4m-4 4-4-4M5 18v3h14v-3"/>
-                                            </svg>
-                                        </a>
-
-                                    </div>
-
-                                @else
-
-                                    <div class="flex items-center justify-center gap-2">
-                                        <a
-                                            href="{{ \App\Filament\Pages\ViewDocument::getUrl(['document' => $document->document_id]) }}"
-                                            class="inline-flex items-center justify-center
-                                                w-9 h-9 rounded-md
-                                                border border-[#2563EB]
-                                                bg-white
-                                                text-[#2563EB]
-                                                hover:bg-blue-50
-                                                transition"
-                                            title="View"
-                                        >
-                                            <svg
-                                                class="w-4 h-4"
-                                                fill="none"
-                                                stroke="currentColor"
-                                                stroke-width="2"
-                                                viewBox="0 0 24 24"
-                                            >
-                                                <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/>
-                                                <circle cx="12" cy="12" r="2.75"/>
-                                            </svg>
-                                        </a>
-
-                                        <span class="text-xs italic text-gray-400">
-                                            No file
+                                    @if ($document->sent_date)
+                                        <span class="text-[11px] text-gray-500">
+                                            {{ \Carbon\Carbon::parse($document->sent_date)->format('F d, Y') }}
                                         </span>
-                                    </div>
+                                    @else
+                                        <span class="text-[11px] italic text-gray-500">
+                                            Not sent
+                                        </span>
+                                    @endif
+                                </div>
+                            </td>
 
-                                @endif
+                            {{-- Returned --}}
+                            <td class="px-4 py-4 align-middle">
+                                <div class="flex flex-col gap-1">
+                                    <span class="text-xs font-medium text-gray-800">
+                                        {{ $document->returned_from ?? 'Not returned' }}
+                                    </span>
 
+                                    @if ($document->date_returned)
+                                        <span class="text-[11px] text-gray-500">
+                                            {{ \Carbon\Carbon::parse($document->date_returned)->format('F d, Y') }}
+                                        </span>
+                                    @else
+                                        <span class="text-[11px] italic text-gray-500">
+                                            Not returned
+                                        </span>
+                                    @endif
+                                </div>
                             </td>
 
                             {{-- Actions --}}
                             <td class="px-4 py-4 align-middle">
 
                                 <div class="flex items-center justify-center gap-2">
+
+                                    {{-- View and Download menu --}}
+                                    <details class="document-options-menu relative order-last shrink-0">
+                                        <summary
+                                            class="flex h-9 w-7 cursor-pointer list-none items-center justify-center text-gray-700 transition hover:text-gray-900 [&::-webkit-details-marker]:hidden"
+                                            title="More options"
+                                        >
+                                            <span class="sr-only">More options</span>
+                                            <span class="flex flex-col items-center gap-0.5">
+                                                <span class="h-1 w-1 rounded-full bg-current"></span>
+                                                <span class="h-1 w-1 rounded-full bg-current"></span>
+                                                <span class="h-1 w-1 rounded-full bg-current"></span>
+                                            </span>
+                                        </summary>
+
+                                        <div class="absolute bottom-full right-0 z-50 mb-2 w-32 rounded-md border border-gray-200 bg-white p-1 text-left shadow-lg">
+                                            <a
+                                                href="{{ \App\Filament\Pages\ViewDocument::getUrl(['document' => $document->document_id]) }}"
+                                                class="flex items-center gap-2 rounded px-3 py-2 text-xs text-gray-700 hover:bg-gray-100"
+                                            >
+                                                <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
+                                                    <use href="#icon-eye"/>
+                                                </svg>
+                                                View
+                                            </a>
+
+                                            @if ($document->latestVersion?->file_path)
+                                                <a
+                                                    href="{{ route('admin.documents.download', ['document' => $document->document_id]) }}"
+                                                    download
+                                                    class="flex items-center gap-2 rounded px-3 py-2 text-xs text-gray-700 hover:bg-gray-100"
+                                                >
+                                                    <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
+                                                        <use href="#icon-download"/>
+                                                    </svg>
+                                                    Download
+                                                </a>
+                                            @endif
+
+                                            <button
+                                                type="button"
+                                                wire:click="openQrCode({{ $document->document_id }})"
+                                                class="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-xs text-gray-700 hover:bg-gray-100"
+                                            >
+                                                <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
+                                                    <use href="#icon-qr-code"/>
+                                                </svg>
+                                                QR Code
+                                            </button>
+                                        </div>
+                                    </details>
 
                                     {{-- Edit --}}
                                     {{ ($this->editDocumentAction)([
@@ -985,10 +873,6 @@
                             </th>
                         @endif
 
-                        <th class="w-64 px-4 py-4 text-center text-sm font-bold">
-                            FILE
-                        </th>
-
                         <th class="w-52 px-4 py-4 text-center text-sm font-bold">
                             ACTION
                         </th>
@@ -1005,7 +889,7 @@
 
                         @if ($uploadDate !== $currentUploadDate)
                             <tr class="border-y border-blue-200 bg-blue-50">
-                                <td colspan="{{ $activeSection === 'completed' ? 6 : ($activeSection === 'rejected' ? 8 : 7) }}" class="px-4 py-2 text-xs font-bold text-blue-900">
+                                <td colspan="{{ $activeSection === 'completed' ? 5 : ($activeSection === 'rejected' ? 7 : 6) }}" class="px-4 py-2 text-xs font-bold text-blue-900">
                                     Uploaded {{ $document->created_at?->format('F d, Y') ?? 'Unknown date' }}
                                 </td>
                             </tr>
@@ -1014,7 +898,7 @@
 
                     <tr 
                             data-view-url="{{ \App\Filament\Pages\ViewDocument::getUrl(['document' => $document->document_id]) }}"
-                            onclick="if (!event.target.closest('button, a, input, select, textarea')) window.location.href = this.dataset.viewUrl"
+                            onclick="if (!event.target.closest('button, a, input, select, textarea, summary, details')) window.location.href = this.dataset.viewUrl"
                             class="border-b border-gray-300 
                                 {{ $loop->odd ? 'bg-[#F2F2F2]' : 'bg-white' }} cursor-pointer hover:bg-blue-50"
                         >
@@ -1200,82 +1084,63 @@
                                 </td>
                             @endif
                             
-                            {{-- File --}}
-                            <td class="px-4 py-4 align-middle">
-
-                                
-
-                                    <div class="flex items-center justify-center gap-2">
-
-                                            <a
-                                            href="{{ \App\Filament\Pages\ViewDocument::getUrl(['document' => $document->document_id]) }}"
-                                            class="inline-flex items-center gap-1.5
-                                                bg-white hover:bg-blue-50
-                                                border border-blue-600
-                                                text-blue-600 hover:text-blue-700
-                                                text-xs font-semibold
-                                                px-3 py-1.5 rounded-md
-                                                transition-colors duration-150"
-                                        >
-                                            <svg
-                                                class="w-3.5 h-3.5"
-                                                fill="none"
-                                                stroke="currentColor"
-                                                stroke-width="2"
-                                            >
-                                                <use href="#icon-eye"/>
-                                            </svg>
-
-                                            View
-                                        </a>
-
-                                        
-                                        @if ($document->file_path)
-
-                                        {{-- Download button --}}
-                                        <a
-                                            href="{{ route('admin.documents.preview', [
-                                                'document' => $document->document_id
-                                            ]) }}"
-                                            download
-                                            class="inline-flex items-center gap-1.5
-                                                bg-slate-800 hover:bg-slate-900
-                                                text-white
-                                                text-xs font-semibold
-                                                px-3 py-1.5 rounded-md
-                                                shadow-sm
-                                                transition-colors duration-150"
-                                        >
-                                            <svg
-                                                class="w-3.5 h-3.5"
-                                                fill="none"
-                                                stroke="currentColor"
-                                                stroke-width="2"
-                                            >
-                                                <use href="#icon-download"/>
-                                            </svg>
-
-                                            Download
-                                        </a>
-
-                                    </div>
-
-                                @else
-
-                                    <div class="flex justify-center">
-                                        <span class="text-xs italic text-gray-400">
-                                            No file
-                                        </span>
-                                    </div>
-                            
-                                @endif
-
-                            </td>
-
                             {{-- Actions --}}
                             <td class="px-4 py-4 align-middle">
 
                                 <div class="flex items-center justify-center gap-2">
+
+                                    {{-- View and Download menu --}}
+                                    <details class="document-options-menu relative order-last shrink-0">
+                                        <summary
+                                            class="flex h-9 w-7 cursor-pointer list-none items-center justify-center text-gray-700 transition hover:text-gray-900 [&::-webkit-details-marker]:hidden"
+                                            title="More options"
+                                        >
+                                            <span class="sr-only">More options</span>
+                                            <span class="flex flex-col items-center gap-0.5">
+                                                <span class="h-1 w-1 rounded-full bg-current"></span>
+                                                <span class="h-1 w-1 rounded-full bg-current"></span>
+                                                <span class="h-1 w-1 rounded-full bg-current"></span>
+                                            </span>
+                                        </summary>
+
+                                        <div class="absolute bottom-full right-0 z-50 mb-2 w-32 rounded-md border border-gray-200 bg-white p-1 text-left shadow-lg">
+                                            <a
+                                                href="{{ \App\Filament\Pages\ViewDocument::getUrl(['document' => $document->document_id]) }}"
+                                                class="flex items-center gap-2 rounded px-3 py-2 text-xs text-gray-700 hover:bg-gray-100"
+                                            >
+                                                <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
+                                                    <use href="#icon-eye"/>
+                                                </svg>
+                                                View
+                                            </a>
+
+                                            @if ($document->latestVersion?->file_path)
+                                                <a
+                                                    href="{{ route('admin.documents.download', [
+                                                        'document' => $document->document_id,
+                                                    ]) }}"
+                                                    download
+                                                    class="flex items-center gap-2 rounded px-3 py-2 text-xs text-gray-700 hover:bg-gray-100"
+                                                >
+                                                    <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
+                                                        <use href="#icon-download"/>
+                                                    </svg>
+                                                    Download
+                                                </a>
+                                            @endif
+
+                                            <button
+                                                type="button"
+                                                wire:click="openQrCode({{ $document->document_id }})"
+                                                class="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-xs text-gray-700 hover:bg-gray-100"
+                                            >
+                                                <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
+                                                    <use href="#icon-qr-code"/>
+                                                </svg>
+                                                QR Code
+                                            </button>
+                                        </div>
+                                    </details>
 
                                     @if (in_array($activeSection, ['completed', 'rejected'], true))
 
@@ -1414,6 +1279,60 @@
             </div>
         </div>
     @endif
+
+    @if ($qrCodeSvg)
+        <div
+            wire:click.self="closeQrCode"
+            class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/50 p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="qr-code-title"
+        >
+            <div class="w-full max-w-md rounded-2xl bg-white p-6 text-center shadow-2xl">
+                <div class="flex items-center justify-between">
+                    <h2 id="qr-code-title" class="text-lg font-bold text-gray-900">
+                        Document QR Code
+                    </h2>
+                    <button
+                        type="button"
+                        wire:click="closeQrCode"
+                        class="rounded-md p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-800"
+                        aria-label="Close QR code"
+                    >
+                        <span class="text-xl leading-none">&times;</span>
+                    </button>
+                </div>
+
+                <div class="mx-auto mt-5 flex h-64 w-64 items-center justify-center overflow-hidden rounded-lg border border-gray-200 bg-white p-2">
+                    {!! $qrCodeSvg !!}
+                </div>
+
+                <p class="mt-4 text-sm text-gray-600">
+                    Scan this code to view the document status and details.
+                </p>
+
+                <button
+                    type="button"
+                    wire:click="closeQrCode"
+                    class="mt-5 w-full rounded-lg bg-[#0F172A] px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-700"
+                >
+                    Close
+                </button>
+            </div>
+        </div>
+    @endif
+
+    <script>
+        document.addEventListener('click', (event) => {
+            const clickedMenu = event.target.closest('.document-options-menu');
+
+            document.querySelectorAll('.document-options-menu[open]').forEach((menu) => {
+                if (menu !== clickedMenu) {
+                    menu.removeAttribute('open');
+                }
+            });
+        });
+    </script>
 
     <x-filament-actions::modals />
 

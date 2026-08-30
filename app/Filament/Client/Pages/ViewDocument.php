@@ -25,13 +25,14 @@ class ViewDocument extends Page
             ->where('user_id', auth()->id())
             ->with([
                 'type',
+                'latestVersion',
                 'rejections' => fn ($query) => $query
                     ->latest('created_at')
                     ->latest('rejected_id'),
             ])
             ->firstOrFail();
 
-        if ($this->documentRecord->file_path) {
+        if ($this->documentRecord->latestVersion?->file_path) {
             $this->previewUrl = route('client.document.preview', [
                 'document' => $this->documentRecord->document_id,
             ]);

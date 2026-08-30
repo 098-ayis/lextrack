@@ -110,7 +110,7 @@
                             <path
                                 stroke-linecap="round"
                                 stroke-linejoin="round"
-                                d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"
+                                d="M5.25 5.653c0-1.427 1.529-2.33 2.779-1.643l11.54 6.347c1.295.712 1.295 2.573 0 3.286L8.029 19.99c-1.25.687-2.779-.217-2.779-1.643V5.653Z"
                             />
                         </svg>
                     </div>
@@ -233,15 +233,17 @@
                         Recent Documents
                     </h2>
 
-                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                        Recently updated documents.
+                    {{-- Keeps the document panel aligned with the calendar panel. --}}
+                    <p aria-hidden="true" class="invisible mt-1 text-sm leading-5">
+                        &nbsp;
                     </p>
+
                 </div>
 
 
                 @if ($documents->isNotEmpty())
 
-                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
 
                         @foreach ($documents as $document)
 
@@ -264,15 +266,15 @@
                             >
 
                                 {{-- DOCUMENT PREVIEW --}}
-                                <div class="flex h-40 items-center justify-center overflow-hidden bg-gray-50 dark:bg-gray-800">
+                                <div class="flex h-32 items-center justify-center overflow-hidden bg-gray-50 dark:bg-gray-800">
 
                                     @if (
-                                        $document->file_path &&
-                                        strtolower(pathinfo($document->file_path, PATHINFO_EXTENSION)) === 'pdf'
+                                        $document->latestVersion?->file_path &&
+                                        strtolower(pathinfo($document->latestVersion->file_path, PATHINFO_EXTENSION)) === 'pdf'
                                     )
 
                                         <iframe
-                                            src="{{ \Illuminate\Support\Facades\Storage::url($document->file_path) }}#toolbar=0"
+                                            src="{{ route('admin.documents.preview', ['document' => $document->document_id]) }}#toolbar=0"
                                             class="pointer-events-none h-full w-full border-0"
                                             title="Document preview"
                                         ></iframe>
@@ -282,7 +284,7 @@
                                         <div class="flex flex-col items-center justify-center gap-2">
 
                                             <svg
-                                                class="h-10 w-10 text-gray-300 dark:text-gray-600"
+                                                class="h-8 w-8 text-gray-300 dark:text-gray-600"
                                                 fill="none"
                                                 viewBox="0 0 24 24"
                                                 stroke="currentColor"
@@ -307,9 +309,9 @@
 
 
                                 {{-- DOCUMENT DETAILS --}}
-                                <div class="min-w-0 p-4">
+                                <div class="min-w-0 p-3">
 
-                                    <p class="line-clamp-2 font-semibold text-gray-950 dark:text-white">
+                                    <p class="line-clamp-2 text-sm font-semibold text-gray-950 dark:text-white">
                                         {{ $document->particulars ?: 'Untitled Document' }}
                                     </p>
 
@@ -328,7 +330,7 @@
                                     </p>
 
 
-                                    <div class="mt-4 flex items-center justify-between gap-2">
+                                    <div class="mt-3 flex items-center justify-between gap-2">
 
                                         <x-filament::badge :color="$badgeColor">
                                             {{ ucwords(str_replace('_', ' ', $document->status ?? '')) }}

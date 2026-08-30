@@ -93,17 +93,6 @@
             position: relative;
         }
 
-        .m-avatar .dot {
-            position: absolute;
-            bottom: -2px;
-            right: -2px;
-            width: 11px;
-            height: 11px;
-            border-radius: 50%;
-            background: #3ab66b;
-            border: 2px solid white;
-        }
-
         .m-info {
             overflow: hidden;
             flex: 1;
@@ -190,14 +179,14 @@
             padding: 18px;
             display: flex;
             flex-direction: column;
-            gap: 12px;
+            gap: 6px;
             background: #f9fafb;
         }
 
         .t-msg-row {
             display: flex;
             gap: 8px;
-            max-width: 65%;
+            margin: 0;
         }
 
         .t-msg-row.own {

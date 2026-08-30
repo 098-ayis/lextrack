@@ -120,7 +120,6 @@ const links = [
   { name: 'HOME', path: '/' },
   { name: 'ABOUT', path: '/about' },
   { name: 'TRACK', path: '/track' },
-  { name: 'LEGAL FORMS', path: '/forms' }
 ]
 
 const menuOpen = ref(false)

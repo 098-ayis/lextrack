@@ -11,8 +11,6 @@ class Document extends Model
 {
     protected $primaryKey = 'document_id';
     
-    protected $guarded = [];
-
     protected $fillable = [
         'user_id',
         'type_id',
@@ -21,7 +19,7 @@ class Document extends Model
         'lao_number',
         'office_unit',
         'particulars',
-        'deadline' => 'date',
+        'deadline',
         'action_taken',
         'sent_to',
         'sent_date',
@@ -29,9 +27,12 @@ class Document extends Model
         'date_returned',
         'outgoing_date',
         'status',
-        'file_path',
         'status_other',
         'rejection_reason',
+    ];
+
+    protected $casts = [
+        'deadline' => 'date',
     ];
 
     public function actionType(): BelongsTo
@@ -60,6 +61,24 @@ class Document extends Model
             'document_id',
             'document_id'
         );
+    }
+
+    public function latestVersion(): HasOne
+    {
+        return $this->hasOne(
+            DocumentVersion::class,
+            'document_id',
+            'document_id'
+        )->latestOfMany('created_at');
+    }
+
+    /**
+     * Backward-compatible virtual attribute while attachments are stored in
+     * document_versions instead of the documents table.
+     */
+    public function getFilePathAttribute(): ?string
+    {
+        return $this->latestVersion?->file_path;
     }
 
     public function activityLogs(): HasMany
