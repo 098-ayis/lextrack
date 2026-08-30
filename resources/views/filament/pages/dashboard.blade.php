@@ -267,12 +267,12 @@
                                 <div class="flex h-40 items-center justify-center overflow-hidden bg-gray-50 dark:bg-gray-800">
 
                                     @if (
-                                        $document->file_path &&
-                                        strtolower(pathinfo($document->file_path, PATHINFO_EXTENSION)) === 'pdf'
+                                        $document->latestVersion?->file_path &&
+                                        strtolower(pathinfo($document->latestVersion->file_path, PATHINFO_EXTENSION)) === 'pdf'
                                     )
 
                                         <iframe
-                                            src="{{ \Illuminate\Support\Facades\Storage::url($document->file_path) }}#toolbar=0"
+                                            src="{{ route('admin.documents.preview', ['document' => $document->document_id]) }}#toolbar=0"
                                             class="pointer-events-none h-full w-full border-0"
                                             title="Document preview"
                                         ></iframe>

@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Models\Document;
+use App\Models\DocumentVersion;
 use App\Models\DocumentType;
 use Filament\Actions\Action;
 use Filament\Forms\Components\FileUpload;
@@ -11,6 +12,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
 use Filament\Pages\Page;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\DB;
 
 class Cabinet extends Page
 {
@@ -56,7 +58,7 @@ class Cabinet extends Page
     public function loadCabinet(): void
     {
         $documents = Document::query()
-            ->with('type')
+            ->with(['type', 'latestVersion'])
             ->whereNotNull('type_id')
             ->whereNotNull('office_unit')
             ->get();
@@ -82,18 +84,17 @@ class Cabinet extends Page
                     ->map(function ($documents) {
                         return $documents
                             ->map(function (Document $document) {
-                                $fileName = $document->file_path
-                                    ? basename($document->file_path)
+                                $version = $document->latestVersion;
+                                $filePath = $version?->file_path;
+
+                                $fileName = $filePath
+                                    ? basename($filePath)
                                     : ($document->particulars ?: 'Untitled Document');
 
                                 $fileSize = '—';
 
-                                if (
-                                    $document->file_path &&
-                                    Storage::disk('public')->exists($document->file_path)
-                                ) {
-                                    $bytes = Storage::disk('public')
-                                        ->size($document->file_path);
+                                if ($version && $filePath && $version->storageDisk()->exists($filePath)) {
+                                    $bytes = $version->storageDisk()->size($filePath);
 
                                     $fileSize = $this->formatFileSize($bytes);
                                 }
@@ -125,8 +126,7 @@ class Cabinet extends Page
                                     'status' =>
                                         $document->status,
 
-                                    'file_path' =>
-                                        $document->file_path,
+                                    'file_path' => $filePath,
                                 ];
                             })
                             ->values()
@@ -202,8 +202,8 @@ class Cabinet extends Page
 
                 FileUpload::make('file_path')
                     ->label('Document File')
-                    ->disk('public')
-                    ->directory('documents')
+                    ->disk('local')
+                    ->directory('documents/versions')
                     ->preserveFilenames()
                     ->acceptedFileTypes([
                         'application/pdf',
@@ -214,32 +214,39 @@ class Cabinet extends Page
             ])
             ->action(function (array $data): void {
                 $type = DocumentType::find($data['type_id']);
+                $filePath = $data['file_path'];
 
-                Document::create([
-                    'user_id' => auth()->id(),
+                DB::transaction(function () use ($data, $type, $filePath): void {
+                    $document = Document::create([
+                        'user_id' => auth()->id(),
 
-                    'type_id' => $data['type_id'],
+                        'type_id' => $data['type_id'],
 
-                    'other_document_type' =>
-                        $type?->type_name === 'Others'
-                            ? ($data['other_document_type'] ?? null)
-                            : null,
+                        'other_document_type' =>
+                            $type?->type_name === 'Others'
+                                ? ($data['other_document_type'] ?? null)
+                                : null,
 
-                    'office_unit' =>
-                        $data['office_unit'],
+                        'office_unit' =>
+                            $data['office_unit'],
 
-                    'lao_number' =>
-                        $data['lao_number'] ?? null,
+                        'lao_number' =>
+                            $data['lao_number'] ?? null,
 
-                    'particulars' =>
-                        $data['particulars'] ?? null,
+                        'particulars' =>
+                            $data['particulars'] ?? null,
 
-                    'file_path' =>
-                        $data['file_path'],
+                        'status' =>
+                            'in_progress',
+                    ]);
 
-                    'status' =>
-                        'in_progress',
-                ]);
+                    DocumentVersion::create([
+                        'user_id' => auth()->id(),
+                        'document_id' => $document->document_id,
+                        'version_number' => '1',
+                        'file_path' => $filePath,
+                    ]);
+                });
 
                 $this->loadCabinet();
             });

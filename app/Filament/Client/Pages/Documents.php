@@ -22,6 +22,7 @@ class Documents extends Page
         $this->documentRecord = Document::query()
             ->where('document_id', $document)
             ->where('user_id', auth()->id())
+            ->with('latestVersion')
             ->firstOrFail();
     }
 
@@ -34,7 +35,7 @@ class Documents extends Page
     {
         $previewUrl = null;
 
-        if ($this->documentRecord->file_path) {
+        if ($this->documentRecord->latestVersion?->file_path) {
             $previewUrl = route(
                 'client.document.preview',
                 ['document' => $this->documentRecord->document_id]

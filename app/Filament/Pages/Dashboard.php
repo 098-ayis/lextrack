@@ -72,6 +72,7 @@ class Dashboard extends Page
     public function getRecentDocuments()
     {
         return Document::query()
+            ->with('latestVersion')
 
             ->when(
                 trim($this->search) !== '',

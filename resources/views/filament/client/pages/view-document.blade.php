@@ -63,7 +63,7 @@
                             @php
                                 $extension = strtolower(
                                     pathinfo(
-                                        $documentRecord->file_path,
+                                        $documentRecord->latestVersion?->file_path,
                                         PATHINFO_EXTENSION
                                     )
                                 );

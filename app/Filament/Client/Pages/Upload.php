@@ -13,6 +13,8 @@ use Filament\Forms\Components\Checkbox;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Notifications\Notification;
 use App\Models\Document; 
+use App\Models\DocumentVersion;
+use Illuminate\Support\Facades\DB;
 
 class Upload extends Page implements HasForms
 {
@@ -102,14 +104,22 @@ class Upload extends Page implements HasForms
             $finalParticulars = '[' . $data['other_type'] . '] ' . $finalParticulars;
         }
 
-        Document::create([
-            'user_id' => auth()->id(),
-            'particulars' => $finalParticulars,
-            'office_unit' => $data['office_unit'],
-            'type_id' => $data['type_id'],
-            'file_path' => $data['file_path'],
-            'status' => 'pending', 
-        ]);
+        DB::transaction(function () use ($finalParticulars, $data): void {
+            $document = Document::create([
+                'user_id' => auth()->id(),
+                'particulars' => $finalParticulars,
+                'office_unit' => $data['office_unit'],
+                'type_id' => $data['type_id'],
+                'status' => 'pending',
+            ]);
+
+            DocumentVersion::create([
+                'user_id' => auth()->id(),
+                'document_id' => $document->document_id,
+                'version_number' => '1',
+                'file_path' => $data['file_path'],
+            ]);
+        });
 
         Notification::make()
             ->title('Document submitted successfully!')

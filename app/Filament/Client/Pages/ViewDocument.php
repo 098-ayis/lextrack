@@ -23,10 +23,10 @@ class ViewDocument extends Page
         $this->documentRecord = Document::query()
             ->where('document_id', $document)
             ->where('user_id', auth()->id())
-            ->with('type')
+            ->with(['type', 'latestVersion'])
             ->firstOrFail();
 
-        if ($this->documentRecord->file_path) {
+        if ($this->documentRecord->latestVersion?->file_path) {
             $this->previewUrl = route('client.document.preview', [
                 'document' => $this->documentRecord->document_id,
             ]);

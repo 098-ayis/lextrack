@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Models\Document as DocumentModel;
+use App\Models\DocumentVersion;
 use App\Models\RejectedDocument;
 use App\Notifications\DocumentRejectedNotification;
 use Filament\Pages\Page;
@@ -16,6 +17,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
 use Filament\Schemas\Components\Utilities\Get;
 use App\Models\ActionType;
+use App\Models\ActivityLog;
 use Filament\Support\Enums\Alignment;
 use Filament\Support\Enums\Width;
 use Illuminate\Support\Facades\Storage;
@@ -151,6 +153,12 @@ class Document extends Page
                 'lao_number' => $laoNumber,
                 'status' => 'in_progress',
             ]);
+
+            $this->recordDocumentActivity(
+                $document->document_id,
+                'Document accepted',
+                'Accepted the document and moved it to Incoming.'
+            );
         });
 
         $this->redirect(
@@ -170,7 +178,7 @@ class Document extends Page
         };
 
         return DocumentModel::query()
-            ->with(['user', 'type', 'actionType', 'rejections'])
+            ->with(['user', 'type', 'actionType', 'rejections', 'latestVersion'])
             ->where('status', $status)
 
             // Search
@@ -262,9 +270,31 @@ class Document extends Page
                     ->preserveFilenames(),
             ])
             ->action(function (array $data) {
+                $filePath = $data['file_path'] ?? null;
+                unset($data['file_path']);
+
                 $data['user_id'] = auth()->id();
 
-                DocumentModel::create($data);
+                $document = DB::transaction(function () use ($data, $filePath): DocumentModel {
+                    $document = DocumentModel::create($data);
+
+                    if (filled($filePath)) {
+                        DocumentVersion::create([
+                            'document_id' => $document->document_id,
+                            'user_id' => auth()->id(),
+                            'version_number' => '1',
+                            'file_path' => $filePath,
+                        ]);
+                    }
+
+                    return $document;
+                });
+
+                $this->recordDocumentActivity(
+                    $document->document_id,
+                    'Document created',
+                    'Created a new document.'
+                );
             });
     }
 
@@ -280,7 +310,40 @@ class Document extends Page
                 'class' => 'edit-document-button',
             ])
 
-            ->schema([
+            ->schema(function (array $arguments): array {
+                $document = DocumentModel::find($arguments['document'] ?? null);
+
+                if ($document?->status === 'outgoing') {
+                    return [
+                        Select::make('type_id')
+                            ->label('Document Type')
+                            ->options(
+                                \App\Models\DocumentType::query()
+                                    ->pluck('type_name', 'type_id')
+                            )
+                            ->searchable()
+                            ->required(),
+
+                        DatePicker::make('outgoing_date')
+                            ->label('Outgoing Date'),
+
+                        TextInput::make('sent_to')
+                            ->label('Sent To')
+                            ->maxLength(255),
+
+                        DatePicker::make('sent_date')
+                            ->label('Sent Date'),
+
+                        TextInput::make('returned_from')
+                            ->label('Returned From')
+                            ->maxLength(255),
+
+                        DatePicker::make('date_returned')
+                            ->label('Returned Date'),
+                    ];
+                }
+
+                return [
                 TextInput::make('lao_number')
                     ->label('LAO Number')
                     ->required(),
@@ -329,11 +392,12 @@ class Document extends Page
                     ->required(),
 
                 FileUpload::make('file_path')
-                    ->label('Document File')
+                    ->label('Upload New Document Version')
                     ->disk('local')
-                    ->directory('documents')
+                    ->directory('documents/versions')
                     ->preserveFilenames(),
-            ])
+                ];
+            })
             ->fillForm(function (array $arguments): array {
                 $document = DocumentModel::findOrFail($arguments['document']);
 
@@ -348,32 +412,116 @@ class Document extends Page
                     'particulars' => $document->particulars,
                     'deadline' => $document->deadline,
                     'status' => $document->status,
-                    'file_path' => $document->file_path,
+                    'outgoing_date' => $document->outgoing_date,
+                    'sent_to' => $document->sent_to,
+                    'sent_date' => $document->sent_date,
+                    'returned_from' => $document->returned_from,
+                    'date_returned' => $document->date_returned,
                 ];
             })
             ->action(function (array $data, array $arguments): void {
                 $document = DocumentModel::findOrFail($arguments['document']);
+                $filePath = $data['file_path'] ?? null;
+                unset($data['file_path']);
+                $oldValues = $document->only(array_keys($data));
 
-                $document->update($data);
+                $document->fill($data);
+
+                $fieldLabels = [
+                    'lao_number' => 'LAO Number',
+                    'type_id' => 'Document Type',
+                    'action_id' => 'Action Taken',
+                    'office_unit' => 'Office / Unit',
+                    'particulars' => 'Particulars',
+                    'deadline' => 'Deadline',
+                    'status' => 'Status',
+                    'outgoing_date' => 'Outgoing Date',
+                    'sent_to' => 'Sent To',
+                    'sent_date' => 'Sent Date',
+                    'returned_from' => 'Returned From',
+                    'date_returned' => 'Returned Date',
+                ];
+
+                $updatedFields = collect(array_keys($document->getDirty()))
+                    ->map(fn (string $field): string => $fieldLabels[$field] ?? $field)
+                    ->values()
+                    ->all();
+
+                $document->save();
+
+                if (filled($filePath)) {
+                    DocumentVersion::create([
+                        'document_id' => $document->document_id,
+                        'user_id' => auth()->id(),
+                        'version_number' => (string) $this->getNextVersionNumber($document),
+                        'file_path' => $filePath,
+                    ]);
+
+                    $updatedFields[] = 'Document File';
+                }
+
+                $updatedSummary = $updatedFields !== []
+                    ? implode(', ', $updatedFields) . ' changed'
+                    : 'No fields changed';
+
+                $this->recordDocumentActivity(
+                    $document->document_id,
+                    'Document updated',
+                    $updatedSummary,
+                    (string) json_encode($oldValues),
+                    (string) json_encode($document->only(array_keys($data)))
+                );
+
+                Notification::make()
+                    ->success()
+                    ->title('Document updated successfully')
+                    ->body(
+                        $updatedSummary .
+                        '. Updated on: ' . now()->format('F d, Y \a\t h:i A') . '.'
+                    )
+                    ->send();
             });
     }
 
     public function downloadDocument(int $documentId): StreamedResponse
     {
-        $document = DocumentModel::with('user')->findOrFail($documentId);
+        $document = DocumentModel::with(['user', 'latestVersion'])->findOrFail($documentId);
+        $version = $document->latestVersion;
 
         abort_unless(
-            $document->file_path &&
-            Storage::disk('local')->exists($document->file_path),
+            $version?->file_path &&
+            $version->storageDisk()->exists($version->file_path),
             404
         );
 
-        $fileName = basename($document->file_path);
+        $disk = $version->storageDisk();
 
-        return Storage::disk('local')->download(
-            $document->file_path,
+        $this->recordDocumentActivity(
+            $document->document_id,
+            'Document downloaded',
+            'Downloaded ' . basename((string) $version->file_path) . '.'
+        );
+
+        $fileName = basename($version->file_path);
+
+        return $disk->download(
+            $version->file_path,
             $fileName
         );
+    }
+
+    protected function getNextVersionNumber(DocumentModel $document): int
+    {
+        $highestVersion = $document->versions()
+            ->pluck('version_number')
+            ->map(function ($versionNumber): int {
+                preg_match('/(\d+)\s*$/', (string) $versionNumber, $matches);
+
+                return (int) ($matches[1] ?? 0);
+            })
+            ->max() ?? 0;
+
+        return max(1, $highestVersion + 1);
     }
 
     public function redirectToIncoming(): void
@@ -387,6 +535,7 @@ class Document extends Page
             ->label('Accept')
             ->icon('heroicon-o-check')
             ->color('success')
+            ->size('xs')
             ->modalHeading('Accept Document')
             ->modalDescription(function (array $arguments): string {
                 $document = DocumentModel::with('user')->find($arguments['document'] ?? null);
@@ -414,6 +563,12 @@ class Document extends Page
             'sent_date' => $sentDate,
             'sent_to' => $sentTo,
         ]);
+
+        $this->recordDocumentActivity(
+            $document->document_id,
+            'Document moved to outgoing',
+            'Sent to ' . $sentTo . ' on ' . $sentDate . '.'
+        );
 
         Notification::make()
             ->success()
@@ -465,6 +620,7 @@ class Document extends Page
             ->label('Reject')
             ->icon('heroicon-o-x-mark')
             ->color('danger')
+            ->size('xs')
             ->modalHeading('Reject Document')
             ->modalDescription('Please provide a reason for rejecting this document.')
             ->schema([
@@ -526,6 +682,12 @@ class Document extends Page
             );
         }
 
+        $this->recordDocumentActivity(
+            $document->document_id,
+            'Document rejected',
+            'Rejected the document: ' . $reason
+        );
+
         $this->redirect(self::getUrl(['section' => 'rejected']));
     }
 
@@ -558,6 +720,12 @@ class Document extends Page
                     'status' => $isOutgoing ? 'outgoing' : 'in_progress',
                 ]);
 
+                $this->recordDocumentActivity(
+                    $document->document_id,
+                    'Document returned',
+                    'Returned the document to ' . $data['destination'] . '.'
+                );
+
                 $this->redirect(self::getUrl([
                     'section' => $isOutgoing ? 'outgoing' : 'incoming',
                 ]));
@@ -576,6 +744,12 @@ class Document extends Page
             ->fillForm(function (array $arguments): array {
                 $rejection = RejectedDocument::findOrFail(
                     (int) $arguments['rejection']
+                );
+
+                $this->recordDocumentActivity(
+                    $rejection->document_id,
+                    'Rejection reason viewed',
+                    'Viewed the document rejection reason.'
                 );
 
                 return [
@@ -598,6 +772,12 @@ class Document extends Page
         $document->update([
             'status' => 'completed',
         ]);
+
+        $this->recordDocumentActivity(
+            $document->document_id,
+            'Document completed',
+            'Marked the document as completed.'
+        );
 
         Notification::make()
             ->success()
@@ -641,11 +821,36 @@ class Document extends Page
     {
         $document = DocumentModel::findOrFail($documentId);
 
+        $this->recordDocumentActivity(
+            $document->document_id,
+            'Message opened',
+            'Opened the document conversation.'
+        );
+
         $this->redirect(
             route('filament.admin.pages.messages', [
                 'document' => $document->document_id,
             ])
         );
+    }
+
+    protected function recordDocumentActivity(
+        int $documentId,
+        string $actionType,
+        string $actionDetails = '',
+        ?string $oldValue = null,
+        ?string $newValue = null
+    ): void {
+        ActivityLog::create([
+            'user_id' => auth()->id(),
+            'document_id' => $documentId,
+            'action_type' => $actionType,
+            'action_details' => $actionDetails !== ''
+                ? $actionDetails
+                : $actionType,
+            'old_value' => $oldValue,
+            'new_value' => $newValue,
+        ]);
     }
     
     public function updatedSearch(): void
