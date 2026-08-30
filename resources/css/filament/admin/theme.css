@@ -117,6 +117,25 @@
     color: #623BE7 !important;
 }
 
+.fi-topbar .fi-badge {
+    min-width: 18px !important;
+    height: 18px !important;
+    padding: 0 5px !important;
+
+    border-radius: 9999px !important;
+
+    background: #ef4444 !important;
+    color: white !important;
+
+    font-size: 10px !important;
+    font-weight: 700 !important;
+    line-height: 18px !important;
+
+    margin-left: 5px !important;
+
+    border: none !important;
+    box-shadow: none !important;
+}
 
 /* ================================
    ACTIVE UNDERLINE

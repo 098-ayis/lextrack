@@ -3,117 +3,284 @@
 namespace App\Filament\Pages;
 
 use App\Models\Conversation;
+use App\Models\Message;
+use App\Models\User;
 use Filament\Pages\Page;
 use Filament\Support\Enums\Width;
-
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 
 class Messages extends Page
 {
     protected static ?int $navigationSort = 5;
 
-    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-chat-bubble-left-right';
+    protected static string|\BackedEnum|null $navigationIcon =
+        'heroicon-o-chat-bubble-left-right';
 
     protected string $view = 'filament.pages.messages';
+
+    public ?int $selectedConversation = null;
+
+    public string $newMessage = '';
+
+    public $messages = [];
 
     public function getMaxContentWidth(): Width
     {
         return Width::Full;
     }
 
+    /**
+     * Shared inbox.
+     *
+     * Staff only see conversations where they
+     * are authorized participants.
+     */
     public function getViewData(): array
     {
+        $userId = auth()->id();
+
         return [
-            'conversations' => Conversation::with([
-                'document',
-                'messages.sender',
-                'messages.recipient',
-            ])
-            ->latest()
-            ->get(),
+            'conversations' => auth()
+                ->user()
+                ->conversations()
+                ->with([
+                    'document',
+                    'creator',
+                    'assignedStaff',
+                    'participants',
+                    'messages.sender',
+                ])
+                ->withCount([
+                    'messages as unread_messages_count' => function ($query) use ($userId) {
+                        $query
+                            ->where('sender_id', '!=', $userId)
+                            ->whereDoesntHave('readers', function ($query) use ($userId) {
+                                $query->where('users.id', $userId);
+                            });
+                    },
+                ])
+                ->latest('conversations.updated_at')
+                ->get(),
         ];
     }
 
-    public function table(Table $table): Table
+    /**
+     * Open a conversation.
+     */
+    public function selectConversation(int $conversationId): void
     {
-        return $table
-            ->query(
-                PendingDocument::query()
-            )
-            ->columns([
-                TextColumn::make('id')
-                    ->label('NO.')
-                    ->alignCenter(),
+        $conversation = Conversation::findOrFail($conversationId);
 
-                TextColumn::make('document_type')
-                    ->label('TYPE OF DOCUMENT')
-                    ->searchable()
-                    ->sortable(),
+        Gate::authorize('view', $conversation);
 
-                TextColumn::make('office_unit')
-                    ->label('OFFICE / UNIT')
-                    ->searchable()
-                    ->sortable(),
+        $this->selectedConversation = $conversation->id;
 
-                TextColumn::make('particulars')
-                    ->label('PARTICULARS')
-                    ->wrap()
-                    ->searchable(),
+        $this->loadMessages();
 
-                TextColumn::make('status')
-                    ->label('STATUS')
-                    ->badge()
-                    ->color('warning'),
+        $this->markMessagesAsRead();
+    }
 
-                TextColumn::make('deadline')
-                    ->label('DATE RECEIVED')
-                    ->date('F d, Y')
-                    ->sortable(),
-            ])
-            ->filters([
-                SelectFilter::make('document_type')
-                    ->options([
-                        'MOA' => 'MOA',
-                        'Correspondence' => 'Correspondence',
-                        'Contract' => 'Contract',
-                        'Proposal' => 'Proposal',
-                        'UCMC' => 'UCMC',
-                        'PROCUREMENT' => 'PROCUREMENT',
-                        'REFERENCE SLIP' => 'REFERENCE SLIP',
-                        'Clearance' => 'Clearance',
-                        'MOU' => 'MOU',
-                        'NDA' => 'NDA',
-                        'DOD' => 'DOD',
-                        'GBA' => 'GBA',
-                    ]),
-            ])
+    public function refreshConversation(): void
+    {
+        if (! $this->selectedConversation) {
+            return;
+        }
 
-            ->actions([
-                Action::make('view')
-                    ->icon('heroicon-o-eye')
-                    ->color('primary')
-                    ->tooltip('View')
-                    ->url(fn (PendingDocument $record) =>
-                        $record->file_path
-                            ? asset('storage/' . $record->file_path)
-                            : null
-                    )
-                    ->openUrlInNewTab(),
+        $this->loadMessages();
 
-                Action::make('edit')
-                    ->icon('heroicon-o-pencil-square')
-                    ->color('warning')
-                    ->tooltip('Edit')
-                    ->url(fn (PendingDocument $record) =>
-                        route('filament.admin.pages.pending.edit', $record)
-                    ),
+        $this->markMessagesAsRead();
+    }
+        /**
+     * Load conversation messages.
+     */
+    public function loadMessages(): void
+    {
+        if (! $this->selectedConversation) {
+            $this->messages = [];
 
-                Action::make('message')
-                    ->icon('heroicon-o-chat-bubble-left-right')
-                    ->color('success')
-                    ->tooltip('Message'),
-            ])
-            ->actionsColumnLabel('ACTION')
-            ->striped()
-            ->paginated([10, 25, 50]);
+            return;
+        }
+
+        $conversation = Conversation::findOrFail(
+            $this->selectedConversation
+        );
+
+        Gate::authorize('view', $conversation);
+
+        $this->messages = $conversation
+            ->messages()
+            ->with('sender')
+            ->oldest('created_at')
+            ->get();
+    }
+
+    /**
+     * Staff reply.
+     */
+    public function sendMessage(): void
+    {
+        $this->validate([
+            'newMessage' => [
+                'required',
+                'string',
+                'max:5000',
+            ],
+        ]);
+
+        if (! $this->selectedConversation) {
+            return;
+        }
+
+        $conversation = Conversation::findOrFail(
+            $this->selectedConversation
+        );
+
+        Gate::authorize('sendMessage', $conversation);
+
+        Message::create([
+            'conversation_id' => $conversation->id,
+            'sender_id' => auth()->id(),
+            'body' => trim($this->newMessage),
+        ]);
+
+        $conversation->touch();
+
+        $this->newMessage = '';
+
+        $this->loadMessages();
+    }
+
+    /**
+     * Staff makes themselves the primary handler.
+     */
+    public function assignToMe(int $conversationId): void
+    {
+        $conversation = Conversation::findOrFail($conversationId);
+
+        Gate::authorize('assign', $conversation);
+
+        $conversation->update([
+            'assigned_to' => auth()->id(),
+        ]);
+    }
+
+    /**
+     * Assign another authorized staff member.
+     */
+    public function assignStaff(
+        int $conversationId,
+        int $staffId
+    ): void {
+        $conversation = Conversation::findOrFail($conversationId);
+
+        Gate::authorize('assign', $conversation);
+
+        $staff = User::permission('view_shared_messages')
+            ->where('id', $staffId)
+            ->firstOrFail();
+
+        $conversation->update([
+            'assigned_to' => $staff->id,
+        ]);
+
+        /*
+         * Make sure assigned employee is also
+         * a conversation participant.
+         */
+        $conversation->participants()->syncWithoutDetaching([
+            $staff->id => [
+                'joined_at' => now(),
+            ],
+        ]);
+    }
+
+    /**
+     * Remove primary assignment.
+     */
+    public function unassign(int $conversationId): void
+    {
+        $conversation = Conversation::findOrFail($conversationId);
+
+        Gate::authorize('assign', $conversation);
+
+        $conversation->update([
+            'assigned_to' => null,
+        ]);
+    }
+
+    /**
+     * Close conversation.
+     */
+    public function closeConversation(int $conversationId): void
+    {
+        $conversation = Conversation::findOrFail($conversationId);
+
+        Gate::authorize('close', $conversation);
+
+        $conversation->update([
+            'status' => 'closed',
+        ]);
+    }
+
+    /**
+     * Track reads separately for each staff member.
+     */
+    public function markMessagesAsRead(): void
+    {
+        if (! $this->selectedConversation) {
+            return;
+        }
+
+        $conversation = Conversation::findOrFail(
+            $this->selectedConversation
+        );
+
+        Gate::authorize('view', $conversation);
+
+        $messageIds = $conversation
+            ->messages()
+            ->where('sender_id', '!=', auth()->id())
+            ->pluck('id');
+
+        foreach ($messageIds as $messageId) {
+            DB::table('message_reads')->updateOrInsert(
+                [
+                    'message_id' => $messageId,
+                    'user_id' => auth()->id(),
+                ],
+                [
+                    'read_at' => now(),
+                ]
+            );
+        }
+    }
+
+    public static function getNavigationBadge(): ?string
+    {
+        $userId = auth()->id();
+
+        if (! $userId) {
+            return null;
+        }
+
+        $count = Message::query()
+            ->where('sender_id', '!=', $userId)
+            ->whereHas('conversation.participants', function ($query) use ($userId) {
+                $query->where('users.id', $userId);
+            })
+            ->whereDoesntHave('readers', function ($query) use ($userId) {
+                $query->where('users.id', $userId);
+            })
+            ->count();
+
+        return $count > 0
+            ? (string) $count
+            : null;
+    }
+
+    public static function getNavigationBadgeColor(): ?string
+    {
+        return 'danger';
     }
 }

@@ -93,6 +93,17 @@
             position: relative;
         }
 
+        .m-avatar .dot {
+            position: absolute;
+            bottom: -2px;
+            right: -2px;
+            width: 11px;
+            height: 11px;
+            border-radius: 50%;
+            background: #3ab66b;
+            border: 2px solid white;
+        }
+
         .m-info {
             overflow: hidden;
             flex: 1;
@@ -179,14 +190,14 @@
             padding: 18px;
             display: flex;
             flex-direction: column;
-            gap: 6px;
+            gap: 12px;
             background: #f9fafb;
         }
 
         .t-msg-row {
             display: flex;
             gap: 8px;
-            margin: 0;
+            max-width: 65%;
         }
 
         .t-msg-row.own {
@@ -296,208 +307,171 @@
                 min-height: 500px;
             }
         }
-
-        .unread-count {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            min-width: 18px;
-            height: 18px;
-            padding: 0 5px;
-            border-radius: 999px;
-            background: #dc2626;
-            color: white;
-            font-size: 10px;
-            font-weight: 700;
-        }
     </style>
 
+    <x-filament-panels::page>
+
     <div
-    class="msg-wrap"
-    x-data="{ search: '' }"
->
+        class="msg-wrap"
+        x-data="{ search: '' }"
+    >
 
-    {{-- =========================================================
-        CONVERSATION LIST
-    ========================================================== --}}
-    <div class="msg-list">
+        {{-- =========================
+            CONVERSATION LIST
+        ========================== --}}
+        <div class="msg-list">
 
-        <div class="msg-list-header">
+            <div class="msg-list-header">
 
-            <h3>Conversations</h3>
+                <h3>Conversations</h3>
 
-            <div class="msg-search">
+                <div class="msg-search">
 
-                <span class="s-icon">
-                    <x-heroicon-o-magnifying-glass class="w-4 h-4" />
-                </span>
+                    <span class="s-icon">
+                        <x-heroicon-o-magnifying-glass class="w-4 h-4" />
+                    </span>
 
-                <input
-                    type="text"
-                    placeholder="Search Messages"
-                    x-model="search"
-                >
+                    <input
+                        type="text"
+                        placeholder="Search Messages"
+                        x-model="search"
+                    >
+
+                </div>
+
+            </div>
+
+
+            <div class="msg-items">
+
+                @forelse ($conversations as $conversation)
+
+                    @php
+                        $latestMessage = $conversation->messages->last();
+
+                        $otherParticipant = $conversation
+                            ->participants
+                            ->firstWhere('id', '!=', auth()->id());
+
+                        $displayName = $otherParticipant?->name
+                            ?? 'Legal Office';
+
+                        $initials = collect(
+                            explode(' ', $displayName)
+                        )
+                            ->filter()
+                            ->map(
+                                fn ($part) =>
+                                    strtoupper(
+                                        substr($part, 0, 1)
+                                    )
+                            )
+                            ->take(2)
+                            ->join('');
+
+                        $searchText = strtolower(
+                            $displayName . ' ' .
+                            ($conversation->document?->particulars ?? '') . ' ' .
+                            ($latestMessage?->body ?? '')
+                        );
+                    @endphp
+
+
+                    <div
+                        class="msg-item
+                            {{ $selectedConversation === $conversation->id
+                                ? 'active'
+                                : '' }}"
+                        wire:click="selectConversation({{ $conversation->id }})"
+                        x-show="
+                            '{{ addslashes($searchText) }}'
+                                .includes(search.toLowerCase())
+                        "
+                        style="cursor: pointer;"
+                    >
+
+                        <div class="m-avatar">
+
+                            {{ $initials ?: 'LO' }}
+
+                        </div>
+
+
+                        <div class="m-info">
+
+                            <div class="m-sub">
+
+                                @if ($conversation->document)
+                                    Document #{{ $conversation->document_id }}
+                                @else
+                                    General Conversation
+                                @endif
+
+                            </div>
+
+
+                            <div class="m-name">
+
+                                <span>
+                                    {{ $displayName }}
+                                </span>
+
+                                <span class="m-time">
+
+                                    @if ($latestMessage)
+                                        {{ $latestMessage
+                                            ->created_at
+                                            ->format('M d') }}
+                                    @endif
+
+                                </span>
+
+                            </div>
+
+
+                            <div class="m-preview">
+
+                                @if ($latestMessage)
+
+                                    @if (
+                                        $latestMessage->sender_id
+                                        === auth()->id()
+                                    )
+                                        You:
+                                    @endif
+
+                                    {{ \Illuminate\Support\Str::limit(
+                                        $latestMessage->body,
+                                        60
+                                    ) }}
+
+                                @else
+                                    No messages yet
+                                @endif
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                @empty
+
+                    <div class="p-6 text-center text-gray-500">
+                        No conversations yet.
+                    </div>
+
+                @endforelse
 
             </div>
 
         </div>
 
 
-        <div class="msg-items">
-
-            @forelse ($conversations as $conversation)
-
-                @php
-                    /*
-                     * For the staff inbox, show the client who
-                     * originally owns/created the conversation.
-                     */
-                    $client = $conversation->creator;
-
-                    $clientName = $client?->name ?? 'Unknown Client';
-
-                    $initials = collect(explode(' ', $clientName))
-                        ->filter()
-                        ->map(fn ($part) => strtoupper(substr($part, 0, 1)))
-                        ->take(2)
-                        ->join('');
-
-                    $latestMessage = $conversation
-                        ->messages
-                        ->sortBy('created_at')
-                        ->last();
-
-                    $searchText = strtolower(
-                        $clientName . ' ' .
-                        ($conversation->document?->lao_number ?? '') . ' ' .
-                        ($conversation->document?->particulars ?? '')
-                    );
-                @endphp
-
-
-                <div
-                    class="
-                        msg-item
-                        {{ $conversation->unread_messages_count > 0 ? 'unread' : '' }}
-                        {{ (int) $selectedConversation === (int) $conversation->id
-                            ? 'active'
-                            : '' }}
-                    "
-                    wire:click="selectConversation({{ $conversation->id }})"
-                >
-
-                @if ($conversation->unread_messages_count > 0)
-
-                    <span class="unread-count">
-                        {{ $conversation->unread_messages_count }}
-                    </span>
-
-                @endif
-
-                    <div class="m-avatar">
-
-                        {{ $initials ?: 'CL' }}
-
-                        @if ($conversation->unread_messages_count > 0)
-                            <span class="dot"></span>
-                        @endif
-
-                    </div>
-
-
-                    <div class="m-info">
-
-                        <div class="m-sub">
-
-                            @if ($conversation->document?->lao_number)
-
-                                {{ $conversation->document->lao_number }}
-
-                            @else
-
-                                Document #{{ $conversation->document_id }}
-
-                            @endif
-
-                        </div>
-
-
-                        <div class="m-name">
-
-                            <span>
-                                {{ $clientName }}
-                            </span>
-
-                            <span class="m-time">
-
-                                @if ($latestMessage)
-
-                                    {{ $latestMessage
-                                        ->created_at
-                                        ->format('M d') }}
-
-                                @endif
-
-                            </span>
-
-                        </div>
-
-
-                        <div class="m-preview">
-
-                            @if ($latestMessage)
-
-                                @if (
-                                    (int) $latestMessage->sender_id
-                                    === (int) auth()->id()
-                                )
-                                    You:
-                                @endif
-
-                                {{ \Illuminate\Support\Str::limit(
-                                    $latestMessage->body,
-                                    55
-                                ) }}
-
-                            @else
-
-                                No messages yet
-
-                            @endif
-
-                        </div>
-
-                    </div>
-
-                </div>
-
-            @empty
-
-                <div
-                    style="
-                        padding: 24px;
-                        text-align: center;
-                        color: #6b7280;
-                        font-size: 13px;
-                    "
-                >
-                    No conversations available.
-                </div>
-
-            @endforelse
-
-        </div>
-
-    </div>
-
-
-
-    {{-- =========================================================
-        MESSAGE THREAD
-    ========================================================== --}}
+       {{-- MESSAGE THREAD --}}
     <div
         class="msg-thread"
-        wire:poll.4s="refreshConversation"
+        wire:poll.4s="loadMessages"
     >
 
         @if (! $selectedConversation)
@@ -518,19 +492,16 @@
 
             @php
                 $activeConversation = $conversations
-                    ->firstWhere(
-                        'id',
-                        $selectedConversation
-                    );
+                    ->firstWhere('id', $selectedConversation);
 
-                $client = $activeConversation?->creator;
+                $otherParticipant = $activeConversation
+                    ?->participants
+                    ->firstWhere('id', '!=', auth()->id());
 
-                $clientName = $client?->name
-                    ?? 'Unknown Client';
+                $threadName = $otherParticipant?->name
+                    ?? 'Legal Office';
 
-                $clientInitials = collect(
-                    explode(' ', $clientName)
-                )
+                $threadInitials = collect(explode(' ', $threadName))
                     ->filter()
                     ->map(
                         fn ($part) =>
@@ -541,94 +512,38 @@
             @endphp
 
 
-            {{-- =====================================================
-                THREAD HEADER
-            ====================================================== --}}
+            {{-- THREAD HEADER --}}
             <div class="thread-header">
 
                 <div class="t-avatar">
-                    {{ $clientInitials ?: 'CL' }}
+                    {{ $threadInitials ?: 'LO' }}
                 </div>
-
 
                 <div style="flex: 1;">
 
                     <div class="t-name">
-                        {{ $clientName }}
+                        {{ $threadName }}
                     </div>
-
 
                     <div class="t-sub">
 
-                        @if ($activeConversation?->document?->lao_number)
-
-                            {{ $activeConversation->document->lao_number }}
-
-                        @elseif ($activeConversation?->document_id)
-
+                        @if ($activeConversation?->document)
                             Document #{{ $activeConversation->document_id }}
-
                         @endif
 
-
                         @if ($activeConversation?->assignedStaff)
-
-                            &nbsp; • &nbsp;
-
-                            Primary handler:
+                            • Primary handler:
                             {{ $activeConversation->assignedStaff->name }}
-
-                        @else
-
-                            &nbsp; • &nbsp;
-
-                            Unassigned
-
                         @endif
 
                     </div>
 
                 </div>
 
-
-                {{-- Optional Assign to Me --}}
-                @if (
-                    $activeConversation
-                    && ! $activeConversation->assigned_to
-                )
-
-                    <button
-                        type="button"
-                        wire:click="assignToMe({{ $activeConversation->id }})"
-                        style="
-                            background: #1b6ca8;
-                            color: white;
-                            border: none;
-                            border-radius: 7px;
-                            padding: 7px 12px;
-                            font-size: 12px;
-                            font-weight: 600;
-                            cursor: pointer;
-                        "
-                    >
-                        Assign to Me
-                    </button>
-
-                @endif
-
-
                 <button
                     type="button"
                     wire:click="$set('selectedConversation', null)"
-                    title="Close thread"
-                    style="
-                        background: none;
-                        border: none;
-                        font-size: 18px;
-                        color: #6b7280;
-                        cursor: pointer;
-                        margin-left: 8px;
-                    "
+                    title="Close conversation"
                 >
                     ✕
                 </button>
@@ -636,10 +551,7 @@
             </div>
 
 
-
-            {{-- =====================================================
-                MESSAGE BODY
-            ====================================================== --}}
+            {{-- MESSAGES --}}
             <div
                 class="thread-body"
                 id="threadBody"
@@ -668,7 +580,6 @@
                             ->join('');
                     @endphp
 
-
                     <div
                         class="t-msg-row {{ $isOwn ? 'own' : '' }}"
                         wire:key="message-{{ $message->id }}"
@@ -677,59 +588,29 @@
                         <div class="t-msg-avatar">
 
                             @if ($isOwn)
-
-                                {{ collect(explode(' ', auth()->user()->name))
-                                    ->filter()
-                                    ->map(
-                                        fn ($part) =>
-                                            strtoupper(substr($part, 0, 1))
-                                    )
-                                    ->take(2)
-                                    ->join('') }}
-
+                                You
                             @else
-
                                 {{ $senderInitials ?: '?' }}
-
                             @endif
 
                         </div>
 
-
                         <div>
 
-                            {{-- Important because multiple staff can reply --}}
-                            <div
-                                style="
-                                    font-size: 11px;
-                                    margin-bottom: 3px;
-                                    color: #6b7280;
-                                    {{ $isOwn ? 'text-align:right;' : '' }}
-                                "
-                            >
+                            @unless ($isOwn)
 
-                                @if ($isOwn)
-                                    You
-                                @else
+                                <div class="t-sender-name">
                                     {{ $senderName }}
-                                @endif
+                                </div>
 
-                            </div>
-
+                            @endunless
 
                             <div class="t-bubble">
-
                                 {{ $message->body }}
-
                             </div>
 
-
                             <div class="t-time">
-
-                                {{ $message
-                                    ->created_at
-                                    ->format('M d, g:i A') }}
-
+                                {{ $message->created_at->format('M d, g:i A') }}
                             </div>
 
                         </div>
@@ -739,15 +620,7 @@
                 @empty
 
                     <div class="empty-thread">
-
-                        <x-heroicon-o-chat-bubble-left-right
-                            class="w-8 h-8 opacity-40"
-                        />
-
-                        <span>
-                            No messages yet.
-                        </span>
-
+                        No messages yet. Start the conversation.
                     </div>
 
                 @endforelse
@@ -755,14 +628,8 @@
             </div>
 
 
-
-            {{-- =====================================================
-                MESSAGE INPUT
-            ====================================================== --}}
-            @if (
-                $activeConversation
-                && $activeConversation->status === 'active'
-            )
+            {{-- MESSAGE INPUT --}}
+            @if ($activeConversation?->status === 'active')
 
                 <div class="thread-footer">
 
@@ -779,21 +646,14 @@
                         type="button"
                         wire:click="sendMessage"
                         wire:loading.attr="disabled"
-                        wire:target="sendMessage"
                         title="Send message"
                     >
 
-                        <span
-                            wire:loading.remove
-                            wire:target="sendMessage"
-                        >
+                        <span wire:loading.remove wire:target="sendMessage">
                             ➤
                         </span>
 
-                        <span
-                            wire:loading
-                            wire:target="sendMessage"
-                        >
+                        <span wire:loading wire:target="sendMessage">
                             ...
                         </span>
 
@@ -801,14 +661,13 @@
 
                 </div>
 
-
                 @error('newMessage')
 
                     <div
                         style="
                             color: #dc2626;
                             font-size: 12px;
-                            padding: 0 18px 12px;
+                            padding: 4px 16px 10px;
                         "
                     >
                         {{ $message }}
@@ -823,7 +682,6 @@
                     style="
                         justify-content: center;
                         color: #6b7280;
-                        font-size: 13px;
                     "
                 >
                     This conversation is closed.
@@ -836,13 +694,5 @@
     </div>
 
 </div>
-
-<script>
-    document.addEventListener('livewire:init', () => {
-        Livewire.on('messages-read', () => {
-            window.location.reload();
-        });
-    });
-</script>
 
 </x-filament-panels::page>
