@@ -94,7 +94,7 @@
         
         <div style="background-color: #0F172A; border-top-left-radius: 0.75rem; border-top-right-radius: 0.75rem; padding: 1.5rem;">
             <h2 style="color: #6366f1; font-size: 1.5rem; font-weight: 600; margin: 0;">
-                Submit A Document
+                Upload A Document
             </h2>
             <p style="color: #e5e7eb; margin-top: 0.25rem; font-size: 0.875rem;">
                 Please provide the details of your document and upload the necessary files.
