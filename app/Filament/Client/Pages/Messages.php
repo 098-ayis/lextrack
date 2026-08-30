@@ -14,6 +14,11 @@ class Messages extends Page
 {
     protected string $view = 'filament.client.pages.messages';
 
+    public function getHeading(): string
+    {
+        return '';
+    }
+
     public ?int $selectedConversation = null;
 
     public string $newMessage = '';

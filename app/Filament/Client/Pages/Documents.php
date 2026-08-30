@@ -28,6 +28,11 @@ class Documents extends Page implements HasTable
     public string $documentType = '';
     public string $documentStatus = '';
 
+    public function getHeading(): string
+    {
+        return '';
+    }
+
     public function mount(): void
     {
         $tab = request()->query('tab', 'all');

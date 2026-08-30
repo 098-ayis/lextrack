@@ -10,6 +10,11 @@ class Track extends Page
 {
     protected string $view = 'filament.client.pages.track';
 
+    public function getHeading(): string
+    {
+        return '';
+    }
+
     public string $trackingNumber = '';
 
     public ?Document $document = null;
