@@ -19,8 +19,21 @@ class ViewDocument extends Page
 
     public ?string $previewUrl = null;
 
+    public string $returnTab = 'all';
+
     public function mount($document): void
     {
+        $tab = request()->query('tab', 'all');
+
+        $this->returnTab = in_array($tab, [
+            'all',
+            'pending',
+            'in_progress',
+            'completed',
+            'rejected',
+            'requested',
+        ], true) ? $tab : 'all';
+
         $this->documentRecord = Document::query()
             ->where('document_id', $document)
             ->where(function ($query) {

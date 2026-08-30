@@ -28,6 +28,20 @@ class Documents extends Page implements HasTable
     public string $documentType = '';
     public string $documentStatus = '';
 
+    public function mount(): void
+    {
+        $tab = request()->query('tab', 'all');
+
+        $this->activeTab = in_array($tab, [
+            'all',
+            'pending',
+            'in_progress',
+            'completed',
+            'rejected',
+            'requested',
+        ], true) ? $tab : 'all';
+    }
+
     // This method sets the tab AND instantly refreshes the table data
     public function updateTab($tab)
     {
@@ -175,6 +189,7 @@ class Documents extends Page implements HasTable
             ->recordUrl(
                 fn (Document $record): string => ViewDocument::getUrl([
                     'document' => $record->document_id,
+                    'tab' => $this->activeTab,
                 ])
             )
             ->columns([

@@ -5,9 +5,8 @@
         {{-- HEADER --}}
         <div class="flex items-center gap-3">
 
-            <button
-                type="button"
-                onclick="window.history.back()"
+            <a
+                href="{{ \App\Filament\Client\Pages\Documents::getUrl(['tab' => $returnTab]) }}"
                 class="inline-flex items-center justify-center rounded-lg border border-gray-300
                        bg-white p-2 text-gray-700 shadow-sm transition hover:bg-gray-50
                        dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-gray-700"
@@ -26,7 +25,7 @@
                         d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18"
                     />
                 </svg>
-            </button>
+            </a>
 
             <div>
                 <h1 class="text-2xl font-bold text-gray-900 dark:text-white">
