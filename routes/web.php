@@ -52,6 +52,18 @@ Route::get('/admin/documents/export', [DocumentExportController::class, '__invok
     ->middleware(['auth', AdminMiddleware::class])
     ->name('admin.documents.export');
 
+Route::get('/document-status/{document}', function (int $document) {
+    $documentRecord = Document::query()
+        ->with(['user', 'type', 'actionType'])
+        ->findOrFail($document);
+
+    return view('documents.public-status', [
+        'document' => $documentRecord,
+    ]);
+})
+    ->middleware('signed')
+    ->name('documents.public-status');
+
 
 /*
 |--------------------------------------------------------------------------

@@ -22,7 +22,11 @@ use App\Models\ActivityLog;
 use Filament\Support\Enums\Alignment;
 use Filament\Support\Enums\Width;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\URL;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use chillerlan\QRCode\QRCode;
+use chillerlan\QRCode\QROptions;
+use chillerlan\QRCode\Output\QROutputInterface;
 use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\User;
@@ -57,6 +61,12 @@ class Document extends Page
     public bool $showAcceptedModal = false;
 
     public ?string $acceptedDocumentUploader = null;
+
+    public ?int $qrCodeDocumentId = null;
+
+    public ?string $qrCodeSvg = null;
+
+    public ?string $qrCodeUrl = null;
 
     public function mount(): void
     {
@@ -118,7 +128,7 @@ class Document extends Page
 
     public function acceptDocument(int $documentId): void
     {
-        $result = DB::transaction(function () use ($documentId) {
+        $result = DB::transaction(function () use ($documentId): array {
 
             $document = DocumentModel::with('user')
                 ->lockForUpdate()
@@ -178,8 +188,6 @@ class Document extends Page
                 'Document accepted',
                 'Accepted the document and moved it to Incoming.'
             );
-        });
-
             /*
             |--------------------------------------------------------------------------
             | 3. Create conversation
@@ -315,6 +323,42 @@ class Document extends Page
             ->latest('created_at')
 
             ->paginate($this->perPage);
+    }
+
+    public function openQrCode(int $documentId): void
+    {
+        try {
+            DocumentModel::findOrFail($documentId);
+
+            $url = URL::signedRoute('documents.public-status', [
+                'document' => $documentId,
+            ]);
+
+            $this->qrCodeDocumentId = $documentId;
+            $this->qrCodeUrl = $url;
+            $this->qrCodeSvg = (new QRCode(new QROptions([
+                'outputType' => QROutputInterface::MARKUP_SVG,
+                'outputBase64' => false,
+                'scale' => 5,
+            ])))->render($url);
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            $this->closeQrCode();
+
+            Notification::make()
+                ->danger()
+                ->title('QR code could not be generated')
+                ->body('Please try again.')
+                ->send();
+        }
+    }
+
+    public function closeQrCode(): void
+    {
+        $this->qrCodeDocumentId = null;
+        $this->qrCodeSvg = null;
+        $this->qrCodeUrl = null;
     }
 
     public function addDocumentAction(): Action
@@ -900,8 +944,7 @@ class Document extends Page
     public function completeDocumentAction(): Action
     {
         return Action::make('completeDocument')
-            ->label('')
-            ->icon('heroicon-o-check-circle')
+            ->label('Complete')
             ->color('gray')
             ->tooltip('Complete')
             ->modalHeading('Complete Document')
@@ -913,7 +956,7 @@ class Document extends Page
             ->modalSubmitActionLabel('Complete document')
             ->modalCancelActionLabel('Cancel')
             ->extraAttributes([
-                'class' => 'inline-flex items-center justify-center w-9 h-9 rounded-md bg-[#334155] hover:bg-[#0F172A] text-white transition',
+                'class' => 'inline-flex items-center justify-center rounded-md px-3 py-2 text-xs font-semibold bg-[#334155] hover:bg-[#0F172A] text-white transition',
             ])
             ->action(function (array $arguments): void {
                 $this->completeDocument((int) $arguments['document']);

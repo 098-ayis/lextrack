@@ -27,6 +27,12 @@
                     d="M12 3v12m0 0 4-4m-4 4-4-4M5 18v3h14v-3"/>
             </symbol>
 
+            <symbol id="icon-qr-code" viewBox="0 0 24 24">
+                <path fill="none" stroke="currentColor" stroke-width="1.75"
+                    stroke-linecap="round" stroke-linejoin="round"
+                    d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2v2h-2zM18 14h2v6h-6v-2h4zM14 18h2v2h-2z"/>
+            </symbol>
+
             <symbol id="icon-eye" viewBox="0 0 24 24">
                 <path fill="none" stroke="currentColor" stroke-width="1.75"
                     stroke-linecap="round" stroke-linejoin="round"
@@ -423,7 +429,7 @@
                                 <div class="flex items-center justify-center gap-2">
 
                                     {{-- View and Download menu --}}
-                                    <details class="relative order-last shrink-0">
+                                    <details class="document-options-menu relative order-last shrink-0">
                                         <summary
                                             class="flex h-9 w-7 cursor-pointer list-none items-center justify-center text-gray-700 transition hover:text-gray-900 [&::-webkit-details-marker]:hidden"
                                             title="More options"
@@ -459,6 +465,17 @@
                                                     Download
                                                 </a>
                                             @endif
+
+                                            <button
+                                                type="button"
+                                                wire:click="openQrCode({{ $document->document_id }})"
+                                                class="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-xs text-gray-700 hover:bg-gray-100"
+                                            >
+                                                <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
+                                                    <use href="#icon-qr-code"/>
+                                                </svg>
+                                                QR Code
+                                            </button>
                                         </div>
                                     </details>
 
@@ -698,7 +715,7 @@
                                 <div class="flex items-center justify-center gap-2">
 
                                     {{-- View and Download menu --}}
-                                    <details class="relative order-last shrink-0">
+                                    <details class="document-options-menu relative order-last shrink-0">
                                         <summary
                                             class="flex h-9 w-7 cursor-pointer list-none items-center justify-center text-gray-700 transition hover:text-gray-900 [&::-webkit-details-marker]:hidden"
                                             title="More options"
@@ -734,6 +751,17 @@
                                                     Download
                                                 </a>
                                             @endif
+
+                                            <button
+                                                type="button"
+                                                wire:click="openQrCode({{ $document->document_id }})"
+                                                class="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-xs text-gray-700 hover:bg-gray-100"
+                                            >
+                                                <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
+                                                    <use href="#icon-qr-code"/>
+                                                </svg>
+                                                QR Code
+                                            </button>
                                         </div>
                                     </details>
 
@@ -1062,7 +1090,7 @@
                                 <div class="flex items-center justify-center gap-2">
 
                                     {{-- View and Download menu --}}
-                                    <details class="relative order-last shrink-0">
+                                    <details class="document-options-menu relative order-last shrink-0">
                                         <summary
                                             class="flex h-9 w-7 cursor-pointer list-none items-center justify-center text-gray-700 transition hover:text-gray-900 [&::-webkit-details-marker]:hidden"
                                             title="More options"
@@ -1100,6 +1128,17 @@
                                                     Download
                                                 </a>
                                             @endif
+
+                                            <button
+                                                type="button"
+                                                wire:click="openQrCode({{ $document->document_id }})"
+                                                class="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-xs text-gray-700 hover:bg-gray-100"
+                                            >
+                                                <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24" aria-hidden="true">
+                                                    <use href="#icon-qr-code"/>
+                                                </svg>
+                                                QR Code
+                                            </button>
                                         </div>
                                     </details>
 
@@ -1240,6 +1279,60 @@
             </div>
         </div>
     @endif
+
+    @if ($qrCodeSvg)
+        <div
+            wire:click.self="closeQrCode"
+            class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/50 p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="qr-code-title"
+        >
+            <div class="w-full max-w-md rounded-2xl bg-white p-6 text-center shadow-2xl">
+                <div class="flex items-center justify-between">
+                    <h2 id="qr-code-title" class="text-lg font-bold text-gray-900">
+                        Document QR Code
+                    </h2>
+                    <button
+                        type="button"
+                        wire:click="closeQrCode"
+                        class="rounded-md p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-800"
+                        aria-label="Close QR code"
+                    >
+                        <span class="text-xl leading-none">&times;</span>
+                    </button>
+                </div>
+
+                <div class="mx-auto mt-5 flex h-64 w-64 items-center justify-center overflow-hidden rounded-lg border border-gray-200 bg-white p-2">
+                    {!! $qrCodeSvg !!}
+                </div>
+
+                <p class="mt-4 text-sm text-gray-600">
+                    Scan this code to view the document status and details.
+                </p>
+
+                <button
+                    type="button"
+                    wire:click="closeQrCode"
+                    class="mt-5 w-full rounded-lg bg-[#0F172A] px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-700"
+                >
+                    Close
+                </button>
+            </div>
+        </div>
+    @endif
+
+    <script>
+        document.addEventListener('click', (event) => {
+            const clickedMenu = event.target.closest('.document-options-menu');
+
+            document.querySelectorAll('.document-options-menu[open]').forEach((menu) => {
+                if (menu !== clickedMenu) {
+                    menu.removeAttribute('open');
+                }
+            });
+        });
+    </script>
 
     <x-filament-actions::modals />
 
