@@ -793,3 +793,29 @@ Edit-Button
 .dark .client-dashboard-documents .fi-ta-footer * {
     color: #d1d5db;
 }
+
+/* ================================
+   CLIENT DOCUMENT TABLE ACTIONS
+================================ */
+
+.documents-table-action {
+    color: #6b7280 !important;
+}
+
+.documents-table-action:hover,
+.documents-table-action:focus,
+.documents-table-action:focus-visible,
+.documents-table-action:active {
+    color: #6366f1 !important;
+}
+
+.dark .documents-table-action {
+    color: #9ca3af !important;
+}
+
+.dark .documents-table-action:hover,
+.dark .documents-table-action:focus,
+.dark .documents-table-action:focus-visible,
+.dark .documents-table-action:active {
+    color: #6366f1 !important;
+}

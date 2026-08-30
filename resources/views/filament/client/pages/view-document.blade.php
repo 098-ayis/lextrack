@@ -179,12 +179,12 @@
                                 Status
                             </p>
 
-                            <p class="mt-1 text-sm font-medium {{ $documentRecord->status === 'rejected' ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-gray-100' }}">
+                            <p class="mt-1 text-sm font-medium {{ ($requestStatus ?? $documentRecord->status) === 'rejected' ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-gray-100' }}">
                                 {{ ucwords(
                                     str_replace(
                                         '_',
                                         ' ',
-                                        $documentRecord->status
+                                        $requestStatus ?? $documentRecord->status
                                     )
                                 ) }}
                             </p>

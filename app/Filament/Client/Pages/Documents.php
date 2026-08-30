@@ -75,42 +75,36 @@ class Documents extends Page implements HasTable
 
     protected function documentsQuery(): Builder
     {
-        return Document::query()
-            ->where('user_id', auth()->id())
-            ->when($this->activeTab !== 'all', function ($query) {
-                if ($this->activeTab === 'in_progress') {
-                    $query->whereIn('status', [
-                        'in_progress',
-                        'outgoing',
-                    ]);
+        $query = Document::query();
 
-                    return;
-                }
-
-                if ($this->activeTab === 'completed') {
-                    $query->whereIn('status', [
-                        'completed',
-                        'archived',
-                    ]);
-
-                    return;
-                }
-
-                $query->where('status', $this->activeTab);
-            })
-            ->when(
-                $this->documentType !== '',
-                fn ($query) => $query->where(
-                    'type_id',
-                    (int) $this->documentType
-                )
-            )
-            ->when(
-                $this->activeTab === 'requested'
-                    && $this->documentStatus !== '',
-                function ($query) {
-                    if ($this->documentStatus === 'in_progress') {
-                        $query->whereIn('status', [
+        if ($this->activeTab === 'requested') {
+            $query
+                ->whereHas('documentRequests', function ($requestQuery) {
+                    $requestQuery->where('user_id', auth()->id());
+                })
+                ->with([
+                    'documentRequests' => function ($requestQuery) {
+                        $requestQuery
+                            ->where('user_id', auth()->id())
+                            ->latest('created_at')
+                            ->latest('request_id');
+                    },
+                ])
+                ->when(
+                    $this->documentStatus !== '',
+                    fn ($documentQuery) => $documentQuery->whereHas(
+                        'documentRequests',
+                        fn ($requestQuery) => $requestQuery
+                            ->where('user_id', auth()->id())
+                            ->where('status', $this->documentStatus)
+                    )
+                );
+        } else {
+            $query
+                ->where('user_id', auth()->id())
+                ->when($this->activeTab !== 'all', function ($documentQuery) {
+                    if ($this->activeTab === 'in_progress') {
+                        $documentQuery->whereIn('status', [
                             'in_progress',
                             'outgoing',
                         ]);
@@ -118,8 +112,8 @@ class Documents extends Page implements HasTable
                         return;
                     }
 
-                    if ($this->documentStatus === 'completed') {
-                        $query->whereIn('status', [
+                    if ($this->activeTab === 'completed') {
+                        $documentQuery->whereIn('status', [
                             'completed',
                             'archived',
                         ]);
@@ -127,8 +121,17 @@ class Documents extends Page implements HasTable
                         return;
                     }
 
-                    $query->where('status', $this->documentStatus);
-                }
+                    $documentQuery->where('status', $this->activeTab);
+                });
+        }
+
+        return $query
+            ->when(
+                $this->documentType !== '',
+                fn ($query) => $query->where(
+                    'type_id',
+                    (int) $this->documentType
+                )
             )
             ->when(
                 trim($this->documentSearch) !== '',
@@ -148,6 +151,18 @@ class Documents extends Page implements HasTable
     protected function hasDocumentsForCurrentTable(): bool
     {
         return $this->documentsQuery()->exists();
+    }
+
+    protected function clientCanAccessFile(Document $record): bool
+    {
+        if ((int) $record->user_id === (int) auth()->id()) {
+            return true;
+        }
+
+        return $record->documentRequests()
+            ->where('user_id', auth()->id())
+            ->where('status', 'accepted')
+            ->exists();
     }
 
     public function table(Table $table): Table
@@ -196,10 +211,17 @@ class Documents extends Page implements HasTable
 
                 TextColumn::make('status')
                     ->label('STATUS')
+                    ->state(
+                        fn (Document $record): string => $this->activeTab === 'requested'
+                            ? (string) ($record->documentRequests->first()?->status ?? '')
+                            : (string) $record->status
+                    )
                     ->color(
                         fn (string $state): string => match (strtolower($state)) {
                             'pending',
                             'for filing' => 'warning',
+
+                            'accepted' => 'success',
 
                             'completed',
                             'archived' => 'success',
@@ -217,6 +239,7 @@ class Documents extends Page implements HasTable
                         fn (?string $state): string => match (strtolower((string) $state)) {
                             'archived' => 'Completed',
                             'outgoing' => 'In Progress',
+                            'accepted' => 'Accepted',
                             default => ucwords(str_replace('_', ' ', (string) $state)),
                         }
                     ),
@@ -234,8 +257,9 @@ class Documents extends Page implements HasTable
                 Action::make('message')
                     ->label('Message')
                     ->icon('heroicon-o-chat-bubble-left-right')
-                    ->color('info')
+                    ->color('gray')
                     ->iconButton()
+                    ->extraAttributes(['class' => 'documents-table-action'])
                     ->tooltip('Message')
                     ->url(
                         fn (Document $record): string => ClientMessages::getUrl([
@@ -248,6 +272,7 @@ class Documents extends Page implements HasTable
                     ->icon('heroicon-o-arrow-down-tray')
                     ->color('gray')
                     ->iconButton()
+                    ->extraAttributes(['class' => 'documents-table-action'])
                     ->tooltip('Download')
                     ->url(
                         fn (Document $record): string => route(
@@ -255,7 +280,9 @@ class Documents extends Page implements HasTable
                             ['document' => $record->document_id]
                         )
                     )
-                    ->visible(fn (Document $record): bool => filled($record->file_path))
+                    ->visible(fn (Document $record): bool =>
+                        $this->clientCanAccessFile($record) && filled($record->file_path)
+                    )
                     ->openUrlInNewTab(),
 
                 Action::make('print')
@@ -263,6 +290,7 @@ class Documents extends Page implements HasTable
                     ->icon('heroicon-o-printer')
                     ->color('gray')
                     ->iconButton()
+                    ->extraAttributes(['class' => 'documents-table-action'])
                     ->tooltip('Print')
                     ->url(
                         fn (Document $record): string => route(
@@ -270,7 +298,9 @@ class Documents extends Page implements HasTable
                             ['document' => $record->document_id]
                         )
                     )
-                    ->visible(fn (Document $record): bool => filled($record->file_path))
+                    ->visible(fn (Document $record): bool =>
+                        $this->clientCanAccessFile($record) && filled($record->file_path)
+                    )
                     ->openUrlInNewTab(),
             ])
             ->recordActionsColumnLabel('ACTIONS');

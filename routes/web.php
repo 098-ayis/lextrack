@@ -77,7 +77,17 @@ Route::get('/client/document-preview/{document}', function ($document) {
 
     $documentRecord = Document::query()
         ->where('document_id', $document)
-        ->where('user_id', auth()->id())
+        ->where(function ($query) {
+            $query
+                ->where('user_id', auth()->id())
+                ->orWhereHas(
+                    'documentRequests',
+                    fn ($requestQuery) => $requestQuery->where(
+                        'user_id',
+                        auth()->id()
+                    )->where('status', 'accepted')
+                );
+        })
         ->firstOrFail();
 
     $versionRecord = DocumentVersion::query()
@@ -110,18 +120,37 @@ Route::get('/client/document-preview/{document}', function ($document) {
 Route::get('/client/document-download/{document}', function (int $document) {
     $documentRecord = Document::query()
         ->where('document_id', $document)
-        ->where('user_id', auth()->id())
+        ->where(function ($query) {
+            $query
+                ->where('user_id', auth()->id())
+                ->orWhereHas(
+                    'documentRequests',
+                    fn ($requestQuery) => $requestQuery->where(
+                        'user_id',
+                        auth()->id()
+                    )->where('status', 'accepted')
+                );
+        })
         ->firstOrFail();
 
-    abort_unless(
-        $documentRecord->file_path &&
-        Storage::disk('local')->exists($documentRecord->file_path),
-        404
-    );
+    $versionRecord = DocumentVersion::query()
+        ->where('document_id', $documentRecord->document_id)
+        ->latest('created_at')
+        ->latest('version_id')
+        ->first();
 
-    return Storage::disk('local')->download(
-        $documentRecord->file_path,
-        basename($documentRecord->file_path)
+    $disk = Storage::disk('local');
+    $filePath = $versionRecord?->file_path;
+
+    if ($filePath && ! $disk->exists($filePath)) {
+        $disk = Storage::disk('public');
+    }
+
+    abort_unless($filePath && $disk->exists($filePath), 404);
+
+    return $disk->download(
+        $filePath,
+        basename($filePath)
     );
 })
     ->middleware('auth')

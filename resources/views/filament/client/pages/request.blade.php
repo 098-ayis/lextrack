@@ -3,33 +3,19 @@
         class="client-request-page w-full overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10"
         x-data="requestQrScanner"
         x-on:beforeunload.window="stopScanner()"
+        x-on:paste.window="handlePaste($event)"
     >
         <div class="request-page-header px-6 py-6">
             <h1 class="text-2xl font-semibold tracking-tight text-[#6366F1]">
                 Request A Document
             </h1>
             <p class="mt-1 text-sm text-gray-100">
-                Please provide the details of your request and upload the necessary files.
+                Enter the LAO number and purpose for the document you need.
             </p>
         </div>
         <form wire:submit="submit" class="p-6">
             <div class="grid gap-8 lg:grid-cols-2 lg:gap-12">
                 <div class="space-y-7">
-                    <div>
-                        <label for="request-document-name" class="request-field-label">
-                            Document Name <span class="text-red-500">*</span>
-                        </label>
-                        <input
-                            id="request-document-name"
-                            type="text"
-                            wire:model="documentName"
-                            class="request-field-input"
-                        >
-                        @error('documentName')
-                            <p class="request-error">{{ $message }}</p>
-                        @enderror
-                    </div>
-
                     <div>
                         <label for="request-lao-number" class="request-field-label">
                             LAO Number <span class="text-red-500">*</span>
@@ -38,6 +24,7 @@
                             id="request-lao-number"
                             type="text"
                             wire:model.blur="laoNumber"
+                            x-on:input="error = ''; qrVerified = false; qrMessage = ''"
                             class="request-field-input"
                         >
                         @error('laoNumber')
@@ -49,16 +36,38 @@
                         <label for="request-purpose" class="request-field-label">
                             Purpose <span class="text-red-500">*</span>
                         </label>
-                        <textarea
+                        <select
                             id="request-purpose"
-                            wire:model="purpose"
-                            rows="6"
-                            class="request-field-input resize-y"
-                        ></textarea>
+                            wire:model.live="purpose"
+                            class="request-field-input"
+                        >
+                            <option value="">Select a purpose</option>
+                            @foreach ($this->purposeOptions() as $value => $label)
+                                <option value="{{ $value }}">{{ $label }}</option>
+                            @endforeach
+                        </select>
                         @error('purpose')
                             <p class="request-error">{{ $message }}</p>
                         @enderror
                     </div>
+
+                    @if ($purpose === 'other')
+                        <div>
+                            <label for="request-other-purpose" class="request-field-label">
+                                Please specify <span class="text-red-500">*</span>
+                            </label>
+                            <textarea
+                                id="request-other-purpose"
+                                wire:model="otherPurpose"
+                                rows="4"
+                                placeholder="Please specify why you need this document"
+                                class="request-field-input resize-y"
+                            ></textarea>
+                            @error('otherPurpose')
+                                <p class="request-error">{{ $message }}</p>
+                            @enderror
+                        </div>
+                    @endif
                 </div>
 
                 <div>
@@ -66,15 +75,77 @@
                         Scan QR
                     </label>
 
-                    <div class="request-scanner-box">
-                        <div x-show="!scanning" class="flex min-h-[25rem] flex-col items-center justify-center px-6 text-center">
-                            <svg class="h-20 w-20 text-[#6366F1]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 8.25V5.5A1.5 1.5 0 0 1 6 4h2.75M15.25 4H18a1.5 1.5 0 0 1 1.5 1.5v2.75M19.5 15.75v2.75A1.5 1.5 0 0 1 18 20h-2.75M8.75 20H6a1.5 1.5 0 0 1-1.5-1.5v-2.75" />
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M7 7h3v3H7zM14 14h3v3h-3zM14 7h1.5v1.5H17M7 14v3h3v-1.5H8.5V14" />
-                            </svg>
-                            <p class="mt-4 text-sm font-medium text-gray-500 dark:text-gray-300">
-                                Scan a QR code or attach a supporting file
-                            </p>
+                    <div
+                        class="request-scanner-box"
+                        :class="{
+                            'qr-success': qrVerified,
+                            'qr-error': qrMessage || error,
+                        }"
+                    >
+                        <div
+                            x-show="!scanning"
+                            class="flex min-h-[25rem] flex-col items-center justify-center px-6 text-center"
+                        >
+                            <div
+                                x-show="!qrVerified && !qrMessage && !error"
+                                class="flex flex-col items-center"
+                            >
+                                <svg class="h-20 w-20 text-[#6366F1]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 8.25V5.5A1.5 1.5 0 0 1 6 4h2.75M15.25 4H18a1.5 1.5 0 0 1 1.5 1.5v2.75M19.5 15.75v2.75A1.5 1.5 0 0 1 18 20h-2.75M8.75 20H6a1.5 1.5 0 0 1-1.5-1.5v-2.75" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M7 7h3v3H7zM14 14h3v3h-3zM14 7h1.5v1.5H17M7 14v3h3v-1.5H8.5V14" />
+                                </svg>
+                                <p class="mt-4 text-sm font-medium text-gray-500 dark:text-gray-300">
+                                    Scan a QR code or upload a QR photo
+                                </p>
+                            </div>
+
+                            <div
+                                x-cloak
+                                x-show="qrVerified || qrMessage || error"
+                                class="flex flex-col items-center"
+                            >
+                                <svg
+                                    x-show="qrVerified"
+                                    class="h-14 w-14 text-green-600 dark:text-green-300"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="1.8"
+                                    aria-hidden="true"
+                                >
+                                    <circle cx="12" cy="12" r="9" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="m8 12 2.5 2.5L16 9" />
+                                </svg>
+                                <svg
+                                    x-show="qrMessage || error"
+                                    class="h-14 w-14 text-red-600 dark:text-red-300"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="1.8"
+                                    aria-hidden="true"
+                                >
+                                    <circle cx="12" cy="12" r="9" />
+                                    <path stroke-linecap="round" d="M12 8v4" />
+                                    <path stroke-linecap="round" d="M12 16h.01" />
+                                </svg>
+                                <p
+                                    x-show="qrVerified"
+                                    class="mt-4 text-sm font-semibold text-green-700 dark:text-green-200"
+                                >
+                                    QR code verified. LAO number selected.
+                                </p>
+                                <p
+                                    x-show="qrMessage"
+                                    x-text="qrMessage"
+                                    class="mt-4 text-sm font-semibold text-red-700 dark:text-red-200"
+                                ></p>
+                                <p
+                                    x-show="error"
+                                    x-text="error"
+                                    class="mt-4 text-sm font-semibold text-red-700 dark:text-red-200"
+                                ></p>
+                            </div>
 
                             <div class="mt-6 flex flex-wrap justify-center gap-3">
                                 <button
@@ -85,16 +156,17 @@
                                     Scan with camera
                                 </button>
 
-                                <label for="request-attachment" class="request-primary-button cursor-pointer">
-                                    Browse
+                                <label for="request-qr-photo" class="request-secondary-button cursor-pointer">
+                                    Upload QR photo
                                 </label>
                                 <input
-                                    id="request-attachment"
+                                    id="request-qr-photo"
                                     type="file"
-                                    wire:model="attachment"
-                                    accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                                    accept="image/*"
+                                    x-on:change="handleQrPhoto($event)"
                                     class="sr-only"
                                 >
+
                             </div>
                         </div>
 
@@ -104,11 +176,12 @@
                             <button
                                 type="button"
                                 x-on:click="stopScanner()"
-                                class="request-secondary-button absolute bottom-6 left-1/2 -translate-x-1/2"
+                                class="request-secondary-button request-stop-scanner-button absolute bottom-6 left-1/2 z-10 -translate-x-1/2"
                             >
                                 Stop scanner
                             </button>
                         </div>
+
                     </div>
 
                     <div wire:loading wire:target="attachment" class="mt-2 text-sm text-[#6366F1]">
@@ -123,12 +196,6 @@
                         <p class="request-error">{{ $message }}</p>
                     @enderror
 
-                    <p x-cloak x-show="error" x-text="error" class="mt-2 text-sm text-red-500"></p>
-                    @if ($qrValue)
-                        <p class="mt-2 truncate text-sm text-gray-500 dark:text-gray-400">
-                            QR value: {{ $qrValue }}
-                        </p>
-                    @endif
                 </div>
             </div>
 
@@ -136,6 +203,7 @@
                 <button
                     type="button"
                     wire:click="clearForm"
+                    x-on:click="resetQrState()"
                     class="request-clear-button"
                 >
                     Clear
@@ -198,10 +266,24 @@
             box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
         }
 
+        select.request-field-input {
+            appearance: none;
+            cursor: pointer;
+            padding-right: 2.75rem;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%236b7280' stroke-width='1.8'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='m5 7.5 5 5 5-5'/%3E%3C/svg%3E") !important;
+            background-position: right 1rem center !important;
+            background-repeat: no-repeat !important;
+            background-size: 1rem !important;
+        }
+
         .dark .request-field-input {
             border-color: #4b5563;
             background: #1f2937;
             color: #f9fafb;
+        }
+
+        .dark select.request-field-input {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%23d1d5db' stroke-width='1.8'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='m5 7.5 5 5 5-5'/%3E%3C/svg%3E") !important;
         }
 
         .dark .request-field-input:focus {
@@ -224,6 +306,64 @@
 
         .dark .request-scanner-box {
             background: #111827;
+        }
+
+        .request-scanner-box.qr-success {
+            border-style: solid;
+            border-color: #22c55e;
+            background: #dcfce7;
+        }
+
+        .dark .request-scanner-box.qr-success {
+            border-color: #4ade80;
+            background: #14532d;
+        }
+
+        .request-scanner-box.qr-success .request-secondary-button {
+            border-color: #16a34a;
+            color: #15803d;
+        }
+
+        .request-scanner-box.qr-success .request-secondary-button:hover {
+            background: #bbf7d0;
+        }
+
+        .dark .request-scanner-box.qr-success .request-secondary-button {
+            border-color: #4ade80;
+            color: #bbf7d0;
+        }
+
+        .dark .request-scanner-box.qr-success .request-secondary-button:hover {
+            background: rgba(74, 222, 128, 0.18);
+        }
+
+        .request-scanner-box.qr-error {
+            border-style: solid;
+            border-color: #ef4444;
+            background: #fef2f2;
+        }
+
+        .dark .request-scanner-box.qr-error {
+            border-color: #f87171;
+            background: #450a0a;
+        }
+
+        .request-scanner-box.qr-error .request-secondary-button {
+            border-color: #dc2626;
+            color: #b91c1c;
+        }
+
+        .request-scanner-box.qr-error .request-secondary-button:hover {
+            background: #fecaca;
+        }
+
+        .dark .request-scanner-box.qr-error .request-secondary-button {
+            border-color: #f87171;
+            color: #fecaca;
+        }
+
+        .dark .request-scanner-box.qr-error .request-secondary-button:hover {
+            background: rgba(248, 113, 113, 0.18);
         }
 
         .request-primary-button,
@@ -260,8 +400,32 @@
             background: rgba(99, 102, 241, 0.1);
         }
 
+        .request-stop-scanner-button {
+            border-color: #dc2626;
+            background: #dc2626;
+            color: #ffffff;
+            box-shadow: 0 4px 10px rgba(127, 29, 29, 0.35);
+        }
+
+        .request-stop-scanner-button:hover {
+            border-color: #b91c1c;
+            background: #b91c1c;
+        }
+
         .dark .request-secondary-button {
             color: #a5b4fc;
+        }
+
+        .dark .request-stop-scanner-button {
+            border-color: #f87171;
+            background: #dc2626;
+            color: #ffffff;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
+        }
+
+        .dark .request-stop-scanner-button:hover {
+            border-color: #fca5a5;
+            background: #b91c1c;
         }
 
         .request-clear-button {
@@ -305,13 +469,128 @@
                 stream: null,
                 scanning: false,
                 error: '',
+                qrVerified: false,
+                qrMessage: '',
                 animationFrame: null,
+
+                async resolveQrValue(value) {
+                    const payload = value?.trim();
+
+                    this.error = '';
+                    this.qrVerified = false;
+                    this.qrMessage = '';
+
+                    if (!payload) {
+                        this.qrMessage = 'No QR code was found.';
+                        return;
+                    }
+
+                    try {
+                        const resolved = await this.$wire.resolveQr(payload);
+
+                        if (!resolved) {
+                            this.qrMessage = 'Invalid QR code. It does not match an available document. Please try again.';
+                            return;
+                        }
+
+                        this.qrVerified = true;
+                    } catch (exception) {
+                        this.qrMessage = 'The QR code could not be verified. Please try again.';
+                    }
+                },
+
+                async handleQrPhoto(event) {
+                    const file = event.target.files?.[0];
+
+                    if (file) {
+                        await this.decodeQrImage(file);
+                    }
+
+                    event.target.value = '';
+                },
+
+                async decodeQrImage(file) {
+                    this.error = '';
+                    this.qrVerified = false;
+                    this.qrMessage = '';
+
+                    if (!file) {
+                        return;
+                    }
+
+                    if (!('BarcodeDetector' in window)) {
+                        this.error = 'QR photo scanning is not supported by this browser. Paste the LAO number or QR link instead.';
+                        return;
+                    }
+
+                    let source = null;
+                    let objectUrl = null;
+
+                    try {
+                        this.detector = new BarcodeDetector({ formats: ['qr_code'] });
+
+                        if ('createImageBitmap' in window) {
+                            source = await createImageBitmap(file);
+                        } else {
+                            objectUrl = URL.createObjectURL(file);
+                            source = await new Promise((resolve, reject) => {
+                                const image = new Image();
+
+                                image.onload = () => resolve(image);
+                                image.onerror = () => reject(new Error('The QR photo could not be read.'));
+                                image.src = objectUrl;
+                            });
+                        }
+
+                        const codes = await this.detector.detect(source);
+                        const value = codes.find((code) => code.rawValue)?.rawValue;
+
+                        if (!value) {
+                            this.error = 'No QR code was found in that photo. Try a clearer image.';
+                            return;
+                        }
+
+                        await this.resolveQrValue(value);
+                    } catch (exception) {
+                        this.error = 'The QR photo could not be read. Try another image or paste the LAO number.';
+                    } finally {
+                        source?.close?.();
+
+                        if (objectUrl) {
+                            URL.revokeObjectURL(objectUrl);
+                        }
+                    }
+                },
+
+                async handlePaste(event) {
+                    const items = Array.from(event.clipboardData?.items ?? []);
+                    const imageItem = items.find((item) => item.type.startsWith('image/'));
+
+                    if (imageItem) {
+                        event.preventDefault();
+                        await this.decodeQrImage(imageItem.getAsFile());
+                        return;
+                    }
+
+                    const text = event.clipboardData?.getData('text')?.trim();
+
+                    if (text && (
+                        /^\d+$/.test(text)
+                        || /LAO-/i.test(text)
+                        || /document-status|client\/document-(preview|download)/i.test(text)
+                    )) {
+                        event.preventDefault();
+                        await this.resolveQrValue(text);
+                    }
+                },
 
                 async startScanner() {
                     this.error = '';
+                    this.qrMessage = '';
+                    this.qrVerified = false;
 
                     if (!('BarcodeDetector' in window)) {
-                        this.error = 'QR scanning is not supported by this browser. Select an LAO number from the list instead.';
+                        this.error = 'QR scanning is not supported by this browser. Enter the LAO number instead.';
                         return;
                     }
 
@@ -334,7 +613,20 @@
                         this.stopScanner();
                         this.error = exception?.name === 'NotAllowedError'
                             ? 'Camera permission was denied. Allow camera access and try again.'
-                            : 'Unable to start the camera. You can select an LAO number from the list instead.';
+                            : 'Unable to start the camera. Enter the LAO number instead.';
+                    }
+                },
+
+                resetQrState() {
+                    this.stopScanner();
+                    this.error = '';
+                    this.qrVerified = false;
+                    this.qrMessage = '';
+
+                    const photoInput = document.getElementById('request-qr-photo');
+
+                    if (photoInput) {
+                        photoInput.value = '';
                     }
                 },
 
@@ -349,7 +641,7 @@
 
                         if (value) {
                             this.stopScanner();
-                            this.$wire.resolveQr(value);
+                            await this.resolveQrValue(value);
                             return;
                         }
                     } catch (exception) {

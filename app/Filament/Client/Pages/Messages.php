@@ -82,12 +82,22 @@ class Messages extends Page
     {
         /*
          * SECURITY:
-         * Make sure this document actually belongs to
-         * the logged-in client.
+         * The client may message documents they uploaded or documents they
+         * have an associated document request for.
          */
         $document = Document::query()
             ->where('document_id', $documentId)
-            ->where('user_id', auth()->id())
+            ->where(function ($query) {
+                $query
+                    ->where('user_id', auth()->id())
+                    ->orWhereHas(
+                        'documentRequests',
+                        fn ($requestQuery) => $requestQuery->where(
+                            'user_id',
+                            auth()->id()
+                        )
+                    );
+            })
             ->firstOrFail();
 
         return DB::transaction(function () use ($document) {

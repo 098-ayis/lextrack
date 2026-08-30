@@ -1,6 +1,10 @@
 <x-filament-panels::page>
 
     <style>
+        [x-cloak] {
+            display: none !important;
+        }
+
         .msg-wrap {
             display: grid;
             grid-template-columns: 320px 1fr;
@@ -26,6 +30,7 @@
             font-size: 16px;
             font-weight: 700;
             margin-bottom: 10px;
+            color: #111827;
         }
 
         .msg-search {
@@ -39,10 +44,16 @@
             border-radius: 18px;
             font-size: 12.5px;
             outline: none;
+            background: #ffffff;
+            color: #111827;
+        }
+
+        .msg-search input::placeholder {
+            color: #9ca3af;
         }
 
         .msg-search input:focus {
-            border-color: #2563eb;
+            border-color: #6366f1;
         }
 
         .msg-search .s-icon {
@@ -70,27 +81,36 @@
         }
 
         .msg-item:hover {
-            background: #f3f8fc;
+            background: #f0f1ff;
         }
 
         .msg-item.active {
-            background: #f3f8fc;
-            border-left: 3px solid #1b6ca8;
+            background: #f0f1ff;
+            border-left: 3px solid #6366f1;
         }
 
         .m-avatar {
             width: 40px;
             height: 40px;
             border-radius: 50%;
-            background: #ffe0b2;
+            background: #e0e7ff;
             display: flex;
             align-items: center;
             justify-content: center;
             font-size: 13px;
             font-weight: 700;
-            color: #a05200;
+            color: #4f46e5;
             flex-shrink: 0;
             position: relative;
+        }
+
+        .t-avatar img,
+        .t-msg-avatar img {
+            display: block;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            object-fit: cover;
         }
 
         .m-info {
@@ -114,7 +134,7 @@
 
         .m-sub {
             font-size: 11px;
-            color: #1b6ca8;
+            color: #6366f1;
             font-weight: 600;
             margin-bottom: 2px;
         }
@@ -154,18 +174,19 @@
             width: 40px;
             height: 40px;
             border-radius: 50%;
-            background: #f3f8fc;
+            background: #f0f1ff;
             display: flex;
             align-items: center;
             justify-content: center;
             font-size: 13px;
             font-weight: 700;
-            color: #1b6ca8;
+            color: #6366f1;
         }
 
         .t-name {
             font-size: 15px;
             font-weight: 700;
+            color: #111827;
         }
 
         .t-sub {
@@ -198,20 +219,27 @@
             width: 28px;
             height: 28px;
             border-radius: 50%;
-            background: #ffe0b2;
+            background: #e0e7ff;
             display: flex;
             align-items: center;
             justify-content: center;
             font-size: 11px;
             font-weight: 700;
-            color: #a05200;
+            color: #4f46e5;
             align-self: flex-end;
             flex-shrink: 0;
         }
 
         .t-msg-row.own .t-msg-avatar {
-            background: #dbeafe;
-            color: #1b6ca8;
+            background: #e0e7ff;
+            color: #4f46e5;
+        }
+
+        .t-sender-name {
+            margin-bottom: 4px;
+            color: #374151;
+            font-size: 11px;
+            font-weight: 600;
         }
 
         .t-bubble {
@@ -221,10 +249,11 @@
             padding: 10px 16px;
             font-size: 13.5px;
             line-height: 1.5;
+            color: #111827;
         }
 
         .t-msg-row.own .t-bubble {
-            background: #1b6ca8;
+            background: #6366f1;
             color: white;
             border: none;
         }
@@ -257,11 +286,11 @@
         }
 
         .thread-footer input:focus {
-            border-color: #1b6ca8;
+            border-color: #6366f1;
         }
 
         .thread-footer button {
-            background: #1b6ca8;
+            background: #6366f1;
             color: white;
             border: none;
             border-radius: 50%;
@@ -269,6 +298,22 @@
             height: 40px;
             cursor: pointer;
             font-size: 15px;
+        }
+
+        .thread-footer button:hover {
+            background: #4f46e5;
+        }
+
+        .thread-header > button {
+            border: 0;
+            background: transparent;
+            color: #6b7280;
+            cursor: pointer;
+            font-size: 18px;
+        }
+
+        .thread-header > button:hover {
+            color: #111827;
         }
 
         .empty-thread {
@@ -294,6 +339,153 @@
             color: white;
             font-size: 10px;
             font-weight: 700;
+        }
+
+        .dark .msg-list {
+            background: #111827;
+            border-color: #374151;
+            color: #f9fafb;
+        }
+
+        .dark .msg-list-header {
+            border-bottom-color: #374151;
+        }
+
+        .dark .msg-list-header h3,
+        .dark .m-name {
+            color: #f9fafb;
+        }
+
+        .dark .msg-search input {
+            border-color: #4b5563;
+            background: #1f2937;
+            color: #f9fafb;
+        }
+
+        .dark .msg-search input::placeholder {
+            color: #9ca3af;
+        }
+
+        .dark .msg-search input:focus {
+            border-color: #818cf8;
+        }
+
+        .dark .msg-search .s-icon,
+        .dark .m-time,
+        .dark .m-preview {
+            color: #9ca3af;
+        }
+
+        .dark .msg-item {
+            border-bottom-color: #374151;
+        }
+
+        .dark .msg-item:hover {
+            background: #1e1b4b;
+        }
+
+        .dark .msg-item.active {
+            background: #1e1b4b;
+            border-left-color: #6366f1;
+        }
+
+        .dark .msg-item.unread .m-preview,
+        .dark .msg-item.unread .m-name {
+            color: #f9fafb;
+        }
+
+        .dark .m-sub {
+            color: #a5b4fc;
+        }
+
+        .dark .msg-thread {
+            background: #111827;
+            border-color: #374151;
+            color: #f9fafb;
+        }
+
+        .dark .thread-header,
+        .dark .thread-footer {
+            border-color: #374151;
+            background: #111827;
+        }
+
+        .dark .t-avatar {
+            background: #1e1b4b;
+            color: #a5b4fc;
+        }
+
+        .dark .t-name {
+            color: #f9fafb;
+        }
+
+        .dark .t-sub,
+        .dark .t-time,
+        .dark .empty-thread {
+            color: #9ca3af;
+        }
+
+        .dark .thread-body {
+            background: #0f172a;
+        }
+
+        .dark .t-msg-avatar {
+            background: #312e81;
+            color: #c7d2fe;
+        }
+
+        .dark .t-msg-row.own .t-msg-avatar {
+            background: #1e1b4b;
+            color: #c7d2fe;
+        }
+
+        .dark .t-sender-name {
+            color: #d1d5db;
+        }
+
+        .dark .t-bubble {
+            border-color: #374151;
+            background: #1f2937;
+            color: #f3f4f6;
+        }
+
+        .dark .t-msg-row.own .t-bubble {
+            background: #6366f1;
+            color: #ffffff;
+        }
+
+        .dark .thread-footer input {
+            border-color: #4b5563;
+            background: #1f2937;
+            color: #f9fafb;
+        }
+
+        .dark .thread-footer input::placeholder {
+            color: #9ca3af;
+        }
+
+        .dark .thread-footer input:focus {
+            border-color: #818cf8;
+        }
+
+        .dark .thread-footer button {
+            background: #6366f1;
+        }
+
+        .dark .thread-footer button:hover {
+            background: #4f46e5;
+        }
+
+        .dark .thread-header > button {
+            color: #9ca3af;
+        }
+
+        .dark .thread-header > button:hover {
+            color: #f9fafb;
+        }
+
+        .dark .msg-list .p-6.text-center {
+            color: #9ca3af;
         }
         
         @media (max-width: 900px) {
@@ -351,12 +543,8 @@
                     @php
                         $latestMessage = $conversation->messages->last();
 
-                        $otherParticipant = $conversation
-                            ->participants
-                            ->firstWhere('id', '!=', auth()->id());
-
-                        $displayName = $otherParticipant?->name
-                            ?? 'Legal Office';
+                        $displayName = $conversation->document?->particulars
+                            ?: 'General Conversation';
 
                         $initials = collect(
                             explode(' ', $displayName)
@@ -373,8 +561,13 @@
 
                         $searchText = strtolower(
                             $displayName . ' ' .
-                            ($conversation->document?->particulars ?? '') . ' ' .
-                            ($latestMessage?->body ?? '')
+                            ($conversation->document?->lao_number ?? '')
+                        );
+
+                        $searchKey = preg_replace(
+                            '/[^a-z0-9]/',
+                            '',
+                            $searchText
                         );
                     @endphp
 
@@ -388,6 +581,8 @@
                                 : '' }}
                         "
                         wire:click="selectConversation({{ $conversation->id }})"
+                        data-search-text="{{ $searchKey }}"
+                        x-show="!search.trim() || $el.dataset.searchText.includes(search.trim().toLowerCase().replace(/[^a-z0-9]/g, ''))"
                     >
 
                     @if ($conversation->unread_messages_count > 0)
@@ -413,7 +608,7 @@
                             <div class="m-sub">
 
                                 @if ($conversation->document)
-                                    Document #{{ $conversation->document_id }}
+                                    {{ $conversation->document->lao_number ?? 'Not assigned' }}
                                 @else
                                     General Conversation
                                 @endif
@@ -432,6 +627,8 @@
                                     @if ($latestMessage)
                                         {{ $latestMessage
                                             ->created_at
+                                            ->copy()
+                                            ->timezone(config('app.timezone'))
                                             ->format('M d') }}
                                     @endif
 
@@ -474,6 +671,14 @@
 
                 @endforelse
 
+                <div
+                    x-cloak
+                    x-show="search.trim() && !Array.from($root.querySelectorAll('.msg-item')).some(item => item.offsetParent !== null)"
+                    class="p-6 text-center text-gray-500 dark:text-gray-400"
+                >
+                    No conversations match your search.
+                </div>
+
             </div>
 
         </div>
@@ -505,12 +710,8 @@
                 $activeConversation = $conversations
                     ->firstWhere('id', $selectedConversation);
 
-                $otherParticipant = $activeConversation
-                    ?->participants
-                    ->firstWhere('id', '!=', auth()->id());
-
-                $threadName = $otherParticipant?->name
-                    ?? 'Legal Office';
+                $threadName = $activeConversation?->document?->particulars
+                    ?: 'General Conversation';
 
                 $threadInitials = collect(explode(' ', $threadName))
                     ->filter()
@@ -539,7 +740,7 @@
                     <div class="t-sub">
 
                         @if ($activeConversation?->document)
-                            Document #{{ $activeConversation->document_id }}
+                            {{ $activeConversation->document->lao_number ?? 'Not assigned' }}
                         @endif
 
                         @if ($activeConversation?->assignedStaff)
@@ -579,6 +780,8 @@
                             $message->sender?->name
                             ?? 'Unknown User';
 
+                        $senderProfilePhoto = $message->sender?->getProfilePhotoUrl();
+
                         $senderInitials = collect(
                             explode(' ', $senderName)
                         )
@@ -598,7 +801,12 @@
 
                         <div class="t-msg-avatar">
 
-                            @if ($isOwn)
+                            @if ($senderProfilePhoto)
+                                <img
+                                    src="{{ $senderProfilePhoto }}"
+                                    alt="{{ $senderName }}"
+                                >
+                            @elseif ($isOwn)
                                 You
                             @else
                                 {{ $senderInitials ?: '?' }}
@@ -621,7 +829,10 @@
                             </div>
 
                             <div class="t-time">
-                                {{ $message->created_at->format('M d, g:i A') }}
+                                {{ $message->created_at
+                                    ->copy()
+                                    ->timezone(config('app.timezone'))
+                                    ->format('M d, g:i A') }}
                             </div>
 
                         </div>

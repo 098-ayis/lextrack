@@ -22,15 +22,13 @@ class Request extends Page
 
     protected string $view = 'filament.client.pages.request';
 
-    public string $documentName = '';
-
     public string $laoNumber = '';
 
     public string $purpose = '';
 
-    public $attachment = null;
+    public string $otherPurpose = '';
 
-    public string $qrValue = '';
+    public $attachment = null;
 
     public function getHeading(): string
     {
@@ -38,37 +36,54 @@ class Request extends Page
     }
 
     /**
-     * Only documents owned by the signed-in client can be requested.
-     * Documents need an LAO number because that is what the client enters/scans.
+     * Documents supplied by the Legal Affairs Office can be requested by LAO
+     * number or QR code. The signed-in client is stored on document_requests,
+     * not on the document itself.
      */
     protected function requestableDocumentsQuery(): Builder
     {
         return Document::query()
-            ->where('user_id', auth()->id())
             ->whereNotNull('lao_number')
-            ->whereIn('status', [
-                'in_progress',
-                'outgoing',
-                'completed',
-                'archived',
-            ])
+            ->where('lao_number', '!=', '')
             ->orderBy('lao_number');
     }
 
     public function updatedLaoNumber(string $laoNumber): void
     {
-        $document = $this->requestableDocumentsQuery()
-            ->where('lao_number', trim($laoNumber))
-            ->first();
+        $this->resetValidation('laoNumber');
+    }
 
-        $this->documentName = $document?->particulars ?? '';
+    public function updatedPurpose(string $purpose): void
+    {
+        $this->resetValidation('purpose');
+
+        if ($purpose !== 'other') {
+            $this->otherPurpose = '';
+            $this->resetValidation('otherPurpose');
+        }
+    }
+
+    public function updatedOtherPurpose(): void
+    {
+        $this->resetValidation('otherPurpose');
+    }
+
+    public function purposeOptions(): array
+    {
+        return [
+            'physical_copy' => 'I need a copy of the physical file submitted to the office',
+            'personal_reference' => 'For personal reference',
+            'official_transaction' => 'For an official transaction or submission',
+            'lost_or_damaged' => 'My copy was lost or damaged',
+            'other' => 'Others',
+        ];
     }
 
     /**
      * Resolve QR payloads containing an LAO number, a URL with an LAO parameter,
      * JSON with an lao_number field, or a document ID as a last resort.
      */
-    public function resolveQr(string $payload): void
+    public function resolveQr(string $payload): bool
     {
         $payload = trim($payload);
         $laoNumber = $this->extractLaoNumber($payload);
@@ -79,6 +94,14 @@ class Request extends Page
             ? $query->where('lao_number', $laoNumber)->first()
             : null;
 
+        $documentId = $this->extractDocumentId($payload);
+
+        if (! $document && $documentId !== null) {
+            $document = $this->requestableDocumentsQuery()
+                ->whereKey($documentId)
+                ->first();
+        }
+
         if (! $document && ctype_digit($payload)) {
             $document = $this->requestableDocumentsQuery()
                 ->whereKey((int) $payload)
@@ -88,36 +111,43 @@ class Request extends Page
         if (! $document) {
             Notification::make()
                 ->title('Document not found')
-                ->body('The QR code does not match one of your documents with an LAO number.')
+                ->body('The QR code does not match an available document with an LAO number.')
                 ->danger()
                 ->send();
 
-            return;
+            return false;
         }
 
         $this->laoNumber = (string) $document->lao_number;
-        $this->documentName = (string) $document->particulars;
-        $this->qrValue = $payload;
 
         Notification::make()
             ->title('Document selected')
             ->body('LAO number ' . $document->lao_number . ' was found.')
             ->success()
             ->send();
+
+        return true;
     }
 
     public function submit(): void
     {
         $this->validate([
-            'documentName' => ['required', 'string', 'max:255'],
             'laoNumber' => [
                 'required',
                 'string',
                 'max:50',
-                Rule::exists('documents', 'lao_number')
-                    ->where(fn ($query) => $query->where('user_id', auth()->id())),
+                Rule::exists('documents', 'lao_number'),
             ],
-            'purpose' => ['required', 'string', 'max:2000'],
+            'purpose' => [
+                'required',
+                Rule::in(array_keys($this->purposeOptions())),
+            ],
+            'otherPurpose' => [
+                'nullable',
+                'required_if:purpose,other',
+                'string',
+                'max:2000',
+            ],
             'attachment' => [
                 'nullable',
                 'file',
@@ -131,7 +161,7 @@ class Request extends Page
             ->first();
 
         if (! $document) {
-            $this->addError('laoNumber', 'The LAO number does not match one of your documents.');
+            $this->addError('laoNumber', 'The LAO number does not match an available document.');
 
             return;
         }
@@ -158,7 +188,9 @@ class Request extends Page
 
         DocumentRequest::create([
             'document_id' => $document->document_id,
-            'purpose' => trim($this->purpose),
+            'purpose' => $this->purpose === 'other'
+                ? 'Other: ' . trim($this->otherPurpose)
+                : $this->purposeOptions()[$this->purpose],
             'attachment_path' => $attachmentPath,
             'user_id' => auth()->id(),
             'status' => 'pending',
@@ -177,11 +209,10 @@ class Request extends Page
     public function clearForm(): void
     {
         $this->reset([
-            'documentName',
             'laoNumber',
             'purpose',
+            'otherPurpose',
             'attachment',
-            'qrValue',
         ]);
 
         $this->resetValidation();
@@ -221,5 +252,30 @@ class Request extends Page
         }
 
         return null;
+    }
+
+    private function extractDocumentId(string $payload): ?int
+    {
+        if (ctype_digit($payload)) {
+            return (int) $payload;
+        }
+
+        if (! filter_var($payload, FILTER_VALIDATE_URL)) {
+            return null;
+        }
+
+        $path = parse_url($payload, PHP_URL_PATH);
+
+        if (! is_string($path)) {
+            return null;
+        }
+
+        return preg_match(
+            '#(?:^|/)(?:document-status|client/document-preview|client/document-download)/(\\d+)(?:/)?$#',
+            trim($path, '/'),
+            $matches
+        ) === 1
+            ? (int) $matches[1]
+            : null;
     }
 }
