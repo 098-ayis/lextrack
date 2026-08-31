@@ -41,7 +41,7 @@
 </nav>
 
     <header
-        class="mb-0 flex items-center justify-between gap-4 border border-gray-200
+        class="document-viewer-header mb-0 flex items-center justify-between gap-4 border border-gray-200
                border-b-0 bg-white px-5 py-4 shadow-sm"
     >
         <div class="flex min-w-0 items-center gap-3">
@@ -100,8 +100,8 @@
         <button
             type="button"
             wire:click="goBack"
-            class="inline-flex min-w-[105px] shrink-0 items-center justify-center
-                   rounded-full border border-gray-300 bg-white px-5 py-2
+            class="inline-flex min-w-[90px] shrink-0 items-center justify-center
+                   rounded-full border border-gray-300 bg-white px-3 py-1
                    text-sm font-semibold text-gray-600 transition hover:bg-gray-50"
         >
             Back
@@ -192,7 +192,7 @@
                         class="flex items-center justify-between gap-3
                                border-b border-gray-300 px-4 py-3"
                     >
-                        <h2 class="text-sm font-bold text-gray-950">
+                        <h2 class="sidebar-section-title text-sm font-bold text-gray-950">
                             Document Details
                         </h2>
 
@@ -402,7 +402,7 @@
                                 />
                             </svg>
 
-                            <span class="truncate text-sm font-medium text-gray-900">
+                            <span class="sidebar-section-title truncate text-sm font-bold text-gray-900">
                                 {{ $attachmentCount }}
                                 {{ $attachmentCount === 1 ? 'attachment' : 'attachments' }}
                             </span>
@@ -579,6 +579,13 @@
                 {{-- ================================================= --}}
                 {{-- AUDIT TRAILS --}}
                 {{-- ================================================= --}}
+                @php
+                    $activityLogs = $documentRecord->activityLogs
+                        ->sortByDesc('created_at')
+                        ->values();
+                    $latestActivityLogs = $activityLogs->take(3);
+                @endphp
+
                 <section x-data="{ auditOpen: true }">
 
                     <div
@@ -586,35 +593,41 @@
                                px-4 pb-2 pt-5"
                     >
 
-                        <h2 class="text-sm font-bold text-gray-950">
+                        <h2 class="sidebar-section-title text-sm font-bold text-gray-950">
                             Audit Trails
                         </h2>
 
-                        <button
-                            type="button"
-                            @click="auditOpen = !auditOpen"
-                            class="inline-flex h-7 w-7 items-center justify-center
-                                   rounded-md text-gray-700 hover:bg-gray-100"
-                            title="Toggle audit trails"
-                            :aria-expanded="auditOpen"
-                            aria-label="Toggle audit trails"
-                        >
-                            <svg
-                                class="h-5 w-5 transition-transform"
-                                :class="auditOpen ? 'rotate-180' : ''"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                                aria-hidden="true"
+                        <div class="flex shrink-0 items-center gap-1">
+                            {{ ($this->viewAllAuditTrailsAction)([
+                                'document' => $documentRecord->document_id,
+                            ]) }}
+
+                            <button
+                                type="button"
+                                @click="auditOpen = !auditOpen"
+                                class="inline-flex h-7 w-7 items-center justify-center
+                                       rounded-md text-gray-700 hover:bg-gray-100"
+                                title="Toggle audit trails"
+                                :aria-expanded="auditOpen"
+                                aria-label="Toggle audit trails"
                             >
-                                <path
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                    stroke-width="2"
-                                    d="m6 9 6 6 6-6"
-                                />
-                            </svg>
-                        </button>
+                                <svg
+                                    class="h-5 w-5 transition-transform"
+                                    :class="auditOpen ? 'rotate-180' : ''"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                    aria-hidden="true"
+                                >
+                                    <path
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        stroke-width="2"
+                                        d="m6 9 6 6 6-6"
+                                    />
+                                </svg>
+                            </button>
+                        </div>
                     </div>
 
                     <div x-show="auditOpen">
@@ -631,7 +644,7 @@
 
                     <div>
 
-                        @forelse ($documentRecord->activityLogs->sortByDesc('created_at') as $log)
+                        @forelse ($latestActivityLogs as $log)
 
                             <div
                                 class="grid grid-cols-[1.1fr_0.8fr_1.3fr]
@@ -810,6 +823,24 @@
             min-width: 0;
         }
 
+        .document-details-sidebar,
+        .document-details-sidebar * {
+            font-size: 10px !important;
+        }
+
+        .document-viewer-header,
+        .document-viewer-header * {
+            font-size: 11px !important;
+        }
+
+        .document-details-sidebar .sidebar-section-title {
+            font-size: 12px !important;
+        }
+
+        .document-notes-sidebar .add-note-button > .fi-icon {
+            color: #ffffff !important;
+        }
+
         /*
          * Smaller screens:
          * don't force the compact desktop sidebar beside the PDF.
@@ -846,5 +877,7 @@
             }
         }
     </style>
+
+    <x-filament-actions::modals />
 
 </x-filament-panels::page>

@@ -83,6 +83,14 @@ class ViewDocument extends Page
             ->label('Add Notes')
             ->icon('heroicon-o-plus')
             ->size('sm')
+            ->color('gray')
+            ->extraAttributes([
+                'class' => 'add-note-button !h-8 !min-h-8 !rounded-full !border-0
+                            !bg-[#5B5CE2] !px-3 !py-1 !text-[11px]
+                            !font-semibold !text-white !shadow-none
+                            hover:!bg-[#4F50D0]',
+                'style' => 'color: #ffffff;',
+            ])
             ->modalHeading('Add Notes')
             ->modalSubmitActionLabel('Save Note')
             ->schema([
@@ -128,6 +136,7 @@ class ViewDocument extends Page
         return Action::make('editDocumentDetails')
             ->label('')
             ->icon('heroicon-o-pencil-square')
+            ->iconButton()
             ->color('gray')
             ->disabled($isLocked)
             ->tooltip($isLocked
@@ -353,6 +362,7 @@ class ViewDocument extends Page
         return Action::make('addVersion')
             ->label('')
             ->icon('heroicon-o-plus')
+            ->iconButton()
             ->disabled($isLocked)
             ->tooltip($isLocked
                 ? 'Uploading is disabled for pending or rejected documents'
@@ -496,6 +506,7 @@ class ViewDocument extends Page
         return Action::make('deleteVersion')
             ->label('')
             ->icon('heroicon-o-trash')
+            ->iconButton()
             ->color('danger')
             ->tooltip('Delete version')
             ->extraAttributes([
@@ -508,6 +519,28 @@ class ViewDocument extends Page
             ->action(function (array $arguments): void {
                 $this->deleteVersion((int) $arguments['version']);
             });
+    }
+
+    public function viewAllAuditTrailsAction(): Action
+    {
+        return Action::make('viewAllAuditTrails')
+            ->label('')
+            ->icon('heroicon-o-list-bullet')
+            ->iconButton()
+            ->color('gray')
+            ->size('sm')
+            ->tooltip('View all audit trails')
+            ->extraAttributes([
+                'class' => 'h-7 w-7 rounded-md p-1 text-gray-700 hover:bg-gray-100',
+            ])
+            ->modalHeading('All Audit Trails')
+            ->modalSubmitAction(false)
+            ->modalCancelActionLabel('Close')
+            ->modalContent(fn () => view('filament.pages.audit-trails-modal', [
+                'logs' => $this->documentRecord->activityLogs
+                    ->sortByDesc('created_at')
+                    ->values(),
+            ]));
     }
 
     public function selectCurrentDocument(): void

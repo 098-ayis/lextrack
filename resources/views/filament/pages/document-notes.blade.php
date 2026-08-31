@@ -72,8 +72,8 @@
                         x-cloak
                         x-show="menuOpen"
                         x-on:click.outside="menuOpen = false"
-                        class="absolute right-0 top-8 z-10 w-28 rounded-md border
-                               border-gray-200 bg-white p-1 shadow-lg"
+                        class="absolute right-0 top-8 z-10 flex w-28 flex-col gap-1
+                               rounded-md border border-gray-200 bg-white p-1 shadow-lg"
                         role="menu"
                     >
                         {{ ($this->editNoteAction)([
