@@ -68,10 +68,11 @@ function goTo(path) {
   transform: none !important; 
   position: relative;
   z-index: 2;
+  transition: transform 0.6s ease-out;
 }
 
 .hero-text h1 {
-  font-size: clamp(36px, 3.1vw, 52px);
+  font-size: 52px;
   font-weight: 800;
   line-height: 1.15;
   margin-bottom: 30px; 
@@ -158,73 +159,118 @@ function goTo(path) {
   box-shadow: 0 0 0 32px #ffffff; 
   z-index: 1;
   pointer-events: none;
+  transition: transform 0.6s ease-out, top 0.6s ease-out, right 0.6s ease-out;
 }
 
 /* Scale the artwork down on smaller desktop/tablet widths while keeping it
    beside the copy. */
-@media (max-width: 1400px) {
+@media (max-width: 1920px) {
   .hero-section {
-    padding: 132px 0 72px;
+    padding: 160px 0 72px;
   }
 
   .hero-container {
     max-width: 1280px !important;
     padding: 0 32px !important;
-    margin-top: 28px !important;
+    margin-top: 24px !important;
   }
 
   .hero-text {
     max-width: 56%;
   }
 
+  .lead {
+    max-width: 540px;
+  }
+
   .hero-image-circle {
-    top: 54%;
-    right: -25%;
+    top: 25%;
+    right: -37vw;
     transform: translateY(-50%);
-    width: min(70vw, 980px);
-    height: min(70vw, 980px);
-    border-width: 22px;
-    box-shadow: 0 0 0 22px #ffffff;
+    width: min(82vw, 1400px);
+    height: min(82vw, 1400px);
+    border-width: 32px;
+    box-shadow: 0 0 0 32px #ffffff;
   }
 }
 
 @media (max-width: 1024px) {
-  .hero-text h1 { font-size: clamp(36px, 5vw, 50px); }
   .hero-container { padding: 0 24px !important; }
 }
 
-@media (max-width: 900px) {
+/* Switch to the background-image layout before the copy reaches the circle. */
+@media (max-width: 1100px) {
   .hero-section {
-    display: block;
-    min-height: auto;
+    display: flex;
+    min-height: 100vh;
+    align-items: center;
     padding: 120px 0 72px;
+    isolation: isolate;
   }
 
   .hero-container {
-    max-width: 820px !important;
+    box-sizing: border-box;
+    max-width: none !important;
     margin-top: 0 !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
     padding: 0 32px !important;
+    display: flex;
+    justify-content: center;
+    position: static;
   }
 
   .hero-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: calc(100% - 64px);
     max-width: 760px;
+    flex: none;
+    margin: 0 auto !important;
+    text-align: center !important;
+    transform: translate(-50%, -50%) !important;
+  }
+
+  .hero-text .lead,
+  .hero-text .hours {
+    margin-left: auto;
+    margin-right: auto;
+    text-align: center;
   }
 
   .hero-text h1 {
-    font-size: clamp(36px, 7vw, 52px);
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    text-align: center !important;
+    transform: scaleX(min(1, calc((100vw - 36px) / 560px)));
+    transform-origin: center;
+  }
+
+  .hero-text h1 > span {
+    text-align: center !important;
+  }
+
+  .hero-ctas {
+    justify-content: center;
   }
 
   .hero-image-circle {
-    position: relative;
-    top: auto;
+    position: absolute;
+    inset: 0;
+    top: 0;
     right: auto;
     transform: none;
-    width: min(72vw, 620px);
-    height: min(72vw, 620px);
-    margin: 64px auto -180px;
-    border-width: 20px;
-    box-shadow: 0 0 0 20px #ffffff;
-    opacity: 0.9;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    background-position: center;
+    opacity: 0.2;
+    z-index: 0;
   }
 }
 
@@ -234,13 +280,12 @@ function goTo(path) {
   }
 
   .hero-image-circle {
-    width: min(78vw, 500px);
-    height: min(78vw, 500px);
-    margin-top: 48px;
-    margin-bottom: -120px;
-    border-width: 14px;
-    box-shadow: 0 0 0 14px #ffffff;
-    opacity: 0.3;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    border: 0;
+    box-shadow: none;
+    opacity: 0.18;
   }
 
   .hero-text {
@@ -248,7 +293,6 @@ function goTo(path) {
     text-align: center;
   }
 
-  .hero-text h1 { font-size: clamp(32px, 9vw, 44px); }
   .lead { font-size: 17px; }
   .hours { margin-bottom: 32px; }
 
@@ -269,12 +313,12 @@ function goTo(path) {
 
 @media (max-width: 480px) {
   .hero-container { padding: 0 18px !important; }
-  .hero-text h1 { font-size: clamp(26px, 8vw, 30px); }
+  .hero-text { width: calc(100% - 36px); }
   .lead { font-size: 16px; }
   .hero-image-circle {
-    width: min(82vw, 380px);
-    height: min(82vw, 380px);
-    margin-bottom: -80px;
+    width: 100%;
+    height: 100%;
+    margin: 0;
   }
 }
 </style>
