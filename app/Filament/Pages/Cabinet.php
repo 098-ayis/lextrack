@@ -73,8 +73,21 @@ class Cabinet extends Page
                     $document->type->type_name
             )
             ->map(function ($documentsByType) {
+                $isOthers = $documentsByType
+                    ->first()?->type?->type_name === 'Others';
+
                 return $documentsByType
-                    ->groupBy(function (Document $document) {
+                    ->groupBy(function (Document $document) use ($isOthers) {
+                        if ($isOthers) {
+                            $customType = trim(
+                                (string) $document->other_document_type
+                            );
+
+                            return $customType !== ''
+                                ? $customType
+                                : 'Unspecified Type';
+                        }
+
                         $office = trim((string) $document->office_unit);
 
                         return $office !== ''
@@ -148,11 +161,25 @@ class Cabinet extends Page
             ->form([
                 Select::make('type_id')
                     ->label('Document Type')
-                    ->options(
-                        DocumentType::query()
-                            ->orderBy('type_name')
+                    ->options(function () {
+                        return DocumentType::query()
+                            ->get(['type_id', 'type_name'])
+                            ->sort(function (DocumentType $first, DocumentType $second): int {
+                                $firstName = trim((string) $first->type_name);
+                                $secondName = trim((string) $second->type_name);
+
+                                $firstIsOthers = strcasecmp($firstName, 'Others') === 0;
+                                $secondIsOthers = strcasecmp($secondName, 'Others') === 0;
+
+                                if ($firstIsOthers !== $secondIsOthers) {
+                                    return $firstIsOthers ? 1 : -1;
+                                }
+
+                                return strcasecmp($firstName, $secondName);
+                            })
                             ->pluck('type_name', 'type_id')
-                    )
+                            ->all();
+                    })
                     ->searchable()
                     ->preload()
                     ->live()
@@ -260,6 +287,7 @@ class Cabinet extends Page
 
         $this->currentType = $type;
         $this->currentOffice = '';
+        $this->sourceFilter = 'all';
 
         $this->selectedItem = null;
         $this->selectedDocumentId = null;
@@ -284,6 +312,7 @@ class Cabinet extends Page
     {
         $this->currentType = '';
         $this->currentOffice = '';
+        $this->sourceFilter = 'all';
 
         $this->selectedItem = null;
         $this->selectedDocumentId = null;
@@ -292,6 +321,7 @@ class Cabinet extends Page
     public function goToType(): void
     {
         $this->currentOffice = '';
+        $this->sourceFilter = 'all';
 
         $this->selectedItem = null;
         $this->selectedDocumentId = null;

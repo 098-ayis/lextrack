@@ -1,16 +1,48 @@
 <x-filament-panels::page>
 
+    <style>
+        .fi-modal .fi-btn.fi-color-primary {
+            background-color: #6366f1 !important;
+            color: #ffffff !important;
+        }
+
+        .fi-modal .fi-btn.fi-color-primary:hover {
+            background-color: #4f46e5 !important;
+        }
+
+        .fi-modal .fi-btn.fi-color-primary:focus-visible {
+            outline: 2px solid #818cf8;
+            outline-offset: 2px;
+        }
+    </style>
+
     @php
 
         $cabinet = $this->cabinet;
 
-        $documentTypes = array_keys($cabinet);
+        $documentTypes = collect(array_keys($cabinet))
+            ->sort(function (string $first, string $second): int {
+                $firstIsOthers = strcasecmp($first, 'Others') === 0;
+                $secondIsOthers = strcasecmp($second, 'Others') === 0;
+
+                if ($firstIsOthers !== $secondIsOthers) {
+                    return $firstIsOthers ? 1 : -1;
+                }
+
+                return strcasecmp($first, $second);
+            })
+            ->values()
+            ->all();
 
         $allOffices = collect($cabinet)
             ->flatMap(fn ($type) => array_keys($type))
             ->unique()
             ->sort()
             ->values();
+
+        $filterOptions = $currentType !== '' && isset($cabinet[$currentType])
+            ? collect(array_keys($cabinet[$currentType]))->sort()->values()
+            : $allOffices;
 
         $isRoot = $currentType === '';
 
@@ -54,7 +86,7 @@
                 <button
                     type="button"
                     wire:click="goToRoot"
-                    class="text-gray-500 transition hover:text-primary-600 dark:text-gray-400"
+                    class="text-gray-500 transition hover:text-indigo-600 dark:text-gray-400"
                 >
                     Cabinet
                 </button>
@@ -68,7 +100,7 @@
                     <button
                         type="button"
                         wire:click="goToType"
-                        class="text-gray-500 transition hover:text-primary-600 dark:text-gray-400"
+                        class="text-gray-500 transition hover:text-indigo-600 dark:text-gray-400"
                     >
                         {{ $currentType }}
                     </button>
@@ -98,9 +130,9 @@
         {{-- HEADER --}}
         {{-- ============================================================= --}}
 
-        <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
 
-            <div>
+            <div class="w-full lg:max-w-xl lg:flex-1">
 
                 @if(! $isRoot)
 
@@ -116,17 +148,34 @@
 
                 @endif
 
-                <p class="{{ $isRoot ? 'text-sm text-gray-500 dark:text-gray-400' : 'mt-1 text-sm text-gray-500 dark:text-gray-400' }}">
+                <div @class(['relative', 'mt-4' => ! $isRoot])>
 
-                    @if($isRoot)
-                        Browse and manage archived legal documents.
-                    @elseif($isTypeView)
-                        Select a college or office to view its documents.
-                    @else
-                        Documents received from {{ $currentOffice }}.
+                    <x-heroicon-o-magnifying-glass
+                        class="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400"
+                    />
+
+                    <input
+                        type="text"
+                        wire:model.live.debounce.300ms="search"
+                        placeholder="Search documents, folders, or offices..."
+                        class="w-full rounded-lg border-gray-300 bg-gray-50 py-2.5 pl-10 pr-10 text-sm focus:border-indigo-500 focus:ring-indigo-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                    />
+
+                    @if($search)
+
+                        <button
+                            wire:click="clearSearch"
+                            type="button"
+                            class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        >
+
+                            <x-heroicon-m-x-mark class="h-5 w-5" />
+
+                        </button>
+
                     @endif
 
-                </p>
+                </div>
 
             </div>
 
@@ -173,7 +222,7 @@
                             <span>Name</span>
 
                             @if($sortBy === 'name')
-                                <x-heroicon-m-check class="h-4 w-4 text-primary-600" />
+                                <x-heroicon-m-check class="h-4 w-4 text-indigo-600" />
                             @endif
 
                         </button>
@@ -188,7 +237,7 @@
                             <span>Date modified</span>
 
                             @if($sortBy === 'date')
-                                <x-heroicon-m-check class="h-4 w-4 text-primary-600" />
+                                <x-heroicon-m-check class="h-4 w-4 text-indigo-600" />
                             @endif
 
                         </button>
@@ -203,7 +252,7 @@
                             <span>Type</span>
 
                             @if($sortBy === 'type')
-                                <x-heroicon-m-check class="h-4 w-4 text-primary-600" />
+                                <x-heroicon-m-check class="h-4 w-4 text-indigo-600" />
                             @endif
 
                         </button>
@@ -218,7 +267,7 @@
                             <span>Size</span>
 
                             @if($sortBy === 'size')
-                                <x-heroicon-m-check class="h-4 w-4 text-primary-600" />
+                                <x-heroicon-m-check class="h-4 w-4 text-indigo-600" />
                             @endif
 
                         </button>
@@ -459,7 +508,7 @@
                     >
 
                         <p class="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-500">
-                            Filter by source
+                            {{ $currentType === 'Others' ? 'Filter by document type' : 'Filter by source' }}
                         </p>
 
                         <select
@@ -468,10 +517,10 @@
                         >
 
                             <option value="all">
-                                All Sources
+                                {{ $currentType === 'Others' ? 'All Document Types' : 'All Sources' }}
                             </option>
 
-                            @foreach($allOffices as $office)
+                            @foreach($filterOptions as $office)
 
                                 <option value="{{ $office }}">
                                     {{ $office }}
@@ -486,24 +535,11 @@
                 </div>
 
 
-                {{-- ADD FOLDER --}}
-                <button
-                    type="button"
-                    class="ml-1 inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm transition hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
-                >
-
-                    <x-heroicon-o-folder-plus class="h-5 w-5" />
-
-                    Add Folder
-
-                </button>
-
-
                 {{-- ADD DOCUMENT --}}
                 <button
                     type="button"
                     wire:click="mountAction('addDocument')"
-                    class="inline-flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-500"
+                    class="inline-flex items-center gap-2 rounded-lg bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
                 >
 
                     <x-heroicon-o-document-plus class="h-5 w-5" />
@@ -515,46 +551,6 @@
             </div>
 
         </div>
-
-
-        {{-- ============================================================= --}}
-        {{-- SEARCH --}}
-        {{-- ============================================================= --}}
-
-        <div class="flex items-center gap-3">
-
-            <div class="relative flex-1">
-
-                <x-heroicon-o-magnifying-glass
-                    class="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400"
-                />
-
-                <input
-                    type="text"
-                    wire:model.live.debounce.300ms="search"
-                    placeholder="Search documents, folders, or offices..."
-                    class="w-full rounded-lg border-gray-300 bg-gray-50 py-2.5 pl-10 pr-10 text-sm focus:border-primary-500 focus:ring-primary-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-                />
-
-                @if($search)
-
-                    <button
-                        wire:click="clearSearch"
-                        type="button"
-                        class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                    >
-
-                        <x-heroicon-m-x-mark class="h-5 w-5" />
-
-                    </button>
-
-                @endif
-
-            </div>
-
-        </div>
-
-
         {{-- ============================================================= --}}
         {{-- CONTENT AREA --}}
         {{-- ============================================================= --}}
@@ -587,11 +583,11 @@
 
                                     <button
                                         wire:click="openType('{{ $type }}')"
-                                        class="group rounded-xl border border-gray-200 bg-white p-5 text-left transition hover:border-primary-300 hover:bg-gray-50 hover:shadow-sm dark:border-gray-700 dark:bg-gray-900 dark:hover:border-primary-500 dark:hover:bg-gray-800"
+                                        class="group rounded-xl border border-gray-200 bg-white p-5 text-left transition hover:border-indigo-300 hover:bg-indigo-50/40 hover:shadow-sm dark:border-gray-700 dark:bg-gray-900 dark:hover:border-indigo-500 dark:hover:bg-indigo-500/5"
                                     >
 
                                         <x-heroicon-o-folder
-                                            class="h-14 w-14 text-primary-500"
+                                            class="h-14 w-14 text-indigo-500"
                                         />
 
                                         <p class="mt-4 truncate text-sm font-semibold text-gray-900 dark:text-white">
@@ -600,7 +596,11 @@
 
                                         <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
                                             {{ count($cabinet[$type]) }}
-                                            {{ Str::plural('source', count($cabinet[$type])) }}
+                                            @if($type === 'Others')
+                                                {{ Str::plural('document type', count($cabinet[$type])) }}
+                                            @else
+                                                {{ Str::plural('source', count($cabinet[$type])) }}
+                                            @endif
                                         </p>
 
                                     </button>
@@ -633,7 +633,7 @@
                                     >
 
                                         <x-heroicon-o-folder
-                                            class="h-9 w-9 shrink-0 text-primary-500"
+                                            class="h-9 w-9 shrink-0 text-indigo-500"
                                         />
 
                                         <div class="min-w-0 flex-1">
@@ -643,7 +643,12 @@
                                             </p>
 
                                             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                                                {{ count($cabinet[$type]) }} source offices
+                                                {{ count($cabinet[$type]) }}
+                                                @if($type === 'Others')
+                                                    {{ Str::plural('document type', count($cabinet[$type])) }}
+                                                @else
+                                                    {{ Str::plural('source office', count($cabinet[$type])) }}
+                                                @endif
                                             </p>
 
                                         </div>
@@ -664,7 +669,7 @@
 
 
                 {{-- ===================================================== --}}
-                {{-- DOCUMENT TYPE → OFFICE --}}
+                {{-- DOCUMENT TYPE → OFFICE / OTHERS → CUSTOM TYPE --}}
                 {{-- ===================================================== --}}
 
                 @elseif($isTypeView)
@@ -689,11 +694,11 @@
 
                                     <button
                                         wire:click="openOffice('{{ $office }}')"
-                                        class="group rounded-xl border border-gray-200 bg-white p-5 text-left transition hover:border-primary-300 hover:bg-gray-50 hover:shadow-sm dark:border-gray-700 dark:bg-gray-900 dark:hover:border-primary-500 dark:hover:bg-gray-800"
+                                        class="group rounded-xl border border-gray-200 bg-white p-5 text-left transition hover:border-indigo-300 hover:bg-indigo-50/40 hover:shadow-sm dark:border-gray-700 dark:bg-gray-900 dark:hover:border-indigo-500 dark:hover:bg-indigo-500/5"
                                     >
 
                                         <x-heroicon-o-folder
-                                            class="h-14 w-14 text-primary-500"
+                                            class="h-14 w-14 text-indigo-500"
                                         />
 
                                         <p class="mt-4 line-clamp-2 text-sm font-semibold text-gray-900 dark:text-white">
@@ -740,7 +745,7 @@
                                     >
 
                                         <x-heroicon-o-folder
-                                            class="h-9 w-9 shrink-0 text-primary-500"
+                                            class="h-9 w-9 shrink-0 text-indigo-500"
                                         />
 
                                         <div class="min-w-0 flex-1">
@@ -940,18 +945,18 @@
 
                             <div class="flex justify-center">
 
-                                <div class="flex h-20 w-20 items-center justify-center rounded-xl bg-primary-50 dark:bg-primary-500/10">
+                                <div class="flex h-20 w-20 items-center justify-center rounded-xl bg-indigo-50 dark:bg-indigo-500/10">
 
                                     @if($currentOffice)
 
                                         <x-heroicon-o-document-text
-                                            class="h-11 w-11 text-primary-500"
+                                            class="h-11 w-11 text-indigo-500"
                                         />
 
                                     @else
 
                                         <x-heroicon-o-folder
-                                            class="h-11 w-11 text-primary-500"
+                                            class="h-11 w-11 text-indigo-500"
                                         />
 
                                     @endif

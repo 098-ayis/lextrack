@@ -1,5 +1,21 @@
 <x-filament-panels::page>
 
+    <style>
+        .theme-indigo-action .fi-btn {
+            background-color: #6366f1 !important;
+            color: #ffffff !important;
+        }
+
+        .theme-indigo-action .fi-btn:hover {
+            background-color: #4f46e5 !important;
+        }
+
+        .theme-indigo-action .fi-btn:focus-visible {
+            outline: 2px solid #818cf8;
+            outline-offset: 2px;
+        }
+    </style>
+
     <div class="space-y-6">
 
         {{-- ========================================================= --}}
@@ -35,8 +51,8 @@
                         text-base
                         shadow-sm
 
-                        focus:border-primary-500
-                        focus:ring-primary-500
+                        focus:border-indigo-500
+                        focus:ring-indigo-500
 
                         dark:border-gray-700
                         dark:bg-gray-800
@@ -477,21 +493,21 @@
                                     @elseif($isSelected)
 
                                         cursor-pointer
-                                        bg-primary-50
+                                        bg-indigo-50
 
                                         ring-2
                                         ring-inset
-                                        ring-primary-500
+                                        ring-indigo-500
 
-                                        dark:bg-primary-950
+                                        dark:bg-indigo-950
 
 
                                     @elseif($isToday)
 
                                         cursor-pointer
-                                        bg-amber-50
+                                        bg-indigo-50
 
-                                        dark:bg-primary-950
+                                        dark:bg-indigo-950
 
 
                                     @else
@@ -538,7 +554,7 @@
 
                                                 rounded-full
 
-                                                bg-orange-500
+                                                bg-indigo-500
 
                                                 text-white
 
@@ -738,7 +754,7 @@
                                                     text-[10px]
                                                     font-semibold
 
-                                                    text-primary-600
+                                                    text-indigo-600
                                                 "
                                             >
 
@@ -877,7 +893,7 @@
                             class="
                                 text-2xl
                                 font-bold
-                                text-orange-600
+                                text-indigo-600
                             "
                         ></div>
 
@@ -949,7 +965,7 @@
 
                                 <span
                                     class="
-                                        text-primary-600
+                                    text-indigo-600
                                     "
                                 >
                                     {{
@@ -981,18 +997,18 @@
 
                                     rounded-md
 
-                                    bg-primary-50
+                                    bg-indigo-50
 
                                     px-2
                                     py-1
 
                                     text-xs
                                     font-semibold
-                                    text-primary-700
+                                    text-indigo-700
 
                                     transition
 
-                                    hover:bg-primary-100
+                                    hover:bg-indigo-100
                                 "
                             >
                                 Show all
@@ -1367,6 +1383,8 @@
 
                     <div
                         class="
+                            theme-indigo-action
+
                             mt-3
 
                             border-t
