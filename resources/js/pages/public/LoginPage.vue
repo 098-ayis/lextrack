@@ -1,11 +1,11 @@
 <template>
   <!-- Full screen wrapper to center the card -->
-  <div class="min-h-[80vh] w-full flex items-center justify-center p-4 md:p-8">
+    <div class="min-h-[80vh] w-full px-4 pb-10 pt-24 sm:px-6 md:flex md:items-center md:justify-center md:p-8">
 
     <!-- Main Card Container -->
     <div 
-      class="relative w-full max-w-[750px] min-h-[420px] bg-white rounded-3xl 
-             shadow-[0_10px_40px_rgba(0,0,0,0.15)] flex flex-col md:flex-row overflow-hidden"
+      class="login-card relative flex min-h-[420px] w-full max-w-[750px] flex-col overflow-hidden rounded-3xl bg-white
+             shadow-[0_10px_40px_rgba(0,0,0,0.15)] md:flex-row"
     >
       
       <!-- ==========================================
@@ -44,7 +44,7 @@
       <!-- ==========================================
            RIGHT SIDE (White Panel & Form)
       =========================================== -->
-      <div class="relative z-10 w-full md:w-1/2 p-6 md:py-8 md:pl-0 md:pr-16 flex flex-col justify-center items-center">
+      <div class="relative z-10 flex w-full flex-col items-center justify-center p-6 md:w-1/2 md:py-8 md:pl-0 md:pr-16">
 
           <div
               v-if="flashStatus"
@@ -74,10 +74,10 @@
         <!-- Google Login Button -->
         <a 
           href="/auth/google"
-          class="w-auto px-8 h-[50px] border-2 border-[#a5b4fc] bg-white 
+          class="w-full max-w-[360px] px-4 h-[50px] border-2 border-[#a5b4fc] bg-white
                  hover:bg-[#828cff] hover:border-[#828cff] hover:text-white rounded-xl flex items-center justify-center gap-3 
-                 text-[#334155] text-[14px] font-semibold transition-all duration-300
-                 shadow-sm hover:shadow-md hover:-translate-y-[1px] whitespace-nowrap"
+                 text-center text-[#334155] text-[14px] font-semibold transition-all duration-300
+                 shadow-sm hover:shadow-md hover:-translate-y-[1px]"
         >
           <Icon icon="logos:google-icon" class="w-[20px] h-[20px] flex-shrink-0" />
           <span>Continue with Google (@bicol-u.edu.ph)</span>
@@ -109,4 +109,9 @@ const flashStatus = ref(
 </script>
 
 <style scoped>
+@media (max-width: 767px) {
+  .login-card {
+    min-height: 0;
+  }
+}
 </style>

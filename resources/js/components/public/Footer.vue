@@ -1,7 +1,7 @@
 <!-- Footer.vue -->
 <template>
     <footer id="forms" class="bg-[#0F172A] text-gray-300 pt-11 px-6 pb-7">
-        <div class="max-w-7xl mx-auto grid md:grid-cols-[2fr_1fr] gap-10">
+        <div class="mx-auto grid max-w-7xl gap-8 md:grid-cols-[2fr_1fr] md:gap-10">
 
             <!-- Left Section -->
             <div>
@@ -39,14 +39,14 @@
                 <!-- Contact -->
                 <ul class="space-y-2.5 text-sm text-gray-400">
 
-                    <li class="flex items-center gap-3">
+                    <li class="flex items-start gap-3">
                         <Icon icon="lucide:mail" class="w-4 h-4 text-[#6b77ff] flex-shrink-0" />
                         <span>bu-legaloffice@bicol-u.edu.ph</span>
                     </li>
 
                     <li class="flex items-center gap-3">
                         <Icon icon="lucide:map-pin" class="w-4 h-4 text-[#6b77ff] flex-shrink-0" />
-                        <span>Bicol University Main Campus, Legazpi, Philippines</span>
+                        <span class="min-w-0">Bicol University Main Campus, Legazpi, Philippines</span>
                     </li>
 
                     <li class="flex items-center gap-3">

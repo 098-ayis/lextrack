@@ -6,23 +6,23 @@
     ]"
   >
     
-    <div class="max-w-[1350px] mx-auto flex items-center justify-between px-10 py-5">
+    <div class="max-w-[1350px] mx-auto flex min-w-0 items-center justify-between gap-4 px-4 py-3 sm:px-6 sm:py-4 md:px-10 md:py-5">
 
-      <div class="flex items-center gap-16">
+      <div class="flex min-w-0 items-center gap-4 md:gap-16">
         <!-- Logo -->
-        <RouterLink to="/" class="flex items-center gap-4">
+        <RouterLink to="/" class="flex min-w-0 items-center gap-2 sm:gap-4">
           <img
             :src="logo"
             alt="Bicol University Logo"
-            class="w-12 h-13"
+            class="h-10 w-10 shrink-0 sm:h-12 sm:w-12"
           />
 
-          <div>
-            <p class="text-[11px] tracking-wider uppercase">
+          <div class="min-w-0">
+            <p class="truncate text-[9px] tracking-wider uppercase sm:text-[11px]">
               <span class="text-[#9DD9FB] font-bold">Bicol </span>
               <span class="text-orange-500 font-bold">University</span>
             </p>
-            <h1 class="font-bold text-[26px] tracking-wide leading-tight">
+            <h1 class="truncate font-bold text-lg tracking-wide leading-tight sm:text-[26px]">
               Legal Office
             </h1>
           </div>
@@ -44,7 +44,7 @@
       </div> 
 
       <!-- Right Side -->
-      <div class="flex items-center gap-5">
+      <div class="flex shrink-0 items-center gap-3 sm:gap-5">
         <RouterLink
           to="/login"
           class="hidden md:flex items-center justify-center bg-[#6b77ff] hover:bg-[#5a65e0] px-8 py-3 rounded-full font-bold text-[13px] tracking-wider transition"
@@ -54,9 +54,11 @@
 
         <button
           @click="menuOpen = !menuOpen"
-          class="md:hidden text-2xl text-gray-200"
+          :aria-expanded="menuOpen"
+          aria-label="Toggle navigation menu"
+          class="md:hidden flex h-10 w-10 items-center justify-center rounded-lg text-2xl leading-none text-gray-200 hover:bg-white/10"
         >
-          ☰
+          <span aria-hidden="true">{{ menuOpen ? '×' : '☰' }}</span>
         </button>
       </div>
     </div>
@@ -64,7 +66,7 @@
     <!-- Mobile Menu -->
     <div
       v-if="menuOpen"
-      class="md:hidden bg-[#1a2035]"
+      class="md:hidden border-t border-white/10 bg-[#1a2035]"
     >
       <RouterLink
         v-for="link in links"

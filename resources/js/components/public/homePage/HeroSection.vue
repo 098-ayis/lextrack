@@ -3,7 +3,7 @@
     <div class="hero-container">
       <div class="hero-text text-left">
       <h1>
-          <span class="text-white">BU LEGAL AFFAIRS</span><br />
+          <span class="text-white">BU LEGAL AFFAIRS</span>
           <span class="text-purple">OFFICE PORTAL</span>
         </h1>
         <p class="lead text-white">
@@ -48,7 +48,7 @@ function goTo(path) {
   min-height: 100vh;
   display: flex;
   align-items: center;
-  padding: 80px 0 40px; 
+  padding: 100px 0 40px;
   overflow: hidden;
   position: relative;
 }
@@ -57,27 +57,37 @@ function goTo(path) {
   width: 100%;
   max-width: 1280px !important; 
   margin: 0 auto !important;
-  padding: 0 40px !important; 
+  padding: 0 40px !important;
+  position: relative;
+  z-index: 2;
 }
 
 .hero-text {
-  max-width: 600px;
+  max-width: 720px;
   margin-left: 0 !important; 
   transform: none !important; 
+  position: relative;
+  z-index: 2;
 }
 
 .hero-text h1 {
-  font-size: 64px;
+  font-size: clamp(36px, 3.1vw, 52px);
   font-weight: 800;
   line-height: 1.15;
   margin-bottom: 30px; 
   letter-spacing: 0.02em;
 }
 
+.hero-text h1 > span {
+  display: block;
+  white-space: nowrap;
+}
+
 .text-white { color: #ffffff; }
 .text-purple { color: #6b77ff; }
 
 .lead {
+  max-width: 620px;
   font-size: 19px;
   color: #f1f5f9;
   margin-bottom: 16px; 
@@ -147,37 +157,124 @@ function goTo(path) {
   border: 32px solid #6b77ff; 
   box-shadow: 0 0 0 32px #ffffff; 
   z-index: 1;
+  pointer-events: none;
+}
+
+/* Scale the artwork down on smaller desktop/tablet widths while keeping it
+   beside the copy. */
+@media (max-width: 1400px) {
+  .hero-section {
+    padding: 132px 0 72px;
+  }
+
+  .hero-container {
+    max-width: 1280px !important;
+    padding: 0 32px !important;
+    margin-top: 28px !important;
+  }
+
+  .hero-text {
+    max-width: 56%;
+  }
+
+  .hero-image-circle {
+    top: 54%;
+    right: -25%;
+    transform: translateY(-50%);
+    width: min(70vw, 980px);
+    height: min(70vw, 980px);
+    border-width: 22px;
+    box-shadow: 0 0 0 22px #ffffff;
+  }
 }
 
 @media (max-width: 1024px) {
-  .hero-image-circle {
-    transform: translate(45%, -65%); 
-    width: 1000px;
-    height: 1000px;
+  .hero-text h1 { font-size: clamp(36px, 5vw, 50px); }
+  .hero-container { padding: 0 24px !important; }
+}
+
+@media (max-width: 900px) {
+  .hero-section {
+    display: block;
+    min-height: auto;
+    padding: 120px 0 72px;
   }
-  .hero-text h1 { font-size: 44px; }
-  .hero-container { padding: 0 24px; } 
+
+  .hero-container {
+    max-width: 820px !important;
+    margin-top: 0 !important;
+    padding: 0 32px !important;
+  }
+
+  .hero-text {
+    max-width: 760px;
+  }
+
+  .hero-text h1 {
+    font-size: clamp(36px, 7vw, 52px);
+  }
+
+  .hero-image-circle {
+    position: relative;
+    top: auto;
+    right: auto;
+    transform: none;
+    width: min(72vw, 620px);
+    height: min(72vw, 620px);
+    margin: 64px auto -180px;
+    border-width: 20px;
+    box-shadow: 0 0 0 20px #ffffff;
+    opacity: 0.9;
+  }
 }
 
 @media (max-width: 768px) {
-  .hero-image-circle {
-    opacity: 0.15;
-    transform: translate(50%, -15%);
-    top: 40%;
-    width: 700px;
-    height: 700px;
+  .hero-section {
+    padding-top: 96px;
   }
+
+  .hero-image-circle {
+    width: min(78vw, 500px);
+    height: min(78vw, 500px);
+    margin-top: 48px;
+    margin-bottom: -120px;
+    border-width: 14px;
+    box-shadow: 0 0 0 14px #ffffff;
+    opacity: 0.3;
+  }
+
   .hero-text {
     max-width: 100%;
     text-align: center;
   }
+
+  .hero-text h1 { font-size: clamp(32px, 9vw, 44px); }
+  .lead { font-size: 17px; }
+  .hours { margin-bottom: 32px; }
+
   .hero-ctas {
     justify-content: center;
     flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    margin-top: 24px !important;
   }
+
   .btn {
     width: 100%;
+    padding-left: 20px !important;
+    padding-right: 20px !important;
   }
-  .hero-text h1 { font-size: 36px; }
+}
+
+@media (max-width: 480px) {
+  .hero-container { padding: 0 18px !important; }
+  .hero-text h1 { font-size: clamp(26px, 8vw, 30px); }
+  .lead { font-size: 16px; }
+  .hero-image-circle {
+    width: min(82vw, 380px);
+    height: min(82vw, 380px);
+    margin-bottom: -80px;
+  }
 }
 </style>

@@ -1,6 +1,16 @@
 <template>
+<<<<<<< HEAD
     <main
         class="w-full flex flex-col items-center min-h-[80vh] pt-36 pb-16 px-6 bg-[#f4f5f7]"
+=======
+  <main
+    class="w-full flex min-h-[80vh] flex-col items-center bg-[#f4f5f7] px-4 pb-12 pt-24 sm:px-6 sm:pt-28 md:pb-16 md:pt-36"
+  >
+    <!-- Main Tracking Card -->
+    <div
+      class="w-full max-w-3xl overflow-hidden rounded-3xl bg-white shadow-[0_10px_40px_rgba(0,0,0,0.08)]
+             border border-gray-100 overflow-hidden mb-6"
+>>>>>>> 6ff755d (fixing public backup)
     >
         <!-- Main Tracking Card -->
         <div
@@ -19,10 +29,44 @@
                 </p>
             </div>
 
+<<<<<<< HEAD
             <!-- Form -->
             <form
                 class="p-6 md:p-8 flex flex-col gap-2"
                 @submit.prevent="trackDocument"
+=======
+      <!-- Form -->
+      <form
+        class="p-6 md:p-8 flex flex-col gap-2"
+        @submit.prevent="trackDocument"
+      > 
+        <label class="text-sm font-semibold text-[#121722]">
+          Tracking Number
+          <span class="text-red-500">*</span>
+        </label>
+
+        <div class="flex flex-col md:flex-row gap-3 mt-1">
+          <!-- Input -->
+            <div class="relative min-w-0 flex-1">
+            <input
+              v-model="trackingNumber"
+              type="text"
+              placeholder="e.g. LAO-26-6767"
+              class="w-full h-[50px] px-4 pr-10 bg-white border border-gray-200
+                     rounded-xl outline-none focus:border-[#828cff]
+                     focus:ring-2 focus:ring-[#828cff]/20
+                     text-[#334155] font-medium placeholder-gray-400
+                     transition-all text-sm"
+            />
+
+            <!-- Clear button -->
+            <button
+              v-if="trackingNumber"
+              type="button"
+              @click="clearTracking"
+              class="absolute right-4 top-1/2 -translate-y-1/2
+                     text-gray-400 hover:text-gray-700 text-xl"
+>>>>>>> 6ff755d (fixing public backup)
             >
 
                 <!-- Honeypot Fields -->
@@ -51,6 +95,7 @@
                     <span class="text-red-500">*</span>
                 </label>
 
+<<<<<<< HEAD
                 <div class="flex flex-col md:flex-row gap-3 mt-1">
                     <!-- Input -->
                     <div class="relative flex-1">
@@ -64,6 +109,24 @@
                                    text-[#334155] font-medium placeholder-gray-400
                                    transition-all text-sm"
                         />
+=======
+          <!-- Track Button -->
+          <button
+            type="submit"
+            :disabled="loading || !trackingNumber.trim()"
+            class="h-[50px] w-full px-8 bg-[#6b77ff] hover:bg-[#828cff] md:w-auto
+                   disabled:opacity-50 disabled:cursor-not-allowed
+                   text-white font-bold text-sm tracking-wider
+                   rounded-xl transition-all shadow-sm
+                   hover:shadow-md hover:-translate-y-[1px]
+                   flex items-center justify-center whitespace-nowrap"
+          >
+            {{ loading ? 'TRACKING...' : 'TRACK' }}
+          </button>
+        </div>
+      </form>
+    </div>
+>>>>>>> 6ff755d (fixing public backup)
 
                         <button
                             v-if="trackingNumber"

@@ -4,9 +4,9 @@
     <!-- ==========================================
          SECTION 1: ORGANIZATIONAL CHART
     =========================================== -->
-    <section class="w-full bg-white pb-12 pt-[100px] flex flex-col items-center">
+    <section class="about-chart-section w-full bg-white px-4 pb-12 pt-24 sm:px-6 md:pt-[100px] flex flex-col items-center">
       
-      <h2 class="mt-12 text-3xl font-bold text-[#121722] mb-12 tracking-wide">
+      <h2 class="mt-8 mb-10 text-center text-2xl font-bold tracking-wide text-[#121722] sm:mt-12 sm:mb-12 sm:text-3xl">
         Organizational Chart
       </h2>
 
@@ -19,7 +19,7 @@
           <div class="w-[76px] h-[76px] rounded-full bg-gray-200 border-2 border-gray-500 flex items-center justify-center z-10 mb-3">
             <Icon icon="ph:user" class="text-[40px] text-gray-500" />
           </div>
-          <div class="w-[300px] h-[40px] bg-[#eef2ff] border border-[#828cff] rounded-full flex items-center justify-center">
+          <div class="h-10 w-[min(300px,calc(100vw-2rem))] rounded-full border border-[#828cff] bg-[#eef2ff] flex items-center justify-center">
             <!-- Add Name/Title Here -->
           </div>
         </div>
@@ -30,7 +30,7 @@
           <div class="w-[2px] h-[24px] bg-gray-500"></div>
           
           <!-- Horizontal Branch -->
-          <div class="w-[340px] border-t-2 border-gray-500 flex justify-between h-[24px]">
+          <div class="h-[24px] w-[min(340px,calc(100vw-2rem))] border-t-2 border-gray-500 flex justify-between">
             <!-- Left Child Drop -->
             <div class="w-[2px] h-full bg-gray-500"></div>
             <!-- Right Child Drop -->
@@ -39,10 +39,10 @@
         </div>
 
         <!-- Second Level Nodes -->
-        <div class="flex justify-center gap-[60px] w-full max-w-[700px]">
+        <div class="about-chart-children flex w-full max-w-[700px] justify-center gap-8 px-2 sm:gap-[60px]">
           
           <!-- Left Node -->
-          <div class="flex flex-col items-center w-[280px]">
+          <div class="flex w-full max-w-[280px] flex-col items-center">
             <!-- CHANGED: Replaced -mb-3 with mb-3 to add space! -->
             <div class="w-[76px] h-[76px] rounded-full bg-gray-200 border-2 border-gray-500 flex items-center justify-center z-10 mb-3">
               <Icon icon="ph:user" class="text-[40px] text-gray-500" />
@@ -53,7 +53,7 @@
           </div>
 
           <!-- Right Node -->
-          <div class="flex flex-col items-center w-[280px]">
+          <div class="flex w-full max-w-[280px] flex-col items-center">
             <!-- CHANGED: Replaced -mb-3 with mb-3 to add space! -->
             <div class="w-[76px] h-[76px] rounded-full bg-gray-200 border-2 border-gray-500 flex items-center justify-center z-10 mb-3">
               <Icon icon="ph:user" class="text-[40px] text-gray-500" />
@@ -70,7 +70,7 @@
     <!-- ==========================================
          SECTION 2: OUR FUNCTIONS
     =========================================== -->
-    <section class="w-full bg-[#eef2ff] py-16 px-6 md:px-12 flex flex-col items-center">
+    <section class="w-full bg-[#eef2ff] px-4 py-12 sm:px-6 md:px-12 md:py-16 flex flex-col items-center">
       <h2 class="text-3xl font-bold text-[#121722] mb-6 tracking-wide">
         Our Functions
       </h2>
@@ -106,3 +106,17 @@
 <script setup>
 import { Icon } from '@iconify/vue'
 </script>
+
+<style scoped>
+@media (max-width: 560px) {
+  .about-chart-children {
+    flex-direction: column;
+    align-items: center;
+    gap: 32px;
+  }
+
+  .about-chart-children > div {
+    width: min(280px, 100%);
+  }
+}
+</style>

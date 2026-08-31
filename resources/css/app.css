@@ -12,3 +12,17 @@ body {
     font-family: 'Poppins', sans-serif;
 }
 
+html,
+body,
+#app {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: hidden;
+}
+
+img,
+svg,
+video {
+    max-width: 100%;
+}
