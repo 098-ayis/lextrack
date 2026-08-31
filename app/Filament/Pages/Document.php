@@ -225,7 +225,7 @@ class Document extends Page
             |--------------------------------------------------------------------------
             */
 
-            $staffIds = User::where('role_name', 'Admin')
+            $staffIds = User::role(User::ADMIN_ROLES)
                 ->pluck('id');
 
             foreach ($staffIds as $staffId) {

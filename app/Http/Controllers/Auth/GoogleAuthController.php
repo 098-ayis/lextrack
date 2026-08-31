@@ -58,10 +58,11 @@ class GoogleAuthController extends Controller
                     'provider' => 'google',
                     'profile_photo_url' => $avatar,
                     'password' => bcrypt(Str::random(24)),
-                    'role_name' => 'Client',
                     'status' => 'Active',
                     'join_date' => now(),
                 ]);
+
+                $user->assignRole('Client');
             } else {
                 $user->update([
                     'name' => $googleUser->getName(),
@@ -70,10 +71,8 @@ class GoogleAuthController extends Controller
                     'profile_photo_url' => $avatar,
                 ]);
 
-                if (! $user->role_name) {
-                    $user->update([
-                        'role_name' => 'Client',
-                    ]);
+                if (! $user->hasRole('Client') && ! $user->getRoleNames()->count()) {
+                    $user->assignRole('Client');
                 }
             }
 
@@ -87,7 +86,7 @@ class GoogleAuthController extends Controller
 
             Auth::login($user);
 
-            if ($user->role_name === 'Admin') {
+            if ($user->isAdmin()) {
                 return redirect('/admin');
             }
 

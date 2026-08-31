@@ -1,10 +1,8 @@
 @php
-    $roleOptions = \App\Models\User::query()
-        ->whereNotNull('role_name')
-        ->where('role_name', '!=', '')
-        ->distinct()
-        ->orderBy('role_name')
-        ->pluck('role_name', 'role_name');
+    use Spatie\Permission\Models\Role;
+    
+    $roleOptions = Role::query()
+        ->pluck('name', 'name');
 
     $statusOptions = \App\Models\User::STATUS_OPTIONS;
 
@@ -33,7 +31,7 @@
                 <circle cx="12" cy="8" r="3.5" />
                 <path d="M5.5 20c.7-3.2 2.8-5 6.5-5s5.8 1.8 6.5 5" />
             </svg>
-            <select x-ref="filter" wire:model.live="tableFilters.role_name.value">
+            <select x-ref="filter" wire:model.live="tableFilters.roles.value">
                 <option value="">Role</option>
                 @foreach ($roleOptions as $value => $label)
                     <option value="{{ $value }}">{{ ucfirst($label) }}</option>

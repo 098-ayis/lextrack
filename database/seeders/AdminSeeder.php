@@ -21,9 +21,10 @@ class AdminSeeder extends Seeder
         ]);
 
         User::whereIn('email', $adminEmails)
-            ->update([
-                'role_name' => 'Admin',
-                'status' => 'Active'
-            ]);
+            ->get()
+            ->each(function (User $user) {
+                $user->update(['status' => 'Active']);
+                $user->assignRole('Admin');
+            });
     }
 }

@@ -36,7 +36,7 @@ class UserExportController extends Controller
                         $user->email,
                         $user->user_id,
                         $user->status,
-                        $user->role_name,
+                        $user->getRoleNames()->join(', '),
                         $user->join_date,
                         $user->last_login,
                     ]);

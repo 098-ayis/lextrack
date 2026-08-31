@@ -8,6 +8,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
 use Filament\Schemas\Schema;
+use Spatie\Permission\Models\Role;
 
 class UserForm
 {
@@ -33,7 +34,11 @@ class UserForm
                 Select::make('status')
                     ->options(User::STATUS_OPTIONS)
                     ->default(User::DEFAULT_STATUS),
-                TextInput::make('role_name'),
+                Select::make('roles')
+                    ->relationship('roles', 'name')
+                    ->options(Role::query()->pluck('name', 'id'))
+                    ->label('Role')
+                    ->searchable(),
                 TextInput::make('avatar'),
                 DateTimePicker::make('email_verified_at'),
                 TextInput::make('password')

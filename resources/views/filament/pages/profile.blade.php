@@ -241,7 +241,7 @@
 
                         <input
                             type="text"
-                            value="{{ auth()->user()->role_name ?? 'User' }}"
+                            value="{{ auth()->user()->getRoleNames()->join(', ') ?? 'User' }}"
                             disabled
                             class="block w-full cursor-not-allowed
                                    rounded-lg border-gray-300

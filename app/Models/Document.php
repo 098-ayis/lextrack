@@ -157,7 +157,7 @@ class Document extends Model
         $user = $document->user;
 
         // Only create a conversation for client uploads
-        if ($user?->role_name === 'Client') {
+        if ($user?->hasRole('Client')) {
             $document->conversation()->create();
         }
     

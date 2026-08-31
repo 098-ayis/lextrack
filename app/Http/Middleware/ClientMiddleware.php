@@ -19,7 +19,7 @@ class ClientMiddleware
             return redirect('/login');
         }
 
-        if (auth()->user()->role_name !== 'Admin') {
+        if (! auth()->user()->isAdmin()) {
             abort(403);
         }
 

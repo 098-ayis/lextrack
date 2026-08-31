@@ -48,9 +48,9 @@ class UsersTable
                     })
                     ->searchable()
                     ->sortable(),
-                TextColumn::make('role_name')
-                    ->label('Role')
-                    ->formatStateUsing(fn (?string $state): string => filled($state) ? ucfirst($state) : '—')
+                TextColumn::make('roles.name')
+                    ->label('Roles')
+                    ->badge()
                     ->searchable()
                     ->sortable(),
                 TextColumn::make('join_date')
@@ -67,15 +67,9 @@ class UsersTable
             ->searchable()
             ->searchPlaceholder('Search')
             ->filters([
-                SelectFilter::make('role_name')
-                    ->label('Role')
-                    ->options(fn (): array => \App\Models\User::query()
-                        ->whereNotNull('role_name')
-                        ->where('role_name', '!=', '')
-                        ->distinct()
-                        ->orderBy('role_name')
-                        ->pluck('role_name', 'role_name')
-                        ->all()),
+                SelectFilter::make('roles')
+                    ->relationship('roles', 'name')
+                    ->label('Role'),
                 SelectFilter::make('status')
                     ->label('Status')
                     ->options(User::STATUS_OPTIONS),

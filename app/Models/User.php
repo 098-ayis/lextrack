@@ -15,6 +15,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Laravel\Sanctum\HasApiTokens;
 use App\Models\Client;
 use Filament\Models\Contracts\HasAvatar;
+use Filament\Models\Contracts\FilamentUser;
+use Filament\Panel;
 use App\Models\Conversation;
 use App\Models\Document;
 use Spatie\Permission\Traits\HasRoles;
@@ -23,8 +25,10 @@ use Spatie\Permission\Traits\HasRoles;
 #[Hidden(['password', 'remember_token'])]
 
 
-class User extends Authenticatable implements HasAvatar
+class User extends Authenticatable implements HasAvatar, FilamentUser
 {
+    public const ADMIN_ROLES = ['Admin', 'super_admin'];
+
     public const DEFAULT_STATUS = 'Active';
 
     public const STATUS_OPTIONS = [
@@ -45,7 +49,6 @@ class User extends Authenticatable implements HasAvatar
         'google_id',
         'provider',
         'profile_photo_url',
-        'role_name',
         'status',
         'join_date',
         'last_login',
@@ -85,6 +88,20 @@ class User extends Authenticatable implements HasAvatar
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    public function isAdmin(): bool
+    {
+        return $this->hasAnyRole(self::ADMIN_ROLES);
+    }
+
+    public function canAccessPanel(Panel $panel): bool
+    {
+        if ($this->status !== self::STATUS_OPTIONS['Active']) {
+            return false;
+        }
+
+        return $panel->getId() !== 'admin' || $this->isAdmin();
     }
 
 

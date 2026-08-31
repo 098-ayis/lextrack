@@ -21,7 +21,7 @@ class AdminMiddleware
             ], 401);
         }
 
-        if (auth()->user()->role_name !== 'Admin') {
+        if (! auth()->user()->isAdmin()) {
             return response()->json([
                 'message' => 'Forbidden.'
             ], 403);
