@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use App\Models\User;
 
 class Message extends Model
 {
@@ -29,13 +30,14 @@ class Message extends Model
         );
     }
 
+
     public function sender(): BelongsTo
     {
         return $this->belongsTo(
-            User::class,
-            'sender_id'
+            User::class, 'sender_id', 'id'
         );
     }
+    
 
     public function readers(): BelongsToMany
     {

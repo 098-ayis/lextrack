@@ -8,9 +8,15 @@ use App\Models\User;
 class ConversationPolicy
 {
     public function view(
-        User $user,
+        User $user, 
         Conversation $conversation
-    ): bool {
+        ): bool {
+    // Any user with this permission can view shared office conversations.
+        if ($user->can('view_shared_messages')) {
+            return true;
+        }
+
+        // Otherwise, only an actual participant can view.
         return $conversation
             ->participants()
             ->where('users.id', $user->id)
@@ -18,11 +24,15 @@ class ConversationPolicy
     }
 
     public function sendMessage(
-        User $user,
+        User $user, 
         Conversation $conversation
-    ): bool {
+        ): bool {
         if ($conversation->status !== 'active') {
             return false;
+        }
+
+        if ($user->can('reply_shared_messages')) {
+            return true;
         }
 
         return $conversation
@@ -31,36 +41,14 @@ class ConversationPolicy
             ->exists();
     }
 
-    public function assign(
-        User $user,
-        Conversation $conversation
-    ): bool {
-        $isParticipant = $conversation
-            ->participants()
-            ->where('users.id', $user->id)
-            ->exists();
 
-        if (! $isParticipant) {
-            return false;
-        }
-
-        // Do not allow the client who created the conversation
-        // to assign themselves as staff handler.
-        if ((int) $conversation->created_by === (int) $user->id) {
-            return false;
-        }
-
-        return true;
-    }
-
-    /*
     public function assign(
         User $user,
         Conversation $conversation
     ): bool {
         return $user->can('assign_conversations');
     }
-    */
+
     public function close(
         User $user,
         Conversation $conversation

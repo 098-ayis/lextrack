@@ -14,25 +14,11 @@ class Messages extends Page
 {
     protected string $view = 'filament.client.pages.messages';
 
-    public function getHeading(): string
-    {
-        return '';
-    }
-
     public ?int $selectedConversation = null;
 
     public string $newMessage = '';
 
     public $messages = [];
-
-    public function mount(): void
-    {
-        $documentId = (int) request()->query('document', 0);
-
-        if ($documentId > 0) {
-            $this->openDocumentConversation($documentId);
-        }
-    }
 
     /**
      * Conversations visible to the logged-in client.
@@ -87,22 +73,12 @@ class Messages extends Page
     {
         /*
          * SECURITY:
-         * The client may message documents they uploaded or documents they
-         * have an associated document request for.
+         * Make sure this document actually belongs to
+         * the logged-in client.
          */
         $document = Document::query()
             ->where('document_id', $documentId)
-            ->where(function ($query) {
-                $query
-                    ->where('user_id', auth()->id())
-                    ->orWhereHas(
-                        'documentRequests',
-                        fn ($requestQuery) => $requestQuery->where(
-                            'user_id',
-                            auth()->id()
-                        )
-                    );
-            })
+            ->where('user_id', auth()->id())
             ->firstOrFail();
 
         return DB::transaction(function () use ($document) {

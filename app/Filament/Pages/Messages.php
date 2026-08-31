@@ -30,6 +30,11 @@ class Messages extends Page
         return Width::Full;
     }
 
+    public static function canAccess(): bool
+    {
+        return auth()->user()?->can('view_shared_messages') ?? false;
+    }
+
     /**
      * Shared inbox.
      *
@@ -41,11 +46,9 @@ class Messages extends Page
         $userId = auth()->id();
 
         return [
-            'conversations' => auth()
-                ->user()
-                ->conversations()
+            'conversations' => Conversation::query()
                 ->with([
-                    'document',
+                    'document.user',
                     'creator',
                     'assignedStaff',
                     'participants',
@@ -62,7 +65,7 @@ class Messages extends Page
                 ])
                 ->latest('conversations.updated_at')
                 ->get(),
-        ];
+            ];
     }
 
     /**

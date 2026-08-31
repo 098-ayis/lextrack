@@ -1,509 +1,779 @@
 <x-filament-panels::page>
+<style>
+    [x-cloak] {
+        display: none !important;
+    }
 
-    <style>
-        [x-cloak] {
-            display: none !important;
-        }
+    /* =========================================================
+       MAIN LAYOUT
+    ========================================================= */
 
+    .msg-wrap {
+        display: grid;
+        grid-template-columns: 320px 1fr;
+        gap: 16px;
+        height: calc(100vh - 180px);
+    }
+
+
+    /* =========================================================
+       CONVERSATION LIST
+    ========================================================= */
+
+    .msg-list {
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+    }
+
+    .msg-list-header {
+        padding: 14px 16px;
+        border-bottom: 1px solid #e5e7eb;
+    }
+
+    .msg-list-header h3 {
+        margin-bottom: 10px;
+
+        color: #111827;
+
+        font-size: 16px;
+        font-weight: 700;
+    }
+
+    .msg-items {
+        flex: 1;
+        overflow-y: auto;
+    }
+
+
+    /* =========================================================
+       SEARCH
+    ========================================================= */
+
+    .msg-search {
+        position: relative;
+    }
+
+    .msg-search input {
+        width: 100%;
+
+        padding: 8px 12px 8px 32px;
+
+        background: #ffffff;
+        border: 1.5px solid #e5e7eb;
+        border-radius: 18px;
+
+        color: #111827;
+
+        font-size: 12.5px;
+
+        outline: none;
+    }
+
+    .msg-search input::placeholder {
+        color: #9ca3af;
+    }
+
+    .msg-search input:focus {
+        border-color: #6366f1;
+    }
+
+    .msg-search .s-icon {
+        position: absolute;
+        top: 50%;
+        left: 10px;
+
+        transform: translateY(-50%);
+
+        color: #6b7280;
+    }
+
+
+    /* =========================================================
+       CONVERSATION ITEM
+    ========================================================= */
+
+    .msg-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+
+        padding: 12px 16px;
+
+        border-bottom: 1px solid #e5e7eb;
+
+        cursor: pointer;
+
+        transition: background 0.1s;
+    }
+
+    .msg-item:hover {
+        background: #f0f1ff;
+    }
+
+    .msg-item.active {
+        background: #f0f1ff;
+        border-left: 3px solid #6366f1;
+    }
+
+    .msg-item.unread .m-name,
+    .msg-item.unread .m-preview {
+        color: #111827;
+        font-weight: 700;
+    }
+
+
+    /* =========================================================
+       CONVERSATION AVATAR
+    ========================================================= */
+
+    .m-avatar {
+        position: relative;
+
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        width: 40px;
+        height: 40px;
+        min-width: 40px;
+
+        overflow: hidden;
+
+        background: #e0e7ff;
+        border-radius: 50%;
+
+        color: #4f46e5;
+
+        font-size: 13px;
+        font-weight: 700;
+
+        flex-shrink: 0;
+    }
+
+    .m-avatar img,
+    .m-avatar-img {
+        display: block;
+
+        width: 100%;
+        height: 100%;
+
+        border-radius: 50%;
+
+        object-fit: cover;
+        object-position: center;
+    }
+
+    .m-avatar .dot {
+        position: absolute;
+        right: -1px;
+        bottom: -1px;
+
+        width: 11px;
+        height: 11px;
+
+        background: #dc2626;
+        border: 2px solid #ffffff;
+        border-radius: 50%;
+    }
+
+
+    /* =========================================================
+       CONVERSATION INFORMATION
+    ========================================================= */
+
+    .m-info {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+    }
+
+    .m-sub {
+        margin-bottom: 2px;
+
+        color: #6366f1;
+
+        font-size: 11px;
+        font-weight: 600;
+    }
+
+    .m-name {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+
+        color: #111827;
+
+        font-size: 13.5px;
+        font-weight: 600;
+    }
+
+    .m-name > span:first-child {
+        overflow: hidden;
+
+        white-space: nowrap;
+        text-overflow: ellipsis;
+    }
+
+    .m-time {
+        flex-shrink: 0;
+
+        color: #6b7280;
+
+        font-size: 10.5px;
+        font-weight: 400;
+    }
+
+    .m-preview {
+        overflow: hidden;
+
+        color: #6b7280;
+
+        font-size: 12px;
+
+        white-space: nowrap;
+        text-overflow: ellipsis;
+    }
+
+
+    /* =========================================================
+       UNREAD COUNT
+    ========================================================= */
+
+    .unread-count {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+
+        min-width: 18px;
+        height: 18px;
+
+        padding: 0 5px;
+
+        flex-shrink: 0;
+
+        background: #dc2626;
+        border-radius: 999px;
+
+        color: #ffffff;
+
+        font-size: 10px;
+        font-weight: 700;
+        line-height: 1;
+    }
+
+
+    /* =========================================================
+       MESSAGE THREAD
+    ========================================================= */
+
+    .msg-thread {
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+    }
+
+
+    /* =========================================================
+       THREAD HEADER
+    ========================================================= */
+
+    .thread-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+
+        padding: 14px 18px;
+
+        border-bottom: 1px solid #e5e7eb;
+    }
+
+    .t-avatar {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        width: 40px;
+        height: 40px;
+        min-width: 40px;
+
+        overflow: hidden;
+
+        background: #f0f1ff;
+        border-radius: 50%;
+
+        color: #6366f1;
+
+        font-size: 13px;
+        font-weight: 700;
+
+        flex: 0 0 40px;
+    }
+
+    .t-avatar img,
+    .t-avatar-img {
+        display: block;
+
+        width: 100%;
+        height: 100%;
+
+        border-radius: 50%;
+
+        object-fit: cover;
+        object-position: center;
+    }
+
+    .t-name {
+        color: #111827;
+
+        font-size: 15px;
+        font-weight: 700;
+    }
+
+    .t-sub {
+        color: #6b7280;
+
+        font-size: 12px;
+    }
+
+    .thread-header > button {
+        border: 0;
+        background: transparent;
+
+        color: #6b7280;
+
+        cursor: pointer;
+
+        font-size: 18px;
+    }
+
+    .thread-header > button:hover {
+        color: #111827;
+    }
+
+
+    /* =========================================================
+       MESSAGE BODY
+    ========================================================= */
+
+    .thread-body {
+        display: flex;
+        flex: 1;
+        flex-direction: column;
+        justify-content: flex-start;
+        gap: 12px;
+
+        overflow-y: auto;
+
+        padding: 18px;
+
+        background: #f9fafb;
+    }
+
+
+    /* =========================================================
+       MESSAGE ROW
+    ========================================================= */
+
+    .t-msg-row {
+        display: flex;
+        align-items: flex-end;
+        gap: 8px;
+
+        width: fit-content;
+        max-width: 70%;
+
+        margin: 0;
+    }
+
+    /* Current user's messages */
+    .t-msg-row.own {
+        align-self: flex-end;
+        flex-direction: row-reverse;
+    }
+
+
+    /* =========================================================
+       MESSAGE AVATAR
+    ========================================================= */
+
+    .t-msg-avatar {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        width: 28px;
+        height: 28px;
+        min-width: 28px;
+        min-height: 28px;
+
+        overflow: hidden;
+
+        background: #e0e7ff;
+        border-radius: 50%;
+
+        color: #4f46e5;
+
+        font-size: 11px;
+        font-weight: 700;
+
+        flex: 0 0 28px;
+    }
+
+    .t-msg-avatar img,
+    .t-msg-avatar-img {
+        display: block;
+
+        width: 100%;
+        height: 100%;
+
+        border-radius: 50%;
+
+        object-fit: cover;
+        object-position: center;
+    }
+
+
+    /* =========================================================
+       MESSAGE CONTENT
+    ========================================================= */
+
+    .t-message-content {
+        display: flex;
+        flex-direction: column;
+
+        width: fit-content;
+        max-width: 100%;
+        min-width: 0;
+    }
+
+    .t-msg-row:not(.own) .t-message-content {
+        align-items: flex-start;
+    }
+
+    .t-msg-row.own .t-message-content {
+        align-items: flex-end;
+    }
+
+    .t-sender-name {
+        margin: 0 0 3px;
+
+        color: #374151;
+
+        font-size: 11px;
+        font-weight: 600;
+    }
+
+    .t-msg-row.own .t-sender-name {
+        text-align: right;
+    }
+
+
+    /* =========================================================
+       MESSAGE BUBBLE
+    ========================================================= */
+
+    .t-bubble {
+        display: inline-block;
+
+        width: fit-content;
+        min-width: 0;
+        max-width: 100%;
+
+        padding: 10px 16px;
+
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 16px;
+
+        color: #111827;
+
+        font-size: 13.5px;
+        line-height: 1.5;
+
+        white-space: normal;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+    }
+
+    .t-msg-row.own .t-bubble {
+        background: #6366f1;
+        border: none;
+
+        color: #ffffff;
+    }
+
+
+    /* =========================================================
+       MESSAGE TIME
+    ========================================================= */
+
+    .t-time {
+        margin-top: 4px;
+
+        color: #6b7280;
+
+        font-size: 10.5px;
+    }
+
+    .t-msg-row.own .t-time {
+        text-align: right;
+    }
+
+
+    /* =========================================================
+       MESSAGE INPUT
+    ========================================================= */
+
+    .thread-footer {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+
+        padding: 14px 18px;
+
+        border-top: 1px solid #e5e7eb;
+    }
+
+    .thread-footer input {
+        flex: 1;
+
+        padding: 10px 16px;
+
+        background: #ffffff;
+        border: 1.5px solid #e5e7eb;
+        border-radius: 22px;
+
+        color: #111827;
+
+        font-size: 13.5px;
+
+        outline: none;
+    }
+
+    .thread-footer input::placeholder {
+        color: #9ca3af;
+    }
+
+    .thread-footer input:focus {
+        border-color: #6366f1;
+    }
+
+    .thread-footer button {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        width: 40px;
+        height: 40px;
+
+        border: none;
+        border-radius: 50%;
+
+        background: #6366f1;
+
+        color: #ffffff;
+
+        cursor: pointer;
+
+        font-size: 15px;
+
+        transition: background 0.15s;
+    }
+
+    .thread-footer button:hover {
+        background: #4f46e5;
+    }
+
+    .thread-footer button:disabled {
+        cursor: not-allowed;
+        opacity: 0.6;
+    }
+
+
+    /* =========================================================
+       EMPTY STATE
+    ========================================================= */
+
+    .empty-thread {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+
+        height: 100%;
+
+        color: #6b7280;
+
+        font-size: 14px;
+    }
+
+
+    /* =========================================================
+       DARK MODE
+    ========================================================= */
+
+    .dark .msg-list,
+    .dark .msg-thread {
+        background: #111827;
+        border-color: #374151;
+
+        color: #f9fafb;
+    }
+
+    .dark .msg-list-header,
+    .dark .thread-header,
+    .dark .thread-footer {
+        border-color: #374151;
+    }
+
+    .dark .msg-list-header h3,
+    .dark .m-name,
+    .dark .t-name {
+        color: #f9fafb;
+    }
+
+    .dark .msg-search input,
+    .dark .thread-footer input {
+        background: #1f2937;
+        border-color: #4b5563;
+
+        color: #f9fafb;
+    }
+
+    .dark .msg-search input::placeholder,
+    .dark .thread-footer input::placeholder {
+        color: #9ca3af;
+    }
+
+    .dark .msg-search input:focus,
+    .dark .thread-footer input:focus {
+        border-color: #818cf8;
+    }
+
+    .dark .msg-search .s-icon,
+    .dark .m-time,
+    .dark .m-preview,
+    .dark .t-sub,
+    .dark .t-time,
+    .dark .empty-thread {
+        color: #9ca3af;
+    }
+
+    .dark .msg-item {
+        border-bottom-color: #374151;
+    }
+
+    .dark .msg-item:hover,
+    .dark .msg-item.active {
+        background: #1e1b4b;
+    }
+
+    .dark .msg-item.active {
+        border-left-color: #6366f1;
+    }
+
+    .dark .msg-item.unread .m-name,
+    .dark .msg-item.unread .m-preview {
+        color: #f9fafb;
+    }
+
+    .dark .m-sub {
+        color: #a5b4fc;
+    }
+
+    .dark .thread-body {
+        background: #0f172a;
+    }
+
+    .dark .t-avatar {
+        background: #1e1b4b;
+
+        color: #a5b4fc;
+    }
+
+    .dark .t-msg-avatar {
+        background: #312e81;
+
+        color: #c7d2fe;
+    }
+
+    .dark .t-sender-name {
+        color: #d1d5db;
+    }
+
+    .dark .t-bubble {
+        background: #1f2937;
+        border-color: #374151;
+
+        color: #f3f4f6;
+    }
+
+    .dark .t-msg-row.own .t-bubble {
+        background: #6366f1;
+        border: none;
+
+        color: #ffffff;
+    }
+
+    .dark .thread-footer {
+        background: #111827;
+    }
+
+    .dark .thread-footer button {
+        background: #6366f1;
+    }
+
+    .dark .thread-footer button:hover {
+        background: #4f46e5;
+    }
+
+    .dark .thread-header > button {
+        color: #9ca3af;
+    }
+
+    .dark .thread-header > button:hover {
+        color: #f9fafb;
+    }
+
+    .dark .msg-list .p-6.text-center {
+        color: #9ca3af;
+    }
+
+
+    /* =========================================================
+       RESPONSIVE
+    ========================================================= */
+
+    @media (max-width: 900px) {
         .msg-wrap {
-            display: grid;
-            grid-template-columns: 320px 1fr;
-            gap: 16px;
-            height: calc(100vh - 180px);
+            grid-template-columns: 1fr;
+            height: auto;
         }
 
         .msg-list {
-            background: white;
-            border: 1px solid #e5e7eb;
-            border-radius: 12px;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .msg-list-header {
-            padding: 14px 16px;
-            border-bottom: 1px solid #e5e7eb;
-        }
-
-        .msg-list-header h3 {
-            font-size: 16px;
-            font-weight: 700;
-            margin-bottom: 10px;
-            color: #111827;
-        }
-
-        .msg-search {
-            position: relative;
-        }
-
-        .msg-search input {
-            width: 100%;
-            padding: 8px 12px 8px 32px;
-            border: 1.5px solid #e5e7eb;
-            border-radius: 18px;
-            font-size: 12.5px;
-            outline: none;
-            background: #ffffff;
-            color: #111827;
-        }
-
-        .msg-search input::placeholder {
-            color: #9ca3af;
-        }
-
-        .msg-search input:focus {
-            border-color: #6366f1;
-        }
-
-        .msg-search .s-icon {
-            position: absolute;
-            left: 10px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: #6b7280;
-            font-size: 12px;
-        }
-
-        .msg-items {
-            flex: 1;
-            overflow-y: auto;
-        }
-
-        .msg-item {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-            padding: 12px 16px;
-            cursor: pointer;
-            border-bottom: 1px solid #e5e7eb;
-            transition: background .1s;
-        }
-
-        .msg-item:hover {
-            background: #f0f1ff;
-        }
-
-        .msg-item.active {
-            background: #f0f1ff;
-            border-left: 3px solid #6366f1;
-        }
-
-        .m-avatar {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background: #e0e7ff;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 13px;
-            font-weight: 700;
-            color: #4f46e5;
-            flex-shrink: 0;
-            position: relative;
-        }
-
-        .t-avatar img,
-        .t-msg-avatar img {
-            display: block;
-            width: 100%;
-            height: 100%;
-            border-radius: 50%;
-            object-fit: cover;
-        }
-
-        .m-info {
-            overflow: hidden;
-            flex: 1;
-        }
-
-        .m-name {
-            font-size: 13.5px;
-            font-weight: 600;
-            color: #111827;
-            display: flex;
-            justify-content: space-between;
-        }
-
-        .m-time {
-            font-size: 10.5px;
-            color: #6b7280;
-            font-weight: 400;
-        }
-
-        .m-sub {
-            font-size: 11px;
-            color: #6366f1;
-            font-weight: 600;
-            margin-bottom: 2px;
-        }
-
-        .m-preview {
-            font-size: 12px;
-            color: #6b7280;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .msg-item.unread .m-preview,
-        .msg-item.unread .m-name {
-            font-weight: 700;
-            color: #111827;
+            min-height: 300px;
         }
 
         .msg-thread {
-            background: white;
-            border: 1px solid #e5e7eb;
-            border-radius: 12px;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
-
-        .thread-header {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 14px 18px;
-            border-bottom: 1px solid #e5e7eb;
-        }
-
-        .t-avatar {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background: #f0f1ff;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 13px;
-            font-weight: 700;
-            color: #6366f1;
-        }
-
-        .t-name {
-            font-size: 15px;
-            font-weight: 700;
-            color: #111827;
-        }
-
-        .t-sub {
-            font-size: 12px;
-            color: #6b7280;
-        }
-
-        .thread-body {
-            flex: 1;
-            overflow-y: auto;
-            padding: 18px;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            background: #f9fafb;
+            min-height: 500px;
         }
 
         .t-msg-row {
-            display: flex;
-            gap: 8px;
-            max-width: 65%;
+            max-width: 85%;
         }
-
-        .t-msg-row.own {
-            align-self: flex-end;
-            flex-direction: row-reverse;
-        }
-
-        .t-msg-avatar {
-            width: 28px;
-            height: 28px;
-            border-radius: 50%;
-            background: #e0e7ff;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 11px;
-            font-weight: 700;
-            color: #4f46e5;
-            align-self: flex-end;
-            flex-shrink: 0;
-        }
-
-        .t-msg-row.own .t-msg-avatar {
-            background: #e0e7ff;
-            color: #4f46e5;
-        }
-
-        .t-sender-name {
-            margin-bottom: 4px;
-            color: #374151;
-            font-size: 11px;
-            font-weight: 600;
-        }
-
-        .t-bubble {
-            background: white;
-            border: 1px solid #e5e7eb;
-            border-radius: 16px;
-            padding: 10px 16px;
-            font-size: 13.5px;
-            line-height: 1.5;
-            color: #111827;
-        }
-
-        .t-msg-row.own .t-bubble {
-            background: #6366f1;
-            color: white;
-            border: none;
-        }
-
-        .t-time {
-            font-size: 10.5px;
-            color: #6b7280;
-            margin-top: 4px;
-        }
-
-        .t-msg-row.own .t-time {
-            text-align: right;
-        }
-
-        .thread-footer {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 14px 18px;
-            border-top: 1px solid #e5e7eb;
-        }
-
-        .thread-footer input {
-            flex: 1;
-            padding: 10px 16px;
-            border: 1.5px solid #e5e7eb;
-            border-radius: 22px;
-            font-size: 13.5px;
-            outline: none;
-        }
-
-        .thread-footer input:focus {
-            border-color: #6366f1;
-        }
-
-        .thread-footer button {
-            background: #6366f1;
-            color: white;
-            border: none;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            cursor: pointer;
-            font-size: 15px;
-        }
-
-        .thread-footer button:hover {
-            background: #4f46e5;
-        }
-
-        .thread-header > button {
-            border: 0;
-            background: transparent;
-            color: #6b7280;
-            cursor: pointer;
-            font-size: 18px;
-        }
-
-        .thread-header > button:hover {
-            color: #111827;
-        }
-
-        .empty-thread {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            height: 100%;
-            color: #6b7280;
-            font-size: 14px;
-            flex-direction: column;
-            gap: 10px;
-        }
-
-        .unread-count {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            min-width: 18px;
-            height: 18px;
-            padding: 0 5px;
-            border-radius: 999px;
-            background: #dc2626;
-            color: white;
-            font-size: 10px;
-            font-weight: 700;
-        }
-
-        .dark .msg-list {
-            background: #111827;
-            border-color: #374151;
-            color: #f9fafb;
-        }
-
-        .dark .msg-list-header {
-            border-bottom-color: #374151;
-        }
-
-        .dark .msg-list-header h3,
-        .dark .m-name {
-            color: #f9fafb;
-        }
-
-        .dark .msg-search input {
-            border-color: #4b5563;
-            background: #1f2937;
-            color: #f9fafb;
-        }
-
-        .dark .msg-search input::placeholder {
-            color: #9ca3af;
-        }
-
-        .dark .msg-search input:focus {
-            border-color: #818cf8;
-        }
-
-        .dark .msg-search .s-icon,
-        .dark .m-time,
-        .dark .m-preview {
-            color: #9ca3af;
-        }
-
-        .dark .msg-item {
-            border-bottom-color: #374151;
-        }
-
-        .dark .msg-item:hover {
-            background: #1e1b4b;
-        }
-
-        .dark .msg-item.active {
-            background: #1e1b4b;
-            border-left-color: #6366f1;
-        }
-
-        .dark .msg-item.unread .m-preview,
-        .dark .msg-item.unread .m-name {
-            color: #f9fafb;
-        }
-
-        .dark .m-sub {
-            color: #a5b4fc;
-        }
-
-        .dark .msg-thread {
-            background: #111827;
-            border-color: #374151;
-            color: #f9fafb;
-        }
-
-        .dark .thread-header,
-        .dark .thread-footer {
-            border-color: #374151;
-            background: #111827;
-        }
-
-        .dark .t-avatar {
-            background: #1e1b4b;
-            color: #a5b4fc;
-        }
-
-        .dark .t-name {
-            color: #f9fafb;
-        }
-
-        .dark .t-sub,
-        .dark .t-time,
-        .dark .empty-thread {
-            color: #9ca3af;
-        }
-
-        .dark .thread-body {
-            background: #0f172a;
-        }
-
-        .dark .t-msg-avatar {
-            background: #312e81;
-            color: #c7d2fe;
-        }
-
-        .dark .t-msg-row.own .t-msg-avatar {
-            background: #1e1b4b;
-            color: #c7d2fe;
-        }
-
-        .dark .t-sender-name {
-            color: #d1d5db;
-        }
-
-        .dark .t-bubble {
-            border-color: #374151;
-            background: #1f2937;
-            color: #f3f4f6;
-        }
-
-        .dark .t-msg-row.own .t-bubble {
-            background: #6366f1;
-            color: #ffffff;
-        }
-
-        .dark .thread-footer input {
-            border-color: #4b5563;
-            background: #1f2937;
-            color: #f9fafb;
-        }
-
-        .dark .thread-footer input::placeholder {
-            color: #9ca3af;
-        }
-
-        .dark .thread-footer input:focus {
-            border-color: #818cf8;
-        }
-
-        .dark .thread-footer button {
-            background: #6366f1;
-        }
-
-        .dark .thread-footer button:hover {
-            background: #4f46e5;
-        }
-
-        .dark .thread-header > button {
-            color: #9ca3af;
-        }
-
-        .dark .thread-header > button:hover {
-            color: #f9fafb;
-        }
-
-        .dark .msg-list .p-6.text-center {
-            color: #9ca3af;
-        }
-        
-        @media (max-width: 900px) {
-            .msg-wrap {
-                grid-template-columns: 1fr;
-                height: auto;
-            }
-
-            .msg-list {
-                min-height: 300px;
-            }
-
-            .msg-thread {
-                min-height: 500px;
-            }
-        }
-
-    </style>
+    }
+</style>
 
     <div
         class="msg-wrap"
@@ -546,18 +816,9 @@
                         $displayName = $conversation->document?->particulars
                             ?: 'General Conversation';
 
-                        $initials = collect(
-                            explode(' ', $displayName)
-                        )
-                            ->filter()
-                            ->map(
-                                fn ($part) =>
-                                    strtoupper(
-                                        substr($part, 0, 1)
-                                    )
-                            )
-                            ->take(2)
-                            ->join('');
+                        $officeName = 'Legal Affairs Office';
+
+                        $officeLogo = asset('images/bu-lao.png');
 
                         $searchText = strtolower(
                             $displayName . ' ' .
@@ -595,7 +856,11 @@
 
                         <div class="m-avatar">
 
-                            {{ $initials ?: 'CL' }}
+                            <img
+                                src="{{ $officeLogo }}"
+                                alt="{{ $officeName }}"
+                                class="m-avatar-img"
+                            >
 
                             @if ($conversation->unread_messages_count > 0)
                                 <span class="dot"></span>
@@ -725,42 +990,41 @@
 
 
             {{-- THREAD HEADER --}}
-            <div class="thread-header">
+                <div class="thread-header">
 
-                <div class="t-avatar">
-                    {{ $threadInitials ?: 'LO' }}
-                </div>
-
-                <div style="flex: 1;">
-
-                    <div class="t-name">
-                        {{ $threadName }}
+                    <div class="t-avatar">
+                        <img
+                            src="{{ asset('images/bu-lao.png') }}"
+                            alt="Legal Affairs Office"
+                            class="t-avatar-img"
+                        >
                     </div>
 
-                    <div class="t-sub">
+                    <div style="flex: 1;">
 
-                        @if ($activeConversation?->document)
-                            {{ $activeConversation->document->lao_number ?? 'Not assigned' }}
-                        @endif
+                        <div class="t-name">
+                            Legal Affairs Office
+                        </div>
 
-                        @if ($activeConversation?->assignedStaff)
-                            • Primary handler:
-                            {{ $activeConversation->assignedStaff->name }}
-                        @endif
+                        <div class="t-sub">
+
+                            @if ($activeConversation?->document)
+                                {{ $activeConversation->document->lao_number ?? 'Not assigned' }}
+                            @endif
+
+                        </div>
 
                     </div>
 
+                    <button
+                        type="button"
+                        wire:click="$set('selectedConversation', null)"
+                        title="Close conversation"
+                    >
+                        ✕
+                    </button>
+
                 </div>
-
-                <button
-                    type="button"
-                    wire:click="$set('selectedConversation', null)"
-                    title="Close conversation"
-                >
-                    ✕
-                </button>
-
-            </div>
 
 
             {{-- MESSAGES --}}
@@ -776,20 +1040,24 @@
                             (int) $message->sender_id
                             === (int) auth()->id();
 
-                        $senderName =
-                            $message->sender?->name
-                            ?? 'Unknown User';
+                        /*
+                        * Client side:
+                        * - own messages = current client identity
+                        * - all staff messages = Legal Affairs Office
+                        */
+                        $displayName = $isOwn
+                            ? (auth()->user()->name ?? 'You')
+                            : 'Legal Affairs Office';
 
-                        $senderProfilePhoto = $message->sender?->getProfilePhotoUrl();
+                        $displayPhoto = $isOwn
+                            ? auth()->user()?->profile_photo_url
+                            : asset('images/bu-lao.png');
 
-                        $senderInitials = collect(
-                            explode(' ', $senderName)
+                        $displayInitials = collect(
+                            explode(' ', $displayName)
                         )
                             ->filter()
-                            ->map(
-                                fn ($part) =>
-                                    strtoupper(substr($part, 0, 1))
-                            )
+                            ->map(fn ($part) => strtoupper(substr($part, 0, 1)))
                             ->take(2)
                             ->join('');
                     @endphp
@@ -801,25 +1069,28 @@
 
                         <div class="t-msg-avatar">
 
-                            @if ($senderProfilePhoto)
+                            @if ($displayPhoto)
+
                                 <img
-                                    src="{{ $senderProfilePhoto }}"
-                                    alt="{{ $senderName }}"
+                                    src="{{ $displayPhoto }}"
+                                    alt="{{ $displayName }}"
+                                    class="t-msg-avatar-img"
                                 >
-                            @elseif ($isOwn)
-                                You
+
                             @else
-                                {{ $senderInitials ?: '?' }}
+
+                                {{ $displayInitials ?: '?' }}
+
                             @endif
 
                         </div>
 
-                        <div>
+                        <div class="t-message-content">
 
                             @unless ($isOwn)
 
                                 <div class="t-sender-name">
-                                    {{ $senderName }}
+                                    Legal Affairs Office
                                 </div>
 
                             @endunless
@@ -851,63 +1122,63 @@
 
 
             {{-- MESSAGE INPUT --}}
-    @if ($activeConversation && $activeConversation->status === 'active')
+                @if ($activeConversation && $activeConversation->status === 'active')
 
-        <div class="thread-footer">
+                <div class="thread-footer">
 
-            <input
-                type="text"
-                wire:model="newMessage"
-                wire:keydown.enter="sendMessage"
-                placeholder="Type a message..."
-                maxlength="5000"
-                autocomplete="off"
-            >
+                    <input
+                        type="text"
+                        wire:model="newMessage"
+                        wire:keydown.enter="sendMessage"
+                        placeholder="Type a message..."
+                        maxlength="5000"
+                        autocomplete="off"
+                    >
 
-            <button
-                type="button"
-                wire:click="sendMessage"
-                wire:loading.attr="disabled"
-                title="Send message"
-            >
-                <span wire:loading.remove wire:target="sendMessage">
-                    ➤
-                </span>
+                    <button
+                        type="button"
+                        wire:click="sendMessage"
+                        wire:loading.attr="disabled"
+                        title="Send message"
+                    >
+                        <span wire:loading.remove wire:target="sendMessage">
+                            ➤
+                        </span>
 
-                <span wire:loading wire:target="sendMessage">
-                    ...
-                </span>
-            </button>
+                        <span wire:loading wire:target="sendMessage">
+                            ...
+                        </span>
+                    </button>
 
-        </div>
+                </div>
 
-        @error('newMessage')
-            <div
-                style="
-                    color: #dc2626;
-                    font-size: 12px;
-                    padding: 4px 16px 10px;
-                "
-            >
-                {{ $message }}
-            </div>
-        @enderror
+                @error('newMessage')
+                    <div
+                        style="
+                            color: #dc2626;
+                            font-size: 12px;
+                            padding: 4px 16px 10px;
+                        "
+                    >
+                        {{ $message }}
+                    </div>
+                @enderror
 
-    @else
+            @else
 
-        <div
-            class="thread-footer"
-            style="
-                justify-content: center;
-                color: #6b7280;
-            "
-        >
-            This conversation is closed.
-        </div>
+                <div
+                    class="thread-footer"
+                    style="
+                        justify-content: center;
+                        color: #6b7280;
+                    "
+                >
+                    This conversation is closed.
+                </div>
 
-    @endif
+            @endif
 
-    @endif
+            @endif
 
     </div>
 
