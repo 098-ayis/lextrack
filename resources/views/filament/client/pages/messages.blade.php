@@ -976,7 +976,7 @@
                     ->firstWhere('id', $selectedConversation);
 
                 $threadName = $activeConversation?->document?->particulars
-                    ?: 'General Conversation';
+                    ?: 'Untitled Document';
 
                 $threadInitials = collect(explode(' ', $threadName))
                     ->filter()
@@ -986,6 +986,7 @@
                     )
                     ->take(2)
                     ->join('');
+                
             @endphp
 
 
@@ -1003,7 +1004,7 @@
                     <div style="flex: 1;">
 
                         <div class="t-name">
-                            Legal Affairs Office
+                           {{ $threadName }}
                         </div>
 
                         <div class="t-sub">

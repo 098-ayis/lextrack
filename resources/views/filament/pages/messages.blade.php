@@ -904,7 +904,7 @@
                     ->take(2)
                     ->join('');
 
-                $documentTitle = $conversation->document?->particulars
+                $documentTitle = $activeConversation->document?->particulars
                     ?? 'Untitled Document';
             @endphp
 
