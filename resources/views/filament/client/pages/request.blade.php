@@ -462,16 +462,26 @@
         }
     </style>
 
+    <script src="https://unpkg.com/@zxing/browser@0.2.0"></script>
     <script>
         document.addEventListener('alpine:init', () => {
             Alpine.data('requestQrScanner', () => ({
-                detector: null,
-                stream: null,
+                reader: null,
+                controls: null,
                 scanning: false,
                 error: '',
                 qrVerified: false,
                 qrMessage: '',
-                animationFrame: null,
+
+                getReader() {
+                    if (!window.ZXingBrowser?.BrowserQRCodeReader) {
+                        throw new Error('The QR decoder could not be loaded.');
+                    }
+
+                    this.reader ??= new window.ZXingBrowser.BrowserQRCodeReader();
+
+                    return this.reader;
+                },
 
                 async resolveQrValue(value) {
                     const payload = value?.trim();
@@ -518,44 +528,27 @@
                         return;
                     }
 
-                    if (!('BarcodeDetector' in window)) {
-                        this.error = 'QR photo scanning is not supported by this browser. Paste the LAO number or QR link instead.';
-                        return;
-                    }
-
-                    let source = null;
                     let objectUrl = null;
 
                     try {
-                        this.detector = new BarcodeDetector({ formats: ['qr_code'] });
+                        const reader = this.getReader();
+                        objectUrl = URL.createObjectURL(file);
 
-                        if ('createImageBitmap' in window) {
-                            source = await createImageBitmap(file);
-                        } else {
-                            objectUrl = URL.createObjectURL(file);
-                            source = await new Promise((resolve, reject) => {
-                                const image = new Image();
+                        const image = await new Promise((resolve, reject) => {
+                            const element = new Image();
 
-                                image.onload = () => resolve(image);
-                                image.onerror = () => reject(new Error('The QR photo could not be read.'));
-                                image.src = objectUrl;
-                            });
-                        }
+                            element.onload = () => resolve(element);
+                            element.onerror = () => reject(new Error('The QR photo could not be read.'));
+                            element.src = objectUrl;
+                        });
 
-                        const codes = await this.detector.detect(source);
-                        const value = codes.find((code) => code.rawValue)?.rawValue;
-
-                        if (!value) {
-                            this.error = 'No QR code was found in that photo. Try a clearer image.';
-                            return;
-                        }
-
-                        await this.resolveQrValue(value);
+                        const result = await reader.decodeFromImageElement(image);
+                        await this.resolveQrValue(result.getText());
                     } catch (exception) {
-                        this.error = 'The QR photo could not be read. Try another image or paste the LAO number.';
+                        this.error = exception?.message === 'The QR decoder could not be loaded.'
+                            ? 'The QR decoder could not be loaded. Refresh the page and try again.'
+                            : 'No QR code was found in that photo. Try a clearer image.';
                     } finally {
-                        source?.close?.();
-
                         if (objectUrl) {
                             URL.revokeObjectURL(objectUrl);
                         }
@@ -589,26 +582,32 @@
                     this.qrMessage = '';
                     this.qrVerified = false;
 
-                    if (!('BarcodeDetector' in window)) {
-                        this.error = 'QR scanning is not supported by this browser. Enter the LAO number instead.';
-                        return;
-                    }
-
                     if (!navigator.mediaDevices?.getUserMedia) {
                         this.error = 'Camera access is unavailable. Open this page on localhost or HTTPS, then try again.';
                         return;
                     }
 
                     try {
-                        this.detector = new BarcodeDetector({ formats: ['qr_code'] });
-                        this.stream = await navigator.mediaDevices.getUserMedia({
-                            video: { facingMode: { ideal: 'environment' } },
-                            audio: false,
-                        });
-                        this.$refs.video.srcObject = this.stream;
-                        await this.$refs.video.play();
+                        const reader = this.getReader();
                         this.scanning = true;
-                        this.scanFrame();
+
+                        this.controls = await reader.decodeFromConstraints({
+                            video: {
+                                facingMode: { ideal: 'environment' },
+                            },
+                            audio: false,
+                        }, this.$refs.video, (result, error, controls) => {
+                            if (controls && !this.controls) {
+                                this.controls = controls;
+                            }
+
+                            if (!result || !this.scanning) {
+                                return;
+                            }
+
+                            this.stopScanner();
+                            this.resolveQrValue(result.getText());
+                        });
                     } catch (exception) {
                         this.stopScanner();
                         this.error = exception?.name === 'NotAllowedError'
@@ -630,37 +629,11 @@
                     }
                 },
 
-                async scanFrame() {
-                    if (!this.scanning || !this.detector || !this.$refs.video) {
-                        return;
-                    }
-
-                    try {
-                        const codes = await this.detector.detect(this.$refs.video);
-                        const value = codes.find((code) => code.rawValue)?.rawValue;
-
-                        if (value) {
-                            this.stopScanner();
-                            await this.resolveQrValue(value);
-                            return;
-                        }
-                    } catch (exception) {
-                        // Keep scanning while the camera is still initializing.
-                    }
-
-                    this.animationFrame = requestAnimationFrame(() => this.scanFrame());
-                },
-
                 stopScanner() {
                     this.scanning = false;
 
-                    if (this.animationFrame) {
-                        cancelAnimationFrame(this.animationFrame);
-                        this.animationFrame = null;
-                    }
-
-                    this.stream?.getTracks().forEach((track) => track.stop());
-                    this.stream = null;
+                    this.controls?.stop?.();
+                    this.controls = null;
 
                     if (this.$refs.video) {
                         this.$refs.video.srcObject = null;
