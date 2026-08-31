@@ -324,11 +324,23 @@ class Documents extends Page implements HasTable
                     ->color('gray')
                     ->iconButton()
                     ->extraAttributes(['class' => 'documents-table-action'])
-                    ->tooltip('Message')
+                    ->tooltip(
+                        fn (Document $record): string =>
+                            $record->status === 'rejected'
+                                ? 'Messaging is unavailable for rejected documents'
+                                : 'Message'
+                    )
+                    ->disabled(
+                        fn (Document $record): bool =>
+                            $record->status === 'rejected'
+                    )
                     ->url(
-                        fn (Document $record): string => ClientMessages::getUrl([
-                            'document' => $record->document_id,
-                        ])
+                        fn (Document $record): ?string =>
+                            $record->status !== 'rejected'
+                                ? ClientMessages::getUrl([
+                                    'document' => $record->document_id,
+                                ])
+                                : null
                     ),
 
                 Action::make('download')

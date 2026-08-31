@@ -65,9 +65,9 @@
                         </p>
                     </div>
 
-                    <div class="flex h-11 w-11 items-center justify-center rounded-lg bg-amber-50 dark:bg-amber-500/10">
+                    <div class="flex h-11 w-11 items-center justify-center rounded-lg bg-indigo-50 dark:bg-indigo-500/10">
                         <svg
-                            class="h-5 w-5 text-amber-600"
+                            class="h-5 w-5 text-indigo-500"
                             fill="none"
                             viewBox="0 0 24 24"
                             stroke="currentColor"
@@ -233,11 +233,6 @@
                         Recent Documents
                     </h2>
 
-                    {{-- Keeps the document panel aligned with the calendar panel. --}}
-                    <p aria-hidden="true" class="invisible mt-1 text-sm leading-5">
-                        &nbsp;
-                    </p>
-
                 </div>
 
 
@@ -249,7 +244,7 @@
 
                             @php
                                 $badgeColor = match ($document->status) {
-                                    'pending' => 'warning',
+                                    'pending' => 'primary',
                                     'in_progress' => 'info',
                                     'completed' => 'success',
                                     'outgoing' => 'primary',
@@ -404,9 +399,6 @@
                         My Calendar
                     </h2>
 
-                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                        Scheduled events and reminders.
-                    </p>
                 </div>
 
 
@@ -506,7 +498,7 @@
                                     /*
                                      * TODAY
                                      */
-                                    'bg-primary-600 font-semibold text-white'
+                                    'bg-indigo-500 font-semibold text-white'
                                         => $cell['isToday'],
 
                                     /*
@@ -515,7 +507,7 @@
                                      * No dots / labels.
                                      * Day number only.
                                      */
-                                    'bg-primary-50 font-semibold text-primary-700 ring-1 ring-inset ring-primary-200'
+                                    'bg-indigo-50 font-semibold text-indigo-700 ring-1 ring-inset ring-indigo-200 dark:bg-indigo-500/10 dark:text-indigo-300 dark:ring-indigo-500/30'
                                         => !$cell['isToday']
                                             && $cell['hasEvent']
                                             && $cell['isCurrentMonth'],
@@ -548,7 +540,7 @@
                     <div class="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-gray-100 pt-4 dark:border-gray-800">
 
                         <div class="flex items-center gap-2">
-                            <span class="h-2.5 w-2.5 rounded bg-primary-600"></span>
+                            <span class="h-2.5 w-2.5 rounded bg-indigo-500"></span>
 
                             <span class="text-xs text-gray-500 dark:text-gray-400">
                                 Today
@@ -557,7 +549,7 @@
 
 
                         <div class="flex items-center gap-2">
-                            <span class="h-2.5 w-2.5 rounded bg-primary-100 ring-1 ring-primary-200"></span>
+                            <span class="h-2.5 w-2.5 rounded bg-indigo-100 ring-1 ring-indigo-200 dark:bg-indigo-500/20 dark:ring-indigo-500/40"></span>
 
                             <span class="text-xs text-gray-500 dark:text-gray-400">
                                 Event
@@ -587,9 +579,6 @@
                         Upcoming Deadlines
                     </h2>
 
-                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                        Documents due within the next 14 days.
-                    </p>
                 </div>
 
 
@@ -659,9 +648,6 @@
                         Upcoming Reminders
                     </h2>
 
-                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                        Upcoming calendar events.
-                    </p>
                 </div>
 
 

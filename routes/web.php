@@ -247,6 +247,43 @@ Route::get('/admin/documents/{document}/versions/{version}/preview', function (
     ->middleware('auth')
     ->name('admin.document.version.preview');
 
+Route::get('/api/track/{trackingNumber}', function (string $trackingNumber) {
+    $document = Document::query()
+        ->with('type')
+        ->where(
+            'lao_number',
+            strtoupper(trim($trackingNumber))
+        )
+        ->first();
+
+    if (! $document) {
+        return response()->json([
+            'found' => false,
+        ], 404);
+    }
+
+    return response()->json([
+        'found' => true,
+
+        'document' => [
+            'tracking_number' => $document->lao_number,
+
+            'document_type' =>
+                $document->type?->type_name ?? 'N/A',
+
+            'particulars' =>
+                $document->particulars,
+
+            'date_submitted' =>
+                $document->created_at?->format('F d, Y'),
+
+            'status' =>
+                $document->status,
+        ],
+    ]);
+})
+    ->where('trackingNumber', '[A-Za-z0-9\-]+')
+    ->name('public.track.document');
 
 /*
 |--------------------------------------------------------------------------

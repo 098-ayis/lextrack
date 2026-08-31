@@ -163,4 +163,13 @@ class Document extends Model
     
         });
     }
+
+    public function messageDocument(int $documentId): void
+    {
+        $this->redirect(
+            route('filament.admin.pages.messages', [
+                'document' => $documentId,
+            ])
+        );
+    }
 }

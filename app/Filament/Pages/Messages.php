@@ -286,4 +286,29 @@ class Messages extends Page
     {
         return 'danger';
     }
+
+    public function mount(): void
+    {
+        $documentId = request()->query('document');
+
+        if (! $documentId) {
+            return;
+        }
+
+        $conversation = Conversation::query()
+            ->where('document_id', $documentId)
+            ->first();
+
+        if (! $conversation) {
+            return;
+        }
+
+        Gate::authorize('view', $conversation);
+
+        $this->selectedConversation = $conversation->id;
+
+        $this->loadMessages();
+
+        $this->markMessagesAsRead();
+    }
 }
