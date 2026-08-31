@@ -819,9 +819,14 @@
 
                             @if($matchesSearch)
 
-                                <button
-                                    wire:click="selectItem(@js($fileName), {{ $document['id'] }})"
-                                    class="grid w-full grid-cols-[minmax(0,1fr)_120px_160px_60px] items-center border-b border-gray-100 px-5 py-4 text-left transition hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800"
+                                <a
+                                    href="{{ route('admin.documents.file', [
+                                        'document' => $document['id'],
+                                        'filename' => $fileName,
+                                    ]) }}"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    class="grid w-full cursor-pointer grid-cols-[minmax(0,1fr)_120px_160px_60px] items-center border-b border-gray-100 px-5 py-4 text-left transition hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800"
                                 >
 
                                     {{-- DOCUMENT NAME --}}
@@ -882,7 +887,7 @@
 
                                     </div>
 
-                                </button>
+                                </a>
 
                             @endif
 

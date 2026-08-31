@@ -234,9 +234,9 @@ class Cabinet extends Page
                     ->preserveFilenames()
                     ->acceptedFileTypes([
                         'application/pdf',
-                        'application/msword',
                         'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
                     ])
+                    ->rules(['mimes:pdf,docx'])
                     ->required(),
             ])
             ->action(function (array $data): void {
