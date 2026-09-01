@@ -18,9 +18,12 @@ use Filament\Support\Enums\Width;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+// use BezhanSalleh\FilamentShield\Traits\HasPageShield;
 
 class ViewDocument extends Page
 {
+    // use HasPageShield;
+
     protected static string|\BackedEnum|null $navigationIcon = null;
 
     protected static bool $shouldRegisterNavigation = false;

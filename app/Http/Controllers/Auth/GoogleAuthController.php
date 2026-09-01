@@ -71,7 +71,7 @@ class GoogleAuthController extends Controller
                     'profile_photo_url' => $avatar,
                 ]);
 
-                if (! $user->hasRole('Client') && ! $user->getRoleNames()->count()) {
+                if ($user->getRoleNames()->isEmpty()) {
                     $user->assignRole('Client');
                 }
             }
@@ -86,7 +86,7 @@ class GoogleAuthController extends Controller
 
             Auth::login($user);
 
-            if ($user->isAdmin()) {
+            if ($user->hasAnyRole(['Super Admin', 'Admin'])) {
                 return redirect('/admin');
             }
 

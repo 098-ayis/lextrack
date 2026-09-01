@@ -28,7 +28,7 @@ return [
             'pages' => true,
             'widgets' => true,
             'resources' => true,
-            'custom_permissions' => false,
+            'custom_permissions' => true,
         ],
     ],
 
@@ -71,7 +71,7 @@ return [
 
     'super_admin' => [
         'enabled' => true,
-        'name' => 'super_admin',
+        'name' => 'Super Admin',
         'define_via_gate' => true,
         'intercept_gate' => 'before',
     ],
@@ -121,7 +121,7 @@ return [
         'separator' => ':',
         'case' => 'pascal',
         'generate' => true,
-        'format_custom_permission_keys' => true,
+        'format_custom_permission_keys' => false,
     ],
 
     /*
@@ -253,7 +253,12 @@ return [
     |
     */
 
-    'custom_permissions' => [],
+    'custom_permissions' => [
+        'view_shared_messages' => 'View Shared Messages',
+        'reply_shared_messages' => 'Reply Shared Messages',
+        'assign_conversations' => 'Assign Conversations',
+        'close_conversations' => 'Close Conversations',
+    ],
 
     /*
     |--------------------------------------------------------------------------

@@ -13,9 +13,12 @@ use Filament\Forms\Components\Textarea;
 use Filament\Pages\Page;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
+// use BezhanSalleh\FilamentShield\Traits\HasPageShield;
 
 class Cabinet extends Page
 {
+    // use HasPageShield;
+
     protected static ?int $navigationSort = 6;
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-archive-box';

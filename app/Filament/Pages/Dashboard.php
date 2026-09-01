@@ -6,9 +6,12 @@ use App\Models\Calendar;
 use App\Models\Document;
 use Carbon\Carbon;
 use Filament\Pages\Page;
+// use BezhanSalleh\FilamentShield\Traits\HasPageShield;
 
 class Dashboard extends Page
 {
+    // use HasPageShield;
+
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-home';
 
     protected static ?string $navigationLabel = 'Dashboard';

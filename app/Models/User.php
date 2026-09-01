@@ -27,7 +27,7 @@ use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable implements HasAvatar, FilamentUser
 {
-    public const ADMIN_ROLES = ['Admin', 'super_admin'];
+    public const ADMIN_ROLES = ['Admin', 'Super Admin'];
 
     public const DEFAULT_STATUS = 'Active';
 
@@ -95,13 +95,24 @@ class User extends Authenticatable implements HasAvatar, FilamentUser
         return $this->hasAnyRole(self::ADMIN_ROLES);
     }
 
+    public function isSuperAdmin(): bool
+    {
+        return $this->hasRole('Super Admin');
+    }
+
     public function canAccessPanel(Panel $panel): bool
     {
-        if ($this->status !== self::STATUS_OPTIONS['Active']) {
+        if ($this->status !== self::DEFAULT_STATUS) {
             return false;
         }
 
-        return $panel->getId() !== 'admin' || $this->isAdmin();
+        return match ($panel->getId()) {
+            'admin' => $this->hasAnyRole(self::ADMIN_ROLES),
+
+            'client' => $this->hasRole('Client'),
+
+            default => false,
+        };
     }
 
 

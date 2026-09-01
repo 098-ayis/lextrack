@@ -7,10 +7,12 @@ use Filament\Pages\Page;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Livewire\WithFileUploads;
+// use BezhanSalleh\FilamentShield\Traits\HasPageShield;
 
 class Profile extends Page
 {
     use WithFileUploads;
+    // use HasPageShield;
 
     protected static bool $shouldRegisterNavigation = false;
 
