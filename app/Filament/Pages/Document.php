@@ -956,7 +956,7 @@ class Document extends Page
             ->modalSubmitActionLabel('Complete document')
             ->modalCancelActionLabel('Cancel')
             ->extraAttributes([
-                'class' => 'inline-flex items-center justify-center rounded-md px-3 py-2 text-xs font-semibold bg-[#334155] hover:bg-[#0F172A] text-white transition',
+                'class' => 'complete-document-button inline-flex items-center justify-center rounded-md px-3 py-2 text-xs font-semibold text-white transition',
             ])
             ->action(function (array $arguments): void {
                 $this->completeDocument((int) $arguments['document']);

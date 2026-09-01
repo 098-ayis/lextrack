@@ -11,7 +11,7 @@ use RuntimeException;
 use Symfony\Component\HttpFoundation\Response;
 use Throwable;
 
-class DocumentExportController
+class DocumentExportController extends Controller
 {
     public function __invoke(Request $request): Response
     {
@@ -74,6 +74,8 @@ class DocumentExportController
             'documents-' . now()->format('Y-m-d') . '.csv',
             [
                 'Content-Type' => 'text/csv; charset=UTF-8',
+                'X-Content-Type-Options' => 'nosniff',
+                'Cache-Control' => 'no-store, no-cache, must-revalidate',
             ],
         );
     }
@@ -90,14 +92,14 @@ class DocumentExportController
             // UTF-8 BOM helps spreadsheet applications display the CSV correctly.
             fwrite($handle, "\xEF\xBB\xBF");
 
-            fputcsv($handle, ['BICOL UNIVERSITY']);
-            fputcsv($handle, ['LEGAL AFFAIRS OFFICE']);
-            fputcsv($handle, ['BU LOGO', 'bu-logo.png']);
-            fputcsv($handle, ['DOCUMENTS REPORT', $sectionLabel]);
-            fputcsv($handle, ['Generated', now()->format('F d, Y h:i A')]);
-            fputcsv($handle, []);
+            $this->writeCsvRow($handle, ['BICOL UNIVERSITY']);
+            $this->writeCsvRow($handle, ['LEGAL AFFAIRS OFFICE']);
+            $this->writeCsvRow($handle, ['BU LOGO', 'bu-logo.png']);
+            $this->writeCsvRow($handle, ['DOCUMENTS REPORT', $sectionLabel]);
+            $this->writeCsvRow($handle, ['Generated', now()->format('F d, Y h:i A')]);
+            $this->writeCsvRow($handle, []);
 
-            fputcsv($handle, [
+            $this->writeCsvRow($handle, [
                 'No.',
                 'LAO No.',
                 'Office / Unit',
@@ -118,7 +120,7 @@ class DocumentExportController
                 $status = ucwords(str_replace('_', ' ', (string) $document->status));
                 $action = $document->actionType?->action_name ?? $document->action_taken ?? '—';
 
-                fputcsv($handle, [
+                $this->writeCsvRow($handle, [
                     $index + 1,
                     $document->lao_number,
                     $document->office_unit,
@@ -182,5 +184,16 @@ class DocumentExportController
     private function formatDate(mixed $value): ?string
     {
         return $value ? Carbon::parse($value)->format('F d, Y') : null;
+    }
+
+    /**
+     * Write a CSV row with an explicit escape character for PHP 8.5+.
+     *
+     * @param resource $handle
+     * @param array<int, mixed> $fields
+     */
+    private function writeCsvRow($handle, array $fields): void
+    {
+        fputcsv($handle, $fields, ',', '"', '\\');
     }
 }

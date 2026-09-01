@@ -190,7 +190,8 @@
                     'type' => $typeFilter,
                     'date' => $dateFilter,
                 ]) }}"
-                download
+                target="_blank"
+                rel="noopener"
                 class="inline-flex h-10 items-center gap-2 rounded-md border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
             >
                 <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">

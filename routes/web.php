@@ -50,7 +50,7 @@ Route::get('/admin/users/export', [UserExportController::class, '__invoke'])
     ->middleware(['auth', AdminMiddleware::class])
     ->name('admin.users.export');
 
-Route::get('/admin/documents/export', [DocumentExportController::class, '__invoke'])
+Route::get('/admin/document-export', [DocumentExportController::class, '__invoke'])
     ->middleware(['auth', AdminMiddleware::class])
     ->name('admin.documents.export');
 

@@ -294,7 +294,7 @@ Edit-Button
     height: 36px !important;
     padding: 0 0.75rem !important;
 
-    background-color: #0F172A !important;
+    background-color: #6366F1 !important;
     color: #ffffff !important;
     border: none !important;
     border-radius: 0.375rem !important;
@@ -304,7 +304,7 @@ Edit-Button
 }
 
 .outgoing-document-button:hover {
-    background-color: #334155 !important;
+    background-color: #4F46E5 !important;
     color: #ffffff !important;
 }
 
@@ -323,8 +323,8 @@ Edit-Button
     height: 36px !important;
     padding: 0 0.75rem !important;
 
-    background-color: #DCFCE7 !important;
-    color: #15803D !important;
+    background-color: #2563EB !important;
+    color: #ffffff !important;
     border: none !important;
     border-radius: 0.375rem !important;
     font-size: 0.75rem !important;
@@ -333,13 +333,28 @@ Edit-Button
 }
 
 .return-document-button:hover {
-    background-color: #BBF7D0 !important;
-    color: #166534 !important;
+    background-color: #1D4ED8 !important;
+    color: #ffffff !important;
 }
 
 .return-document-button svg {
     width: 16px !important;
     height: 16px !important;
+    color: currentColor !important;
+}
+
+/* Match the Calendar Add Event button */
+.complete-document-button {
+    background-color: #6366F1 !important;
+    color: #ffffff !important;
+}
+
+.complete-document-button:hover {
+    background-color: #4F46E5 !important;
+    color: #ffffff !important;
+}
+
+.complete-document-button svg {
     color: currentColor !important;
 }
 
