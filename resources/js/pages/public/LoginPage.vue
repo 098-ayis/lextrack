@@ -39,11 +39,28 @@
         </div>
       </div>
 
+
+
       <!-- ==========================================
            RIGHT SIDE (White Panel & Form)
       =========================================== -->
       <div class="relative z-10 w-full md:w-1/2 p-6 md:py-8 md:pl-0 md:pr-16 flex flex-col justify-center items-center">
 
+          <div
+              v-if="flashStatus"
+              class="w-full mb-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"
+            >
+              <div class="flex items-start gap-2">
+                <Icon
+                  icon="lucide:clock-alert"
+                  class="w-4 h-4 mt-0.5 flex-shrink-0"
+                />
+
+                <span>
+                  {{ flashStatus }}
+                </span>
+          </div>
+      </div>
         <!-- Title -->
         <div class="text-center mb-8">
           <h1 class="text-2xl md:text-3xl font-black text-[#121722] tracking-tight mb-1">
@@ -83,6 +100,13 @@
 
 <script setup>
 import { Icon } from '@iconify/vue'
+
+import { ref } from 'vue'
+
+const flashStatus = ref(
+  window.LexTrack?.flashStatus ?? null
+)
 </script>
+
 <style scoped>
 </style>
