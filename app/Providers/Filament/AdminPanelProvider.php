@@ -22,7 +22,6 @@ use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Route;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 
-use Althinect\FilamentSpatieRolesPermissions\FilamentSpatieRolesPermissionsPlugin;
 
 class AdminPanelProvider extends PanelProvider
 {
@@ -74,8 +73,6 @@ class AdminPanelProvider extends PanelProvider
             ->topNavigation()
             ->globalSearch(false)
             ->databaseNotifications()
-
-            ->plugin(FilamentSpatieRolesPermissionsPlugin::make())
 
             ->brandLogo(fn () => view('filament.components.brand'))
             ->brandLogoHeight('3rem')

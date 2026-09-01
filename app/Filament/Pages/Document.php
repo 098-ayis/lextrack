@@ -31,10 +31,12 @@ use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+// use BezhanSalleh\FilamentShield\Traits\HasPageShield;
 
 class Document extends Page
 {
     use WithPagination;
+    // use HasPageShield;
 
     protected static ?string $slug = 'incoming';
 

@@ -12,9 +12,12 @@ use Filament\Forms\Components\TimePicker;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Support\Collection;
+// use BezhanSalleh\FilamentShield\Traits\HasPageShield;
 
 class Calendar extends Page
 {
+   // use HasPageShield;
+
     protected static ?int $navigationSort = 7;
 
     protected static string|\BackedEnum|null $navigationIcon =

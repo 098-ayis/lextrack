@@ -13,10 +13,12 @@ use Filament\Pages\Page;
 use Filament\Support\Enums\Width;
 use Illuminate\Support\Facades\DB;
 use Livewire\WithPagination;
+// use BezhanSalleh\FilamentShield\Traits\HasPageShield;
 
 class DocumentRequests extends Page
 {
     use WithPagination;
+   // use HasPageShield;
 
     protected static ?int $navigationSort = 3;
 
