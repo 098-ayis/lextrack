@@ -74,9 +74,9 @@
         <!-- Google Login Button -->
         <a 
           href="/auth/google"
-          class="w-full max-w-[360px] px-4 h-[50px] border-2 border-[#a5b4fc] bg-white
-                 hover:bg-[#828cff] hover:border-[#828cff] hover:text-white rounded-xl flex items-center justify-center gap-3 
-                 text-center text-[#334155] text-[14px] font-semibold transition-all duration-300
+          class="w-full max-w-[360px] px-2 sm:px-3 h-[50px] border-2 border-[#a5b4fc] bg-white
+                 hover:bg-[#828cff] hover:border-[#828cff] hover:text-white rounded-xl flex items-center justify-center gap-2
+                 text-center text-[#334155] text-[12px] sm:text-[13px] font-semibold whitespace-nowrap transition-all duration-300
                  shadow-sm hover:shadow-md hover:-translate-y-[1px]"
         >
           <Icon icon="logos:google-icon" class="w-[20px] h-[20px] flex-shrink-0" />

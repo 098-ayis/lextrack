@@ -77,9 +77,17 @@ class Upload extends Page implements HasForms
                         'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
                     ])
                     ->maxSize(5120)
+                    ->validationAttribute('document file')
+                    ->validationMessages([
+                        'required' => 'Please select a document file before submitting.',
+                        'mimetypes' => 'This file type is not supported. Please upload a PDF or DOCX file.',
+                        'max' => 'The document file is too large. Please choose a file up to 5 MB.',
+                        'file' => 'The selected document could not be uploaded. Please choose a valid file.',
+                    ])
                     ->disk('local')
                     ->directory('client-documents')
                     ->preserveFilenames()
+                    ->helperText('Accepted files: PDF or DOCX. Maximum file size: 5 MB.')
                     ->columnSpan('full')
                     ->required(),
                             ])

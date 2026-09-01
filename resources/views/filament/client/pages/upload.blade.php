@@ -54,6 +54,44 @@
         .dark .client-upload-page .filepond--item-panel {
             background-color: #374151 !important;
         }
+
+        /* Keep oversized/invalid files visible in light mode as well as dark mode. */
+        .client-upload-page .filepond--root:has(.filepond--item[data-filepond-item-state*="invalid"]),
+        .client-upload-page .filepond--root:has(.filepond--item[data-filepond-item-state*="error"]) {
+            background-color: #fef2f2 !important;
+            border-color: #dc2626 !important;
+        }
+
+        .client-upload-page .filepond--item[data-filepond-item-state*="invalid"] .filepond--item-panel,
+        .client-upload-page .filepond--item[data-filepond-item-state*="error"] .filepond--item-panel {
+            background-color: #dc2626 !important;
+        }
+
+        .client-upload-page .filepond--item[data-filepond-item-state*="invalid"] .filepond--file-info,
+        .client-upload-page .filepond--item[data-filepond-item-state*="invalid"] .filepond--file-status-main,
+        .client-upload-page .filepond--item[data-filepond-item-state*="invalid"] .filepond--file-status-sub,
+        .client-upload-page .filepond--item[data-filepond-item-state*="error"] .filepond--file-info,
+        .client-upload-page .filepond--item[data-filepond-item-state*="error"] .filepond--file-status-main,
+        .client-upload-page .filepond--item[data-filepond-item-state*="error"] .filepond--file-status-sub {
+            color: #ffffff !important;
+            font-weight: 600 !important;
+        }
+
+        .client-upload-page .fi-fo-file-upload-error-message {
+            color: #b91c1c !important;
+            font-size: 0.875rem !important;
+            font-weight: 600 !important;
+        }
+
+        .dark .client-upload-page .filepond--root:has(.filepond--item[data-filepond-item-state*="invalid"]),
+        .dark .client-upload-page .filepond--root:has(.filepond--item[data-filepond-item-state*="error"]) {
+            background-color: #450a0a !important;
+            border-color: #f87171 !important;
+        }
+
+        .dark .client-upload-page .fi-fo-file-upload-error-message {
+            color: #fca5a5 !important;
+        }
         
         .filepond--file-info {
             color: #1f2937 !important;

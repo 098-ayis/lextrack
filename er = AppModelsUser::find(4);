@@ -1,0 +1,24 @@
+[90m= [39m[34;4mIlluminate\Database\Eloquent\Collection[39;24m {#9910
+    [34mall[39m: [
+      [34;4mApp\Models\User[39;24m {#9908
+        [34mid[39m: [35m1[39m,
+        [34mname[39m: [32m"[39m[32mRhona Eloisa Lumbes[39m[32m"[39m,
+        [34memail[39m: [32m"[39m[32mrell2023-2923-54818@bicol-u.edu.ph[39m[32m"[39m,
+      },
+      [34;4mApp\Models\User[39;24m {#9909
+        [34mid[39m: [35m2[39m,
+        [34mname[39m: [32m"[39m[32mTest User[39m[32m"[39m,
+        [34memail[39m: [32m"[39m[32mtest@example.com[39m[32m"[39m,
+      },
+      [34;4mApp\Models\User[39;24m {#9906
+        [34mid[39m: [35m3[39m,
+        [34mname[39m: [32m"[39m[32mRhea Nicole Lumbes[39m[32m"[39m,
+        [34memail[39m: [32m"[39m[32mrheanicolellona.lumbes24@bicol-u.edu.ph[39m[32m"[39m,
+      },
+      [34;4mApp\Models\User[39;24m {#9905
+        [34mid[39m: [35m4[39m,
+        [34mname[39m: [32m"[39m[32mHershey Hestiada[39m[32m"[39m,
+        [34memail[39m: [32m"[39m[32mhah2023-3276-22539@bicol-u.edu.ph[39m[32m"[39m,
+      },
+    ],
+  }
