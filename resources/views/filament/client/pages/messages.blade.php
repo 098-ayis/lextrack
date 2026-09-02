@@ -1181,8 +1181,30 @@
 
 <script>
     document.addEventListener('livewire:init', () => {
-        Livewire.on('messages-read', () => {
-            window.location.reload();
+        Livewire.on('messages-read', (event) => {
+            const count = Number(event.count ?? 0);
+
+            const messagesLink = document.querySelector(
+                'a[href$="/client/messages"]'
+            );
+
+            if (! messagesLink) {
+                return;
+            }
+
+            const badge = messagesLink.querySelector('.fi-badge');
+
+            if (count <= 0) {
+                if (badge) {
+                    badge.remove();
+                }
+
+                return;
+            }
+
+            if (badge) {
+                badge.textContent = count;
+            }
         });
     });
 </script>
