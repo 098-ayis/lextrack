@@ -130,13 +130,25 @@
         position: relative;
     }
 
-    .m-avatar-img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        object-position: center;
-        border-radius: 50%;
-        display: block;
+    .m-avatar-icon {
+    width: 40px;
+    height: 40px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 50%;
+    background-color: #DBEAFE;
+
+    color: #000000;
+
+    flex-shrink: 0;
+    }
+
+    .m-avatar-icon svg {
+        width: 24px;
+        height: 24px;
     }
 
 
@@ -253,17 +265,6 @@
         color: #1b6ca8;
 
         flex: 0 0 40px;
-    }
-
-    .t-avatar-img {
-        width: 100%;
-        height: 100%;
-
-        object-fit: cover;
-        object-position: center;
-
-        border-radius: 50%;
-        display: block;
     }
 
     .t-name {
@@ -711,15 +712,8 @@
                      */
                     $client = $conversation?->document?->user;
                     $clientName = $client?->name ?? 'Unknown Client';
-                    $clientPhoto = $client?->profile_photo_url;
                     $documentTitle = $conversation->document?->particulars
                     ?? 'Untitled Document';
-
-                    $initials = collect(explode(' ', $clientName))
-                        ->filter()
-                        ->map(fn ($part) => strtoupper(substr($part, 0, 1)))
-                        ->take(2)
-                        ->join('');
 
                     $latestMessage = $conversation
                         ->messages
@@ -755,20 +749,9 @@
 
                     <div class="m-avatar">
 
-                        @if ($clientPhoto)
-
-                            <img
-                                src="{{ $clientPhoto }}"
-                                alt="{{ $clientName }}"
-                                class="m-avatar-img"
-                                referrerpolicy="no-referrer"
-                            >
-
-                        @else
-
-                            {{ $initials ?: 'CL' }}
-
-                        @endif
+                           <div class="m-avatar-icon">
+                               <x-heroicon-o-document-text />
+                           </div>
 
                         @if ($conversation->unread_messages_count > 0)
                             <span class="dot"></span>
@@ -896,14 +879,6 @@
 
                 $clientName = $client?->name ?? 'Unknown Client';
 
-                $clientPhoto = $client?->profile_photo_url;
-
-                $clientInitials = collect(explode(' ', $clientName))
-                    ->filter()
-                    ->map(fn ($part) => strtoupper(substr($part, 0, 1)))
-                    ->take(2)
-                    ->join('');
-
                 $documentTitle = $activeConversation->document?->particulars
                     ?? 'Untitled Document';
             @endphp
@@ -915,20 +890,9 @@
             <div class="thread-header">
 
                 <div class="t-avatar">
-                    @if ($clientPhoto)
-
-                        <img
-                            src="{{ $clientPhoto }}"
-                            alt="{{ $clientName }}"
-                            class="t-avatar-img"
-                            referrerpolicy="no-referrer"
-                        >
-
-                    @else
-
-                        {{ $clientInitials ?: 'CL' }}
-
-                    @endif
+                     <div class="m-avatar-icon">
+                               <x-heroicon-o-document-text />
+                      </div>
                 </div>
 
 

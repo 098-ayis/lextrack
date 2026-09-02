@@ -155,17 +155,25 @@
         flex-shrink: 0;
     }
 
-    .m-avatar img,
-    .m-avatar-img {
-        display: block;
+    .m-avatar-icon {
+    width: 40px;
+    height: 40px;
 
-        width: 100%;
-        height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 
-        border-radius: 50%;
+    border-radius: 50%;
+    background-color: #DBEAFE;
 
-        object-fit: cover;
-        object-position: center;
+    color: #000000;
+
+    flex-shrink: 0;
+    }
+
+    .m-avatar-icon svg {
+        width: 24px;
+        height: 24px;
     }
 
     .m-avatar .dot {
@@ -818,7 +826,6 @@
 
                         $officeName = 'Legal Affairs Office';
 
-                        $officeLogo = asset('images/bu-lao.png');
 
                         $searchText = strtolower(
                             $displayName . ' ' .
@@ -856,12 +863,10 @@
 
                         <div class="m-avatar">
 
-                            <img
-                                src="{{ $officeLogo }}"
-                                alt="{{ $officeName }}"
-                                class="m-avatar-img"
-                            >
-
+                            <div class="m-avatar-icon">
+                               <x-heroicon-o-document-text />
+                           </div>
+                            
                             @if ($conversation->unread_messages_count > 0)
                                 <span class="dot"></span>
                             @endif
@@ -977,15 +982,6 @@
 
                 $threadName = $activeConversation?->document?->particulars
                     ?: 'Untitled Document';
-
-                $threadInitials = collect(explode(' ', $threadName))
-                    ->filter()
-                    ->map(
-                        fn ($part) =>
-                            strtoupper(substr($part, 0, 1))
-                    )
-                    ->take(2)
-                    ->join('');
                 
             @endphp
 
@@ -994,11 +990,9 @@
                 <div class="thread-header">
 
                     <div class="t-avatar">
-                        <img
-                            src="{{ asset('images/bu-lao.png') }}"
-                            alt="Legal Affairs Office"
-                            class="t-avatar-img"
-                        >
+                        <div class="m-avatar-icon">
+                               <x-heroicon-o-document-text />
+                        </div>
                     </div>
 
                     <div style="flex: 1;">
