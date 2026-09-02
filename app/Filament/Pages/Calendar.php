@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Models\Calendar as CalendarModel;
+use App\Models\Document;
 use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
@@ -152,7 +153,7 @@ class Calendar extends Page
      */
     public function getEvents(): Collection
     {
-        return CalendarModel::query()
+        $calendarEvents = CalendarModel::query()
             ->with('user')
             ->when(
                 $this->selectedDate,
@@ -171,6 +172,14 @@ class Calendar extends Page
             ->orderBy('date')
             ->orderBy('time')
             ->get();
+
+        return $this->sortEvents(
+            $calendarEvents->concat(
+                $this->getDocumentDeadlineEvents(
+                    $this->selectedDate
+                )
+            )
+        );
     }
 
 
@@ -186,7 +195,7 @@ class Calendar extends Page
      */
     public function getMonthEvents(): Collection
     {
-        return CalendarModel::query()
+        $calendarEvents = CalendarModel::query()
             ->with('user')
             ->whereBetween(
                 'date',
@@ -198,6 +207,12 @@ class Calendar extends Page
             ->orderBy('date')
             ->orderBy('time')
             ->get();
+
+        return $this->sortEvents(
+            $calendarEvents->concat(
+                $this->getDocumentDeadlineEvents()
+            )
+        );
     }
 
 
@@ -206,11 +221,99 @@ class Calendar extends Page
      */
     public function getEventsForDate(string $date): Collection
     {
-        return CalendarModel::query()
+        $calendarEvents = CalendarModel::query()
             ->with('user')
             ->whereDate('date', $date)
             ->orderBy('time')
             ->get();
+
+        return $this->sortEvents(
+            $calendarEvents->concat(
+                $this->getDocumentDeadlineEvents($date)
+            )
+        );
+    }
+
+
+    /**
+     * Convert documents with deadlines into calendar-compatible items.
+     * These are virtual events, so no duplicate Calendar record is created.
+     */
+    protected function getDocumentDeadlineEvents(?string $date = null): Collection
+    {
+        return Document::query()
+            ->with('latestVersion')
+            ->whereNotNull('deadline')
+            ->when(
+                $date,
+                fn ($query) => $query->whereDate('deadline', $date),
+                fn ($query) => $query->whereBetween(
+                    'deadline',
+                    [
+                        $this->monthStart(),
+                        $this->monthEnd(),
+                    ]
+                )
+            )
+            ->orderBy('deadline')
+            ->get()
+            ->map(function (Document $document): object {
+                $filePath = $document->latestVersion?->file_path;
+                $fileName = $filePath ? basename($filePath) : null;
+
+                $title = $document->particulars
+                    ?: $document->lao_number
+                    ?: $fileName
+                    ?: "Document #{$document->document_id}";
+
+                $details = collect([
+                    'Document deadline',
+                    $document->office_unit,
+                    $document->lao_number,
+                ])->filter()->implode(' · ');
+
+                return (object) [
+                    'sched_id' => "document-deadline-{$document->document_id}",
+                    'document_id' => $document->document_id,
+                    'is_document_deadline' => true,
+                    'user_id' => $document->user_id,
+                    'user' => null,
+                    'event' => $title,
+                    'details' => $details,
+                    'date' => Carbon::parse($document->deadline)->format('Y-m-d'),
+                    'time' => null,
+                ];
+            });
+    }
+
+
+    /**
+     * Sort manual events and document deadlines together.
+     */
+    protected function sortEvents(Collection $events): Collection
+    {
+        return $events
+            ->sort(function ($first, $second): int {
+                $firstDate = Carbon::parse($first->date)->format('Y-m-d');
+                $secondDate = Carbon::parse($second->date)->format('Y-m-d');
+
+                $dateComparison = strcmp($firstDate, $secondDate);
+
+                if ($dateComparison !== 0) {
+                    return $dateComparison;
+                }
+
+                $firstTime = $first->time
+                    ? Carbon::parse($first->time)->format('H:i:s')
+                    : '00:00:00';
+
+                $secondTime = $second->time
+                    ? Carbon::parse($second->time)->format('H:i:s')
+                    : '00:00:00';
+
+                return strcmp($firstTime, $secondTime);
+            })
+            ->values();
     }
 
 

@@ -596,15 +596,27 @@
 
                                             @php
 
-                                                $eventColor =
-                                                    $this->getUserColor(
-                                                        $event->user_id
+                                                $isDocumentDeadline =
+                                                    (bool) (
+                                                        $event->is_document_deadline
+                                                        ?? false
                                                     );
+
+                                                $eventColor =
+                                                    $isDocumentDeadline
+                                                        ? '#DC2626'
+                                                        : $this->getUserColor(
+                                                            $event->user_id
+                                                        );
 
 
                                                 $staffName =
-                                                    $event->user?->name
-                                                    ?? 'Unknown Staff';
+                                                    $isDocumentDeadline
+                                                        ? 'Document deadline'
+                                                        : (
+                                                            $event->user?->name
+                                                            ?? 'Unknown Staff'
+                                                        );
 
 
                                                 $eventTime =
@@ -1058,15 +1070,27 @@
 
                             @php
 
-                                $eventColor =
-                                    $this->getUserColor(
-                                        $event->user_id
+                                $isDocumentDeadline =
+                                    (bool) (
+                                        $event->is_document_deadline
+                                        ?? false
                                     );
+
+                                $eventColor =
+                                    $isDocumentDeadline
+                                        ? '#DC2626'
+                                        : $this->getUserColor(
+                                            $event->user_id
+                                        );
 
 
                                 $staffName =
-                                    $event->user?->name
-                                    ?? 'Unknown Staff';
+                                    $isDocumentDeadline
+                                        ? 'Document deadline'
+                                        : (
+                                            $event->user?->name
+                                            ?? 'Unknown Staff'
+                                        );
 
 
                                 $formattedDate =
@@ -1241,7 +1265,7 @@
                                     >
 
                                         <span>
-                                            Added by
+                                            {{ $isDocumentDeadline ? 'Source' : 'Added by' }}
                                         </span>
 
                                         <span
@@ -1253,7 +1277,7 @@
                                                 dark:text-gray-300
                                             "
                                         >
-                                            {{ $staffName }}
+                                            {{ $isDocumentDeadline ? 'Documents' : $staffName }}
                                         </span>
 
                                     </div>
@@ -1264,6 +1288,8 @@
                                 {{-- ================================= --}}
                                 {{-- EVENT ACTIONS --}}
                                 {{-- ================================= --}}
+
+                                @if(! $isDocumentDeadline)
 
                                 <div
                                     class="
@@ -1339,6 +1365,8 @@
                                     </button>
 
                                 </div>
+
+                                @endif
 
                             </div>
 
