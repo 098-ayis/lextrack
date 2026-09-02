@@ -176,19 +176,6 @@
         height: 24px;
     }
 
-    .m-avatar .dot {
-        position: absolute;
-        right: -1px;
-        bottom: -1px;
-
-        width: 11px;
-        height: 11px;
-
-        background: #dc2626;
-        border: 2px solid #ffffff;
-        border-radius: 50%;
-    }
-
 
     /* =========================================================
        CONVERSATION INFORMATION
@@ -866,10 +853,6 @@
                             <div class="m-avatar-icon">
                                <x-heroicon-o-document-text />
                            </div>
-                            
-                            @if ($conversation->unread_messages_count > 0)
-                                <span class="dot"></span>
-                            @endif
 
                         </div>
 
@@ -1026,6 +1009,23 @@
             <div
                 class="thread-body"
                 id="threadBody"
+
+                x-data
+
+                x-on:message-sent.window="
+                    $nextTick(() => {
+                        $el.scrollTo({
+                            top: $el.scrollHeight,
+                            behavior: 'smooth'
+                        })
+                    })
+                "
+
+                x-on:conversation-opened.window="
+                    $nextTick(() => {
+                        $el.scrollTop = $el.scrollHeight
+                    })
+                "
             >
 
                 @forelse ($messages as $message)

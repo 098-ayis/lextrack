@@ -988,6 +988,23 @@
             <div
                 class="thread-body"
                 id="threadBody"
+
+                x-data
+
+                x-on:message-sent.window="
+                    $nextTick(() => {
+                        $el.scrollTo({
+                            top: $el.scrollHeight,
+                            behavior: 'smooth'
+                        })
+                    })
+                "
+
+                x-on:conversation-opened.window="
+                    $nextTick(() => {
+                        $el.scrollTop = $el.scrollHeight
+                    })
+                "
             >
 
                 @forelse ($messages as $message)

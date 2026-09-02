@@ -82,6 +82,8 @@ class Messages extends Page
         $this->loadMessages();
 
         $this->markMessagesAsRead();
+
+        $this->dispatch('conversation-opened');
     }
 
     public function refreshConversation(): void
@@ -152,6 +154,8 @@ class Messages extends Page
         $this->newMessage = '';
 
         $this->loadMessages();
+
+        $this->dispatch('message-sent');
     }
 
     /**

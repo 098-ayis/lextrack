@@ -138,6 +138,8 @@ class Messages extends Page
         $this->loadMessages();
 
         $this->markMessagesAsRead();
+
+        $this->dispatch('conversation-opened');
     }
 
     /**
@@ -212,6 +214,8 @@ class Messages extends Page
         $this->newMessage = '';
 
         $this->loadMessages();
+
+        $this->dispatch('message-sent');
     }
 
     /**
