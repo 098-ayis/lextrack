@@ -155,30 +155,25 @@
         flex-shrink: 0;
     }
 
-    .m-avatar img,
-    .m-avatar-img {
-        display: block;
+    .m-avatar-icon {
+    width: 40px;
+    height: 40px;
 
-        width: 100%;
-        height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 
-        border-radius: 50%;
+    border-radius: 50%;
+    background-color: #DBEAFE;
 
-        object-fit: cover;
-        object-position: center;
+    color: #000000;
+
+    flex-shrink: 0;
     }
 
-    .m-avatar .dot {
-        position: absolute;
-        right: -1px;
-        bottom: -1px;
-
-        width: 11px;
-        height: 11px;
-
-        background: #dc2626;
-        border: 2px solid #ffffff;
-        border-radius: 50%;
+    .m-avatar-icon svg {
+        width: 24px;
+        height: 24px;
     }
 
 
@@ -818,7 +813,6 @@
 
                         $officeName = 'Legal Affairs Office';
 
-                        $officeLogo = asset('images/bu-lao.png');
 
                         $searchText = strtolower(
                             $displayName . ' ' .
@@ -856,15 +850,9 @@
 
                         <div class="m-avatar">
 
-                            <img
-                                src="{{ $officeLogo }}"
-                                alt="{{ $officeName }}"
-                                class="m-avatar-img"
-                            >
-
-                            @if ($conversation->unread_messages_count > 0)
-                                <span class="dot"></span>
-                            @endif
+                            <div class="m-avatar-icon">
+                               <x-heroicon-o-document-text />
+                           </div>
 
                         </div>
 
@@ -977,15 +965,6 @@
 
                 $threadName = $activeConversation?->document?->particulars
                     ?: 'Untitled Document';
-
-                $threadInitials = collect(explode(' ', $threadName))
-                    ->filter()
-                    ->map(
-                        fn ($part) =>
-                            strtoupper(substr($part, 0, 1))
-                    )
-                    ->take(2)
-                    ->join('');
                 
             @endphp
 
@@ -994,11 +973,9 @@
                 <div class="thread-header">
 
                     <div class="t-avatar">
-                        <img
-                            src="{{ asset('images/bu-lao.png') }}"
-                            alt="Legal Affairs Office"
-                            class="t-avatar-img"
-                        >
+                        <div class="m-avatar-icon">
+                               <x-heroicon-o-document-text />
+                        </div>
                     </div>
 
                     <div style="flex: 1;">
@@ -1032,6 +1009,23 @@
             <div
                 class="thread-body"
                 id="threadBody"
+
+                x-data
+
+                x-on:message-sent.window="
+                    $nextTick(() => {
+                        $el.scrollTo({
+                            top: $el.scrollHeight,
+                            behavior: 'smooth'
+                        })
+                    })
+                "
+
+                x-on:conversation-opened.window="
+                    $nextTick(() => {
+                        $el.scrollTop = $el.scrollHeight
+                    })
+                "
             >
 
                 @forelse ($messages as $message)
@@ -1187,8 +1181,30 @@
 
 <script>
     document.addEventListener('livewire:init', () => {
-        Livewire.on('messages-read', () => {
-            window.location.reload();
+        Livewire.on('messages-read', (event) => {
+            const count = Number(event.count ?? 0);
+
+            const messagesLink = document.querySelector(
+                'a[href$="/client/messages"]'
+            );
+
+            if (! messagesLink) {
+                return;
+            }
+
+            const badge = messagesLink.querySelector('.fi-badge');
+
+            if (count <= 0) {
+                if (badge) {
+                    badge.remove();
+                }
+
+                return;
+            }
+
+            if (badge) {
+                badge.textContent = count;
+            }
         });
     });
 </script>

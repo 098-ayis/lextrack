@@ -82,6 +82,13 @@ class Messages extends Page
         $this->loadMessages();
 
         $this->markMessagesAsRead();
+
+        $this->dispatch(
+            'messages-read',
+            count: $this->getUnreadMessagesCount()
+        );
+
+        $this->dispatch('conversation-opened');
     }
 
     public function refreshConversation(): void
@@ -152,6 +159,8 @@ class Messages extends Page
         $this->newMessage = '';
 
         $this->loadMessages();
+
+        $this->dispatch('message-sent');
     }
 
     /**
@@ -310,5 +319,20 @@ class Messages extends Page
         $this->loadMessages();
 
         $this->markMessagesAsRead();
+    }
+
+    private function getUnreadMessagesCount(): int
+    {
+        $userId = auth()->id();
+
+        return Message::query()
+            ->where('sender_id', '!=', $userId)
+            ->whereHas('conversation.participants', function ($query) use ($userId) {
+                $query->where('users.id', $userId);
+            })
+            ->whereDoesntHave('readers', function ($query) use ($userId) {
+                $query->where('users.id', $userId);
+            })
+            ->count();
     }
 }

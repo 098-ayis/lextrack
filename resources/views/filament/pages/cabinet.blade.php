@@ -20,19 +20,72 @@
 
         $cabinet = $this->cabinet;
 
+        $normalizedSearch = strtolower(trim($search));
+
+        $sizeToBytes = function (?string $size): float {
+            if (! $size || ! preg_match('/([\d.]+)\s*(B|KB|MB|GB)/i', $size, $matches)) {
+                return 0;
+            }
+
+            $multiplier = match (strtoupper($matches[2])) {
+                'GB' => 1073741824,
+                'MB' => 1048576,
+                'KB' => 1024,
+                default => 1,
+            };
+
+            return (float) $matches[1] * $multiplier;
+        };
+
+        $documentMatchesSearch = function (array $document) use ($normalizedSearch): bool {
+            if ($normalizedSearch === '') {
+                return true;
+            }
+
+            $searchableText = strtolower(implode(' ', array_filter([
+                $document['name'] ?? null,
+                $document['particulars'] ?? null,
+                $document['lao_number'] ?? null,
+                $document['type'] ?? null,
+                $document['other_document_type'] ?? null,
+                $document['office_unit'] ?? null,
+                $document['status'] ?? null,
+            ])));
+
+            return str_contains($searchableText, $normalizedSearch);
+        };
+
+        $documentsForType = fn (string $type) => collect($cabinet[$type] ?? [])
+            ->flatMap(fn (array $documents) => $documents);
+
         $documentTypes = collect(array_keys($cabinet))
-            ->sort(function (string $first, string $second): int {
-                $firstIsOthers = strcasecmp($first, 'Others') === 0;
-                $secondIsOthers = strcasecmp($second, 'Others') === 0;
+            ->filter(function (string $type) use ($normalizedSearch, $documentsForType, $documentMatchesSearch): bool {
+                return $normalizedSearch === ''
+                    || str_contains(strtolower($type), $normalizedSearch)
+                    || $documentsForType($type)->contains($documentMatchesSearch);
+            });
 
-                if ($firstIsOthers !== $secondIsOthers) {
-                    return $firstIsOthers ? 1 : -1;
-                }
+        $documentTypes = match ($sortBy) {
+            'date' => $documentTypes->sortByDesc(
+                fn (string $type) => $documentsForType($type)
+                    ->max(fn (array $document) => strtotime($document['date'] ?? '') ?: 0) ?? 0
+            ),
+            'size' => $documentTypes->sortByDesc(
+                fn (string $type) => $documentsForType($type)
+                    ->sum(fn (array $document) => $sizeToBytes($document['size'] ?? null))
+            ),
+            default => $documentTypes->sort(
+                fn (string $first, string $second) => strcasecmp($first, $second)
+            ),
+        };
 
-                return strcasecmp($first, $second);
-            })
-            ->values()
-            ->all();
+        // Keep Others at the end regardless of the selected sort mode.
+        $documentTypes = $documentTypes
+            ->reject(fn (string $type) => strcasecmp($type, 'Others') === 0)
+            ->concat(
+                $documentTypes->filter(fn (string $type) => strcasecmp($type, 'Others') === 0)
+            )
+            ->values();
 
         $allOffices = collect($cabinet)
             ->flatMap(fn ($type) => array_keys($type))
@@ -63,6 +116,51 @@
             $currentDocuments =
                 $cabinet[$currentType][$currentOffice];
         }
+
+        $currentFolders = collect($cabinet[$currentType] ?? [])
+            ->filter(function (array $documents, string $folder) use ($normalizedSearch, $documentMatchesSearch): bool {
+                return $normalizedSearch === ''
+                    || str_contains(strtolower($folder), $normalizedSearch)
+                    || collect($documents)->contains($documentMatchesSearch);
+            })
+            ->when(
+                $sourceFilter !== 'all',
+                fn ($folders) => $folders->filter(
+                    fn (array $documents, string $folder) => $folder === $sourceFilter
+                )
+            );
+
+        $currentFolders = match ($sortBy) {
+            'date' => $currentFolders->sortByDesc(
+                fn (array $documents) => collect($documents)
+                    ->max(fn (array $document) => strtotime($document['date'] ?? '') ?: 0) ?? 0
+            ),
+            'size' => $currentFolders->sortByDesc(
+                fn (array $documents) => collect($documents)
+                    ->sum(fn (array $document) => $sizeToBytes($document['size'] ?? null))
+            ),
+            default => $currentFolders->sortKeysUsing('strnatcasecmp'),
+        };
+
+        $currentDocuments = collect($currentDocuments)
+            ->filter($documentMatchesSearch);
+
+        $currentDocuments = match ($sortBy) {
+            'date' => $currentDocuments->sortByDesc(
+                fn (array $document) => strtotime($document['date'] ?? '') ?: 0
+            ),
+            'type' => $currentDocuments->sortBy(
+                fn (array $document) => strtolower($document['type'] ?? '')
+            ),
+            'size' => $currentDocuments->sortByDesc(
+                fn (array $document) => $sizeToBytes($document['size'] ?? null)
+            ),
+            default => $currentDocuments->sortBy(
+                fn (array $document) => strtolower($document['name'] ?? '')
+            ),
+        };
+
+        $currentDocuments = $currentDocuments->values();
 
     @endphp
 
@@ -158,7 +256,7 @@
                         type="text"
                         wire:model.live.debounce.300ms="search"
                         placeholder="Search documents, folders, or offices..."
-                        class="w-full rounded-lg border-gray-300 bg-gray-50 py-2.5 pl-10 pr-10 text-sm focus:border-indigo-500 focus:ring-indigo-500 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+                        class="w-full rounded-lg border border-gray-300 bg-white py-2.5 pl-10 pr-10 text-sm shadow-sm transition-colors hover:border-gray-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white dark:hover:border-gray-500"
                     />
 
                     @if($search)
@@ -574,13 +672,6 @@
 
                             @foreach($documentTypes as $type)
 
-                                @php
-                                    $matchesSearch = $search === ''
-                                        || str_contains(strtolower($type), strtolower($search));
-                                @endphp
-
-                                @if($matchesSearch)
-
                                     <button
                                         wire:click="openType('{{ $type }}')"
                                         class="group rounded-xl border border-gray-200 bg-white p-5 text-left transition hover:border-indigo-300 hover:bg-indigo-50/40 hover:shadow-sm dark:border-gray-700 dark:bg-gray-900 dark:hover:border-indigo-500 dark:hover:bg-indigo-500/5"
@@ -605,8 +696,6 @@
 
                                     </button>
 
-                                @endif
-
                             @endforeach
 
                         </div>
@@ -619,13 +708,6 @@
                         <div class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
 
                             @foreach($documentTypes as $type)
-
-                                @php
-                                    $matchesSearch = $search === ''
-                                        || str_contains(strtolower($type), strtolower($search));
-                                @endphp
-
-                                @if($matchesSearch)
 
                                     <button
                                         wire:click="openType('{{ $type }}')"
@@ -659,8 +741,6 @@
 
                                     </button>
 
-                                @endif
-
                             @endforeach
 
                         </div>
@@ -678,19 +758,7 @@
 
                         <div class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
 
-                            @foreach($cabinet[$currentType] as $office => $documents)
-
-                                @php
-
-                                    $matchesSearch = $search === ''
-                                        || str_contains(strtolower($office), strtolower($search));
-
-                                    $matchesSource = $sourceFilter === 'all'
-                                        || $sourceFilter === $office;
-
-                                @endphp
-
-                                @if($matchesSearch && $matchesSource)
+                            @foreach($currentFolders as $office => $documents)
 
                                     <button
                                         wire:click="openOffice('{{ $office }}')"
@@ -712,8 +780,6 @@
 
                                     </button>
 
-                                @endif
-
                             @endforeach
 
                         </div>
@@ -725,19 +791,7 @@
 
                         <div class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
 
-                            @foreach($cabinet[$currentType] as $office => $documents)
-
-                                @php
-
-                                    $matchesSearch = $search === ''
-                                        || str_contains(strtolower($office), strtolower($search));
-
-                                    $matchesSource = $sourceFilter === 'all'
-                                        || $sourceFilter === $office;
-
-                                @endphp
-
-                                @if($matchesSearch && $matchesSource)
+                            @foreach($currentFolders as $office => $documents)
 
                                     <button
                                         wire:click="openOffice('{{ $office }}')"
@@ -765,8 +819,6 @@
                                         </span>
 
                                     </button>
-
-                                @endif
 
                             @endforeach
 
@@ -808,16 +860,7 @@
                                     ? $fileName
                                     : pathinfo($fileName, PATHINFO_FILENAME);
 
-                                $matchesSearch = $search === ''
-                                    || str_contains(
-                                        strtolower($fileName),
-                                        strtolower($search)
-                                    );
-
                             @endphp
-
-
-                            @if($matchesSearch)
 
                                 <a
                                     href="{{ route('admin.documents.file', [
@@ -888,8 +931,6 @@
                                     </div>
 
                                 </a>
-
-                            @endif
 
                         @empty
 
