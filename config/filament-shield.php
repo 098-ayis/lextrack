@@ -169,8 +169,8 @@ return [
     */
 
     'localization' => [
-        'enabled' => false,
-        'key' => 'filament-shield::filament-shield.resource_permission_prefixes_labels',
+        'enabled' => true,
+        'key' => 'shield-permissions',
     ],
 
     /*
@@ -274,7 +274,7 @@ return [
     'discovery' => [
         'discover_all_resources' => false,
         'discover_all_widgets' => false,
-        'discover_all_pages' => false,
+        'discover_all_pages' => true,
     ],
 
     /*

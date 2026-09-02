@@ -9,7 +9,6 @@ use App\Notifications\DocumentRejectedNotification;
 use App\Notifications\DocumentAcceptedNotification;
 use Filament\Pages\Page;
 use Filament\Notifications\Notification;
-use Livewire\WithPagination;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
@@ -31,11 +30,19 @@ use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Filament\Actions\ActionGroup;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Columns\ViewColumn;
+use Filament\Tables\Concerns\InteractsWithTable;
+use Filament\Tables\Contracts\HasTable;
+use Filament\Tables\Grouping\Group;
+use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 // use BezhanSalleh\FilamentShield\Traits\HasPageShield;
 
-class Document extends Page
+class Document extends Page implements HasTable
 {
-    use WithPagination;
+    use InteractsWithTable;
     // use HasPageShield;
 
     protected static ?string $slug = 'incoming';
@@ -48,15 +55,13 @@ class Document extends Page
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-inbox';
 
-    protected string $view = 'filament.pages.document';
+    protected string $view = 'filament.pages.document-filament';
 
     public string $search = '';
 
     public string $typeFilter = '';
 
     public string $dateFilter = '';
-
-    public int $perPage = 10;
 
     public string $activeSection = 'incoming';
 
@@ -285,9 +290,9 @@ class Document extends Page
         );
     }
 
-    public function getDocuments(string $section = 'incoming')
+    protected function getDocumentTableQuery(): Builder
     {
-        $status = match ($section) {
+        $status = match ($this->activeSection) {
             'pending' => 'pending',
             'incoming' => 'in_progress',
             'outgoing' => 'outgoing',
@@ -299,32 +304,218 @@ class Document extends Page
         return DocumentModel::query()
             ->with(['user', 'type', 'actionType', 'rejections', 'latestVersion'])
             ->where('status', $status)
+            ->when(trim($this->search) !== '', function (Builder $query): void {
+                $search = '%' . trim($this->search) . '%';
 
-            // Search
-            ->when($this->search, function ($query) {
-                $search = '%' . $this->search . '%';
-
-                $query->where(function ($query) use ($search) {
+                $query->where(function (Builder $query) use ($search): void {
                     $query
                         ->where('lao_number', 'like', $search)
                         ->orWhere('office_unit', 'like', $search)
                         ->orWhere('particulars', 'like', $search);
                 });
             })
-
-            // Status filter
-            ->when($this->typeFilter, function ($query) {
+            ->when($this->typeFilter !== '', function (Builder $query): void {
                 $query->where('type_id', $this->typeFilter);
             })
-
-            // Upload date filter
-            ->when($this->dateFilter, function ($query) {
+            ->when($this->dateFilter !== '', function (Builder $query): void {
                 $query->whereDate('created_at', $this->dateFilter);
             })
+            ->latest('created_at');
+    }
 
-            ->latest('created_at')
+    public function table(Table $table): Table
+    {
+        return $table
+            ->query(fn (): Builder => $this->getDocumentTableQuery())
+            ->columns($this->getDocumentTableColumns())
+            ->recordActions($this->getDocumentTableActions())
+            ->recordActionsColumnLabel('ACTION')
+            ->recordActionsAlignment('end')
+            ->recordUrl(fn (DocumentModel $record): string => ViewDocument::getUrl([
+                'document' => $record->document_id,
+            ]))
+            ->groups([
+                Group::make('created_at')
+                    ->date()
+                    ->label('Uploaded')
+                    ->titlePrefixedWithLabel(false)
+                    ->getTitleFromRecordUsing(
+                        fn (DocumentModel $record): \Illuminate\Contracts\Support\Htmlable =>
+                            new \Illuminate\Support\HtmlString('Uploaded ' . $record->created_at->format('F d, Y'))
+                    ),
+            ])
+            ->defaultGroup('created_at')
+            ->groupingSettingsHidden()
+            ->defaultSort('created_at', 'desc')
+            ->paginationPageOptions([10, 25, 50])
+            ->defaultPaginationPageOption(10)
+            ->searchable(false)
+            ->striped()
+            ->extraAttributes([
+                'class' => 'admin-documents-filament-table',
+            ]);
+    }
 
-            ->paginate($this->perPage);
+    protected function getDocumentTableColumns(): array
+    {
+        $columns = [
+            TextColumn::make('document_number')
+                ->label('NO.')
+                ->rowIndex()
+                ->alignCenter()
+                ->extraHeaderAttributes(['class' => 'w-16']),
+
+            ViewColumn::make('document_details')
+                ->label('DOCUMENT')
+                ->view('filament.tables.columns.document-details')
+                ->width('24rem')
+                ->extraHeaderAttributes(['class' => 'min-w-[280px]']),
+
+            ViewColumn::make('document_type')
+                ->label('DOCUMENT TYPE')
+                ->view('filament.tables.columns.document-type')
+                ->alignCenter()
+                ->width('11rem')
+                ->extraHeaderAttributes(['class' => 'min-w-[160px]']),
+        ];
+
+        if ($this->activeSection === 'pending') {
+            $columns[] = ViewColumn::make('uploaded_by')
+                ->label('UPLOADED BY')
+                ->view('filament.tables.columns.uploaded-by')
+                ->extraHeaderAttributes(['class' => 'min-w-[180px]']);
+        } elseif ($this->activeSection === 'outgoing') {
+            $columns[] = TextColumn::make('outgoing_date')
+                ->label('OUTGOING DATE')
+                ->date('F d, Y')
+                ->placeholder('No outgoing date')
+                ->alignCenter();
+
+            $columns[] = ViewColumn::make('sent_details')
+                ->label('SENT')
+                ->view('filament.tables.columns.sent-details')
+                ->alignCenter();
+
+            $columns[] = ViewColumn::make('returned_details')
+                ->label('RETURNED')
+                ->view('filament.tables.columns.returned-details')
+                ->alignCenter();
+        } elseif ($this->activeSection === 'completed') {
+            $columns[] = TextColumn::make('updated_at')
+                ->label('LAST UPDATE')
+                ->date('F d, Y')
+                ->placeholder('Unknown date')
+                ->alignCenter();
+        } elseif ($this->activeSection === 'rejected') {
+            $columns[] = TextColumn::make('rejection_reason')
+                ->label('REJECTION REASON')
+                ->state(function (DocumentModel $record): string {
+                    return $record->rejections
+                        ->sortByDesc('created_at')
+                        ->first()?->reason ?? 'No reason recorded';
+                })
+                ->color('danger')
+                ->action(function (DocumentModel $record): void {
+                    $rejection = $record->rejections
+                        ->sortByDesc('created_at')
+                        ->first();
+
+                    if ($rejection) {
+                        $this->mountAction('viewRejectionReason', [
+                            'rejection' => $rejection->rejected_id,
+                        ]);
+                    }
+                })
+                ->alignCenter();
+        } else {
+            $columns[] = ViewColumn::make('action_taken')
+                ->label('ACTION TAKEN')
+                ->view('filament.tables.columns.action-type')
+                ->alignCenter();
+
+            $columns[] = ViewColumn::make('deadline_details')
+                ->label('DEADLINE')
+                ->view('filament.tables.columns.deadline')
+                ->alignCenter();
+        }
+
+        return $columns;
+    }
+
+    protected function getDocumentTableActions(): array
+    {
+        $options = ActionGroup::make([
+            Action::make('viewDocument')
+                ->label('View')
+                ->icon('heroicon-o-eye')
+                ->url(fn (DocumentModel $record): string => ViewDocument::getUrl([
+                    'document' => $record->document_id,
+                ])),
+            Action::make('downloadDocument')
+                ->label('Download')
+                ->icon('heroicon-o-arrow-down-tray')
+                ->url(fn (DocumentModel $record): string => route('admin.documents.download', [
+                    'document' => $record->document_id,
+                ]))
+                ->visible(fn (DocumentModel $record): bool => filled($record->latestVersion?->file_path)),
+            Action::make('documentQrCode')
+                ->label('QR Code')
+                ->icon('heroicon-o-qr-code')
+                ->action(fn (DocumentModel $record) => $this->openQrCode($record->document_id)),
+        ])
+            ->icon('heroicon-m-ellipsis-vertical')
+            ->tooltip('More options')
+            ->color('gray');
+
+        $actions = [];
+
+        if ($this->activeSection === 'pending') {
+            return [
+                ...$actions,
+                $this->acceptDocumentAction()->button(),
+                $this->rejectDocumentAction()->button(),
+            ];
+        }
+
+        if (in_array($this->activeSection, ['completed', 'rejected'], true)) {
+            return [
+                ...$actions,
+                $this->returnDocumentAction()->button(),
+                $options,
+            ];
+        }
+
+        $messageAction = Action::make('messageDocumentTable')
+            ->label('')
+            ->icon('heroicon-o-chat-bubble-left-right')
+            ->iconButton()
+            ->color('gray')
+            ->tooltip('Message')
+            ->action(fn (DocumentModel $record) => $this->messageDocument($record->document_id));
+
+        $actions[] = $this->editDocumentAction()->iconButton();
+        $actions[] = $messageAction;
+        $actions[] = $this->activeSection === 'outgoing'
+            ? $this->completeDocumentAction()->button()
+            : $this->markAsOutgoingAction()->button();
+        $actions[] = $options;
+
+        return $actions;
+    }
+
+    public function updatedSearch(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedTypeFilter(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedDateFilter(): void
+    {
+        $this->resetPage();
     }
 
     public function openQrCode(int $documentId): void
@@ -422,6 +613,8 @@ class Document extends Page
                     ->label('Document File')
                     ->disk('local')
                     ->directory('documents')
+                    ->maxSize(5120)
+                    ->helperText('Maximum file size: 5 MB.')
                     ->preserveFilenames(),
             ])
             ->action(function (array $data) {
@@ -453,6 +646,11 @@ class Document extends Page
             });
     }
 
+    protected function resolveDocumentActionRecord(array $arguments, ?DocumentModel $record = null): DocumentModel
+    {
+        return $record ?? DocumentModel::findOrFail($arguments['document'] ?? null);
+    }
+
 
 
     public function editDocumentAction(): Action
@@ -465,8 +663,8 @@ class Document extends Page
                 'class' => 'edit-document-button',
             ])
 
-            ->schema(function (array $arguments): array {
-                $document = DocumentModel::find($arguments['document'] ?? null);
+            ->schema(function (array $arguments, ?DocumentModel $record = null): array {
+                $document = $record ?? DocumentModel::find($arguments['document'] ?? null);
 
                 if ($document?->status === 'outgoing') {
                     return [
@@ -553,8 +751,8 @@ class Document extends Page
                     ->preserveFilenames(),
                 ];
             })
-            ->fillForm(function (array $arguments): array {
-                $document = DocumentModel::findOrFail($arguments['document']);
+            ->fillForm(function (array $arguments, ?DocumentModel $record = null): array {
+                $document = $this->resolveDocumentActionRecord($arguments, $record);
 
                 return [
                     'lao_number' => $document->lao_number,
@@ -574,8 +772,8 @@ class Document extends Page
                     'date_returned' => $document->date_returned,
                 ];
             })
-            ->action(function (array $data, array $arguments): void {
-                $document = DocumentModel::findOrFail($arguments['document']);
+            ->action(function (array $data, array $arguments, ?DocumentModel $record = null): void {
+                $document = $this->resolveDocumentActionRecord($arguments, $record);
                 $filePath = $data['file_path'] ?? null;
                 unset($data['file_path']);
                 $oldValues = $document->only(array_keys($data));
@@ -688,12 +886,11 @@ class Document extends Page
     {
         return Action::make('acceptDocument')
             ->label('Accept')
-            ->icon('heroicon-o-check')
             ->color('success')
             ->size('xs')
             ->modalHeading('Accept Document')
-            ->modalDescription(function (array $arguments): string {
-                $document = DocumentModel::with('user')->find($arguments['document'] ?? null);
+            ->modalDescription(function (array $arguments, ?DocumentModel $record = null): string {
+                $document = $record ?? DocumentModel::with('user')->find($arguments['document'] ?? null);
                 $uploader = $document?->user?->name ?? 'Unknown user';
 
                 return "Are you sure you want to accept this document uploaded by {$uploader}? It will be moved to the Incoming table.";
@@ -704,8 +901,13 @@ class Document extends Page
             ->modalFooterActionsAlignment(Alignment::Center)
             ->modalSubmitActionLabel('Accept document')
             ->modalCancelActionLabel('Cancel')
-            ->action(function (array $arguments): void {
-                $this->acceptDocument((int) $arguments['document']);
+            ->extraAttributes([
+                'class' => 'inline-flex h-9 items-center justify-center rounded-md bg-green-600 px-3 text-xs font-semibold text-white transition hover:bg-green-700',
+            ])
+            ->action(function (array $arguments, ?DocumentModel $record = null): void {
+                $document = $this->resolveDocumentActionRecord($arguments, $record);
+
+                $this->acceptDocument($document->document_id);
             });
     }
 
@@ -738,7 +940,6 @@ class Document extends Page
     {
         return Action::make('markAsOutgoing')
             ->label('Outgoing')
-            ->icon('heroicon-o-arrow-right')
             ->color('gray')
             ->modalHeading('Add Document to Outgoing')
             ->modalDescription('Provide the destination and sent date for this document.')
@@ -760,9 +961,11 @@ class Document extends Page
                     ->default(now())
                     ->required(),
             ])
-            ->action(function (array $data, array $arguments): void {
+            ->action(function (array $data, array $arguments, ?DocumentModel $record = null): void {
+                $document = $this->resolveDocumentActionRecord($arguments, $record);
+
                 $this->markAsOutgoing(
-                    (int) $arguments['document'],
+                    $document->document_id,
                     $data['sent_date'],
                     $data['sent_to'],
                 );
@@ -773,11 +976,19 @@ class Document extends Page
     {
         return Action::make('rejectDocument')
             ->label('Reject')
-            ->icon('heroicon-o-x-mark')
             ->color('danger')
             ->size('xs')
             ->modalHeading('Reject Document')
+            ->modalIcon('heroicon-o-x-circle')
+            ->modalIconColor('danger')
             ->modalDescription('Please provide a reason for rejecting this document.')
+            ->modalAlignment(Alignment::Center)
+            ->modalFooterActionsAlignment(Alignment::Center)
+            ->modalSubmitActionLabel('Reject document')
+            ->modalCancelActionLabel('Cancel')
+            ->extraAttributes([
+                'class' => 'inline-flex h-9 items-center justify-center rounded-md bg-red-600 px-3 text-xs font-semibold text-white transition hover:bg-red-700',
+            ])
             ->schema([
                 Select::make('reason')
                     ->label('Rejection Reason')
@@ -802,13 +1013,15 @@ class Document extends Page
                     ->rows(4)
                     ->maxLength(5000),
             ])
-            ->action(function (array $data, array $arguments): void {
+            ->action(function (array $data, array $arguments, ?DocumentModel $record = null): void {
                 $reason = $data['reason'] === 'other'
                     ? trim((string) ($data['custom_reason'] ?? ''))
                     : $data['reason'];
 
+                $document = $this->resolveDocumentActionRecord($arguments, $record);
+
                 $this->rejectDocument(
-                    (int) $arguments['document'],
+                    $document->document_id,
                     $reason,
                 );
             });
@@ -867,8 +1080,8 @@ class Document extends Page
                     ])
                     ->required(),
             ])
-            ->action(function (array $data, array $arguments): void {
-                        $document = DocumentModel::findOrFail($arguments['document']);
+            ->action(function (array $data, array $arguments, ?DocumentModel $record = null): void {
+                $document = $this->resolveDocumentActionRecord($arguments, $record);
                 $isOutgoing = $data['destination'] === 'outgoing';
 
                 $document->update([
@@ -960,14 +1173,11 @@ class Document extends Page
             ->extraAttributes([
                 'class' => 'complete-document-button inline-flex items-center justify-center rounded-md px-3 py-2 text-xs font-semibold text-white transition',
             ])
-            ->action(function (array $arguments): void {
-                $this->completeDocument((int) $arguments['document']);
-            });
-    }
+            ->action(function (array $arguments, ?DocumentModel $record = null): void {
+                $document = $this->resolveDocumentActionRecord($arguments, $record);
 
-    public function updatedPerPage(): void
-    {
-        $this->resetPage();
+                $this->completeDocument($document->document_id);
+            });
     }
 
 
@@ -1018,18 +1228,4 @@ class Document extends Page
         ];
     }
 
-    public function updatedSearch(): void
-    {
-        $this->resetPage();
-    }
-
-    public function updatedTypeFilter(): void
-    {
-        $this->resetPage();
-    }
-
-    public function updatedDateFilter(): void
-    {
-        $this->resetPage();
-    }
 }

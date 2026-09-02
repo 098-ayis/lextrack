@@ -10,14 +10,21 @@ use Filament\Actions\Action;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Columns\ViewColumn;
+use Filament\Tables\Concerns\InteractsWithTable;
+use Filament\Tables\Contracts\HasTable;
+use Filament\Tables\Grouping\Group;
+use Filament\Tables\Table;
 use Filament\Support\Enums\Width;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\Facades\DB;
-use Livewire\WithPagination;
 // use BezhanSalleh\FilamentShield\Traits\HasPageShield;
 
-class DocumentRequests extends Page
+class DocumentRequests extends Page implements HasTable
 {
-    use WithPagination;
+    use InteractsWithTable;
    // use HasPageShield;
 
     protected static ?int $navigationSort = 3;
@@ -38,8 +45,6 @@ class DocumentRequests extends Page
     public string $typeFilter = '';
 
     public string $dateFilter = '';
-
-    public int $perPage = 10;
 
     public function mount(): void
     {
@@ -76,9 +81,9 @@ class DocumentRequests extends Page
         ];
     }
 
-    public function getDocumentRequests(string $section = 'pending')
+    protected function getDocumentRequestTableQuery(): Builder
     {
-        $status = match ($section) {
+        $status = match ($this->activeSection) {
             'accepted' => 'accepted',
             'rejected' => 'rejected',
             default => 'pending',
@@ -91,37 +96,162 @@ class DocumentRequests extends Page
                 'user',
             ])
             ->where('status', $status)
+            ->when(trim($this->search) !== '', function (Builder $query): void {
+                $search = '%' . trim($this->search) . '%';
 
-            ->when($this->search, function ($query) {
-                $search = '%' . $this->search . '%';
-
-                $query->where(function ($query) use ($search) {
+                $query->where(function (Builder $query) use ($search): void {
                     $query
-                        ->whereHas('document', function ($query) use ($search) {
+                        ->whereHas('document', function (Builder $query) use ($search): void {
                             $query
                                 ->where('lao_number', 'like', $search)
                                 ->orWhere('office_unit', 'like', $search)
                                 ->orWhere('particulars', 'like', $search);
                         })
-                        ->orWhereHas('user', function ($query) use ($search) {
+                        ->orWhereHas('user', function (Builder $query) use ($search): void {
                             $query
                                 ->where('name', 'like', $search)
                                 ->orWhere('email', 'like', $search);
                         });
                 });
             })
-
-            ->when($this->typeFilter, function ($query) {
-                $query->whereHas('document', function ($query) {
+            ->when($this->typeFilter !== '', function (Builder $query): void {
+                $query->whereHas('document', function (Builder $query): void {
                     $query->where('type_id', $this->typeFilter);
                 });
             })
-            ->when($this->dateFilter, function ($query) {
+            ->when($this->dateFilter !== '', function (Builder $query): void {
                 $query->whereDate('date_of_request', $this->dateFilter);
             })
             ->latest('date_of_request')
-            ->latest('request_id')
-            ->paginate($this->perPage);
+            ->latest('request_id');
+    }
+
+    public function table(Table $table): Table
+    {
+        return $table
+            ->query(fn (): Builder => $this->getDocumentRequestTableQuery())
+            ->columns($this->getDocumentRequestTableColumns())
+            ->recordActions($this->getDocumentRequestTableActions())
+            ->recordActionsColumnLabel('ACTION')
+            ->recordActionsAlignment('end')
+            ->recordUrl(fn (DocumentRequest $record): string => ViewDocument::getUrl([
+                'document' => $record->document_id,
+            ]))
+            ->groups([
+                Group::make('date_of_request')
+                    ->date()
+                    ->label('Requested')
+                    ->titlePrefixedWithLabel(false)
+                    ->getTitleFromRecordUsing(
+                        fn (DocumentRequest $record): Htmlable =>
+                            new \Illuminate\Support\HtmlString(
+                                'Requested ' . $record->date_of_request->format('F d, Y')
+                            )
+                    ),
+            ])
+            ->defaultGroup('date_of_request')
+            ->groupingSettingsHidden()
+            ->defaultSort('date_of_request', 'desc')
+            ->paginationPageOptions([10, 25, 50])
+            ->defaultPaginationPageOption(10)
+            ->searchable(false)
+            ->striped()
+            ->extraAttributes([
+                'class' => 'admin-document-requests-filament-table',
+            ]);
+    }
+
+    protected function getDocumentRequestTableColumns(): array
+    {
+        $columns = [
+            TextColumn::make('request_number')
+                ->label('NO.')
+                ->rowIndex()
+                ->alignCenter()
+                ->extraHeaderAttributes(['class' => 'w-16']),
+
+            ViewColumn::make('document_details')
+                ->label('DOCUMENT')
+                ->view('filament.tables.columns.request-document-details')
+                ->width('24rem')
+                ->extraHeaderAttributes(['class' => 'min-w-[280px]']),
+
+            TextColumn::make('purpose')
+                ->label('PURPOSE')
+                ->placeholder('—')
+                ->wrap()
+                ->extraHeaderAttributes(['class' => 'min-w-[220px]']),
+
+            ViewColumn::make('document_type')
+                ->label('DOCUMENT TYPE')
+                ->view('filament.tables.columns.request-document-type')
+                ->alignCenter()
+                ->width('11rem')
+                ->extraHeaderAttributes(['class' => 'min-w-[160px]']),
+
+            ViewColumn::make('requested_by')
+                ->label('REQUESTED BY')
+                ->view('filament.tables.columns.uploaded-by')
+                ->extraHeaderAttributes(['class' => 'min-w-[180px]']),
+
+            TextColumn::make('date_of_request')
+                ->label('DATE OF REQUEST')
+                ->date('F d, Y')
+                ->alignCenter()
+                ->extraHeaderAttributes(['class' => 'min-w-[150px]']),
+        ];
+
+        if ($this->activeSection !== 'pending') {
+            $columns[] = TextColumn::make('date_processed')
+                ->label('DATE ' . strtoupper($this->activeSection))
+                ->date('F d, Y')
+                ->placeholder('Unknown date')
+                ->alignCenter()
+                ->extraHeaderAttributes(['class' => 'min-w-[150px]']);
+        }
+
+        return $columns;
+    }
+
+    protected function getDocumentRequestTableActions(): array
+    {
+        if ($this->activeSection === 'pending') {
+            return [
+                $this->acceptRequestAction(),
+                $this->rejectRequestAction(),
+            ];
+        }
+
+        return [
+            $this->returnRequestAction(),
+        ];
+    }
+
+    public function acceptRequestAction(): Action
+    {
+        return Action::make('acceptRequest')
+            ->label('Accept')
+            ->color('success')
+            ->button()
+            ->requiresConfirmation()
+            ->modalHeading('Accept Document Request')
+            ->modalIcon('heroicon-o-check-circle')
+            ->modalIconColor('success')
+            ->modalDescription('Are you sure you want to accept this document request? The requester will be granted access to view the document.')
+            ->modalAlignment(\Filament\Support\Enums\Alignment::Center)
+            ->modalFooterActionsAlignment(\Filament\Support\Enums\Alignment::Center)
+            ->modalSubmitActionLabel('Accept')
+            ->modalCancelActionLabel('Cancel')
+            ->extraAttributes([
+                'class' => 'inline-flex h-9 items-center justify-center rounded-md bg-green-600 px-3 text-xs font-semibold text-white transition hover:bg-green-700',
+            ])
+            ->action(function (array $arguments, ?DocumentRequest $record = null): void {
+                $requestId = $record?->request_id ?? ($arguments['request'] ?? null);
+
+                if ($requestId !== null) {
+                    $this->acceptRequest((int) $requestId);
+                }
+            });
     }
 
     /**
@@ -231,10 +361,21 @@ class DocumentRequests extends Page
             Notification::make()
                 ->title('Document Accepted')
                 ->body(
-                    'Your document has been accepted and assigned LAO number ' .
-                    $document->lao_number . '.'
+                    'Your requested document has been accepted. You can now view it in your Documents page.'
                 )
                 ->success()
+                ->actions([
+                    Action::make('viewAcceptedDocument')
+                        ->label('View document')
+                        ->url(
+                            \App\Filament\Client\Pages\ViewDocument::getUrl([
+                                'document' => $document->document_id,
+                                'from' => 'documents',
+                                'tab' => 'requested',
+                            ])
+                        )
+                        ->button(),
+                ])
                 ->sendToDatabase($client);
         }
 
@@ -261,16 +402,23 @@ class DocumentRequests extends Page
     public function rejectRequestAction(): Action
     {
         return Action::make('rejectRequest')
-            ->label('')
-            ->icon('heroicon-o-x-mark')
+            ->label('Reject')
             ->color('danger')
+            ->button()
+            ->size('xs')
             ->extraAttributes([
                 'class' => 'inline-flex h-9 items-center justify-center rounded-md bg-red-600 px-3 text-xs font-semibold text-white transition hover:bg-red-700',
             ])
             ->modalHeading('Reject Document Request')
+            ->modalIcon('heroicon-o-x-circle')
+            ->modalIconColor('danger')
             ->modalDescription(
                 'Please provide the reason why this document is being rejected.'
             )
+            ->modalAlignment(\Filament\Support\Enums\Alignment::Center)
+            ->modalFooterActionsAlignment(\Filament\Support\Enums\Alignment::Center)
+            ->modalSubmitActionLabel('Reject request')
+            ->modalCancelActionLabel('Cancel')
             ->schema([
                 Textarea::make('rejection_reason')
                     ->label('Reason for Rejection')
@@ -283,17 +431,21 @@ class DocumentRequests extends Page
             ])
             ->action(function (
                 array $data,
-                array $arguments
+                array $arguments,
+                ?DocumentRequest $record = null
             ): void {
 
-                $request = DocumentRequest::query()
+                $request = ($record ?? DocumentRequest::query()
                     ->with([
                         'document.user',
                         'user',
                     ])
                     ->findOrFail(
-                        $arguments['request']
-                    );
+                        $arguments['request'] ?? null
+                    ))->load([
+                        'document.user',
+                        'user',
+                    ]);
 
                 $document = $request->document;
 
@@ -365,6 +517,29 @@ class DocumentRequests extends Page
             });
     }
 
+    public function returnRequestAction(): Action
+    {
+        return Action::make('returnRequest')
+            ->label('Return')
+            ->color('gray')
+            ->button()
+            ->requiresConfirmation()
+            ->modalHeading('Return Document Request')
+            ->modalDescription('Are you sure you want to return this request to pending?')
+            ->modalSubmitActionLabel('Return')
+            ->modalCancelActionLabel('Cancel')
+            ->extraAttributes([
+                'class' => 'inline-flex h-9 items-center justify-center rounded-md border-0 bg-[#DCFCE7] px-3 text-xs font-semibold text-[#15803D] transition hover:bg-[#BBF7D0]',
+            ])
+            ->action(function (array $arguments, ?DocumentRequest $record = null): void {
+                $requestId = $record?->request_id ?? ($arguments['request'] ?? null);
+
+                if ($requestId !== null) {
+                    $this->returnRequest((int) $requestId);
+                }
+            });
+    }
+
     /**
      * RETURN REQUEST TO PENDING
      */
@@ -415,8 +590,4 @@ class DocumentRequests extends Page
         $this->resetPage();
     }
 
-    public function updatedPerPage(): void
-    {
-        $this->resetPage();
-    }
 }

@@ -61,6 +61,11 @@
         </defs>
     </svg>
 
+<<<<<<< ours
+=======
+    <div class="admin-documents-page">
+
+>>>>>>> theirs
     @php
         $activeSection = $this->activeSection;
         $statusCounts = $this->getStatusCounts();
@@ -782,6 +787,13 @@
                                                bg-white
                                                hover:bg-[#0F172A]
                                                hover:text-white
+<<<<<<< ours
+=======
+                                               dark:border-gray-300
+                                               dark:bg-gray-900
+                                               dark:text-white
+                                               dark:hover:bg-gray-700
+>>>>>>> theirs
                                                transition"
                                         title="Message"
                                     >
@@ -1167,6 +1179,12 @@
                                                 text-[#0F172A]
                                                 hover:bg-[#0F172A]
                                                 hover:text-white
+<<<<<<< ours
+=======
+                                                dark:border-gray-300
+                                                dark:text-white
+                                                dark:hover:bg-gray-700
+>>>>>>> theirs
                                                 transition-colors duration-150"
                                             title="Message"
                                         >
@@ -1223,6 +1241,74 @@
         .fi-page-content {
             gap: 0 !important;
         }
+<<<<<<< ours
+=======
+
+        /* Keep the custom document tables and their controls readable in dark mode. */
+        .dark .admin-documents-page .bg-white {
+            background-color: rgb(17 24 39) !important;
+        }
+
+        .dark .admin-documents-page .bg-gray-200 {
+            background-color: rgb(55 65 81) !important;
+        }
+
+        .dark .admin-documents-page .bg-gray-100 {
+            background-color: rgb(31 41 55) !important;
+        }
+
+        .dark .admin-documents-page .bg-blue-50,
+        .dark .admin-documents-page tr[class*="bg-blue-50"] {
+            background-color: rgb(30 58 138 / 0.3) !important;
+        }
+
+        .dark .admin-documents-page tr[class*="bg-[#F2F2F2]"] {
+            background-color: rgb(31 41 55) !important;
+        }
+
+        .dark .admin-documents-page .border-gray-300,
+        .dark .admin-documents-page .border-gray-200 {
+            border-color: rgb(75 85 99) !important;
+        }
+
+        .dark .admin-documents-page .border-blue-200 {
+            border-color: rgb(96 165 250 / 0.45) !important;
+        }
+
+        .dark .admin-documents-page table {
+            color: rgb(229 231 235);
+        }
+
+        .dark .admin-documents-page .text-gray-900,
+        .dark .admin-documents-page .text-gray-800,
+        .dark .admin-documents-page .text-gray-700,
+        .dark .admin-documents-page .text-gray-600,
+        .dark .admin-documents-page .text-gray-500 {
+            color: rgb(209 213 219) !important;
+        }
+
+        .dark .admin-documents-page .text-blue-900 {
+            color: rgb(191 219 254) !important;
+        }
+
+        .dark .admin-documents-page input,
+        .dark .admin-documents-page select {
+            color-scheme: dark;
+        }
+
+        .dark .admin-documents-page input::placeholder {
+            color: rgb(156 163 175);
+        }
+
+        .dark .admin-documents-page [class*="hover:bg-gray-50"]:hover,
+        .dark .admin-documents-page [class*="hover:bg-gray-100"]:hover {
+            background-color: rgb(55 65 81) !important;
+        }
+
+        .dark .admin-documents-page [class*="hover:bg-blue-50"]:hover {
+            background-color: rgb(30 64 175 / 0.35) !important;
+        }
+>>>>>>> theirs
     </style>
 
     @if ($showAcceptedModal)
@@ -1323,6 +1409,11 @@
         </div>
     @endif
 
+<<<<<<< ours
+=======
+    </div>
+
+>>>>>>> theirs
     <script>
         document.addEventListener('click', (event) => {
             const clickedMenu = event.target.closest('.document-options-menu');

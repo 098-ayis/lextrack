@@ -105,12 +105,12 @@
                             fill="none"
                             viewBox="0 0 24 24"
                             stroke="currentColor"
-                            stroke-width="1.8"
+                            stroke-width="2.8"
                         >
                             <path
                                 stroke-linecap="round"
                                 stroke-linejoin="round"
-                                d="M5.25 5.653c0-1.427 1.529-2.33 2.779-1.643l11.54 6.347c1.295.712 1.295 2.573 0 3.286L8.029 19.99c-1.25.687-2.779-.217-2.779-1.643V5.653Z"
+                                d="M3 17 9 11l4 4 8-8M15 7h6v6"
                             />
                         </svg>
                     </div>
