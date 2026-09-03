@@ -162,6 +162,8 @@
 
         $currentDocuments = $currentDocuments->values();
 
+        $selectedDocument = $currentDocuments->firstWhere('id', $selectedDocumentId);
+
     @endphp
 
         
@@ -867,7 +869,11 @@
                                         'document' => $document['id'],
                                         'filename' => $fileName,
                                     ]) }}"
-                                    target="_blank"
+                                    @if($previewPane)
+                                        wire:click.prevent="selectItem(@js($displayName), {{ $document['id'] }})"
+                                    @else
+                                        target="_blank"
+                                    @endif
                                     rel="noopener noreferrer"
                                     class="grid w-full cursor-pointer grid-cols-[minmax(0,1fr)_120px_160px_60px] items-center border-b border-gray-100 px-5 py-4 text-left transition hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800"
                                 >
@@ -1114,7 +1120,17 @@
 
                     <div class="flex h-[500px] items-center justify-center p-6">
 
-                        @if($selectedItem)
+                        @if($selectedDocument)
+
+                            @if(str_ends_with(strtolower($selectedDocument['name']), '.pdf'))
+
+                                <iframe
+                                    src="{{ route('admin.documents.preview', ['document' => $selectedDocument['id']]) }}"
+                                    title="Preview of {{ $selectedDocument['name'] }}"
+                                    class="h-full w-full rounded-lg border border-gray-200 dark:border-gray-700"
+                                ></iframe>
+
+                            @else
 
                             <div class="text-center">
 
@@ -1127,10 +1143,12 @@
                                 </h4>
 
                                 <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                                    Document preview will appear here.
+                                    Preview is available for PDF documents.
                                 </p>
 
                             </div>
+
+                            @endif
 
                         @else
 
