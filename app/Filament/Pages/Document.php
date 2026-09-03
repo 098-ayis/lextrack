@@ -22,13 +22,14 @@ use Filament\Support\Enums\Alignment;
 use Filament\Support\Enums\Width;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
-use Symfony\Component\HttpFoundation\StreamedResponse;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use chillerlan\QRCode\QRCode;
 use chillerlan\QRCode\QROptions;
 use chillerlan\QRCode\Output\QROutputInterface;
 use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\User;
+use App\Services\DocumentDownloadService;
 use Illuminate\Support\Facades\DB;
 use Filament\Actions\ActionGroup;
 use Filament\Tables\Columns\TextColumn;
@@ -836,7 +837,7 @@ class Document extends Page implements HasTable
             });
     }
 
-    public function downloadDocument(int $documentId): StreamedResponse
+    public function downloadDocument(int $documentId): BinaryFileResponse
     {
         $document = DocumentModel::with(['user', 'latestVersion'])->findOrFail($documentId);
         $version = $document->latestVersion;
@@ -855,12 +856,7 @@ class Document extends Page implements HasTable
             'Downloaded ' . basename((string) $version->file_path) . '.'
         );
 
-        $fileName = basename($version->file_path);
-
-        return $disk->download(
-            $version->file_path,
-            $fileName
-        );
+        return app(DocumentDownloadService::class)->download($document, $version);
     }
 
     protected function getNextVersionNumber(DocumentModel $document): int
