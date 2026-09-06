@@ -11,6 +11,7 @@ use App\Http\Controllers\Auth\GoogleAuthController;
 use App\Http\Controllers\UserExportController;
 use App\Http\Controllers\DocumentExportController;
 use App\Http\Middleware\AdminMiddleware;
+use App\Services\DocumentDownloadService;
 
 
 Route::view('/ai-test', 'ai-test');
@@ -148,10 +149,7 @@ Route::get('/client/document-download/{document}', function (int $document) {
 
     abort_unless($filePath && $disk->exists($filePath), 404);
 
-    return $disk->download(
-        $filePath,
-        basename($filePath)
-    );
+    return app(DocumentDownloadService::class)->download($documentRecord, $versionRecord);
 })
     ->middleware('auth')
     ->name('client.document.download');
@@ -197,6 +195,8 @@ Route::get('/admin/documents/{document}/preview', function (int $document) {
     ->name('admin.documents.preview');
 
 Route::get('/admin/documents/{document}/download', function (int $document) {
+    $documentRecord = Document::findOrFail($document);
+
     $versionRecord = DocumentVersion::query()
         ->where('document_id', $document)
         ->latest('created_at')
@@ -216,7 +216,7 @@ Route::get('/admin/documents/{document}/download', function (int $document) {
         404
     );
 
-    return response()->download($disk->path($filePath), basename($filePath));
+    return app(DocumentDownloadService::class)->download($documentRecord, $versionRecord);
 })
     ->middleware(['auth', AdminMiddleware::class])
     ->name('admin.documents.download');

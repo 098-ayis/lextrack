@@ -13,7 +13,7 @@ class IdleTimeout
         Request $request,
         Closure $next,
     ): Response {
-        $minutes = config('session.inactivity_timeout', 15);
+        $minutes = config('session.inactivity_timeout', 30);
 
         if (! Auth::check()) {
             return $next($request);

@@ -397,6 +397,9 @@ class Calendar extends Page
             ->modalDescription(
                 'Add a schedule or important calendar event.'
             )
+            ->fillForm([
+                'date' => $this->selectedDate,
+            ])
             ->form([
 
                 TextInput::make('event')
