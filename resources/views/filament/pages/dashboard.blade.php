@@ -18,7 +18,11 @@
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
 
             {{-- TOTAL DOCUMENTS --}}
-            <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+            <a
+                href="{{ \App\Filament\Pages\Document::getUrl() }}"
+                wire:navigate
+                class="block rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-primary-500 dark:border-gray-700 dark:bg-gray-900"
+            >
                 <div class="flex items-center justify-between gap-4">
 
                     <div>
@@ -48,11 +52,15 @@
                     </div>
 
                 </div>
-            </div>
+            </a>
 
 
             {{-- PENDING --}}
-            <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+            <a
+                href="{{ \App\Filament\Pages\Document::getUrl(['section' => 'pending']) }}"
+                wire:navigate
+                class="block rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-primary-500 dark:border-gray-700 dark:bg-gray-900"
+            >
                 <div class="flex items-center justify-between gap-4">
 
                     <div>
@@ -82,11 +90,15 @@
                     </div>
 
                 </div>
-            </div>
+            </a>
 
 
             {{-- ACTIVE --}}
-            <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+            <a
+                href="{{ \App\Filament\Pages\Document::getUrl(['section' => 'incoming']) }}"
+                wire:navigate
+                class="block rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-primary-500 dark:border-gray-700 dark:bg-gray-900"
+            >
                 <div class="flex items-center justify-between gap-4">
 
                     <div>
@@ -116,11 +128,15 @@
                     </div>
 
                 </div>
-            </div>
+            </a>
 
 
             {{-- COMPLETED --}}
-            <div class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+            <a
+                href="{{ \App\Filament\Pages\Document::getUrl(['section' => 'completed']) }}"
+                wire:navigate
+                class="block rounded-xl border border-gray-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-primary-500 dark:border-gray-700 dark:bg-gray-900"
+            >
                 <div class="flex items-center justify-between gap-4">
 
                     <div>
@@ -150,7 +166,7 @@
                     </div>
 
                 </div>
-            </div>
+            </a>
 
         </div>
 
@@ -321,7 +337,7 @@
 
 
                                     <p class="mt-2 truncate text-xs text-gray-500 dark:text-gray-400">
-                                        {{ $document->office_unit ?: 'No office specified' }}
+                                        {{ $document->officeUnit?->name ?: 'No office specified' }}
                                     </p>
 
 
@@ -601,7 +617,7 @@
                                     </p>
 
                                     <p class="mt-1 truncate text-xs text-gray-500 dark:text-gray-400">
-                                        {{ $document->office_unit ?: 'No office specified' }}
+                                        {{ $document->officeUnit?->name ?: 'No office specified' }}
                                     </p>
 
                                 </div>

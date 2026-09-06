@@ -159,7 +159,7 @@
                             </p>
 
                             <p class="mt-1 text-sm font-medium text-gray-900 dark:text-gray-100">
-                                {{ $documentRecord->type?->type_name ?? 'N/A' }}
+                                {{ $documentRecord->document_type ?? 'N/A' }}
                             </p>
                         </div>
 

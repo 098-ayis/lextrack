@@ -14,6 +14,7 @@
                     'outgoing' => 'Outgoing',
                     'completed' => 'Completed',
                     'rejected' => 'Rejected',
+                    'archived' => 'Archived',
                 ] as $section => $label)
                     <a
                         href="{{ request()->fullUrlWithQuery(['section' => $section]) }}"
@@ -57,7 +58,7 @@
                 >
                     <option value="">All Document Types</option>
                     @foreach (\App\Models\DocumentType::orderBy('type_name')->get() as $type)
-                        <option value="{{ $type->type_id }}">{{ $type->type_name }}</option>
+                        <option value="{{ $type->type_name }}">{{ $type->type_name }}</option>
                     @endforeach
                 </select>
                 <svg class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500 dark:text-gray-400" viewBox="0 0 20 20" fill="currentColor">

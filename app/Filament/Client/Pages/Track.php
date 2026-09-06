@@ -36,7 +36,6 @@ class Track extends Page
         );
 
         $this->document = Document::query()
-            ->with(['type', 'actionType'])
             ->where('lao_number', $trackingNumber)
             ->where('user_id', auth()->id())
             ->first();

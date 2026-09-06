@@ -27,10 +27,11 @@ class DocumentExportController extends Controller
                 'outgoing' => 'outgoing',
                 'completed' => 'completed',
                 'rejected' => 'rejected',
+                'archived' => 'archived',
             };
 
             $documents = Document::query()
-                ->with(['user', 'type', 'actionType'])
+                ->with(['user', 'officeUnit'])
                 ->where('status', $status)
                 ->when($search !== '', function ($query) use ($search): void {
                     $likeSearch = "%{$search}%";
@@ -38,12 +39,13 @@ class DocumentExportController extends Controller
                     $query->where(function ($query) use ($likeSearch): void {
                         $query
                             ->where('lao_number', 'like', $likeSearch)
-                            ->orWhere('office_unit', 'like', $likeSearch)
+                            ->orWhereHas('officeUnit', fn ($officeQuery) =>
+                                $officeQuery->where('name', 'like', $likeSearch))
                             ->orWhere('particulars', 'like', $likeSearch);
                     });
                 })
                 ->when($typeFilter !== '', function ($query) use ($typeFilter): void {
-                    $query->where('type_id', $typeFilter);
+                    $query->where('document_type', $typeFilter);
                 })
                 ->when($dateFilter !== '', function ($query) use ($dateFilter): void {
                     $query->whereDate('created_at', $dateFilter);
@@ -116,14 +118,14 @@ class DocumentExportController extends Controller
             ]);
 
             foreach ($documents as $index => $document) {
-                $type = $document->type?->type_name ?? 'Unknown';
+                $type = $document->document_type ?? 'Unknown';
                 $status = ucwords(str_replace('_', ' ', (string) $document->status));
-                $action = $document->actionType?->action_name ?? $document->action_taken ?? '—';
+                $action = $document->action_type ?? '—';
 
                 $this->writeCsvRow($handle, [
                     $index + 1,
                     $document->lao_number,
-                    $document->office_unit,
+                    $document->officeUnit?->name,
                     $document->particulars,
                     $type,
                     $document->user?->name ?? '—',
@@ -158,6 +160,7 @@ class DocumentExportController extends Controller
             'outgoing',
             'completed',
             'rejected',
+            'archived',
         ], true) ? $section : 'incoming';
     }
 

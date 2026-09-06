@@ -5,11 +5,15 @@ namespace App\Filament\Pages;
 use App\Models\Document;
 use App\Models\DocumentVersion;
 use App\Models\DocumentType;
+use App\Models\OfficeUnit;
 use Filament\Actions\Action;
+use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\ColorPicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Pages\Page;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
@@ -61,37 +65,24 @@ class Cabinet extends Page
     public function loadCabinet(): void
     {
         $documents = Document::query()
-            ->with(['type', 'latestVersion'])
-            ->whereNotNull('type_id')
-            ->whereNotNull('office_unit')
+            ->with(['officeUnit', 'latestVersion'])
+            ->whereNotNull('document_type')
+            ->whereNotNull('office_unit_id')
             ->get();
 
         $this->cabinet = $documents
             ->filter(
                 fn (Document $document) =>
-                    $document->type !== null
+                    filled($document->document_type)
             )
             ->groupBy(
                 fn (Document $document) =>
-                    $document->type->type_name
+                    $document->document_type
             )
             ->map(function ($documentsByType) {
-                $isOthers = $documentsByType
-                    ->first()?->type?->type_name === 'Others';
-
                 return $documentsByType
-                    ->groupBy(function (Document $document) use ($isOthers) {
-                        if ($isOthers) {
-                            $customType = trim(
-                                (string) $document->other_document_type
-                            );
-
-                            return $customType !== ''
-                                ? $customType
-                                : 'Unspecified Type';
-                        }
-
-                        $office = trim((string) $document->office_unit);
+                    ->groupBy(function (Document $document) {
+                        $office = trim((string) $document->officeUnit?->name);
 
                         return $office !== ''
                             ? $office
@@ -130,14 +121,11 @@ class Cabinet extends Page
                                         ? $document->updated_at->format('M d, Y')
                                         : '—',
 
-                                    'type' => $document->type?->type_name
+                                    'type' => $document->document_type
                                         ?? 'Unknown',
 
-                                    'other_document_type' =>
-                                        $document->other_document_type,
-
                                     'office_unit' =>
-                                        $document->office_unit,
+                                        $document->officeUnit?->name,
 
                                     'status' =>
                                         $document->status,
@@ -162,65 +150,31 @@ class Cabinet extends Page
             ->modalHeading('Add Document')
             ->modalSubmitActionLabel('Save Document')
             ->form([
-                Select::make('type_id')
+                TextInput::make('document_type')
                     ->label('Document Type')
-                    ->options(function () {
-                        return DocumentType::query()
-                            ->get(['type_id', 'type_name'])
-                            ->sort(function (DocumentType $first, DocumentType $second): int {
-                                $firstName = trim((string) $first->type_name);
-                                $secondName = trim((string) $second->type_name);
-
-                                $firstIsOthers = strcasecmp($firstName, 'Others') === 0;
-                                $secondIsOthers = strcasecmp($secondName, 'Others') === 0;
-
-                                if ($firstIsOthers !== $secondIsOthers) {
-                                    return $firstIsOthers ? 1 : -1;
-                                }
-
-                                return strcasecmp($firstName, $secondName);
-                            })
-                            ->pluck('type_name', 'type_id')
-                            ->all();
-                    })
-                    ->searchable()
-                    ->preload()
+                    ->datalist(fn () => DocumentType::query()->orderBy('type_name')->pluck('type_name'))
                     ->live()
+                    ->afterStateUpdated(function ($state, Set $set): void {
+                        $set('deadline', Document::deadlineForType($state));
+                    })
                     ->required(),
 
-                TextInput::make('other_document_type')
-                    ->label('Specify Document Type')
-                    ->placeholder('e.g. Affidavit, Certification')
-                    ->maxLength(255)
-                    ->visible(function ($get): bool {
-                        $typeId = $get('type_id');
+                DatePicker::make('deadline')
+                    ->label('Deadline')
+                    ->readOnly()
+                    ->helperText('Calculated from the document type.'),
 
-                        if (! $typeId) {
-                            return false;
-                        }
-
-                        return DocumentType::query()
-                            ->where('type_id', $typeId)
-                            ->where('type_name', 'Others')
-                            ->exists();
-                    })
-                    ->required(function ($get): bool {
-                        $typeId = $get('type_id');
-
-                        if (! $typeId) {
-                            return false;
-                        }
-
-                        return DocumentType::query()
-                            ->where('type_id', $typeId)
-                            ->where('type_name', 'Others')
-                            ->exists();
-                    }),
-
-                TextInput::make('office_unit')
+                Select::make('office_unit_id')
                     ->label('Office / Unit')
-                    ->required()
-                    ->maxLength(255),
+                    ->options(fn () => OfficeUnit::query()->orderBy('name')->pluck('name', 'office_unit_id'))
+                    ->searchable()
+                    ->preload()
+                    ->createOptionForm([
+                        TextInput::make('name')->required()->maxLength(255),
+                        ColorPicker::make('color')->nullable(),
+                    ])
+                    ->createOptionUsing(fn (array $data): int => OfficeUnit::create($data)->getKey())
+                    ->required(),
 
                 TextInput::make('lao_number')
                     ->label('LAO Number')
@@ -243,28 +197,25 @@ class Cabinet extends Page
                     ->required(),
             ])
             ->action(function (array $data): void {
-                $type = DocumentType::find($data['type_id']);
                 $filePath = $data['file_path'];
 
-                DB::transaction(function () use ($data, $type, $filePath): void {
+                DB::transaction(function () use ($data, $filePath): void {
                     $document = Document::create([
                         'user_id' => auth()->id(),
 
-                        'type_id' => $data['type_id'],
+                        'document_type' => $data['document_type'],
 
-                        'other_document_type' =>
-                            $type?->type_name === 'Others'
-                                ? ($data['other_document_type'] ?? null)
-                                : null,
-
-                        'office_unit' =>
-                            $data['office_unit'],
+                        'office_unit_id' =>
+                            $data['office_unit_id'],
 
                         'lao_number' =>
                             $data['lao_number'] ?? null,
 
                         'particulars' =>
                             $data['particulars'] ?? null,
+
+                        'deadline' =>
+                            Document::deadlineForType($data['document_type']),
 
                         'status' =>
                             'in_progress',

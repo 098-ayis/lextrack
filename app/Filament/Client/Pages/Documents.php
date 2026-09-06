@@ -176,8 +176,8 @@ class Documents extends Page implements HasTable
             ->when(
                 $this->documentType !== '',
                 fn ($query) => $query->where(
-                    'type_id',
-                    (int) $this->documentType
+                    'document_type',
+                    $this->documentType
                 )
             )
             ->when(
@@ -188,7 +188,8 @@ class Documents extends Page implements HasTable
                     $query->where(function ($query) use ($search) {
                         $query
                             ->where('particulars', 'like', "%{$search}%")
-                            ->orWhere('office_unit', 'like', "%{$search}%")
+                            ->orWhereHas('officeUnit', fn (Builder $officeQuery) =>
+                                $officeQuery->where('name', 'like', "%{$search}%"))
                             ->orWhere('lao_number', 'like', "%{$search}%");
                     });
                 }
@@ -231,25 +232,8 @@ class Documents extends Page implements HasTable
                     ->label('LAO #')
                     ->formatStateUsing(fn ($state) => $state ?? ''),
 
-                TextColumn::make('type_id')
-                    ->label('TYPE')
-                    ->formatStateUsing(
-                        fn ($state): string => match ((string) $state) {
-                            '1' => 'MOA',
-                            '2' => 'Correspondence',
-                            '3' => 'Contract',
-                            '4' => 'Proposal',
-                            '5' => 'PROCUREMENT',
-                            '6' => 'REFERENCE SLIP',
-                            '7' => 'Clearance',
-                            '8' => 'MOU',
-                            '9' => 'NDA',
-                            '10' => 'DOD',
-                            '11' => 'GBA',
-                            '12' => 'Others',
-                            default => 'Unknown',
-                        }
-                    ),
+                TextColumn::make('document_type')
+                    ->label('TYPE'),
 
                 TextColumn::make('particulars')
                     ->label('PARTICULARS'),

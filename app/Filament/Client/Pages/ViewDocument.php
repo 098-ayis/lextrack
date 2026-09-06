@@ -25,6 +25,8 @@ class ViewDocument extends Page
 
     public function mount($document): void
     {
+        $id = $document;
+
         $this->returnPage = request()->query('from') === 'dashboard'
             ? 'dashboard'
             : 'documents';
@@ -41,8 +43,8 @@ class ViewDocument extends Page
         ], true) ? $tab : 'all';
 
         $this->documentRecord = Document::query()
-            ->where('document_id', $document)
-            ->where(function ($query) {
+            ->where('document_id', $id)
+            ->where(function ($query): void {
                 $query
                     ->where('user_id', auth()->id())
                     ->orWhereHas(

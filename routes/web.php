@@ -56,7 +56,7 @@ Route::get('/admin/document-export', [DocumentExportController::class, '__invoke
 
 Route::get('/document-status/{document}', function (int $document) {
     $documentRecord = Document::query()
-        ->with(['user', 'type', 'actionType'])
+        ->with(['user'])
         ->findOrFail($document);
 
     return view('documents.public-status', [
@@ -247,9 +247,28 @@ Route::get('/admin/documents/{document}/versions/{version}/preview', function (
     ->middleware('auth')
     ->name('admin.document.version.preview');
 
+Route::get('/admin/documents/temp-preview/{file}', function (string $file) {
+    $fileName = basename($file);
+    $previewPath = storage_path('app/private/temp-previews/' . $fileName);
+
+    abort_unless(
+        $fileName === $file &&
+        pathinfo($fileName, PATHINFO_EXTENSION) === 'pdf' &&
+        is_file($previewPath),
+        404
+    );
+
+    return response()->file($previewPath, [
+        'Content-Type' => 'application/pdf',
+        'Content-Disposition' => 'inline; filename="' . $fileName . '"',
+    ]);
+})
+    ->where('file', '[A-Za-z0-9._-]+')
+    ->middleware(['auth', AdminMiddleware::class])
+    ->name('admin.document.temp-preview');
+
 Route::get('/api/track/{trackingNumber}', function (string $trackingNumber) {
     $document = Document::query()
-        ->with('type')
         ->where(
             'lao_number',
             strtoupper(trim($trackingNumber))
@@ -269,7 +288,7 @@ Route::get('/api/track/{trackingNumber}', function (string $trackingNumber) {
             'tracking_number' => $document->lao_number,
 
             'document_type' =>
-                $document->type?->type_name ?? 'N/A',
+                $document->document_type ?? 'N/A',
 
             'particulars' =>
                 $document->particulars,

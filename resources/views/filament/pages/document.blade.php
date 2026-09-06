@@ -134,7 +134,7 @@
                 <option value="">All Document Types</option>
 
                 @foreach (\App\Models\DocumentType::orderBy('type_name')->get() as $type)
-                    <option value="{{ $type->type_id }}">
+                    <option value="{{ $type->type_name }}">
                         {{ $type->type_name }}
                     </option>
                 @endforeach
@@ -333,7 +333,7 @@
                                         </span>
 
                                         <span class="font-medium text-gray-800">
-                                            {{ $document->office_unit }}
+                                            {{ $document->officeUnit?->name }}
                                         </span>
                                     </div>
 
@@ -354,14 +354,14 @@
                             {{-- Document Type --}}
                             <td class="px-4 py-4 align-middle">
 
-                                @if ($document->type)
+                                @if ($document->document_type)
 
                                     <span
                                         class="inline-flex items-center px-3 py-1
                                                rounded-full text-xs font-semibold text-white"
-                                        style="background-color: {{ $document->type->color ?? '#059669' }};"
+                                        style="background-color: #059669;"
                                     >
-                                        {{ $document->type->type_name }}
+                                        {{ $document->document_type }}
                                     </span>
 
                                 @else
@@ -616,7 +616,7 @@
                                         </span>
 
                                         <span class="font-medium text-gray-800">
-                                            {{ $document->office_unit }}
+                                            {{ $document->officeUnit?->name }}
                                         </span>
                                     </div>
 
@@ -638,14 +638,14 @@
                             
                             <td class="px-4 py-4 align-middle">
 
-                                @if ($document->type)
+                                @if ($document->document_type)
 
                                     <span
                                         class="inline-flex items-center px-3 py-1
                                                rounded-full text-xs font-semibold text-white"
-                                        style="background-color: {{ $document->type->color ?? '#059669' }};"
+                                        style="background-color: #059669;"
                                     >
-                                        {{ $document->type->type_name }}
+                                        {{ $document->document_type }}
                                     </span>
 
                                 @else
@@ -940,7 +940,7 @@
                                             Office/Unit:
                                         </span>
                                         <span class="font-semibold text-gray-900">
-                                            {{ $document->office_unit }}
+                                            {{ $document->officeUnit?->name }}
                                         </span>
                                     </div>
 
@@ -963,14 +963,14 @@
                                 {{-- BADGES --}}
                                 <div class="flex flex-wrap items-center gap-2 mb-3">
 
-                                    @if ($document->type)
+                                    @if ($document->document_type)
 
                                         <span
                                             class="inline-flex items-center px-3 py-1
                                                 rounded-full text-xs font-semibold text-white"
-                                            style="background-color: {{ $document->type->color ?? '#059669' }};"
+                                            style="background-color: #059669;"
                                         >
-                                            {{ $document->type->type_name }}
+                                            {{ $document->document_type }}
                                     </span>
 
                                     @else
@@ -1018,14 +1018,14 @@
                                 {{-- Action Taken --}}
                                 <td class="px-4 py-4 align-middle">
 
-                                    @if ($document->actionType)
+                                    @if ($document->action_type)
 
                                         <span
                                             class="inline-flex items-center gap-1 px-3 py-1
                                                 text-xs font-semibold rounded-full text-white"
-                                            style="background-color: {{ $document->actionType->color }};"
+                                            style="background-color: #64748B;"
                                         >
-                                            {{ $document->actionType->action_name }}
+                                            {{ $document->action_type }}
                                         </span>
 
                                     @else

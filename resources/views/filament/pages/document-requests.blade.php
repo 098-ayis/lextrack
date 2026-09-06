@@ -55,7 +55,7 @@
                 >
                     <option value="">All Document Types</option>
                     @foreach (\App\Models\DocumentType::orderBy('type_name')->get() as $type)
-                        <option value="{{ $type->type_id }}">{{ $type->type_name }}</option>
+                        <option value="{{ $type->type_name }}">{{ $type->type_name }}</option>
                     @endforeach
                 </select>
                 <svg class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500 dark:text-gray-400" viewBox="0 0 20 20" fill="currentColor">
@@ -103,6 +103,7 @@
 
             .admin-document-requests-page .fi-ta-table {
                 font-size: 0.75rem;
+                min-width: 68rem;
             }
 
             .admin-document-requests-page .fi-ta-table th {
@@ -126,6 +127,20 @@
 
             .admin-document-requests-page .fi-ta-table tbody tr:not(.fi-ta-group-header-row) {
                 transition: background-color 150ms ease-in-out;
+            }
+
+            .admin-document-requests-page .fi-ta-table tbody tr:not(.fi-ta-group-header-row) > td {
+                vertical-align: middle;
+                padding-block: 1rem;
+            }
+
+            .admin-document-requests-page .fi-ta-table tbody tr:not(.fi-ta-group-header-row) > td:last-child {
+                white-space: nowrap;
+            }
+
+            .admin-document-requests-page .fi-ta-actions {
+                flex-wrap: nowrap;
+                gap: 0.5rem;
             }
 
             .admin-document-requests-page .fi-ta-table tbody tr:not(.fi-ta-group-header-row):hover {

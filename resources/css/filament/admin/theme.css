@@ -4,6 +4,59 @@
 @source '../../../../resources/views/filament/**/*';
 
 /* ================================
+   SIDEBAR
+================================ */
+
+.fi-main-sidebar {
+    border-inline-end: 1px solid rgb(229 231 235 / 0.9);
+}
+
+.dark .fi-main-sidebar {
+    border-inline-end-color: rgb(55 65 81 / 0.85);
+}
+
+@media (min-width: 64rem) {
+    .fi-body-has-sidebar-collapsible-on-desktop
+        .fi-main-sidebar:not(.fi-sidebar-open) {
+        width: var(--collapsed-sidebar-width);
+    }
+
+    .fi-body-has-sidebar-collapsible-on-desktop
+        .fi-main-sidebar:not(.fi-sidebar-open)
+        .fi-sidebar-nav {
+        padding-inline: 0.5rem;
+    }
+
+    .fi-body-has-sidebar-collapsible-on-desktop
+        .fi-main-sidebar:not(.fi-sidebar-open)
+        .fi-sidebar-nav-groups {
+        margin-inline: 0;
+    }
+
+    .fi-body-has-sidebar-collapsible-on-desktop
+        .fi-main-sidebar:not(.fi-sidebar-open)
+        .fi-sidebar-item-btn,
+    .fi-body-has-sidebar-collapsible-on-desktop
+        .fi-main-sidebar:not(.fi-sidebar-open)
+        .fi-sidebar-group-dropdown-trigger-btn {
+        justify-content: center;
+        position: relative;
+        inset-inline-start: 0.5rem;
+    }
+
+    .fi-body-has-sidebar-collapsible-on-desktop
+        .fi-main-sidebar:not(.fi-sidebar-open)
+        .fi-sidebar-item-icon,
+    .fi-body-has-sidebar-collapsible-on-desktop
+        .fi-main-sidebar:not(.fi-sidebar-open)
+        .fi-sidebar-group-dropdown-trigger-btn .fi-icon {
+        width: 1.5rem;
+        height: 1.5rem;
+        flex-shrink: 0;
+    }
+}
+
+/* ================================
    TOPBAR
 ================================ */
 

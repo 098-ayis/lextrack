@@ -252,14 +252,14 @@
                         <div class="min-w-0">
                             <dt class="font-medium text-gray-500">Document Type</dt>
                             <dd class="mt-1 break-words font-semibold text-gray-900">
-                                {{ $documentRecord->type?->type_name ?? 'Unknown' }}
+                                {{ $documentRecord->document_type ?? 'Unknown' }}
                             </dd>
                         </div>
 
                         <div class="min-w-0">
                             <dt class="font-medium text-gray-500">Office / Unit</dt>
                             <dd class="mt-1 break-words font-semibold text-gray-900">
-                                {{ $documentRecord->office_unit ?: 'Not set' }}
+                                {{ $documentRecord->officeUnit?->name ?: 'Not set' }}
                             </dd>
                         </div>
 
@@ -285,7 +285,7 @@
                         <div class="min-w-0">
                             <dt class="font-medium text-gray-500">Action Taken</dt>
                             <dd class="mt-1 break-words font-semibold text-gray-900">
-                                {{ $documentRecord->actionType?->action_name ?? ($documentRecord->action_taken ?: 'Not set') }}
+                                {{ $documentRecord->action_type ?? 'Not set' }}
                             </dd>
                         </div>
 

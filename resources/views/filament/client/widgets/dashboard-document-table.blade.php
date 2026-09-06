@@ -65,18 +65,9 @@
                                        focus:outline-none focus:ring-0"
                             >
                                 <option value="">Type</option>
-                                <option value="1">MOA</option>
-                                <option value="2">Correspondence</option>
-                                <option value="3">Contract</option>
-                                <option value="4">Proposal</option>
-                                <option value="5">Procurement</option>
-                                <option value="6">Reference Slip</option>
-                                <option value="7">Clearance</option>
-                                <option value="8">MOU</option>
-                                <option value="9">NDA</option>
-                                <option value="10">DOD</option>
-                                <option value="11">GBA</option>
-                                <option value="12">Others</option>
+                                @foreach (\App\Models\DocumentType::orderBy('type_name')->get() as $type)
+                                    <option value="{{ $type->type_name }}">{{ $type->type_name }}</option>
+                                @endforeach
                             </select>
 
                             <svg

@@ -103,7 +103,7 @@
                                 {{-- DOCUMENT TYPE --}}
                                 <td class="px-6 py-5">
                                     <span class="text-base font-semibold text-gray-900 dark:text-gray-100">
-                                        {{ $document->type?->type_name ?? 'N/A' }}
+                                        {{ $document->document_type ?? 'N/A' }}
                                     </span>
                                 </td>
 

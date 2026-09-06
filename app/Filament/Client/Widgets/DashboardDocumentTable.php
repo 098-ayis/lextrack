@@ -40,7 +40,7 @@ class DashboardDocumentTable extends Widget
     {
         return $this->documentsQuery()
             ->with([
-                'type',
+                'officeUnit',
                 'latestVersion',
                 'documentRequests' => fn ($query) => $query
                     ->where('user_id', auth()->id())
@@ -67,8 +67,8 @@ class DashboardDocumentTable extends Widget
             ->when(
                 $this->documentType !== '',
                 fn (Builder $query) => $query->where(
-                    'type_id',
-                    (int) $this->documentType
+                    'document_type',
+                    $this->documentType
                 )
             )
             ->when(
@@ -103,7 +103,8 @@ class DashboardDocumentTable extends Widget
                     $query->where(function (Builder $query) use ($search): void {
                         $query
                             ->where('particulars', 'like', "%{$search}%")
-                            ->orWhere('office_unit', 'like', "%{$search}%")
+                            ->orWhereHas('officeUnit', fn (Builder $officeQuery) =>
+                                $officeQuery->where('name', 'like', "%{$search}%"))
                             ->orWhere('lao_number', 'like', "%{$search}%");
                     });
                 }

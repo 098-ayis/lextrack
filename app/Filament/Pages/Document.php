@@ -11,13 +11,17 @@ use Filament\Pages\Page;
 use Filament\Notifications\Notification;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\ColorPicker;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
 use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use App\Models\ActionType;
+use App\Models\DocumentType;
 use App\Models\ActivityLog;
+use App\Models\OfficeUnit;
 use Filament\Support\Enums\Alignment;
 use Filament\Support\Enums\Width;
 use Illuminate\Support\Facades\Storage;
@@ -38,6 +42,7 @@ use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Filament\Schemas\Components\Grid;
 // use BezhanSalleh\FilamentShield\Traits\HasPageShield;
 
 class Document extends Page implements HasTable
@@ -85,6 +90,7 @@ class Document extends Page implements HasTable
             'outgoing',
             'completed',
             'rejected',
+            'archived',
         ], true) ? $section : 'incoming';
     }
 
@@ -120,6 +126,7 @@ class Document extends Page implements HasTable
                 'outgoing',
                 'completed',
                 'rejected',
+                'archived',
             ])
             ->groupBy('status')
             ->pluck('count', 'status');
@@ -130,6 +137,7 @@ class Document extends Page implements HasTable
             'outgoing' => (int) ($counts['outgoing'] ?? 0),
             'completed' => (int) ($counts['completed'] ?? 0),
             'rejected' => (int) ($counts['rejected'] ?? 0),
+            'archived' => (int) ($counts['archived'] ?? 0),
         ];
     }
 
@@ -188,6 +196,7 @@ class Document extends Page implements HasTable
             $document->update([
                 'lao_number' => $laoNumber,
                 'status' => 'in_progress',
+                'deadline' => DocumentModel::deadlineForType($document->document_type),
             ]);
 
             $this->recordDocumentActivity(
@@ -298,11 +307,12 @@ class Document extends Page implements HasTable
             'outgoing' => 'outgoing',
             'rejected' => 'rejected',
             'completed' => 'completed',
+            'archived' => 'archived',
             default => 'in_progress',
         };
 
         return DocumentModel::query()
-            ->with(['user', 'type', 'actionType', 'rejections', 'latestVersion'])
+            ->with(['user', 'officeUnit', 'rejections', 'latestVersion'])
             ->where('status', $status)
             ->when(trim($this->search) !== '', function (Builder $query): void {
                 $search = '%' . trim($this->search) . '%';
@@ -310,12 +320,13 @@ class Document extends Page implements HasTable
                 $query->where(function (Builder $query) use ($search): void {
                     $query
                         ->where('lao_number', 'like', $search)
-                        ->orWhere('office_unit', 'like', $search)
+                        ->orWhereHas('officeUnit', fn (Builder $officeQuery) =>
+                            $officeQuery->where('name', 'like', $search))
                         ->orWhere('particulars', 'like', $search);
                 });
             })
             ->when($this->typeFilter !== '', function (Builder $query): void {
-                $query->where('type_id', $this->typeFilter);
+                $query->where('document_type', $this->typeFilter);
             })
             ->when($this->dateFilter !== '', function (Builder $query): void {
                 $query->whereDate('created_at', $this->dateFilter);
@@ -359,11 +370,6 @@ class Document extends Page implements HasTable
     protected function getDocumentTableColumns(): array
     {
         $columns = [
-            TextColumn::make('document_number')
-                ->label('NO.')
-                ->rowIndex()
-                ->alignCenter()
-                ->extraHeaderAttributes(['class' => 'w-16']),
 
             ViewColumn::make('document_details')
                 ->label('DOCUMENT')
@@ -427,8 +433,14 @@ class Document extends Page implements HasTable
                     }
                 })
                 ->alignCenter();
+        } elseif ($this->activeSection === 'archived') {
+            $columns[] = TextColumn::make('archived_at')
+                ->label('ARCHIVED AT')
+                ->dateTime('F d, Y h:i A')
+                ->placeholder('Unknown date')
+                ->alignCenter();
         } else {
-            $columns[] = ViewColumn::make('action_taken')
+            $columns[] = ViewColumn::make('action_type')
                 ->label('ACTION TAKEN')
                 ->view('filament.tables.columns.action-type')
                 ->alignCenter();
@@ -444,7 +456,7 @@ class Document extends Page implements HasTable
 
     protected function getDocumentTableActions(): array
     {
-        $options = ActionGroup::make([
+        $menuActions = [
             Action::make('viewDocument')
                 ->label('View')
                 ->icon('heroicon-o-eye')
@@ -457,12 +469,23 @@ class Document extends Page implements HasTable
                 ->url(fn (DocumentModel $record): string => route('admin.documents.download', [
                     'document' => $record->document_id,
                 ]))
-                ->visible(fn (DocumentModel $record): bool => filled($record->latestVersion?->file_path)),
+                ->disabled(fn (DocumentModel $record): bool => blank($record->latestVersion?->file_path))
+                ->tooltip(fn (DocumentModel $record): string =>
+                    filled($record->latestVersion?->file_path)
+                        ? 'Download'
+                        : 'No file attached'
+                ),
             Action::make('documentQrCode')
                 ->label('QR Code')
                 ->icon('heroicon-o-qr-code')
                 ->action(fn (DocumentModel $record) => $this->openQrCode($record->document_id)),
-        ])
+        ];
+
+        if (in_array($this->activeSection, ['incoming', 'outgoing', 'completed'], true)) {
+            $menuActions[] = $this->archiveDocumentAction();
+        }
+
+        $options = ActionGroup::make($menuActions)
             ->icon('heroicon-m-ellipsis-vertical')
             ->tooltip('More options')
             ->color('gray');
@@ -481,6 +504,13 @@ class Document extends Page implements HasTable
             return [
                 ...$actions,
                 $this->returnDocumentAction()->button(),
+                $options,
+            ];
+        }
+
+        if ($this->activeSection === 'archived') {
+            return [
+                $this->returnArchivedDocumentAction()->button(),
                 $options,
             ];
         }
@@ -569,44 +599,43 @@ class Document extends Page implements HasTable
                     ->label('LAO Number')
                     ->required(),
 
-                Select::make('type_id')
-                ->label('Document Type')
-                ->placeholder('Select document type')
-                ->options(
-                    \App\Models\DocumentType::query()
-                        ->pluck('type_name', 'type_id')
-                )
-                ->searchable()
-                ->required(),
+                Grid::make(2)
+                    ->schema([
+                        TextInput::make('document_type')
+                            ->label('Document Type')
+                            ->placeholder('Select document type')
+                            ->datalist(fn () => DocumentType::query()->orderBy('type_name')->pluck('type_name'))
+                            ->live()
+                            ->afterStateUpdated(function ($state, Set $set): void {
+                                $set('deadline', DocumentModel::deadlineForType($state));
+                            })
+                            ->required(),
 
-                Select::make('action_id')
+                        DatePicker::make('deadline')
+                            ->label('Deadline')
+                            ->readOnly()
+                            ->helperText('Calculated from the document type.'),
+                    ]),
+
+                TextInput::make('action_type')
                 ->label('Action Taken')
-                ->placeholder('Select action')
-                ->options(
-                    \App\Models\ActionType::query()
-                        ->orderBy('action_id')
-                        ->pluck('action_name', 'action_id')
-                )
-                ->searchable()
+                ->datalist(fn () => ActionType::query()->orderBy('action_name')->pluck('action_name'))
                 ->nullable(),
                     
-                TextInput::make('office_unit')
+                Select::make('office_unit_id')
                     ->label('Office / Unit')
+                    ->options(fn () => OfficeUnit::query()->orderBy('name')->pluck('name', 'office_unit_id'))
+                    ->searchable()
+                    ->preload()
+                    ->createOptionForm([
+                        TextInput::make('name')->required()->maxLength(255),
+                        ColorPicker::make('color')->nullable(),
+                    ])
+                    ->createOptionUsing(fn (array $data): int => OfficeUnit::create($data)->getKey())
                     ->required(),
 
                 Textarea::make('particulars')
                     ->label('Particulars')
-                    ->required(),
-
-                DatePicker::make('deadline')
-                    ->label('Deadline'),
-
-                Select::make('status')
-                    ->options([
-                        'pending' => 'Pending',
-                        'in_progress' => 'In Progress',
-                    ])
-                    ->default('in_progress')
                     ->required(),
 
                 FileUpload::make('file_path')
@@ -622,6 +651,7 @@ class Document extends Page implements HasTable
                 unset($data['file_path']);
 
                 $data['user_id'] = auth()->id();
+                $data['deadline'] = DocumentModel::deadlineForType($data['document_type'] ?? null);
 
                 $document = DB::transaction(function () use ($data, $filePath): DocumentModel {
                     $document = DocumentModel::create($data);
@@ -668,14 +698,25 @@ class Document extends Page implements HasTable
 
                 if ($document?->status === 'outgoing') {
                     return [
-                        Select::make('type_id')
-                            ->label('Document Type')
-                            ->options(
-                                \App\Models\DocumentType::query()
-                                    ->pluck('type_name', 'type_id')
-                            )
-                            ->searchable()
-                            ->required(),
+                        Grid::make(2)
+                        ->schema([
+                            TextInput::make('document_type')
+                                ->label('Document Type')
+                                ->placeholder('Select document type')
+                                ->datalist(fn () => DocumentType::query()->orderBy('type_name')->pluck('type_name'))
+                                ->live()
+                                ->afterStateUpdated(function ($state, Set $set): void {
+                                    $set('deadline', DocumentModel::deadlineForType($state));
+                                })
+                                ->required(),
+
+                            DatePicker::make('deadline')
+                                ->label('Deadline')
+                                ->readOnly()
+                                ->helperText('Calculated from the document type.'),
+                        ]),
+
+
 
                         DatePicker::make('outgoing_date')
                             ->label('Outgoing Date'),
@@ -701,30 +742,32 @@ class Document extends Page implements HasTable
                     ->label('LAO Number')
                     ->required(),
 
-                Select::make('type_id')
+                TextInput::make('document_type')
                     ->label('Document Type')
                     ->placeholder('Select document type')
-                    ->options(
-                        \App\Models\DocumentType::query()
-                            ->pluck('type_name', 'type_id')
-                    )
-                    ->searchable()
+                    ->datalist(fn () => DocumentType::query()->orderBy('type_name')->pluck('type_name'))
+                    ->live()
+                    ->afterStateUpdated(function ($state, Set $set): void {
+                        $set('deadline', DocumentModel::deadlineForType($state));
+                    })
                     ->required(),
 
-                Select::make('action_id')
+                TextInput::make('action_type')
                 ->label('Action Taken')
                 ->placeholder('Select action')
-                ->options(
-                    ActionType::query()
-                        ->orderBy('action_name')
-                        ->pluck('action_name', 'action_id')
-                )
-                ->searchable()
-                ->preload()
+                ->datalist(fn () => ActionType::query()->orderBy('action_name')->pluck('action_name'))
                 ->nullable(),
 
-                TextInput::make('office_unit')
+                Select::make('office_unit_id')
                     ->label('Office / Unit')
+                    ->options(fn () => OfficeUnit::query()->orderBy('name')->pluck('name', 'office_unit_id'))
+                    ->searchable()
+                    ->preload()
+                    ->createOptionForm([
+                        TextInput::make('name')->required()->maxLength(255),
+                        ColorPicker::make('color')->nullable(),
+                    ])
+                    ->createOptionUsing(fn (array $data): int => OfficeUnit::create($data)->getKey())
                     ->required(),
 
                 Textarea::make('particulars')
@@ -732,7 +775,9 @@ class Document extends Page implements HasTable
                     ->required(),
 
                 DatePicker::make('deadline')
-                    ->label('Deadline'),
+                    ->label('Deadline')
+                    ->readOnly()
+                    ->helperText('Calculated from the document type.'),
 
                 Select::make('status')
                     ->options([
@@ -756,12 +801,12 @@ class Document extends Page implements HasTable
 
                 return [
                     'lao_number' => $document->lao_number,
-                    'type_id' => $document->type_id,
+                    'document_type' => $document->document_type,
 
                     // Important: preload current Action Taken
-                    'action_id' => $document->action_id,
+                    'action_type' => $document->action_type,
 
-                    'office_unit' => $document->office_unit,
+                    'office_unit_id' => $document->office_unit_id,
                     'particulars' => $document->particulars,
                     'deadline' => $document->deadline,
                     'status' => $document->status,
@@ -782,9 +827,9 @@ class Document extends Page implements HasTable
 
                 $fieldLabels = [
                     'lao_number' => 'LAO Number',
-                    'type_id' => 'Document Type',
-                    'action_id' => 'Action Taken',
-                    'office_unit' => 'Office / Unit',
+                    'document_type' => 'Document Type',
+                    'action_type' => 'Action Taken',
+                    'office_unit_id' => 'Office / Unit',
                     'particulars' => 'Particulars',
                     'deadline' => 'Deadline',
                     'status' => 'Status',
@@ -895,6 +940,10 @@ class Document extends Page implements HasTable
 
                 return "Are you sure you want to accept this document uploaded by {$uploader}? It will be moved to the Incoming table.";
             })
+            ->modalContent(fn (DocumentModel $record) => view(
+                'filament.actions.review-document',
+                ['document' => $record]
+            ))
             ->modalIcon('heroicon-o-check-circle')
             ->modalIconColor('success')
             ->modalAlignment(Alignment::Center)
@@ -1177,6 +1226,99 @@ class Document extends Page implements HasTable
                 $document = $this->resolveDocumentActionRecord($arguments, $record);
 
                 $this->completeDocument($document->document_id);
+            });
+    }
+
+    public function archiveDocumentAction(): Action
+    {
+        return Action::make('archiveDocument')
+            ->label('Archive')
+            ->icon('heroicon-o-archive-box')
+            ->color('gray')
+            ->modalHeading('Archive Document')
+            ->modalDescription('Are you sure you want to archive this document? It will be marked as archived.')
+            ->modalIcon('heroicon-o-archive-box')
+            ->modalIconColor('gray')
+            ->modalAlignment(Alignment::Center)
+            ->modalFooterActionsAlignment(Alignment::Center)
+            ->modalSubmitActionLabel('Archive document')
+            ->modalCancelActionLabel('Cancel')
+            ->action(function (array $arguments, ?DocumentModel $record = null): void {
+                $document = $this->resolveDocumentActionRecord($arguments, $record);
+
+                $this->archiveDocument($document->document_id);
+            });
+    }
+
+    public function archiveDocument(int $documentId): void
+    {
+        $document = DocumentModel::findOrFail($documentId);
+
+        if (! in_array($document->status, ['in_progress', 'outgoing', 'completed'], true)) {
+            Notification::make()
+                ->danger()
+                ->title('Document cannot be archived')
+                ->body('Only incoming, outgoing, and completed documents can be archived.')
+                ->send();
+
+            return;
+        }
+
+        $document->update([
+            'status' => 'archived',
+            'archived_at' => now(),
+        ]);
+
+        $this->recordDocumentActivity(
+            $document->document_id,
+            'Document archived',
+            'Marked the document as archived.'
+        );
+
+        Notification::make()
+            ->success()
+            ->title('Document archived')
+            ->body('The document was successfully marked as archived.')
+            ->send();
+
+        $this->redirect(self::getUrl(['section' => 'archived']));
+    }
+
+    public function returnArchivedDocumentAction(): Action
+    {
+        return Action::make('returnArchivedDocument')
+            ->label('Return')
+            ->icon('heroicon-o-arrow-uturn-left')
+            ->color('success')
+            ->tooltip('Return Document')
+            ->extraAttributes([
+                'class' => 'return-document-button',
+            ])
+            ->requiresConfirmation()
+            ->modalHeading('Return Archived Document')
+            ->modalDescription('This will restore the document to the Completed section.')
+            ->modalSubmitActionLabel('Return document')
+            ->action(function (array $arguments, ?DocumentModel $record = null): void {
+                $document = $this->resolveDocumentActionRecord($arguments, $record);
+
+                $document->update([
+                    'status' => 'completed',
+                    'archived_at' => null,
+                ]);
+
+                $this->recordDocumentActivity(
+                    $document->document_id,
+                    'Document returned from archive',
+                    'Restored the document to the Completed section.'
+                );
+
+                Notification::make()
+                    ->success()
+                    ->title('Document returned')
+                    ->body('The document was restored to the Completed section.')
+                    ->send();
+
+                $this->redirect(self::getUrl(['section' => 'archived']));
             });
     }
 

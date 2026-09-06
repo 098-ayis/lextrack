@@ -7,13 +7,15 @@ use Filament\Forms\Contracts\HasForms;
 use Filament\Pages\Page;
 use Filament\Schemas\Schema; 
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\ColorPicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Checkbox;
-use Filament\Schemas\Components\Utilities\Get;
 use Filament\Notifications\Notification;
-use App\Models\Document; 
+use App\Models\Document;
 use App\Models\DocumentVersion;
+use App\Models\DocumentType;
+use App\Models\OfficeUnit;
 use Illuminate\Support\Facades\DB;
 
 class Upload extends Page implements HasForms
@@ -47,35 +49,21 @@ class Upload extends Page implements HasForms
                     ->columnSpan('full')
                     ->required(),
                 
-                TextInput::make('office_unit')
+                Select::make('office_unit_id')
                     ->label('Office From')
-                    ->placeholder('e.g., College of Science')
-                    ->required(),
-
-                Select::make('type_id')
-                    ->label('Document Type')
-                    ->options([
-                        1 => 'MOA',
-                        2 => 'Correspondence',
-                        3 => 'Contract',
-                        4 => 'Proposal',
-                        5 => 'PROCUREMENT',
-                        6 => 'REFERENCE SLIP',
-                        7 => 'Clearance',
-                        8 => 'MOU',
-                        9 => 'NDA',
-                        10 => 'DOD',
-                        11 => 'GBA',
-                        12 => 'Others',
-                    ])
+                    ->options(fn () => OfficeUnit::query()->orderBy('name')->pluck('name', 'office_unit_id'))
                     ->searchable()
-                    ->live()
+                    ->preload()
+                    ->createOptionForm([
+                        TextInput::make('name')->required()->maxLength(255),
+                        ColorPicker::make('color')->nullable(),
+                    ])
+                    ->createOptionUsing(fn (array $data): int => OfficeUnit::create($data)->getKey())
                     ->required(),
 
-                TextInput::make('other_type')
-                    ->label('Please specify Document Type')
-                    ->placeholder('e.g., Affidavit')
-                    ->visible(fn (Get $get) => $get('type_id') == 12)
+                TextInput::make('document_type')
+                    ->label('Document Type')
+                    ->datalist(fn () => DocumentType::query()->orderBy('type_name')->pluck('type_name'))
                     ->required(),
                     
                 FileUpload::make('file_path')
@@ -99,17 +87,12 @@ class Upload extends Page implements HasForms
     {
         $data = $this->form->getState();
 
-        $finalParticulars = $data['particulars'];
-        if ($data['type_id'] == 12 && !empty($data['other_type'])) {
-            $finalParticulars = '[' . $data['other_type'] . '] ' . $finalParticulars;
-        }
-
-        DB::transaction(function () use ($finalParticulars, $data): void {
+        DB::transaction(function () use ($data): void {
             $document = Document::create([
                 'user_id' => auth()->id(),
-                'particulars' => $finalParticulars,
-                'office_unit' => $data['office_unit'],
-                'type_id' => $data['type_id'],
+                'particulars' => $data['particulars'],
+                'office_unit_id' => $data['office_unit_id'],
+                'document_type' => $data['document_type'],
                 'status' => 'pending',
             ]);
 
