@@ -277,6 +277,11 @@
         border-radius: 12px;
     }
 
+    .thread-header,
+    .thread-footer {
+        flex-shrink: 0;
+    }
+
 
     /* =========================================================
        THREAD HEADER
@@ -750,7 +755,7 @@
        RESPONSIVE
     ========================================================= */
 
-    @media (max-width: 900px) {
+    @media (max-width: 1024px) {
         .msg-wrap {
             grid-template-columns: 1fr;
             height: auto;
@@ -768,10 +773,33 @@
             max-width: 85%;
         }
     }
+
+    @media (max-width: 1024px) {
+        .msg-wrap {
+            height: calc(100vh - 180px);
+            height: calc(100dvh - 180px);
+            min-height: 0;
+        }
+
+        .msg-wrap.has-selection .msg-list,
+        .msg-wrap:not(.has-selection) .msg-thread {
+            display: none;
+        }
+
+        .msg-wrap:not(.has-selection) .msg-list,
+        .msg-wrap.has-selection .msg-thread {
+            height: 100%;
+            min-height: 0;
+        }
+
+        .thread-body {
+            min-height: 0;
+        }
+    }
 </style>
 
     <div
-        class="msg-wrap"
+        class="msg-wrap {{ $selectedConversation ? 'has-selection' : 'no-selection' }}"
         x-data="{ search: '' }"
     >
 
