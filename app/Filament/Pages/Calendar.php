@@ -46,38 +46,31 @@ class Calendar extends Page
     public function mount(): void
     {
         $now = now();
-        $requestedDate = request()->query('date');
-
-        if (is_string($requestedDate)) {
-            try {
-                $calendarDate = Carbon::createFromFormat(
-                    'Y-m-d',
-                    $requestedDate,
-                );
-
-                if (
-                    $calendarDate instanceof Carbon &&
-                    $calendarDate->format('Y-m-d') === $requestedDate
-                ) {
-                    $now = $calendarDate;
-                    $this->selectedDate = $requestedDate;
-                }
-            } catch (\Throwable) {
-                // Use the current month when the query date is invalid.
-            }
-        }
-
         $this->year = $now->year;
         $this->month = $now->month;
+        $this->selectedDate = $now->toDateString();
 
-        $date = request()->query('date');
-        if (is_string($date) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
-            [$year, $month, $day] = array_map('intval', explode('-', $date));
-            if (checkdate($month, $day, $year)) {
-                $this->selectedDate = $date;
-                $this->year = $year;
-                $this->month = $month;
+        $requestedDate = request()->query('date');
+
+        if (!is_string($requestedDate)) {
+            return;
+        }
+
+        try {
+            $calendarDate = Carbon::createFromFormat(
+                '!Y-m-d',
+                $requestedDate,
+            );
+
+            if ($calendarDate->format('Y-m-d') !== $requestedDate) {
+                return;
             }
+
+            $this->selectedDate = $requestedDate;
+            $this->year = $calendarDate->year;
+            $this->month = $calendarDate->month;
+        } catch (\Throwable) {
+            // Keep today selected when the query date is invalid.
         }
     }
 
@@ -134,10 +127,7 @@ class Calendar extends Page
 
     public function selectDate(string $date): void
     {
-        $this->selectedDate =
-            $this->selectedDate === $date
-                ? null
-                : $date;
+        $this->selectedDate = $date;
     }
 
     public function clearSelectedDate(): void
@@ -496,6 +486,7 @@ class Calendar extends Page
                     ->label('Date')
                     ->native(false)
                     ->displayFormat('M d, Y')
+                    ->default(now()->toDateString())
                     ->required(),
 
                 $this->eventTimeField(),
@@ -566,6 +557,7 @@ class Calendar extends Page
                     ->label('Date')
                     ->native(false)
                     ->displayFormat('M d, Y')
+                    ->default(now()->toDateString())
                     ->required(),
 
                 $this->eventTimeField(),

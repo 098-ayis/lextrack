@@ -21,13 +21,13 @@ class CalendarNavigationTest extends TestCase
         $this->assertSame(1, $page->month);
     }
 
-    public function test_invalid_date_is_ignored(): void
+    public function test_invalid_date_falls_back_to_today(): void
     {
         $this->app->instance('request', Request::create('/admin/calendar?date=2026-02-31'));
         $page = new CalendarPage;
         $page->mount();
 
-        $this->assertNull($page->selectedDate);
+        $this->assertSame(now()->toDateString(), $page->selectedDate);
         $this->assertSame(now()->month, $page->month);
     }
 
