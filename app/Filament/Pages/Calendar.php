@@ -242,7 +242,7 @@ class Calendar extends Page
     protected function getDocumentDeadlineEvents(?string $date = null): Collection
     {
         return Document::query()
-            ->with(['latestVersion', 'officeUnit'])
+            ->with(['latestVersion'])
             ->whereNotNull('deadline')
             ->when(
                 $date,
@@ -268,7 +268,7 @@ class Calendar extends Page
 
                 $details = collect([
                     'Document deadline',
-                    $document->officeUnit?->name,
+                    $document->office_unit,
                     $document->lao_number,
                 ])->filter()->implode(' · ');
 

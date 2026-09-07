@@ -333,7 +333,7 @@
                                         </span>
 
                                         <span class="font-medium text-gray-800">
-                                            {{ $document->officeUnit?->name }}
+                                            {{ $document->office_unit }}
                                         </span>
                                     </div>
 
@@ -616,7 +616,7 @@
                                         </span>
 
                                         <span class="font-medium text-gray-800">
-                                            {{ $document->officeUnit?->name }}
+                                            {{ $document->office_unit }}
                                         </span>
                                     </div>
 
@@ -940,7 +940,7 @@
                                             Office/Unit:
                                         </span>
                                         <span class="font-semibold text-gray-900">
-                                            {{ $document->officeUnit?->name }}
+                                            {{ $document->office_unit }}
                                         </span>
                                     </div>
 

@@ -91,7 +91,6 @@ class DocumentRequests extends Page implements HasTable
 
         return DocumentRequest::query()
             ->with([
-                'document.officeUnit',
                 'document.user',
                 'user',
             ])
@@ -104,8 +103,7 @@ class DocumentRequests extends Page implements HasTable
                         ->whereHas('document', function (Builder $query) use ($search): void {
                             $query
                                 ->where('lao_number', 'like', $search)
-                                ->orWhereHas('officeUnit', fn (Builder $officeQuery) =>
-                                    $officeQuery->where('name', 'like', $search))
+                                ->orWhere('office_unit', 'like', $search)
                                 ->orWhere('particulars', 'like', $search);
                         })
                         ->orWhereHas('user', function (Builder $query) use ($search): void {
@@ -285,35 +283,7 @@ class DocumentRequests extends Page implements HasTable
              * doesn't already have one.
              */
             if (!$document->lao_number) {
-
-                $year = now()->format('y');
-
-                $existingNumbers = Document::query()
-                    ->whereNotNull('lao_number')
-                    ->where(
-                        'lao_number',
-                        'like',
-                        "LAO-{$year}-%"
-                    )
-                    ->pluck('lao_number');
-
-                $highestNumber = $existingNumbers
-                    ->map(function ($laoNumber) {
-                        $parts = explode('-', $laoNumber);
-
-                        return isset($parts[2])
-                            ? (int) $parts[2]
-                            : 0;
-                    })
-                    ->max() ?? 0;
-
-                $nextNumber = $highestNumber + 1;
-
-                $document->lao_number = sprintf(
-                    'LAO-%s-%03d',
-                    $year,
-                    $nextNumber
-                );
+                $document->lao_number = Document::generateLaoNumber();
             }
 
             $document->status = 'in_progress';

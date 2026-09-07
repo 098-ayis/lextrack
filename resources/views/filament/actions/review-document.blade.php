@@ -23,7 +23,7 @@
                 Office
             </p>
             <p class="mt-1 break-words text-sm font-medium text-gray-900 dark:text-gray-100">
-                {{ $document->officeUnit?->name ?: 'Not specified' }}
+                {{ $document->office_unit ?: 'Not specified' }}
             </p>
         </div>
 

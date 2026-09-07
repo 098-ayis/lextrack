@@ -11,7 +11,6 @@ use Filament\Pages\Page;
 use Filament\Notifications\Notification;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
-use Filament\Forms\Components\ColorPicker;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -163,31 +162,6 @@ class Document extends Page implements HasTable
             |--------------------------------------------------------------------------
             */
 
-            $year = now()->format('y');
-
-            $existingNumbers = DocumentModel::query()
-                ->whereNotNull('lao_number')
-                ->where('lao_number', 'like', "LAO-{$year}-%")
-                ->pluck('lao_number');
-
-            $highestNumber = $existingNumbers
-                ->map(function ($laoNumber) {
-                    $parts = explode('-', $laoNumber);
-
-                    return isset($parts[2])
-                        ? (int) $parts[2]
-                        : 0;
-                })
-                ->max() ?? 0;
-
-            $nextNumber = $highestNumber + 1;
-
-            $laoNumber = sprintf(
-                'LAO-%s-%03d',
-                $year,
-                $nextNumber
-            );
-
             /*
             |--------------------------------------------------------------------------
             | 2. Accept document
@@ -195,7 +169,7 @@ class Document extends Page implements HasTable
             */
 
             $document->update([
-                'lao_number' => $laoNumber,
+                'lao_number' => DocumentModel::generateLaoNumber(),
                 'status' => 'in_progress',
                 'deadline' => DocumentModel::deadlineForType($document->document_type),
             ]);
@@ -313,7 +287,7 @@ class Document extends Page implements HasTable
         };
 
         return DocumentModel::query()
-            ->with(['user', 'officeUnit', 'rejections', 'latestVersion'])
+            ->with(['user', 'rejections', 'latestVersion'])
             ->where('status', $status)
             ->when(trim($this->search) !== '', function (Builder $query): void {
                 $search = '%' . trim($this->search) . '%';
@@ -321,8 +295,7 @@ class Document extends Page implements HasTable
                 $query->where(function (Builder $query) use ($search): void {
                     $query
                         ->where('lao_number', 'like', $search)
-                        ->orWhereHas('officeUnit', fn (Builder $officeQuery) =>
-                            $officeQuery->where('name', 'like', $search))
+                        ->orWhere('office_unit', 'like', $search)
                         ->orWhere('particulars', 'like', $search);
                 });
             })
@@ -342,7 +315,7 @@ class Document extends Page implements HasTable
             ->columns($this->getDocumentTableColumns())
             ->recordActions($this->getDocumentTableActions())
             ->recordActionsColumnLabel('ACTION')
-            ->recordActionsAlignment('end')
+            ->recordActionsAlignment('start')
             ->recordUrl(fn (DocumentModel $record): string => ViewDocument::getUrl([
                 'document' => $record->document_id,
             ]))
@@ -371,20 +344,30 @@ class Document extends Page implements HasTable
     protected function getDocumentTableColumns(): array
     {
         $columns = [
-
             ViewColumn::make('document_details')
                 ->label('DOCUMENT')
                 ->view('filament.tables.columns.document-details')
-                ->width('24rem')
-                ->extraHeaderAttributes(['class' => 'min-w-[280px]']),
+                ->width('20rem')
+                ->extraHeaderAttributes(['class' => 'min-w-[240px]']),
+        ];
 
+        if ($this->activeSection === 'incoming') {
+            $columns[] = ViewColumn::make('subjects')
+                ->label('DETAILS')
+                ->view('filament.tables.columns.subjects')
+                ->alignCenter()
+                ->width('18rem')
+                ->extraHeaderAttributes(['class' => 'min-w-[200px]'])
+                ->extraCellAttributes(['class' => 'align-middle']);
+        }
+
+        $columns[] =
             ViewColumn::make('document_type')
                 ->label('DOCUMENT TYPE')
                 ->view('filament.tables.columns.document-type')
                 ->alignCenter()
-                ->width('11rem')
-                ->extraHeaderAttributes(['class' => 'min-w-[160px]']),
-        ];
+                ->width('9rem')
+                ->extraHeaderAttributes(['class' => 'min-w-[140px]']);
 
         if ($this->activeSection === 'pending') {
             $columns[] = ViewColumn::make('uploaded_by')
@@ -396,6 +379,8 @@ class Document extends Page implements HasTable
                 ->label('OUTGOING DATE')
                 ->date('F d, Y')
                 ->placeholder('No outgoing date')
+                ->size('xs')
+                ->extraCellAttributes(['class' => 'outgoing-date-cell'])
                 ->alignCenter();
 
             $columns[] = ViewColumn::make('sent_details')
@@ -486,6 +471,18 @@ class Document extends Page implements HasTable
             $menuActions[] = $this->archiveDocumentAction();
         }
 
+        if (in_array($this->activeSection, ['incoming', 'outgoing'], true)) {
+            $menuActions[] = $this->editDocumentAction(true)
+                ->label('Edit')
+                ->icon('heroicon-o-pencil-square');
+
+            $menuActions[] = Action::make('messageDocumentTable')
+                ->label('Message')
+                ->icon('heroicon-o-chat-bubble-left-right')
+                ->color('gray')
+                ->action(fn (DocumentModel $record) => $this->messageDocument($record->document_id));
+        }
+
         $options = ActionGroup::make($menuActions)
             ->icon('heroicon-m-ellipsis-vertical')
             ->tooltip('More options')
@@ -516,16 +513,6 @@ class Document extends Page implements HasTable
             ];
         }
 
-        $messageAction = Action::make('messageDocumentTable')
-            ->label('')
-            ->icon('heroicon-o-chat-bubble-left-right')
-            ->iconButton()
-            ->color('gray')
-            ->tooltip('Message')
-            ->action(fn (DocumentModel $record) => $this->messageDocument($record->document_id));
-
-        $actions[] = $this->editDocumentAction()->iconButton();
-        $actions[] = $messageAction;
         $actions[] = $this->activeSection === 'outgoing'
             ? $this->completeDocumentAction()->button()
             : $this->markAsOutgoingAction()->button();
@@ -590,6 +577,7 @@ class Document extends Page implements HasTable
         return Action::make('addDocument')
             ->label('Add Document')
             ->icon('heroicon-o-plus')
+            ->size('xs')
             ->modalHeading('Add New Document')
             ->extraAttributes([
                 'class' => 'add-document-button',
@@ -598,7 +586,14 @@ class Document extends Page implements HasTable
             ->schema([
                 TextInput::make('lao_number')
                     ->label('LAO Number')
-                    ->required(),
+                    ->default(fn (): string => DocumentModel::generateLaoNumber())
+                    ->readOnly(),
+
+                TextInput::make('document_name')
+                    ->label('Document Name')
+                    ->placeholder('e.g. BSIT OJT Memo')
+                    ->readOnly()
+                    ->maxLength(255),
 
                 Grid::make(2)
                     ->schema([
@@ -613,9 +608,7 @@ class Document extends Page implements HasTable
                             ->required(),
 
                         DatePicker::make('deadline')
-                            ->label('Deadline')
-                            ->readOnly()
-                            ->helperText('Calculated from the document type.'),
+                            ->label('Deadline'),
                     ]),
 
                 TextInput::make('action_type')
@@ -623,16 +616,9 @@ class Document extends Page implements HasTable
                 ->datalist(fn () => ActionType::query()->orderBy('action_name')->pluck('action_name'))
                 ->nullable(),
                     
-                Select::make('office_unit_id')
+                TextInput::make('office_unit')
                     ->label('Office / Unit')
-                    ->options(fn () => OfficeUnit::query()->orderBy('name')->pluck('name', 'office_unit_id'))
-                    ->searchable()
-                    ->preload()
-                    ->createOptionForm([
-                        TextInput::make('name')->required()->maxLength(255),
-                        ColorPicker::make('color')->nullable(),
-                    ])
-                    ->createOptionUsing(fn (array $data): int => OfficeUnit::create($data)->getKey())
+                    ->datalist(fn () => OfficeUnit::query()->orderBy('name')->pluck('name'))
                     ->required(),
 
                 Textarea::make('particulars')
@@ -645,7 +631,11 @@ class Document extends Page implements HasTable
                     ->directory('documents')
                     ->maxSize(5120)
                     ->helperText('Maximum file size: 5 MB.')
-                    ->preserveFilenames(),
+                    ->preserveFilenames()
+                    ->live()
+                    ->afterStateUpdated(function ($state, Set $set): void {
+                        $set('document_name', filled($state) ? basename((string) $state) : null);
+                    }),
             ])
             ->action(function (array $data) {
                 $filePath = $data['file_path'] ?? null;
@@ -653,8 +643,12 @@ class Document extends Page implements HasTable
 
                 $data['user_id'] = auth()->id();
                 $data['deadline'] = DocumentModel::deadlineForType($data['document_type'] ?? null);
+                $data['document_name'] = filled($filePath)
+                    ? basename((string) $filePath)
+                    : ($data['document_name'] ?? null);
 
                 $document = DB::transaction(function () use ($data, $filePath): DocumentModel {
+                    $data['lao_number'] ??= DocumentModel::generateLaoNumber();
                     $document = DocumentModel::create($data);
 
                     if (filled($filePath)) {
@@ -684,13 +678,13 @@ class Document extends Page implements HasTable
 
 
 
-    public function editDocumentAction(): Action
+    public function editDocumentAction(bool $asMenuItem = false): Action
     {
         return Action::make('editDocument')
-            ->label('')
+            ->label($asMenuItem ? 'Edit' : '')
             ->icon('heroicon-o-pencil-square')
             ->tooltip('Edit')
-            ->extraAttributes([
+            ->extraAttributes($asMenuItem ? [] : [
                 'class' => 'edit-document-button',
             ])
 
@@ -699,6 +693,10 @@ class Document extends Page implements HasTable
 
                 if ($document?->status === 'outgoing') {
                     return [
+                        TextInput::make('document_name')
+                            ->label('Document Name')
+                            ->maxLength(255),
+
                         Grid::make(2)
                         ->schema([
                             TextInput::make('document_type')
@@ -743,6 +741,10 @@ class Document extends Page implements HasTable
                     ->label('LAO Number')
                     ->required(),
 
+                TextInput::make('document_name')
+                    ->label('Document Name')
+                    ->maxLength(255),
+
                 TextInput::make('document_type')
                     ->label('Document Type')
                     ->placeholder('Select document type')
@@ -759,16 +761,9 @@ class Document extends Page implements HasTable
                 ->datalist(fn () => ActionType::query()->orderBy('action_name')->pluck('action_name'))
                 ->nullable(),
 
-                Select::make('office_unit_id')
+                TextInput::make('office_unit')
                     ->label('Office / Unit')
-                    ->options(fn () => OfficeUnit::query()->orderBy('name')->pluck('name', 'office_unit_id'))
-                    ->searchable()
-                    ->preload()
-                    ->createOptionForm([
-                        TextInput::make('name')->required()->maxLength(255),
-                        ColorPicker::make('color')->nullable(),
-                    ])
-                    ->createOptionUsing(fn (array $data): int => OfficeUnit::create($data)->getKey())
+                    ->datalist(fn () => OfficeUnit::query()->orderBy('name')->pluck('name'))
                     ->required(),
 
                 Textarea::make('particulars')
@@ -802,12 +797,16 @@ class Document extends Page implements HasTable
 
                 return [
                     'lao_number' => $document->lao_number,
+                    'document_name' => $document->document_name
+                        ?: ($document->latestVersion?->file_path
+                            ? basename($document->latestVersion->file_path)
+                            : null),
                     'document_type' => $document->document_type,
 
                     // Important: preload current Action Taken
                     'action_type' => $document->action_type,
 
-                    'office_unit_id' => $document->office_unit_id,
+                    'office_unit' => $document->office_unit,
                     'particulars' => $document->particulars,
                     'deadline' => $document->deadline,
                     'status' => $document->status,
@@ -828,9 +827,10 @@ class Document extends Page implements HasTable
 
                 $fieldLabels = [
                     'lao_number' => 'LAO Number',
+                    'document_name' => 'Document Name',
                     'document_type' => 'Document Type',
                     'action_type' => 'Action Taken',
-                    'office_unit_id' => 'Office / Unit',
+                    'office_unit' => 'Office / Unit',
                     'particulars' => 'Particulars',
                     'deadline' => 'Deadline',
                     'status' => 'Status',
@@ -985,6 +985,7 @@ class Document extends Page implements HasTable
     {
         return Action::make('markAsOutgoing')
             ->label('Outgoing')
+            ->icon('heroicon-m-arrow-right')
             ->color('gray')
             ->modalHeading('Add Document to Outgoing')
             ->modalDescription('Provide the destination and sent date for this document.')

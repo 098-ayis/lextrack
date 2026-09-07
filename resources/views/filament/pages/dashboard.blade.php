@@ -337,7 +337,7 @@
 
 
                                     <p class="mt-2 truncate text-xs text-gray-500 dark:text-gray-400">
-                                        {{ $document->officeUnit?->name ?: 'No office specified' }}
+                                        {{ $document->office_unit ?: 'No office specified' }}
                                     </p>
 
 
@@ -617,7 +617,7 @@
                                     </p>
 
                                     <p class="mt-1 truncate text-xs text-gray-500 dark:text-gray-400">
-                                        {{ $document->officeUnit?->name ?: 'No office specified' }}
+                                        {{ $document->office_unit ?: 'No office specified' }}
                                     </p>
 
                                 </div>

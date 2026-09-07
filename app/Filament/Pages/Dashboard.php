@@ -81,7 +81,7 @@ class Dashboard extends Page
     public function getRecentDocuments()
     {
         return Document::query()
-            ->with(['latestVersion', 'officeUnit'])
+            ->with(['latestVersion'])
 
             /*
             |--------------------------------------------------------------------------
@@ -98,8 +98,7 @@ class Dashboard extends Page
                         $query
                             ->where('lao_number', 'like', $search)
                             ->orWhere('particulars', 'like', $search)
-                            ->orWhereHas('officeUnit', fn ($officeQuery) =>
-                                $officeQuery->where('name', 'like', $search))
+                            ->orWhere('office_unit', 'like', $search)
                             ->orWhere('sent_to', 'like', $search)
                             ->orWhere('returned_from', 'like', $search);
                     });

@@ -161,16 +161,13 @@ class ViewDocument extends Page
                             ->label('LAO Number')
                             ->required(),
 
-                        Select::make('office_unit_id')
+                        TextInput::make('document_name')
+                            ->label('Document Name')
+                            ->maxLength(255),
+
+                        TextInput::make('office_unit')
                             ->label('Office / Unit')
-                            ->options(fn () => \App\Models\OfficeUnit::query()->orderBy('name')->pluck('name', 'office_unit_id'))
-                            ->searchable()
-                            ->preload()
-                            ->createOptionForm([
-                                TextInput::make('name')->required()->maxLength(255),
-                                \Filament\Forms\Components\ColorPicker::make('color')->nullable(),
-                            ])
-                            ->createOptionUsing(fn (array $data): int => \App\Models\OfficeUnit::create($data)->getKey())
+                            ->datalist(fn () => \App\Models\OfficeUnit::query()->orderBy('name')->pluck('name'))
                             ->required(),
 
                         Textarea::make('particulars')
@@ -207,16 +204,13 @@ class ViewDocument extends Page
                         ->label('LAO Number')
                         ->required(),
 
-                    Select::make('office_unit_id')
+                    TextInput::make('document_name')
+                        ->label('Document Name')
+                        ->maxLength(255),
+
+                    TextInput::make('office_unit')
                         ->label('Office / Unit')
-                        ->options(fn () => \App\Models\OfficeUnit::query()->orderBy('name')->pluck('name', 'office_unit_id'))
-                        ->searchable()
-                        ->preload()
-                        ->createOptionForm([
-                            TextInput::make('name')->required()->maxLength(255),
-                            \Filament\Forms\Components\ColorPicker::make('color')->nullable(),
-                        ])
-                        ->createOptionUsing(fn (array $data): int => \App\Models\OfficeUnit::create($data)->getKey())
+                        ->datalist(fn () => \App\Models\OfficeUnit::query()->orderBy('name')->pluck('name'))
                         ->required(),
 
                     Textarea::make('particulars')
@@ -290,9 +284,13 @@ class ViewDocument extends Page
             ->fillForm(function (): array {
                 return [
                     'lao_number' => $this->documentRecord->lao_number,
+                    'document_name' => $this->documentRecord->document_name
+                        ?: ($this->documentRecord->latestVersion?->file_path
+                            ? basename($this->documentRecord->latestVersion->file_path)
+                            : null),
                     'document_type' => $this->documentRecord->document_type,
                     'action_type' => $this->documentRecord->action_type,
-                    'office_unit_id' => $this->documentRecord->office_unit_id,
+                    'office_unit' => $this->documentRecord->office_unit,
                     'particulars' => $this->documentRecord->particulars,
                     'deadline' => $this->documentRecord->deadline,
                     'status' => $this->documentRecord->status,

@@ -152,7 +152,7 @@
                 </div>
                 <div class="row">
                     <dt>Office / Unit</dt>
-                    <dd>{{ $document->officeUnit?->name ?: 'Not specified' }}</dd>
+                    <dd>{{ $document->office_unit ?: 'Not specified' }}</dd>
                 </div>
                 <div class="row">
                     <dt>Particulars</dt>

@@ -17,7 +17,8 @@ class Document extends Model
         'document_type',
         'action_type',
         'lao_number',
-        'office_unit_id',
+        'document_name',
+        'office_unit',
         'particulars',
         'deadline',
         'sent_to',
@@ -35,11 +36,6 @@ class Document extends Model
         'deadline' => 'date',
         'archived_at' => 'datetime',
     ];
-
-    public function officeUnit(): BelongsTo
-    {
-        return $this->belongsTo(OfficeUnit::class, 'office_unit_id', 'office_unit_id');
-    }
 
     public static function deadlineForType(
         ?string $documentType,
@@ -61,6 +57,25 @@ class Document extends Model
             ->copy()
             ->addDays((int) $daysToProcess)
             ->toDateString();
+    }
+
+    public static function generateLaoNumber(
+        ?CarbonInterface $generatedAt = null,
+    ): string {
+        $year = ($generatedAt ?? now())->format('y');
+
+        $highestNumber = static::query()
+            ->whereNotNull('lao_number')
+            ->where('lao_number', 'like', "LAO-{$year}-%")
+            ->pluck('lao_number')
+            ->map(function (string $laoNumber): int {
+                $parts = explode('-', $laoNumber);
+
+                return isset($parts[2]) ? (int) $parts[2] : 0;
+            })
+            ->max() ?? 0;
+
+        return sprintf('LAO-%s-%03d', $year, $highestNumber + 1);
     }
 
 

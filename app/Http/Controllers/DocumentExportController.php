@@ -31,7 +31,7 @@ class DocumentExportController extends Controller
             };
 
             $documents = Document::query()
-                ->with(['user', 'officeUnit'])
+                ->with(['user'])
                 ->where('status', $status)
                 ->when($search !== '', function ($query) use ($search): void {
                     $likeSearch = "%{$search}%";
@@ -39,8 +39,7 @@ class DocumentExportController extends Controller
                     $query->where(function ($query) use ($likeSearch): void {
                         $query
                             ->where('lao_number', 'like', $likeSearch)
-                            ->orWhereHas('officeUnit', fn ($officeQuery) =>
-                                $officeQuery->where('name', 'like', $likeSearch))
+                            ->orWhere('office_unit', 'like', $likeSearch)
                             ->orWhere('particulars', 'like', $likeSearch);
                     });
                 })
@@ -125,7 +124,7 @@ class DocumentExportController extends Controller
                 $this->writeCsvRow($handle, [
                     $index + 1,
                     $document->lao_number,
-                    $document->officeUnit?->name,
+                    $document->office_unit,
                     $document->particulars,
                     $type,
                     $document->user?->name ?? '—',
