@@ -19,7 +19,7 @@ class MonthlyReportService
         $start = CarbonImmutable::createFromFormat('!Y-m', $month);
         $end = $start->addMonth();
         $activities = ActivityLog::query()
-            ->with('document.type')
+            ->with('document')
             ->where('created_at', '>=', $start)->where('created_at', '<', $end)
             ->whereIn('action_type', self::PROCESSING_ACTIONS)
             ->orderBy('created_at')->orderBy('log_id')->get();

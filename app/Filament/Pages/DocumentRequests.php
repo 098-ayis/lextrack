@@ -20,6 +20,7 @@ use Filament\Support\Enums\Width;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\Facades\DB;
+use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
 // use BezhanSalleh\FilamentShield\Traits\HasPageShield;
 
 class DocumentRequests extends Page implements HasTable
@@ -350,13 +351,19 @@ class DocumentRequests extends Page implements HasTable
          * Fall back to the document owner.
          */
         $client = $request->user ?? $document->user;
+        $emailFailed = false;
 
         if ($client) {
 
             // EMAIL
-            $client->notify(
-                new DocumentAcceptedNotification($document)
-            );
+            try {
+                $client->notify(
+                    new DocumentAcceptedNotification($document)
+                );
+            } catch (TransportExceptionInterface $exception) {
+                report($exception);
+                $emailFailed = true;
+            }
 
             // CLIENT FILAMENT BELL
             Notification::make()
@@ -381,14 +388,21 @@ class DocumentRequests extends Page implements HasTable
         }
 
         // ADMIN TOAST
-        Notification::make()
-            ->title('Document accepted')
+        $notification = Notification::make()
+            ->title($emailFailed ? 'Document accepted, but email failed' : 'Document accepted')
             ->body(
                 'Assigned LAO Number: ' .
-                $document->lao_number
-            )
-            ->success()
-            ->send();
+                $document->lao_number .
+                ($emailFailed ? '. The email notification could not be sent. Please contact your administrator to check the mail server connection.' : '')
+            );
+
+        if ($emailFailed) {
+            $notification->warning();
+        } else {
+            $notification->success();
+        }
+
+        $notification->send();
 
         $this->redirect(
             self::getUrl([

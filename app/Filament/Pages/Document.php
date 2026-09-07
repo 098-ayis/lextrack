@@ -27,6 +27,7 @@ use Filament\Support\Enums\Width;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
 use chillerlan\QRCode\QRCode;
 use chillerlan\QRCode\QROptions;
 use chillerlan\QRCode\Output\QROutputInterface;
@@ -284,9 +285,22 @@ class Document extends Page implements HasTable
         */
 
         if ($result['accepted'] && $document->user) {
-            $document->user->notify(
-                new DocumentAcceptedNotification($document)
-            );
+            try {
+                $document->user->notify(
+                    new DocumentAcceptedNotification($document)
+                );
+            } catch (TransportExceptionInterface $exception) {
+                report($exception);
+
+                Notification::make()
+                    ->title('Document accepted, but email failed')
+                    ->body(
+                        'Assigned LAO Number: ' . $document->lao_number .
+                        '. The email notification could not be sent. Please contact your administrator to check the mail server connection.'
+                    )
+                    ->warning()
+                    ->send();
+            }
         }
 
         /*
