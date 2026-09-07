@@ -2,10 +2,11 @@
 
 namespace App\Models;
 
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Document extends Model
 {
@@ -13,14 +14,12 @@ class Document extends Model
     
     protected $fillable = [
         'user_id',
-        'type_id',
-        'other_document_type',
-        'action_id',
+        'document_type',
+        'action_type',
         'lao_number',
-        'office_unit',
+        'office_unit_id',
         'particulars',
         'deadline',
-        'action_taken',
         'sent_to',
         'sent_date',
         'returned_from',
@@ -29,19 +28,39 @@ class Document extends Model
         'status',
         'status_other',
         'rejection_reason',
+        'archived_at',
     ];
 
     protected $casts = [
         'deadline' => 'date',
+        'archived_at' => 'datetime',
     ];
 
-    public function actionType(): BelongsTo
+    public function officeUnit(): BelongsTo
     {
-        return $this->belongsTo(
-            ActionType::class,
-            'action_id',
-            'action_id'
-        );
+        return $this->belongsTo(OfficeUnit::class, 'office_unit_id', 'office_unit_id');
+    }
+
+    public static function deadlineForType(
+        ?string $documentType,
+        ?CarbonInterface $startsAt = null,
+    ): ?string {
+        if (blank($documentType)) {
+            return null;
+        }
+
+        $daysToProcess = DocumentType::query()
+            ->where('type_name', $documentType)
+            ->value('days_to_process');
+
+        if ($daysToProcess === null) {
+            return null;
+        }
+
+        return ($startsAt ?? now())
+            ->copy()
+            ->addDays((int) $daysToProcess)
+            ->toDateString();
     }
 
 
@@ -137,12 +156,6 @@ class Document extends Model
     {
         return $this->belongsTo(User::class, 'user_id', 'id');
     }
-
-    public function type(): BelongsTo
-    {
-        return $this->belongsTo(DocumentType::class, 'type_id', 'type_id');
-    }
-
 
     public function conversation()
     {

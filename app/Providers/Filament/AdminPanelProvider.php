@@ -14,6 +14,7 @@ use Filament\Navigation\MenuItem;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
+use Filament\View\PanelsRenderHook;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
@@ -70,7 +71,12 @@ class AdminPanelProvider extends PanelProvider
             ->default()
             ->id('admin')
             ->path('admin')
-            ->topNavigation()
+            ->sidebarCollapsibleOnDesktop()
+            ->collapsedSidebarWidth('4rem')
+            ->renderHook(
+                PanelsRenderHook::BODY_START,
+                fn () => view('filament.admin.sidebar-default-state'),
+            )
             ->globalSearch(false)
             ->databaseNotifications()
 
@@ -81,9 +87,17 @@ class AdminPanelProvider extends PanelProvider
             ->colors([
                 'primary' => Color::Indigo,
             ])
+            ->navigationGroups([
+                'Access Control',
+                'Settings',
+            ])
             ->discoverResources(
                 in: app_path('Filament/Resources'),
                 for: 'App\\Filament\\Resources',
+            )
+            ->discoverClusters(
+                in: app_path('Filament/Clusters'),
+                for: 'App\\Filament\\Clusters',
             )
             ->discoverPages(
                 in: app_path('Filament/Pages'),

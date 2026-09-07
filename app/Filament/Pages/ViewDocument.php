@@ -6,12 +6,15 @@ use App\Models\Document;
 use App\Models\Note;
 use App\Models\DocumentVersion;
 use App\Models\ActivityLog;
+use App\Models\ActionType;
+use App\Models\DocumentType;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Enums\Width;
@@ -64,8 +67,6 @@ class ViewDocument extends Page
         )->with([
             'user',
             'notes.user',
-            'type',
-            'actionType',
             'versions',
             'latestVersion',
             'rejections',
@@ -160,8 +161,16 @@ class ViewDocument extends Page
                             ->label('LAO Number')
                             ->required(),
 
-                        TextInput::make('office_unit')
+                        Select::make('office_unit_id')
                             ->label('Office / Unit')
+                            ->options(fn () => \App\Models\OfficeUnit::query()->orderBy('name')->pluck('name', 'office_unit_id'))
+                            ->searchable()
+                            ->preload()
+                            ->createOptionForm([
+                                TextInput::make('name')->required()->maxLength(255),
+                                \Filament\Forms\Components\ColorPicker::make('color')->nullable(),
+                            ])
+                            ->createOptionUsing(fn (array $data): int => \App\Models\OfficeUnit::create($data)->getKey())
                             ->required(),
 
                         Textarea::make('particulars')
@@ -169,13 +178,9 @@ class ViewDocument extends Page
                             ->required()
                             ->rows(4),
 
-                        Select::make('type_id')
+                        TextInput::make('document_type')
                             ->label('Document Type')
-                            ->options(
-                                \App\Models\DocumentType::query()
-                                    ->pluck('type_name', 'type_id')
-                            )
-                            ->searchable()
+                            ->datalist(fn () => DocumentType::query()->orderBy('type_name')->pluck('type_name'))
                             ->required(),
 
                         DatePicker::make('outgoing_date')
@@ -202,8 +207,16 @@ class ViewDocument extends Page
                         ->label('LAO Number')
                         ->required(),
 
-                    TextInput::make('office_unit')
+                    Select::make('office_unit_id')
                         ->label('Office / Unit')
+                        ->options(fn () => \App\Models\OfficeUnit::query()->orderBy('name')->pluck('name', 'office_unit_id'))
+                        ->searchable()
+                        ->preload()
+                        ->createOptionForm([
+                            TextInput::make('name')->required()->maxLength(255),
+                            \Filament\Forms\Components\ColorPicker::make('color')->nullable(),
+                        ])
+                        ->createOptionUsing(fn (array $data): int => \App\Models\OfficeUnit::create($data)->getKey())
                         ->required(),
 
                     Textarea::make('particulars')
@@ -211,27 +224,24 @@ class ViewDocument extends Page
                         ->required()
                         ->rows(4),
 
-                    Select::make('type_id')
+                    TextInput::make('document_type')
                         ->label('Document Type')
-                        ->options(
-                            \App\Models\DocumentType::query()
-                                ->pluck('type_name', 'type_id')
-                        )
-                        ->searchable()
+                        ->datalist(fn () => DocumentType::query()->orderBy('type_name')->pluck('type_name'))
+                        ->live()
+                        ->afterStateUpdated(function ($state, Set $set): void {
+                            $set('deadline', Document::deadlineForType($state));
+                        })
                         ->required(),
 
-                    Select::make('action_id')
+                    TextInput::make('action_type')
                         ->label('Action Taken')
-                        ->options(
-                            \App\Models\ActionType::query()
-                                ->orderBy('action_name')
-                                ->pluck('action_name', 'action_id')
-                        )
-                        ->searchable()
+                        ->datalist(fn () => ActionType::query()->orderBy('action_name')->pluck('action_name'))
                         ->nullable(),
 
                     DatePicker::make('deadline')
-                        ->label('Deadline'),
+                        ->label('Deadline')
+                        ->readOnly()
+                        ->helperText('Calculated from the document type.'),
                 ];
 
                 if ($this->documentRecord->status !== 'completed') {
@@ -280,9 +290,9 @@ class ViewDocument extends Page
             ->fillForm(function (): array {
                 return [
                     'lao_number' => $this->documentRecord->lao_number,
-                    'type_id' => $this->documentRecord->type_id,
-                    'action_id' => $this->documentRecord->action_id,
-                    'office_unit' => $this->documentRecord->office_unit,
+                    'document_type' => $this->documentRecord->document_type,
+                    'action_type' => $this->documentRecord->action_type,
+                    'office_unit_id' => $this->documentRecord->office_unit_id,
                     'particulars' => $this->documentRecord->particulars,
                     'deadline' => $this->documentRecord->deadline,
                     'status' => $this->documentRecord->status,
@@ -339,8 +349,6 @@ class ViewDocument extends Page
 
                 $this->documentRecord->load([
                     'user',
-                    'type',
-                    'actionType',
                     'rejections',
                     'versions',
                     'latestVersion',

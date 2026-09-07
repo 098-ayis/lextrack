@@ -47,7 +47,6 @@
                 $document['particulars'] ?? null,
                 $document['lao_number'] ?? null,
                 $document['type'] ?? null,
-                $document['other_document_type'] ?? null,
                 $document['office_unit'] ?? null,
                 $document['status'] ?? null,
             ])));

@@ -91,7 +91,7 @@ class DocumentRequests extends Page implements HasTable
 
         return DocumentRequest::query()
             ->with([
-                'document.type',
+                'document.officeUnit',
                 'document.user',
                 'user',
             ])
@@ -104,7 +104,8 @@ class DocumentRequests extends Page implements HasTable
                         ->whereHas('document', function (Builder $query) use ($search): void {
                             $query
                                 ->where('lao_number', 'like', $search)
-                                ->orWhere('office_unit', 'like', $search)
+                                ->orWhereHas('officeUnit', fn (Builder $officeQuery) =>
+                                    $officeQuery->where('name', 'like', $search))
                                 ->orWhere('particulars', 'like', $search);
                         })
                         ->orWhereHas('user', function (Builder $query) use ($search): void {
@@ -116,7 +117,7 @@ class DocumentRequests extends Page implements HasTable
             })
             ->when($this->typeFilter !== '', function (Builder $query): void {
                 $query->whereHas('document', function (Builder $query): void {
-                    $query->where('type_id', $this->typeFilter);
+                    $query->where('document_type', $this->typeFilter);
                 });
             })
             ->when($this->dateFilter !== '', function (Builder $query): void {

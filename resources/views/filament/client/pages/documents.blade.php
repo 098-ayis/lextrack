@@ -112,18 +112,9 @@
                         class="w-full appearance-none rounded-lg border-2 py-2 pl-3 pr-9 text-xs font-semibold text-gray-900 focus:outline-none focus:ring-0 dark:text-gray-100 {{ $documentType ? 'border-[#6366F1] bg-[#F0F1FF] dark:border-indigo-400 dark:bg-indigo-950' : 'border-gray-300 bg-white dark:border-gray-600 dark:bg-gray-800' }}"
                     >
                         <option value="">Type</option>
-                        <option value="1">MOA</option>
-                        <option value="2">Correspondence</option>
-                        <option value="3">Contract</option>
-                        <option value="4">Proposal</option>
-                        <option value="5">Procurement</option>
-                        <option value="6">Reference Slip</option>
-                        <option value="7">Clearance</option>
-                        <option value="8">MOU</option>
-                        <option value="9">NDA</option>
-                        <option value="10">DOD</option>
-                        <option value="11">GBA</option>
-                        <option value="12">Others</option>
+                        @foreach (\App\Models\DocumentType::orderBy('type_name')->get() as $type)
+                            <option value="{{ $type->type_name }}">{{ $type->type_name }}</option>
+                        @endforeach
                     </select>
 
                     <svg
