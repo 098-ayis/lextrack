@@ -49,6 +49,16 @@ class Calendar extends Page
 
         $this->year = $now->year;
         $this->month = $now->month;
+
+        $date = request()->query('date');
+        if (is_string($date) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+            [$year, $month, $day] = array_map('intval', explode('-', $date));
+            if (checkdate($month, $day, $year)) {
+                $this->selectedDate = $date;
+                $this->year = $year;
+                $this->month = $month;
+            }
+        }
     }
 
 
@@ -276,6 +286,7 @@ class Calendar extends Page
                     'sched_id' => "document-deadline-{$document->document_id}",
                     'document_id' => $document->document_id,
                     'is_document_deadline' => true,
+                    'is_completed' => $document->status === 'completed',
                     'user_id' => $document->user_id,
                     'user' => null,
                     'event' => $title,
@@ -478,15 +489,9 @@ class Calendar extends Page
     |--------------------------------------------------------------------------
     */
 
-    public function editEvent(?int $eventId): ?Action
+    public function editEventAction(): Action
     {
-        if (!$eventId) {
-            return null;
-        }
-
-        $event = CalendarModel::findOrFail($eventId);
-
-        return Action::make("editEvent{$eventId}")
+        return Action::make('editEvent')
             ->label('')
             ->icon('heroicon-o-pencil')
             ->tooltip('Edit event')
@@ -495,24 +500,16 @@ class Calendar extends Page
             ->modalDescription(
                 'Update the event information below.'
             )
-            ->fillForm([
+            ->fillForm(function (array $arguments): array {
+                $event = CalendarModel::findOrFail($arguments['eventId']);
 
-                'event' => $event->event,
-
-                'details' => $event->details,
-
-                'date' => $event->date
-                    ? Carbon::parse(
-                        $event->date
-                    )->format('Y-m-d')
-                    : null,
-
-                'time' => $event->time
-                    ? Carbon::parse(
-                        $event->time
-                    )->format('H:i')
-                    : null,
-            ])
+                return [
+                    'event' => $event->event,
+                    'details' => $event->details,
+                    'date' => $event->date?->format('Y-m-d'),
+                    'time' => $event->time?->format('H:i'),
+                ];
+            })
             ->form([
 
                 TextInput::make('event')
@@ -536,7 +533,8 @@ class Calendar extends Page
                 $this->eventTimeField(),
             ])
             ->action(
-                function (array $data) use ($event): void {
+                function (array $data, array $arguments): void {
+                    $event = CalendarModel::findOrFail($arguments['eventId']);
 
                     /*
                      * Original date

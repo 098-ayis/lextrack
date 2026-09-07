@@ -26,6 +26,23 @@ class Calendar extends Model
         'reminder_10_minutes_sent_at' => 'datetime',
     ];
 
+    public function getIsCompletedAttribute(): bool
+    {
+        if (! $this->date) {
+            return false;
+        }
+
+        $scheduledAt = $this->date->copy();
+
+        if ($this->time) {
+            $scheduledAt->setTimeFrom($this->time);
+        } else {
+            $scheduledAt->endOfDay();
+        }
+
+        return $scheduledAt->lt(now());
+    }
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(
