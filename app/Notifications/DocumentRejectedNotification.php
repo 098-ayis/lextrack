@@ -3,6 +3,7 @@
 namespace App\Notifications;
 
 use App\Models\Document;
+use App\Models\RejectedDocument;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
@@ -12,7 +13,8 @@ class DocumentRejectedNotification extends Notification
     use Queueable;
 
     public function __construct(
-        public Document $document
+        public Document $document,
+        public ?RejectedDocument $rejection = null,
     ) {}
 
     public function via(object $notifiable): array
@@ -31,7 +33,11 @@ class DocumentRejectedNotification extends Notification
             ->line('Document: ' . $this->document->particulars)
             ->line('Status: Rejected')
             ->line(
-                'Reason: ' . $this->document->rejection_reason
+                'Reason: ' . (
+                    $this->rejection?->reason
+                    ?? $this->document->rejection_reason
+                    ?? 'Not provided'
+                )
             )
             ->action(
                 'View Document',

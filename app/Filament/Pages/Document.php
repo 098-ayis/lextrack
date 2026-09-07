@@ -7,6 +7,7 @@ use App\Models\DocumentVersion;
 use App\Models\RejectedDocument;
 use App\Notifications\DocumentRejectedNotification;
 use App\Notifications\DocumentAcceptedNotification;
+use App\Notifications\DocumentCompletedNotification;
 use Filament\Pages\Page;
 use Filament\Notifications\Notification;
 use Filament\Actions\Action;
@@ -287,6 +288,14 @@ class Document extends Page implements HasTable
             $document->user->notify(
                 new DocumentAcceptedNotification($document)
             );
+
+            Notification::make()
+                ->title('Document Accepted')
+                ->body(
+                    'Your document has been accepted and is now being processed.'
+                )
+                ->success()
+                ->sendToDatabase($document->user);
         }
 
         /*
@@ -1084,6 +1093,7 @@ class Document extends Page implements HasTable
 
             $document->update([
                 'status' => 'rejected',
+                'rejection_reason' => $reason,
             ]);
 
             return $rejection;
@@ -1093,6 +1103,14 @@ class Document extends Page implements HasTable
             $document->user->notify(
                 new DocumentRejectedNotification($document, $rejection)
             );
+
+            Notification::make()
+                ->title('Document Rejected')
+                ->body(
+                    'Your document has been rejected. Reason: ' . $reason
+                )
+                ->danger()
+                ->sendToDatabase($document->user);
         }
 
         $this->recordDocumentActivity(
@@ -1180,11 +1198,25 @@ class Document extends Page implements HasTable
 
     public function completeDocument(int $documentId): void
     {
-        $document = DocumentModel::findOrFail($documentId);
+        $document = DocumentModel::with('user')->findOrFail($documentId);
 
         $document->update([
             'status' => 'completed',
         ]);
+
+        if ($document->user) {
+            $document->user->notify(
+                new DocumentCompletedNotification($document)
+            );
+
+            Notification::make()
+                ->title('Document Completed')
+                ->body(
+                    'Your document has been completed by the Legal Office.'
+                )
+                ->success()
+                ->sendToDatabase($document->user);
+        }
 
         $this->recordDocumentActivity(
             $document->document_id,

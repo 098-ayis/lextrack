@@ -16,6 +16,7 @@ use App\Models\Document;
 use App\Models\DocumentVersion;
 use App\Models\DocumentType;
 use App\Models\OfficeUnit;
+use App\Services\AdminDocumentNotificationService;
 use Illuminate\Support\Facades\DB;
 
 class Upload extends Page implements HasForms
@@ -87,7 +88,7 @@ class Upload extends Page implements HasForms
     {
         $data = $this->form->getState();
 
-        DB::transaction(function () use ($data): void {
+        $document = DB::transaction(function () use ($data): Document {
             $document = Document::create([
                 'user_id' => auth()->id(),
                 'particulars' => $data['particulars'],
@@ -102,7 +103,12 @@ class Upload extends Page implements HasForms
                 'version_number' => '1',
                 'file_path' => $data['file_path'],
             ]);
+
+            return $document;
         });
+
+        app(AdminDocumentNotificationService::class)
+            ->notifyDocumentSubmitted($document);
 
         Notification::make()
             ->title('Document submitted successfully!')
