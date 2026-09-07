@@ -23,6 +23,16 @@ class DocumentAcceptanceNotificationTest extends TestCase
             ->with(Mockery::type(DocumentAcceptedNotification::class))
             ->andThrow(new TransportException('certificate verify failed'));
 
+        $client->shouldReceive('notify')->once()
+            ->with(Mockery::on(function ($notification): bool {
+                if (! $notification instanceof DatabaseNotification) {
+                    return false;
+                }
+                $qr = collect($notification->toDatabase(new User)['actions'])
+                    ->firstWhere('name', 'viewDocumentQrCode');
+                return $qr !== null && str_contains($qr['url'], '/document-qr/1?signature=');
+            }));
+
         $document = new Document;
         $document->document_id = 1;
         $document->lao_number = 'LAO-26-001';
@@ -49,7 +59,18 @@ class DocumentAcceptanceNotificationTest extends TestCase
         $client->shouldReceive('notify')->once()
             ->with(Mockery::type(DocumentAcceptedNotification::class));
 
+        $client->shouldReceive('notify')->once()
+            ->with(Mockery::on(function ($notification): bool {
+                if (! $notification instanceof DatabaseNotification) {
+                    return false;
+                }
+                $qr = collect($notification->toDatabase(new User)['actions'])
+                    ->firstWhere('name', 'viewDocumentQrCode');
+                return $qr !== null && str_contains($qr['url'], '/document-qr/1?signature=');
+            }));
+
         $document = new Document;
+        $document->document_id = 1;
         $document->setRelation('user', $client);
 
         DB::shouldReceive('transaction')->once()->andReturn([
@@ -71,7 +92,16 @@ class DocumentAcceptanceNotificationTest extends TestCase
             ->with(Mockery::type(DocumentAcceptedNotification::class))
             ->andThrow(new TransportException('certificate verify failed'));
         $client->shouldReceive('notify')->once()
-            ->with(Mockery::type(DatabaseNotification::class));
+            ->with(Mockery::on(function ($notification): bool {
+                if (! $notification instanceof DatabaseNotification) {
+                    return false;
+                }
+                $actions = $notification->toDatabase(new User)['actions'];
+                $qr = collect($actions)->firstWhere('name', 'viewDocumentQrCode');
+                return $qr !== null
+                    && str_contains($qr['url'], '/document-qr/1')
+                    && str_contains($qr['url'], 'signature=');
+            }));
 
         $document = new Document;
         $document->document_id = 1;

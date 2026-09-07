@@ -61,6 +61,10 @@ Route::get('/admin/reports/monthly', App\Http\Controllers\MonthlyReportControlle
     ->middleware(['auth', AdminMiddleware::class])
     ->name('admin.reports.monthly');
 
+Route::get('/document-qr/{document}', App\Http\Controllers\DocumentQrCodeController::class)
+    ->middleware('signed')
+    ->name('documents.qr');
+
 Route::get('/document-status/{document}', function (int $document) {
     $documentRecord = Document::query()
         ->with(['user'])

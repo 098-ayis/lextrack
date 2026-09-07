@@ -1132,6 +1132,9 @@
 
                 @endforelse
 
+                <x-documents.conversation-qr :document="$activeConversation?->document" :staff-view="true" />
+
+
             </div>
 
 
