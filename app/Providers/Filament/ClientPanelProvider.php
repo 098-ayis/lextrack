@@ -3,6 +3,7 @@
 namespace App\Providers\Filament;
 
 use App\Http\Middleware\FilamentAuthenticate;
+use App\Livewire\DatabaseNotifications;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
@@ -29,7 +30,7 @@ class ClientPanelProvider extends PanelProvider
             ->path('client')
 
             ->topNavigation()
-            ->databaseNotifications()
+            ->databaseNotifications(true, DatabaseNotifications::class)
 
             ->brandLogo(fn () => view('filament.components.brand'))
             ->brandLogoHeight('3rem')

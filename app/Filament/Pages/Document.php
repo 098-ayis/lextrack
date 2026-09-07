@@ -72,6 +72,8 @@ class Document extends Page implements HasTable
 
     public string $activeSection = 'incoming';
 
+    public ?int $highlightedDocumentId = null;
+
     public bool $showAcceptedModal = false;
 
     public ?string $acceptedDocumentUploader = null;
@@ -85,6 +87,7 @@ class Document extends Page implements HasTable
     public function mount(): void
     {
         $section = request()->query('section', 'incoming');
+        $document = request()->query('document');
 
         $this->activeSection = in_array($section, [
             'pending',
@@ -94,6 +97,10 @@ class Document extends Page implements HasTable
             'rejected',
             'archived',
         ], true) ? $section : 'incoming';
+
+        $this->highlightedDocumentId = is_numeric($document) && (int) $document > 0
+            ? (int) $document
+            : null;
     }
 
     public function getMaxContentWidth(): Width
@@ -288,14 +295,6 @@ class Document extends Page implements HasTable
             $document->user->notify(
                 new DocumentAcceptedNotification($document)
             );
-
-            Notification::make()
-                ->title('Document Accepted')
-                ->body(
-                    'Your document has been accepted and is now being processed.'
-                )
-                ->success()
-                ->sendToDatabase($document->user);
         }
 
         /*
@@ -355,6 +354,12 @@ class Document extends Page implements HasTable
             ->recordUrl(fn (DocumentModel $record): string => ViewDocument::getUrl([
                 'document' => $record->document_id,
             ]))
+            ->recordClasses(
+                fn (DocumentModel $record): string => $this->highlightedDocumentId !== null &&
+                    (int) $record->document_id === $this->highlightedDocumentId
+                    ? 'document-highlighted'
+                    : ''
+            )
             ->groups([
                 Group::make('created_at')
                     ->date()
@@ -1103,14 +1108,6 @@ class Document extends Page implements HasTable
             $document->user->notify(
                 new DocumentRejectedNotification($document, $rejection)
             );
-
-            Notification::make()
-                ->title('Document Rejected')
-                ->body(
-                    'Your document has been rejected. Reason: ' . $reason
-                )
-                ->danger()
-                ->sendToDatabase($document->user);
         }
 
         $this->recordDocumentActivity(
@@ -1208,14 +1205,6 @@ class Document extends Page implements HasTable
             $document->user->notify(
                 new DocumentCompletedNotification($document)
             );
-
-            Notification::make()
-                ->title('Document Completed')
-                ->body(
-                    'Your document has been completed by the Legal Office.'
-                )
-                ->success()
-                ->sendToDatabase($document->user);
         }
 
         $this->recordDocumentActivity(

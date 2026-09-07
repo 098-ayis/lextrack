@@ -3,6 +3,7 @@
 namespace App\Notifications;
 
 use App\Models\Document;
+use Filament\Notifications\Notification as FilamentNotification;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
@@ -12,12 +13,13 @@ class DocumentAcceptedNotification extends Notification
     use Queueable;
 
     public function __construct(
-        public Document $document
+        public Document $document,
+        public string $tab = 'in_progress',
     ) {}
 
     public function via(object $notifiable): array
     {
-        return ['mail'];
+        return ['mail', 'database'];
     }
 
     public function toMail(object $notifiable): MailMessage
@@ -37,5 +39,23 @@ class DocumentAcceptedNotification extends Notification
                 url('/client/documents/' . $this->document->document_id)
             )
             ->line('You can use your LAO number to track the document in LexTrack.');
+    }
+
+    public function toDatabase(object $notifiable): array
+    {
+        return [
+            ...FilamentNotification::make()
+                ->title('Document Accepted')
+                ->body(
+                    'Your document has been accepted and is now being processed.'
+                )
+                ->success()
+                ->getDatabaseMessage(),
+            'document_id' => $this->document->document_id,
+            'redirect_url' => url(
+                '/client/documents?tab=' . $this->tab .
+                '&document=' . $this->document->document_id
+            ),
+        ];
     }
 }

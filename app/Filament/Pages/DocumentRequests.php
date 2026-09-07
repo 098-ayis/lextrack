@@ -355,29 +355,8 @@ class DocumentRequests extends Page implements HasTable
 
             // EMAIL
             $client->notify(
-                new DocumentAcceptedNotification($document)
+                new DocumentAcceptedNotification($document, 'requested')
             );
-
-            // CLIENT FILAMENT BELL
-            Notification::make()
-                ->title('Document Accepted')
-                ->body(
-                    'Your requested document has been accepted. You can now view it in your Documents page.'
-                )
-                ->success()
-                ->actions([
-                    Action::make('viewAcceptedDocument')
-                        ->label('View document')
-                        ->url(
-                            \App\Filament\Client\Pages\ViewDocument::getUrl([
-                                'document' => $document->document_id,
-                                'from' => 'documents',
-                                'tab' => 'requested',
-                            ])
-                        )
-                        ->button(),
-                ])
-                ->sendToDatabase($client);
         }
 
         // ADMIN TOAST
@@ -489,16 +468,6 @@ class DocumentRequests extends Page implements HasTable
                             $document
                         )
                     );
-
-                    // CLIENT FILAMENT BELL
-                    Notification::make()
-                        ->title('Document Rejected')
-                        ->body(
-                            'Your document has been rejected. Reason: ' .
-                            $document->rejection_reason
-                        )
-                        ->danger()
-                        ->sendToDatabase($client);
                 }
 
                 // ADMIN TOAST

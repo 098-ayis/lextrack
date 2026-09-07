@@ -656,7 +656,12 @@
                                                     transition
 
                                                     hover:brightness-95
+                                                    {{ $isDocumentDeadline ? 'cursor-pointer' : '' }}
                                                 "
+
+                                                @if($isDocumentDeadline)
+                                                    wire:click.stop="openDocumentDeadline({{ $event->document_id }})"
+                                                @endif
 
                                                 style="
                                                     background-color:
@@ -1136,7 +1141,12 @@
                                     last:border-0
 
                                     dark:border-gray-700
+                                    {{ $isDocumentDeadline ? 'cursor-pointer transition hover:bg-gray-50 dark:hover:bg-gray-800' : '' }}
                                 "
+
+                                @if($isDocumentDeadline)
+                                    wire:click="openDocumentDeadline({{ $event->document_id }})"
+                                @endif
                             >
 
 

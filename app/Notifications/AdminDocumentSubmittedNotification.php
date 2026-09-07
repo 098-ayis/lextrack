@@ -3,6 +3,7 @@
 namespace App\Notifications;
 
 use App\Models\Document;
+use Filament\Notifications\Notification as FilamentNotification;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
@@ -51,17 +52,21 @@ class AdminDocumentSubmittedNotification extends Notification
             : 'documents';
 
         return [
-            'title' => 'New document submission',
-            'body' => $submitterName . ' submitted ' .
-                $this->documentCount . ' ' . $documentLabel . ' for review.',
-            'icon' => 'heroicon-o-document-plus',
-            'iconColor' => 'info',
-            'status' => 'info',
-            'duration' => 'persistent',
-            'format' => 'filament',
+            ...FilamentNotification::make()
+                ->title('New document submission')
+                ->body(
+                    $submitterName . ' submitted ' .
+                    $this->documentCount . ' ' . $documentLabel . ' for review.'
+                )
+                ->info()
+                ->getDatabaseMessage(),
             'submission_user_id' => $this->document->user_id,
             'document_id' => $this->document->document_id,
             'document_count' => $this->documentCount,
+            'redirect_url' => \App\Filament\Pages\Document::getUrl([
+                'section' => 'pending',
+                'document' => $this->document->document_id,
+            ], true, 'admin'),
         ];
     }
 }

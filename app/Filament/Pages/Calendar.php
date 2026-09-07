@@ -46,6 +46,26 @@ class Calendar extends Page
     public function mount(): void
     {
         $now = now();
+        $requestedDate = request()->query('date');
+
+        if (is_string($requestedDate)) {
+            try {
+                $calendarDate = Carbon::createFromFormat(
+                    'Y-m-d',
+                    $requestedDate,
+                );
+
+                if (
+                    $calendarDate instanceof Carbon &&
+                    $calendarDate->format('Y-m-d') === $requestedDate
+                ) {
+                    $now = $calendarDate;
+                    $this->selectedDate = $requestedDate;
+                }
+            } catch (\Throwable) {
+                // Use the current month when the query date is invalid.
+            }
+        }
 
         $this->year = $now->year;
         $this->month = $now->month;
@@ -104,6 +124,15 @@ class Calendar extends Page
     public function clearSelectedDate(): void
     {
         $this->selectedDate = null;
+    }
+
+    public function openDocumentDeadline(int $documentId): void
+    {
+        $this->redirect(
+            ViewDocument::getUrl([
+                'document' => $documentId,
+            ])
+        );
     }
 
 

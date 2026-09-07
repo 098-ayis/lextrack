@@ -101,7 +101,11 @@
         </div>
 
         {{-- FILAMENT DOCUMENT TABLE --}}
-        <div class="documents-table-container">
+        <div
+            class="documents-table-container"
+            x-data
+            x-init="$nextTick(() => { const row = $el.querySelector('.document-highlighted'); if (row) row.scrollIntoView({ behavior: 'smooth', block: 'center' }); })"
+        >
             {{ $this->table }}
         </div>
 
@@ -158,6 +162,10 @@
                 background-color: rgb(239 246 255);
             }
 
+            .admin-documents-page .fi-ta-table tbody tr.document-highlighted > td {
+                background-color: rgb(243 244 246) !important;
+            }
+
             .admin-documents-page .fi-ta-group-heading {
                 font-size: 0.6875rem;
                 font-weight: 600;
@@ -177,6 +185,10 @@
 
             .dark .admin-documents-page .fi-ta-table tbody tr:hover {
                 background-color: rgb(255 255 255 / 0.05);
+            }
+
+            .dark .admin-documents-page .fi-ta-table tbody tr.document-highlighted > td {
+                background-color: rgb(55 65 81) !important;
             }
 
             .dark .admin-documents-page .fi-ta-table th,

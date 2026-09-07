@@ -210,6 +210,21 @@
     </div>
 
     <!-- Render the data table below the custom tabs -->
-    {{ $this->table }}
+    <div
+        x-data
+        x-init="$nextTick(() => { const row = $el.querySelector('.document-highlighted'); if (row) row.scrollIntoView({ behavior: 'smooth', block: 'center' }); })"
+    >
+        {{ $this->table }}
+    </div>
+
+    <style>
+        .document-highlighted > td {
+            background-color: rgb(243 244 246) !important;
+        }
+
+        .dark .document-highlighted > td {
+            background-color: rgb(55 65 81) !important;
+        }
+    </style>
 
 </x-filament-panels::page>

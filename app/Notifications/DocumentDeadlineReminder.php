@@ -3,6 +3,7 @@
 namespace App\Notifications;
 
 use App\Models\Document;
+use Filament\Notifications\Notification as FilamentNotification;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
@@ -34,17 +35,21 @@ class DocumentDeadlineReminder extends Notification
     public function toDatabase(object $notifiable): array
     {
         return [
-            'title' => 'Document deadline reminder',
-            'body' => $this->getReminderMessage() . ' Deadline: ' .
-                $this->document->deadline->format('F d, Y') . '.',
-            'icon' => 'heroicon-o-calendar-days',
-            'iconColor' => 'warning',
-            'status' => 'warning',
-            'duration' => 'persistent',
-            'format' => 'filament',
+            ...FilamentNotification::make()
+                ->title('Document deadline reminder')
+                ->body(
+                    $this->getReminderMessage() . ' Deadline: ' .
+                    $this->document->deadline->format('F d, Y') . '.'
+                )
+                ->warning()
+                ->getDatabaseMessage(),
             'document_id' => $this->document->document_id,
             'deadline' => $this->document->deadline->format('Y-m-d'),
             'reminder_type' => $this->reminderType,
+            'redirect_url' => url(
+                '/admin/calendar?date=' .
+                $this->document->deadline->format('Y-m-d')
+            ),
         ];
     }
 
