@@ -12,6 +12,8 @@ use App\Http\Controllers\UserExportController;
 use App\Http\Controllers\DocumentExportController;
 use App\Http\Middleware\AdminMiddleware;
 use App\Services\DocumentDownloadService;
+use Spatie\Honeypot\Honeypot;
+use Spatie\Honeypot\ProtectAgainstSpam;
 
 
 Route::view('/ai-test', 'ai-test');
@@ -247,6 +249,7 @@ Route::get('/admin/documents/{document}/versions/{version}/preview', function (
     ->middleware('auth')
     ->name('admin.document.version.preview');
 
+<<<<<<< HEAD
 Route::get('/admin/documents/temp-preview/{file}', function (string $file) {
     $fileName = basename($file);
     $previewPath = storage_path('app/private/temp-previews/' . $fileName);
@@ -273,6 +276,32 @@ Route::get('/api/track/{trackingNumber}', function (string $trackingNumber) {
             'lao_number',
             strtoupper(trim($trackingNumber))
         )
+=======
+
+Route::get('/api/honeypot', function (Honeypot $honeypot) {
+    return response()->json($honeypot->toArray());
+})->name('public.honeypot');
+
+
+Route::post('/api/track', function (Request $request) {
+
+    $validated = $request->validate([
+        'tracking_number' => [
+            'required',
+            'string',
+            'max:50',
+            'regex:/^[A-Za-z0-9-]+$/',
+        ],
+    ]);
+
+    $trackingNumber = strtoupper(
+        trim($validated['tracking_number'])
+    );
+
+    $document = Document::query()
+        ->with('type')
+        ->where('lao_number', $trackingNumber)
+>>>>>>> 5d1a6dc (honeypot and rate limiting sa public tracking)
         ->first();
 
     if (! $document) {
@@ -301,8 +330,12 @@ Route::get('/api/track/{trackingNumber}', function (string $trackingNumber) {
         ],
     ]);
 })
-    ->where('trackingNumber', '[A-Za-z0-9\-]+')
+    ->middleware([
+        ProtectAgainstSpam::class,
+        'throttle:10,1',
+    ])
     ->name('public.track.document');
+
 
 /*
 |--------------------------------------------------------------------------
