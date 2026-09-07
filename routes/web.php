@@ -271,7 +271,6 @@ Route::post('/api/track', function (Request $request) {
     );
 
     $document = Document::query()
-        ->with('type')
         ->where('lao_number', $trackingNumber)
         ->first();
 
@@ -301,11 +300,11 @@ Route::post('/api/track', function (Request $request) {
         ],
     ]);
 })
-    ->middleware([
-        ProtectAgainstSpam::class,
-        'throttle:10,1',
-    ])
-    ->name('public.track.document');
+->middleware([
+    ProtectAgainstSpam::class,
+    'throttle:10,1',
+])
+->name('public.track.document');
 
 
 /*
