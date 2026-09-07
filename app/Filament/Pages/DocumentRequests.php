@@ -317,6 +317,7 @@ class DocumentRequests extends Page implements HasTable
             }
 
             $document->status = 'in_progress';
+            $document->deadline = Document::deadlineForType($document->document_type);
             $document->save();
 
             $request->update([

@@ -16,7 +16,11 @@
         }
     @endphp
 
-    <div class="flex flex-col items-center gap-1">
+    <a
+        href="{{ url('/admin/calendar?date=' . $deadline->format('Y-m-d')) }}"
+        class="flex flex-col items-center gap-1 rounded-md px-2 py-1 transition hover:bg-gray-100 dark:hover:bg-gray-800"
+        title="Open calendar for {{ $deadline->format('F d, Y') }}"
+    >
         <span class="text-xs font-semibold text-gray-800 dark:text-gray-200">
             {{ $deadline->format('F d, Y') }}
         </span>
@@ -28,7 +32,7 @@
             ></span>
             {{ $urgencyLabel }}
         </span>
-    </div>
+    </a>
 @else
     <span class="text-xs italic text-gray-500 dark:text-gray-400">
         No deadline set

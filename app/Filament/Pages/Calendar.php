@@ -69,6 +69,7 @@ class Calendar extends Page
 
         $this->year = $now->year;
         $this->month = $now->month;
+        $this->selectedDate ??= $now->format('Y-m-d');
     }
 
 
@@ -104,6 +105,15 @@ class Calendar extends Page
         $this->month = $date->month;
 
         $this->selectedDate = null;
+    }
+
+    public function goToToday(): void
+    {
+        $today = now();
+
+        $this->year = $today->year;
+        $this->month = $today->month;
+        $this->selectedDate = $today->format('Y-m-d');
     }
 
 
