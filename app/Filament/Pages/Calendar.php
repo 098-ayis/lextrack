@@ -9,7 +9,7 @@ use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
-use Filament\Forms\Components\TimePicker;
+use Filament\Forms\Components\Select;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Support\Collection;
@@ -388,6 +388,35 @@ class Calendar extends Page
     |--------------------------------------------------------------------------
     */
 
+    protected function eventTimeField(): Select
+    {
+        return Select::make('time')
+            ->label('Time')
+            ->placeholder('Select a time')
+            ->prefixIcon('heroicon-o-clock')
+            ->native(false)
+            ->searchable()
+            ->searchPrompt('Search a time, e.g. 09:30 AM')
+            ->optionsLimit(300)
+            ->options(function (?string $state): array {
+                $options = [];
+
+                for ($minutes = 0; $minutes < 24 * 60; $minutes += 5) {
+                    $time = sprintf('%02d:%02d', intdiv($minutes, 60), $minutes % 60);
+                    $options[$time] = Carbon::createFromFormat('H:i', $time)->format('h:i A');
+                }
+
+                // Preserve existing event times that are not on a five-minute interval.
+                if ($state && preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $state)) {
+                    $options[$state] = Carbon::createFromFormat('H:i', $state)->format('h:i A');
+                    ksort($options);
+                }
+
+                return $options;
+            })
+            ->required();
+    }
+
     public function createEvent(): Action
     {
         return Action::make('createEvent')
@@ -397,8 +426,8 @@ class Calendar extends Page
             ->modalDescription(
                 'Add a schedule or important calendar event.'
             )
-            ->fillForm([
-                'date' => $this->selectedDate,
+            ->fillForm(fn (): array => [
+                'date' => $this->selectedDate ?? now()->toDateString(),
             ])
             ->form([
 
@@ -420,14 +449,7 @@ class Calendar extends Page
                     ->displayFormat('M d, Y')
                     ->required(),
 
-                TimePicker::make('time')
-                    ->label('Time')
-                    ->native(false)
-                    ->seconds(false)
-                    ->displayFormat('h:i A')
-                    ->format('H:i')
-                    ->minutesStep(5)
-                    ->required(),
+                $this->eventTimeField(),
             ])
             ->action(function (array $data): void {
 
@@ -511,14 +533,7 @@ class Calendar extends Page
                     ->displayFormat('M d, Y')
                     ->required(),
 
-                TimePicker::make('time')
-                    ->label('Time')
-                    ->native(false)
-                    ->seconds(false)
-                    ->displayFormat('h:i A')
-                    ->format('H:i')
-                    ->minutesStep(5)
-                    ->required(),
+                $this->eventTimeField(),
             ])
             ->action(
                 function (array $data) use ($event): void {

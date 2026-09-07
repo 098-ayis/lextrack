@@ -24,6 +24,28 @@
                 class="p-6 md:p-8 flex flex-col gap-2"
                 @submit.prevent="trackDocument"
             >
+
+                <!-- Honeypot Fields -->
+                <div
+                    v-if="honeypot?.enabled"
+                    :name="`${honeypot.nameFieldName}_wrap`"
+                    style="display: none;"
+                >
+                    <input
+                        v-model="honeypotName"
+                        type="text"
+                        :name="honeypot.nameFieldName"
+                        :id="honeypot.nameFieldName"
+                        autocomplete="off"
+                    />
+
+                    <input
+                        v-model="honeypotValidFrom"
+                        type="text"
+                        :name="honeypot.validFromFieldName"
+                    />
+                </div>
+
                 <label class="text-sm font-semibold text-[#121722]">
                     Tracking Number
                     <span class="text-red-500">*</span>
@@ -222,14 +244,65 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 
 const trackingNumber = ref('')
 const hasSearched = ref(false)
 const loading = ref(false)
 const document = ref(null)
 
+const honeypot = ref(null)
+const honeypotName = ref('')
+const honeypotValidFrom = ref('')
+
+
+/*
+|--------------------------------------------------------------------------
+| Load Honeypot
+|--------------------------------------------------------------------------
+*/
+
+const loadHoneypot = async () => {
+    try {
+        const response = await fetch('/api/honeypot', {
+            headers: {
+                Accept: 'application/json',
+            },
+        })
+
+        if (!response.ok) {
+            console.error('Unable to load honeypot.')
+            return
+        }
+
+        const data = await response.json()
+
+        honeypot.value = data
+
+        honeypotName.value = ''
+
+        honeypotValidFrom.value =
+            data.encryptedValidFrom ?? ''
+
+    } catch (error) {
+        console.error('Honeypot error:', error)
+    }
+}
+
+
+onMounted(() => {
+    loadHoneypot()
+})
+
+
+/*
+|--------------------------------------------------------------------------
+| Track Document
+|--------------------------------------------------------------------------
+*/
+
 const trackDocument = async () => {
+
     const value = trackingNumber.value.trim()
 
     if (!value) {
@@ -241,53 +314,170 @@ const trackDocument = async () => {
     document.value = null
 
     try {
-        const response = await fetch(
-            `/api/track/${encodeURIComponent(value)}`
-        )
+
+        const payload = {
+            tracking_number: value,
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Add Honeypot Values
+        |--------------------------------------------------------------------------
+        */
+
+        if (honeypot.value?.enabled) {
+
+            payload[honeypot.value.nameFieldName] =
+                honeypotName.value
+
+            payload[honeypot.value.validFromFieldName] =
+                honeypotValidFrom.value
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Send Tracking Request
+        |--------------------------------------------------------------------------
+        */
+
+        const response = await fetch('/api/track', {
+
+            method: 'POST',
+
+            headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+            },
+
+            body: JSON.stringify(payload),
+        })
+
+        /*
+        |--------------------------------------------------------------------------
+        | Document Not Found
+        |--------------------------------------------------------------------------
+        */
+
+        if (response.status === 404) {
+            document.value = null
+            return
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Too Many Requests
+        |--------------------------------------------------------------------------
+        */
+
+        if (response.status === 429) {
+            console.warn('Too many tracking requests.')
+
+            document.value = null
+
+            return
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Other Errors
+        |--------------------------------------------------------------------------
+        */
 
         if (!response.ok) {
             document.value = null
             return
         }
 
+        /*
+        |--------------------------------------------------------------------------
+        | Successful Result
+        |--------------------------------------------------------------------------
+        */
+
         const data = await response.json()
 
-        document.value = data.document ?? null
+        document.value =
+            data.document ?? null
+
     } catch (error) {
-        console.error('Tracking error:', error)
+
+        console.error(
+            'Tracking error:',
+            error
+        )
 
         document.value = null
+
     } finally {
+
         loading.value = false
         hasSearched.value = true
     }
 }
 
+
+/*
+|--------------------------------------------------------------------------
+| Clear Tracking
+|--------------------------------------------------------------------------
+*/
+
 const clearTracking = () => {
+
     trackingNumber.value = ''
+
     document.value = null
+
     hasSearched.value = false
 }
 
+
+/*
+|--------------------------------------------------------------------------
+| Format Status
+|--------------------------------------------------------------------------
+*/
+
 const formatStatus = (status) => {
+
     const labels = {
+
         pending: 'Pending',
+
         in_progress: 'In Progress',
+
         completed: 'Completed',
+
         rejected: 'Rejected',
+
         outgoing: 'Outgoing',
+
         returned: 'Returned',
+
         archived: 'Archived',
     }
 
     return labels[status]
         ?? String(status ?? '')
             .replaceAll('_', ' ')
-            .replace(/\b\w/g, character => character.toUpperCase())
+            .replace(
+                /\b\w/g,
+                character =>
+                    character.toUpperCase()
+            )
 }
 
+
+/*
+|--------------------------------------------------------------------------
+| Status Colors
+|--------------------------------------------------------------------------
+*/
+
 const statusClass = (status) => {
+
     const classes = {
+
         pending:
             'border-yellow-400 bg-yellow-100 text-yellow-800',
 

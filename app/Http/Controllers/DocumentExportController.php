@@ -3,11 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\Document;
+use App\Services\DocumentSpreadsheetService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
-use RuntimeException;
 use Symfony\Component\HttpFoundation\Response;
 use Throwable;
 
@@ -53,7 +53,7 @@ class DocumentExportController extends Controller
                 ->get();
 
             $sectionLabel = ucfirst($section);
-            $csv = $this->buildCsv($documents, $sectionLabel);
+            $xlsx = $this->buildSpreadsheet($documents, $sectionLabel);
         } catch (Throwable $exception) {
             Log::error('Document export failed.', [
                 'section' => $section,
@@ -69,57 +69,25 @@ class DocumentExportController extends Controller
         }
 
         return response()->streamDownload(
-            static function () use ($csv): void {
-                echo $csv;
+            static function () use ($xlsx): void {
+                echo $xlsx;
             },
-            'documents-' . now()->format('Y-m-d') . '.csv',
+            'documents-'.now()->format('Y-m-d').'.xlsx',
             [
-                'Content-Type' => 'text/csv; charset=UTF-8',
+                'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                 'X-Content-Type-Options' => 'nosniff',
                 'Cache-Control' => 'no-store, no-cache, must-revalidate',
             ],
         );
     }
 
-    private function buildCsv(Collection $documents, string $sectionLabel): string
+    private function buildSpreadsheet(Collection $documents, string $sectionLabel): string
     {
-        $handle = fopen('php://temp', 'r+');
-
-        if ($handle === false) {
-            throw new RuntimeException('Unable to open the CSV output stream.');
-        }
-
-        try {
-            // UTF-8 BOM helps spreadsheet applications display the CSV correctly.
-            fwrite($handle, "\xEF\xBB\xBF");
-
-            $this->writeCsvRow($handle, ['BICOL UNIVERSITY']);
-            $this->writeCsvRow($handle, ['LEGAL AFFAIRS OFFICE']);
-            $this->writeCsvRow($handle, ['BU LOGO', 'bu-logo.png']);
-            $this->writeCsvRow($handle, ['DOCUMENTS REPORT', $sectionLabel]);
-            $this->writeCsvRow($handle, ['Generated', now()->format('F d, Y h:i A')]);
-            $this->writeCsvRow($handle, []);
-
-            $this->writeCsvRow($handle, [
-                'No.',
-                'LAO No.',
-                'Office / Unit',
-                'Particulars',
-                'Document Type',
-                'Uploaded By',
-                'Upload Date',
-                'Action Taken',
-                'Status',
-                'Outgoing Date',
-                'Sent To',
-                'Sent Date',
-                'Latest Updated',
-            ]);
-
-            foreach ($documents as $index => $document) {
-                $type = $document->document_type ?? 'Unknown';
-                $status = ucwords(str_replace('_', ' ', (string) $document->status));
-                $action = $document->action_type ?? '—';
+        $rows = collect();
+        foreach ($documents as $index => $document) {
+            $type = $document->document_type ?? 'Unknown';
+            $status = ucwords(str_replace('_', ' ', (string) $document->status));
+            $action = $document->action_type ?? '—';
 
                 $this->writeCsvRow($handle, [
                     $index + 1,
@@ -138,17 +106,7 @@ class DocumentExportController extends Controller
                 ]);
             }
 
-            rewind($handle);
-            $csv = stream_get_contents($handle);
-
-            if ($csv === false) {
-                throw new RuntimeException('Unable to read the generated CSV.');
-            }
-
-            return $csv;
-        } finally {
-            fclose($handle);
-        }
+        return app(DocumentSpreadsheetService::class)->build($rows, $sectionLabel);
     }
 
     private function normalizeSection(mixed $section): string
@@ -186,16 +144,5 @@ class DocumentExportController extends Controller
     private function formatDate(mixed $value): ?string
     {
         return $value ? Carbon::parse($value)->format('F d, Y') : null;
-    }
-
-    /**
-     * Write a CSV row with an explicit escape character for PHP 8.5+.
-     *
-     * @param resource $handle
-     * @param array<int, mixed> $fields
-     */
-    private function writeCsvRow($handle, array $fields): void
-    {
-        fputcsv($handle, $fields, ',', '"', '\\');
     }
 }

@@ -590,7 +590,7 @@
                                     <div class="space-y-1">
 
                                         @foreach(
-                                            $dayEvents->take(3)
+                                            $dayEvents->take(2)
                                             as $event
                                         )
 
@@ -755,10 +755,14 @@
 
                                         @if(
                                             $dayEvents->count()
-                                            > 3
+                                            > 2
                                         )
 
-                                            <div
+                                            <button
+                                                type="button"
+                                                wire:click.stop="$set('selectedDate', '{{ $dateString }}')"
+                                                aria-label="View all {{ $dayEvents->count() }} events on {{ $dateString }}"
+                                                style="display: block; text-align: left; white-space: nowrap; color: #075985; cursor: pointer;"
                                                 class="
                                                     px-1
                                                     pt-0.5
@@ -770,13 +774,9 @@
                                                 "
                                             >
 
-                                                +{{
-                                                    $dayEvents->count()
-                                                    - 3
-                                                }}
-                                                more
+                                                +{{ $dayEvents->count() - 2 }} more
 
-                                            </div>
+                                            </button>
 
                                         @endif
 

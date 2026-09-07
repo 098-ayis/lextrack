@@ -95,7 +95,7 @@
                     <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M12 3v12m0 0 4-4m-4 4-4-4M5 18v3h14v-3" />
                     </svg>
-                    Export
+                    Export Excel
                 </a>
                 {{ $this->addDocumentAction }}
             </div>
