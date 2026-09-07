@@ -11,7 +11,7 @@
                 Office/Unit:
             </span>
             <span class="min-w-0 break-words font-medium text-gray-800 dark:text-gray-200">
-                {{ $record->document->officeUnit?->name ?: 'Not specified' }}
+                {{ $record->document->office_unit ?: 'Not specified' }}
             </span>
         </div>
 

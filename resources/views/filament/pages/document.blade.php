@@ -202,7 +202,7 @@
                 <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
                     <use href="#icon-download"/>
                 </svg>
-                Export
+                Export Excel
             </a>
             {{ $this->addDocumentAction }}
         </div>
@@ -333,7 +333,7 @@
                                         </span>
 
                                         <span class="font-medium text-gray-800">
-                                            {{ $document->officeUnit?->name }}
+                                            {{ $document->office_unit }}
                                         </span>
                                     </div>
 
@@ -616,7 +616,7 @@
                                         </span>
 
                                         <span class="font-medium text-gray-800">
-                                            {{ $document->officeUnit?->name }}
+                                            {{ $document->office_unit }}
                                         </span>
                                     </div>
 
@@ -940,7 +940,7 @@
                                             Office/Unit:
                                         </span>
                                         <span class="font-semibold text-gray-900">
-                                            {{ $document->officeUnit?->name }}
+                                            {{ $document->office_unit }}
                                         </span>
                                     </div>
 

@@ -9,7 +9,6 @@ use App\Models\OfficeUnit;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
-use Filament\Forms\Components\ColorPicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
@@ -65,9 +64,9 @@ class Cabinet extends Page
     public function loadCabinet(): void
     {
         $documents = Document::query()
-            ->with(['officeUnit', 'latestVersion'])
+            ->with(['latestVersion'])
             ->whereNotNull('document_type')
-            ->whereNotNull('office_unit_id')
+            ->whereNotNull('office_unit')
             ->get();
 
         $this->cabinet = $documents
@@ -82,7 +81,7 @@ class Cabinet extends Page
             ->map(function ($documentsByType) {
                 return $documentsByType
                     ->groupBy(function (Document $document) {
-                        $office = trim((string) $document->officeUnit?->name);
+                        $office = trim((string) $document->office_unit);
 
                         return $office !== ''
                             ? $office
@@ -125,7 +124,7 @@ class Cabinet extends Page
                                         ?? 'Unknown',
 
                                     'office_unit' =>
-                                        $document->officeUnit?->name,
+                                        $document->office_unit,
 
                                     'status' =>
                                         $document->status,
@@ -150,6 +149,18 @@ class Cabinet extends Page
             ->modalHeading('Add Document')
             ->modalSubmitActionLabel('Save Document')
             ->form([
+                TextInput::make('lao_number')
+                    ->label('LAO Number')
+                    ->default(fn (): string => Document::generateLaoNumber())
+                    ->readOnly()
+                    ->helperText('Automatically assigned from the current LAO sequence.'),
+
+                TextInput::make('document_name')
+                    ->label('Document Name')
+                    ->readOnly()
+                    ->helperText('Initialized from the uploaded file name. Rename it using Edit.')
+                    ->maxLength(255),
+
                 TextInput::make('document_type')
                     ->label('Document Type')
                     ->datalist(fn () => DocumentType::query()->orderBy('type_name')->pluck('type_name'))
@@ -164,21 +175,10 @@ class Cabinet extends Page
                     ->readOnly()
                     ->helperText('Calculated from the document type.'),
 
-                Select::make('office_unit_id')
+                TextInput::make('office_unit')
                     ->label('Office / Unit')
-                    ->options(fn () => OfficeUnit::query()->orderBy('name')->pluck('name', 'office_unit_id'))
-                    ->searchable()
-                    ->preload()
-                    ->createOptionForm([
-                        TextInput::make('name')->required()->maxLength(255),
-                        ColorPicker::make('color')->nullable(),
-                    ])
-                    ->createOptionUsing(fn (array $data): int => OfficeUnit::create($data)->getKey())
+                    ->datalist(fn () => OfficeUnit::query()->orderBy('name')->pluck('name'))
                     ->required(),
-
-                TextInput::make('lao_number')
-                    ->label('LAO Number')
-                    ->maxLength(255),
 
                 Textarea::make('particulars')
                     ->label('Particulars')
@@ -194,7 +194,11 @@ class Cabinet extends Page
                         'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
                     ])
                     ->rules(['mimes:pdf,docx'])
-                    ->required(),
+                    ->required()
+                    ->live()
+                    ->afterStateUpdated(function ($state, Set $set): void {
+                        $set('document_name', filled($state) ? basename((string) $state) : null);
+                    }),
             ])
             ->action(function (array $data): void {
                 $filePath = $data['file_path'];
@@ -205,11 +209,14 @@ class Cabinet extends Page
 
                         'document_type' => $data['document_type'],
 
-                        'office_unit_id' =>
-                            $data['office_unit_id'],
+                        'office_unit' =>
+                            $data['office_unit'],
+
+                        'document_name' =>
+                            basename((string) $filePath),
 
                         'lao_number' =>
-                            $data['lao_number'] ?? null,
+                            $data['lao_number'] ?? Document::generateLaoNumber(),
 
                         'particulars' =>
                             $data['particulars'] ?? null,

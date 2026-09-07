@@ -7,10 +7,7 @@ use Filament\Forms\Contracts\HasForms;
 use Filament\Pages\Page;
 use Filament\Schemas\Schema; 
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\ColorPicker;
-use Filament\Forms\Components\Select;
 use Filament\Forms\Components\FileUpload;
-use Filament\Forms\Components\Checkbox;
 use Filament\Notifications\Notification;
 use App\Models\Document;
 use App\Models\DocumentVersion;
@@ -50,16 +47,9 @@ class Upload extends Page implements HasForms
                     ->columnSpan('full')
                     ->required(),
                 
-                Select::make('office_unit_id')
+                TextInput::make('office_unit')
                     ->label('Office From')
-                    ->options(fn () => OfficeUnit::query()->orderBy('name')->pluck('name', 'office_unit_id'))
-                    ->searchable()
-                    ->preload()
-                    ->createOptionForm([
-                        TextInput::make('name')->required()->maxLength(255),
-                        ColorPicker::make('color')->nullable(),
-                    ])
-                    ->createOptionUsing(fn (array $data): int => OfficeUnit::create($data)->getKey())
+                    ->datalist(fn () => OfficeUnit::query()->orderBy('name')->pluck('name'))
                     ->required(),
 
                 TextInput::make('document_type')
@@ -87,12 +77,14 @@ class Upload extends Page implements HasForms
     public function submit(): void
     {
         $data = $this->form->getState();
+        $filePath = $data['file_path'];
 
-        $document = DB::transaction(function () use ($data): Document {
+        $document = DB::transaction(function () use ($data, $filePath): Document {
             $document = Document::create([
                 'user_id' => auth()->id(),
                 'particulars' => $data['particulars'],
-                'office_unit_id' => $data['office_unit_id'],
+                'document_name' => basename((string) $filePath),
+                'office_unit' => $data['office_unit'],
                 'document_type' => $data['document_type'],
                 'status' => 'pending',
             ]);
@@ -101,7 +93,7 @@ class Upload extends Page implements HasForms
                 'user_id' => auth()->id(),
                 'document_id' => $document->document_id,
                 'version_number' => '1',
-                'file_path' => $data['file_path'],
+                'file_path' => $filePath,
             ]);
 
             return $document;
@@ -115,9 +107,9 @@ class Upload extends Page implements HasForms
             ->success()
             ->send();
 
-        $this->form->fill(); 
+        $this->form->fill();
     }
-
+    
     public function clearForm(): void
     {
         $this->form->fill();

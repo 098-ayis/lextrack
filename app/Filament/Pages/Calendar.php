@@ -9,7 +9,7 @@ use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
-use Filament\Forms\Components\TimePicker;
+use Filament\Forms\Components\Select;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Support\Collection;
@@ -69,7 +69,16 @@ class Calendar extends Page
 
         $this->year = $now->year;
         $this->month = $now->month;
-        $this->selectedDate ??= $now->format('Y-m-d');
+
+        $date = request()->query('date');
+        if (is_string($date) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+            [$year, $month, $day] = array_map('intval', explode('-', $date));
+            if (checkdate($month, $day, $year)) {
+                $this->selectedDate = $date;
+                $this->year = $year;
+                $this->month = $month;
+            }
+        }
     }
 
 
@@ -281,7 +290,7 @@ class Calendar extends Page
     protected function getDocumentDeadlineEvents(?string $date = null): Collection
     {
         return Document::query()
-            ->with(['latestVersion', 'officeUnit'])
+            ->with(['latestVersion'])
             ->whereNotNull('deadline')
             ->when(
                 $date,
@@ -307,7 +316,7 @@ class Calendar extends Page
 
                 $details = collect([
                     'Document deadline',
-                    $document->officeUnit?->name,
+                    $document->office_unit,
                     $document->lao_number,
                 ])->filter()->implode(' · ');
 
@@ -315,6 +324,7 @@ class Calendar extends Page
                     'sched_id' => "document-deadline-{$document->document_id}",
                     'document_id' => $document->document_id,
                     'is_document_deadline' => true,
+                    'is_completed' => $document->status === 'completed',
                     'user_id' => $document->user_id,
                     'user' => null,
                     'event' => $title,
@@ -427,6 +437,35 @@ class Calendar extends Page
     |--------------------------------------------------------------------------
     */
 
+    protected function eventTimeField(): Select
+    {
+        return Select::make('time')
+            ->label('Time')
+            ->placeholder('Select a time')
+            ->prefixIcon('heroicon-o-clock')
+            ->native(false)
+            ->searchable()
+            ->searchPrompt('Search a time, e.g. 09:30 AM')
+            ->optionsLimit(300)
+            ->options(function (?string $state): array {
+                $options = [];
+
+                for ($minutes = 0; $minutes < 24 * 60; $minutes += 5) {
+                    $time = sprintf('%02d:%02d', intdiv($minutes, 60), $minutes % 60);
+                    $options[$time] = Carbon::createFromFormat('H:i', $time)->format('h:i A');
+                }
+
+                // Preserve existing event times that are not on a five-minute interval.
+                if ($state && preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $state)) {
+                    $options[$state] = Carbon::createFromFormat('H:i', $state)->format('h:i A');
+                    ksort($options);
+                }
+
+                return $options;
+            })
+            ->required();
+    }
+
     public function createEvent(): Action
     {
         return Action::make('createEvent')
@@ -436,8 +475,8 @@ class Calendar extends Page
             ->modalDescription(
                 'Add a schedule or important calendar event.'
             )
-            ->fillForm([
-                'date' => $this->selectedDate,
+            ->fillForm(fn (): array => [
+                'date' => $this->selectedDate ?? now()->toDateString(),
             ])
             ->form([
 
@@ -459,14 +498,7 @@ class Calendar extends Page
                     ->displayFormat('M d, Y')
                     ->required(),
 
-                TimePicker::make('time')
-                    ->label('Time')
-                    ->native(false)
-                    ->seconds(false)
-                    ->displayFormat('h:i A')
-                    ->format('H:i')
-                    ->minutesStep(5)
-                    ->required(),
+                $this->eventTimeField(),
             ])
             ->action(function (array $data): void {
 
@@ -495,15 +527,9 @@ class Calendar extends Page
     |--------------------------------------------------------------------------
     */
 
-    public function editEvent(?int $eventId): ?Action
+    public function editEventAction(): Action
     {
-        if (!$eventId) {
-            return null;
-        }
-
-        $event = CalendarModel::findOrFail($eventId);
-
-        return Action::make("editEvent{$eventId}")
+        return Action::make('editEvent')
             ->label('')
             ->icon('heroicon-o-pencil')
             ->tooltip('Edit event')
@@ -512,24 +538,16 @@ class Calendar extends Page
             ->modalDescription(
                 'Update the event information below.'
             )
-            ->fillForm([
+            ->fillForm(function (array $arguments): array {
+                $event = CalendarModel::findOrFail($arguments['eventId']);
 
-                'event' => $event->event,
-
-                'details' => $event->details,
-
-                'date' => $event->date
-                    ? Carbon::parse(
-                        $event->date
-                    )->format('Y-m-d')
-                    : null,
-
-                'time' => $event->time
-                    ? Carbon::parse(
-                        $event->time
-                    )->format('H:i')
-                    : null,
-            ])
+                return [
+                    'event' => $event->event,
+                    'details' => $event->details,
+                    'date' => $event->date?->format('Y-m-d'),
+                    'time' => $event->time?->format('H:i'),
+                ];
+            })
             ->form([
 
                 TextInput::make('event')
@@ -550,17 +568,11 @@ class Calendar extends Page
                     ->displayFormat('M d, Y')
                     ->required(),
 
-                TimePicker::make('time')
-                    ->label('Time')
-                    ->native(false)
-                    ->seconds(false)
-                    ->displayFormat('h:i A')
-                    ->format('H:i')
-                    ->minutesStep(5)
-                    ->required(),
+                $this->eventTimeField(),
             ])
             ->action(
-                function (array $data) use ($event): void {
+                function (array $data, array $arguments): void {
+                    $event = CalendarModel::findOrFail($arguments['eventId']);
 
                     /*
                      * Original date

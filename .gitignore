@@ -25,3 +25,8 @@ _ide_helper.php
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# Machine-specific Avast mail certificate and local Docker trust configuration.
+/MailShield.der
+/MailShield.crt
+/compose.override.yaml

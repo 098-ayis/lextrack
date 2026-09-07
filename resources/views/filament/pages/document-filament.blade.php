@@ -7,28 +7,29 @@
 
         {{-- STATUS HEADER --}}
         <div class="mb-0 w-full overflow-x-auto border border-gray-300 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
-            <nav class="flex min-w-max items-center gap-1 p-2" aria-label="Document status">
+            <nav class="flex w-full min-w-[720px] items-stretch px-3" aria-label="Document status">
                 @foreach ([
-                    'pending' => 'Pending',
-                    'incoming' => 'Incoming',
-                    'outgoing' => 'Outgoing',
-                    'completed' => 'Completed',
-                    'rejected' => 'Rejected',
-                    'archived' => 'Archived',
-                ] as $section => $label)
+                    'pending' => ['label' => 'Pending', 'icon' => 'heroicon-o-document-text'],
+                    'incoming' => ['label' => 'Incoming', 'icon' => 'heroicon-o-inbox-arrow-down'],
+                    'outgoing' => ['label' => 'Outgoing', 'icon' => 'heroicon-o-paper-airplane'],
+                    'completed' => ['label' => 'Completed', 'icon' => 'heroicon-o-check-circle'],
+                    'rejected' => ['label' => 'Rejected', 'icon' => 'heroicon-o-x-circle'],
+                    'archived' => ['label' => 'Archived', 'icon' => 'heroicon-o-archive-box'],
+                ] as $section => $item)
                     <a
                         href="{{ request()->fullUrlWithQuery(['section' => $section]) }}"
-                        class="rounded-md px-4 py-2 text-sm font-semibold transition-colors
+                        class="group relative flex h-12 flex-1 items-center justify-center gap-1.5 border-b-2 border-transparent px-3 text-xs font-medium whitespace-nowrap transition-colors
                             {{ $activeSection === $section
-                                ? 'bg-[#0F172A] text-white'
-                                : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/10' }}"
+                                ? 'border-violet-600 text-violet-600 dark:border-violet-400 dark:text-violet-400'
+                                : 'text-gray-500 hover:border-gray-200 hover:text-gray-800 dark:text-gray-400 dark:hover:border-gray-700 dark:hover:text-gray-200' }}"
                     >
-                        {{ $label }}
+                        <x-filament::icon :icon="$item['icon']" class="h-4 w-4 shrink-0" />
+                        <span>{{ $item['label'] }}</span>
                         <span
-                            class="ml-2 inline-flex min-w-5 justify-center rounded-full px-1.5 py-0.5 text-xs
+                            class="ml-0.5 text-[10px] font-semibold
                                 {{ $activeSection === $section
-                                    ? 'bg-white/20 text-white'
-                                    : 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-200' }}"
+                                    ? 'text-violet-600 dark:text-violet-400'
+                                    : 'text-gray-400 dark:text-gray-500' }}"
                         >
                             {{ $statusCounts[$section] ?? 0 }}
                         </span>
@@ -44,9 +45,9 @@
                     type="text"
                     wire:model.live.debounce.400ms="search"
                     placeholder="Search Document"
-                    class="h-10 w-full rounded-full border border-gray-300 bg-white pl-4 pr-11 text-sm text-gray-900 focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:placeholder:text-gray-400"
+                    class="h-9 w-full rounded-full border border-gray-300 bg-white pl-3 pr-9 text-xs text-gray-900 focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:placeholder:text-gray-400"
                 >
-                <svg class="absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-800 dark:text-gray-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75">
+                <svg class="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-800 dark:text-gray-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75">
                     <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-4.35-4.35m2.1-5.4a7.5 7.5 0 1 1-15 0 7.5 7.5 0 0 1 15 0Z" />
                 </svg>
             </div>
@@ -54,7 +55,7 @@
             <div class="relative w-full sm:w-60">
                 <select
                     wire:model.live="typeFilter"
-                    class="h-10 w-full appearance-none rounded-full border border-gray-300 bg-white pl-4 pr-12 text-sm text-gray-500 focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"
+                    class="h-9 w-full appearance-none rounded-full border border-gray-300 bg-white pl-3 pr-10 text-xs text-gray-500 focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"
                 >
                     <option value="">All Document Types</option>
                     @foreach (\App\Models\DocumentType::orderBy('type_name')->get() as $type)
@@ -71,7 +72,7 @@
                     type="date"
                     wire:model.live="dateFilter"
                     aria-label="Filter by upload date"
-                    class="peer h-10 w-full appearance-none rounded-full border border-gray-300 bg-white pl-10 pr-4 text-sm focus:border-primary-500 focus:text-gray-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200"
+                    class="peer h-9 w-full appearance-none rounded-full border border-gray-300 bg-white pl-9 pr-3 text-xs focus:border-primary-500 focus:text-gray-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200"
                 >
                 <svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500 dark:text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
                     <rect x="3.5" y="5" width="17" height="15.5" rx="2" />
@@ -89,12 +90,12 @@
                     ]) }}"
                     target="_blank"
                     rel="noopener"
-                    class="inline-flex h-10 items-center gap-2 rounded-md border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-white/10"
+                    class="inline-flex h-9 items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 text-xs font-semibold text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-white/10"
                 >
-                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                    <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M12 3v12m0 0 4-4m-4 4-4-4M5 18v3h14v-3" />
                     </svg>
-                    Export
+                    Export Excel
                 </a>
                 {{ $this->addDocumentAction }}
             </div>
@@ -146,6 +147,29 @@
 
             .admin-documents-page .fi-ta-table {
                 font-size: 0.75rem;
+            }
+
+            .admin-documents-page .fi-ta-table th,
+            .admin-documents-page .fi-ta-table td {
+                padding-left: 0.75rem;
+                padding-right: 0.75rem;
+            }
+
+            .admin-documents-page .fi-ta-table td:has(> .fi-ta-actions) {
+                padding-left: 1rem;
+                padding-right: 0.5rem;
+                white-space: nowrap;
+            }
+
+            .admin-documents-page .outgoing-date-cell .fi-ta-placeholder {
+                font-size: 0.75rem;
+                line-height: 1rem;
+            }
+
+            .admin-documents-page .fi-ta-actions {
+                justify-content: flex-end !important;
+                gap: 0.375rem;
+                margin-left: auto;
             }
 
             .admin-documents-page .fi-ta-table th {

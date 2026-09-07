@@ -337,7 +337,7 @@
 
 
                                     <p class="mt-2 truncate text-xs text-gray-500 dark:text-gray-400">
-                                        {{ $document->officeUnit?->name ?: 'No office specified' }}
+                                        {{ $document->office_unit ?: 'No office specified' }}
                                     </p>
 
 
@@ -412,7 +412,7 @@
 
                 <div class="mb-4">
                     <h2 class="text-lg font-semibold text-gray-950 dark:text-white">
-                        My Calendar
+                        <a href="{{ \App\Filament\Pages\Calendar::getUrl(['date' => sprintf('%04d-%02d-01', $year, $month)]) }}" class="hover:underline">My Calendar</a>
                     </h2>
 
                 </div>
@@ -503,13 +503,15 @@
 
                         @foreach ($calendarCells as $cell)
 
-                            <div
+                            <a
+                                href="{{ \App\Filament\Pages\Calendar::getUrl(['date' => $cell['date']]) }}"
+                                aria-label="View events on {{ $cell['date'] }}"
                                 @class([
                                     /*
                                      * Fixed height prevents cells
                                      * from overlapping one another.
                                      */
-                                    'flex h-10 min-w-0 items-center justify-center rounded-lg text-sm transition',
+                                    'relative flex h-10 min-w-0 items-center justify-center rounded-lg text-sm transition',
 
                                     /*
                                      * TODAY
@@ -526,6 +528,7 @@
                                     'bg-indigo-50 font-semibold text-indigo-700 ring-1 ring-inset ring-indigo-200 dark:bg-indigo-500/10 dark:text-indigo-300 dark:ring-indigo-500/30'
                                         => !$cell['isToday']
                                             && $cell['hasEvent']
+                                            && $cell['date'] >= now()->toDateString()
                                             && $cell['isCurrentMonth'],
 
                                     /*
@@ -533,7 +536,7 @@
                                      */
                                     'text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800'
                                         => !$cell['isToday']
-                                            && !$cell['hasEvent']
+                                            && (!$cell['hasEvent'] || $cell['date'] < now()->toDateString())
                                             && $cell['isCurrentMonth'],
 
                                     /*
@@ -545,7 +548,7 @@
                                 ])
                             >
                                 {{ $cell['day'] }}
-                            </div>
+                            </a>
 
                         @endforeach
 
@@ -617,7 +620,7 @@
                                     </p>
 
                                     <p class="mt-1 truncate text-xs text-gray-500 dark:text-gray-400">
-                                        {{ $document->officeUnit?->name ?: 'No office specified' }}
+                                        {{ $document->office_unit ?: 'No office specified' }}
                                     </p>
 
                                 </div>

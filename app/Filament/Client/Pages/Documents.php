@@ -194,8 +194,7 @@ class Documents extends Page implements HasTable
                     $query->where(function ($query) use ($search) {
                         $query
                             ->where('particulars', 'like', "%{$search}%")
-                            ->orWhereHas('officeUnit', fn (Builder $officeQuery) =>
-                                $officeQuery->where('name', 'like', "%{$search}%"))
+                            ->orWhere('office_unit', 'like', "%{$search}%")
                             ->orWhere('lao_number', 'like', "%{$search}%");
                     });
                 }

@@ -259,7 +259,7 @@
                         <div class="min-w-0">
                             <dt class="font-medium text-gray-500">Office / Unit</dt>
                             <dd class="mt-1 break-words font-semibold text-gray-900">
-                                {{ $documentRecord->officeUnit?->name ?: 'Not set' }}
+                                {{ $documentRecord->office_unit ?: 'Not set' }}
                             </dd>
                         </div>
 

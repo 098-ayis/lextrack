@@ -16,7 +16,7 @@
         }
     </style>
 
-    <div class="space-y-6">
+    <div class="space-y-6" wire:poll.60s>
 
         {{-- ========================================================= --}}
         {{-- TOP SEARCH --}}
@@ -102,6 +102,11 @@
         {{-- ========================================================= --}}
         {{-- MAIN LAYOUT --}}
         {{-- ========================================================= --}}
+
+        <p class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+            <x-heroicon-m-check-circle class="h-4 w-4 shrink-0 text-green-600" />
+            Check marks show completed events. A checked date means all its events are completed.
+        </p>
 
         <div
             class="
@@ -461,6 +466,9 @@
                                         )
                                         : collect();
 
+                                $isDayCompleted = $dayEvents->isNotEmpty()
+                                    && $dayEvents->every(fn ($event) => $event->is_completed);
+
                             @endphp
 
 
@@ -479,6 +487,12 @@
 
                                 @if(!$isOtherMonth)
 
+                                    role="button"
+                                    tabindex="0"
+                                    aria-label="View events on {{ $dateString }}{{ $isDayCompleted ? ' (completed)' : '' }}"
+                                    aria-pressed="{{ $isSelected ? 'true' : 'false' }}"
+                                    wire:keydown.enter.prevent="selectDate('{{ $dateString }}')"
+                                    wire:keydown.space.prevent="selectDate('{{ $dateString }}')"
                                     wire:click="
                                         selectDate(
                                             '{{ $dateString }}'
@@ -602,6 +616,13 @@
 
                                     </div>
 
+                                    @if ($isDayCompleted)
+                                        <span class="inline-flex items-center gap-1 text-green-600 dark:text-green-400" title="All events completed">
+                                            <x-heroicon-m-check-circle class="h-5 w-5" />
+                                            <span class="sr-only">All events completed</span>
+                                        </span>
+                                    @endif
+
                                 </div>
 
 
@@ -614,7 +635,7 @@
                                     <div class="space-y-1">
 
                                         @foreach(
-                                            $dayEvents->take(3)
+                                            $dayEvents->take(2)
                                             as $event
                                         )
 
@@ -706,6 +727,13 @@
                                             >
 
 
+                                                @if ($event->is_completed)
+                                                    <span class="inline-flex items-center gap-1 text-[10px] font-semibold text-green-600 dark:text-green-400">
+                                                        <x-heroicon-m-check-circle class="h-3.5 w-3.5 shrink-0" />
+                                                        Completed
+                                                    </span>
+                                                @endif
+
                                                 {{-- TIME --}}
                                                 @if($eventTime)
 
@@ -784,10 +812,14 @@
 
                                         @if(
                                             $dayEvents->count()
-                                            > 3
+                                            > 2
                                         )
 
-                                            <div
+                                            <button
+                                                type="button"
+                                                wire:click.stop="$set('selectedDate', '{{ $dateString }}')"
+                                                aria-label="View all {{ $dayEvents->count() }} events on {{ $dateString }}"
+                                                style="display: block; text-align: left; white-space: nowrap; color: #075985; cursor: pointer;"
                                                 class="
                                                     px-1
                                                     pt-0.5
@@ -799,13 +831,9 @@
                                                 "
                                             >
 
-                                                +{{
-                                                    $dayEvents->count()
-                                                    - 3
-                                                }}
-                                                more
+                                                +{{ $dayEvents->count() - 2 }} more
 
-                                            </div>
+                                            </button>
 
                                         @endif
 
@@ -1071,15 +1099,14 @@
                          * show all events for that date.
                          *
                          * Otherwise:
-                         * show first 6 events this month.
+                         * show all events this month.
                          */
                         $events =
                             $selectedDate
 
                                 ? $this->getEvents()
 
-                                : $allMonthEvents
-                                    ->take(6);
+                                : $allMonthEvents;
 
                     @endphp
 
@@ -1260,6 +1287,12 @@
                                         "
                                     >
                                         {{ $event->event }}
+                                    @if ($event->is_completed)
+                                        <span class="inline-flex items-center gap-1 text-green-600 dark:text-green-400" title="Completed">
+                                            <x-heroicon-m-check class="h-3.5 w-3.5" />
+                                            <span>Completed</span>
+                                        </span>
+                                    @endif
                                     </div>
 
 
@@ -1331,11 +1364,7 @@
                                         shrink-0
                                         gap-1
 
-                                        opacity-0
-
                                         transition
-
-                                        group-hover:opacity-100
                                     "
                                 >
 
@@ -1345,9 +1374,7 @@
                                         wire:click.stop
                                     >
                                         {{
-                                            $this->editEvent(
-                                                $event->sched_id
-                                            )
+                                            ($this->editEventAction)(['eventId' => $event->sched_id])
                                         }}
                                     </div>
 

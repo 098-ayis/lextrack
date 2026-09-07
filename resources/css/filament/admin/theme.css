@@ -376,18 +376,22 @@ Edit-Button
     height: 36px !important;
     padding: 0 0.75rem !important;
 
-    background-color: #6366F1 !important;
-    color: #ffffff !important;
-    border: none !important;
+    background-color: #ffffff !important;
+    color: #0F172A !important;
+    border: 1px solid #cdcfd4 !important;
     border-radius: 0.375rem !important;
     font-size: 0.75rem !important;
     font-weight: 600 !important;
-    transition: background-color 150ms ease !important;
+    transition: color 150ms ease, border-color 150ms ease, background-color 150ms ease !important;
 }
 
-.outgoing-document-button:hover {
-    background-color: #4F46E5 !important;
-    color: #ffffff !important;
+.outgoing-document-button:hover,
+.outgoing-document-button:focus,
+.outgoing-document-button:focus-visible,
+.outgoing-document-button:active {
+    background-color: #ffffff !important;
+    border-color: #6366F1 !important;
+    color: #6366F1 !important;
 }
 
 .outgoing-document-button svg {
@@ -915,4 +919,12 @@ Edit-Button
 .dark .documents-table-action:focus-visible,
 .dark .documents-table-action:active {
     color: #6366f1 !important;
+}
+
+/* Filament table column headers */
+.fi-ta-table thead tr,
+.fi-ta-table thead .fi-ta-header-cell,
+.fi-ta-table thead .fi-ta-actions-header-cell,
+.fi-ta-table thead .fi-ta-header-cell button {
+    background-color: #F8F8FA !important;
 }

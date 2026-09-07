@@ -24,7 +24,7 @@
                 class="p-6 md:p-8 flex flex-col gap-2"
                 @submit.prevent="trackDocument"
             >
-                
+
                 <!-- Honeypot Fields -->
                 <div
                     v-if="honeypot?.enabled"

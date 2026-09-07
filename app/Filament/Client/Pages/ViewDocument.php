@@ -54,7 +54,6 @@ class ViewDocument extends Page
                     );
             })
             ->with([
-                'type',
                 'latestVersion',
                 'rejections' => fn ($query) => $query
                     ->latest('created_at')

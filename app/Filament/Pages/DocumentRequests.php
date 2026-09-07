@@ -20,6 +20,7 @@ use Filament\Support\Enums\Width;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\Facades\DB;
+use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
 // use BezhanSalleh\FilamentShield\Traits\HasPageShield;
 
 class DocumentRequests extends Page implements HasTable
@@ -91,7 +92,6 @@ class DocumentRequests extends Page implements HasTable
 
         return DocumentRequest::query()
             ->with([
-                'document.officeUnit',
                 'document.user',
                 'user',
             ])
@@ -104,8 +104,7 @@ class DocumentRequests extends Page implements HasTable
                         ->whereHas('document', function (Builder $query) use ($search): void {
                             $query
                                 ->where('lao_number', 'like', $search)
-                                ->orWhereHas('officeUnit', fn (Builder $officeQuery) =>
-                                    $officeQuery->where('name', 'like', $search))
+                                ->orWhere('office_unit', 'like', $search)
                                 ->orWhere('particulars', 'like', $search);
                         })
                         ->orWhereHas('user', function (Builder $query) use ($search): void {
@@ -285,35 +284,7 @@ class DocumentRequests extends Page implements HasTable
              * doesn't already have one.
              */
             if (!$document->lao_number) {
-
-                $year = now()->format('y');
-
-                $existingNumbers = Document::query()
-                    ->whereNotNull('lao_number')
-                    ->where(
-                        'lao_number',
-                        'like',
-                        "LAO-{$year}-%"
-                    )
-                    ->pluck('lao_number');
-
-                $highestNumber = $existingNumbers
-                    ->map(function ($laoNumber) {
-                        $parts = explode('-', $laoNumber);
-
-                        return isset($parts[2])
-                            ? (int) $parts[2]
-                            : 0;
-                    })
-                    ->max() ?? 0;
-
-                $nextNumber = $highestNumber + 1;
-
-                $document->lao_number = sprintf(
-                    'LAO-%s-%03d',
-                    $year,
-                    $nextNumber
-                );
+                $document->lao_number = Document::generateLaoNumber();
             }
 
             $document->status = 'in_progress';
@@ -351,24 +322,66 @@ class DocumentRequests extends Page implements HasTable
          * Fall back to the document owner.
          */
         $client = $request->user ?? $document->user;
+        $emailFailed = false;
 
         if ($client) {
 
             // EMAIL
-            $client->notify(
-                new DocumentAcceptedNotification($document, 'requested')
-            );
+            try {
+                $client->notify(
+                    new DocumentAcceptedNotification($document)
+                );
+            } catch (TransportExceptionInterface $exception) {
+                report($exception);
+                $emailFailed = true;
+            }
+
+            // CLIENT FILAMENT BELL
+            Notification::make()
+                ->title('Document Accepted')
+                ->body(
+                    'Your requested document has been accepted. Your document QR code is ready. Open it below and scan it to track the document status.'
+                )
+                ->success()
+                ->actions([
+                    Action::make('viewDocumentQrCode')
+                        ->label('View QR code')
+                        ->icon('heroicon-o-qr-code')
+                        ->url(\Illuminate\Support\Facades\URL::signedRoute('documents.qr', [
+                            'document' => $document->document_id,
+                        ]))
+                        ->openUrlInNewTab()
+                        ->button(),
+                    Action::make('viewAcceptedDocument')
+                        ->label('View document')
+                        ->url(
+                            \App\Filament\Client\Pages\ViewDocument::getUrl([
+                                'document' => $document->document_id,
+                                'from' => 'documents',
+                                'tab' => 'requested',
+                            ])
+                        )
+                        ->button(),
+                ])
+                ->sendToDatabase($client);
         }
 
         // ADMIN TOAST
-        Notification::make()
-            ->title('Document accepted')
+        $notification = Notification::make()
+            ->title($emailFailed ? 'Document accepted, but email failed' : 'Document accepted')
             ->body(
                 'Assigned LAO Number: ' .
-                $document->lao_number
-            )
-            ->success()
-            ->send();
+                $document->lao_number .
+                ($emailFailed ? '. The email notification could not be sent. Please contact your administrator to check the mail server connection.' : '')
+            );
+
+        if ($emailFailed) {
+            $notification->warning();
+        } else {
+            $notification->success();
+        }
+
+        $notification->send();
 
         $this->redirect(
             self::getUrl([

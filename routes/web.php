@@ -57,6 +57,14 @@ Route::get('/admin/document-export', [DocumentExportController::class, '__invoke
     ->middleware(['auth', AdminMiddleware::class])
     ->name('admin.documents.export');
 
+Route::get('/admin/reports/monthly', App\Http\Controllers\MonthlyReportController::class)
+    ->middleware(['auth', AdminMiddleware::class])
+    ->name('admin.reports.monthly');
+
+Route::get('/document-qr/{document}', App\Http\Controllers\DocumentQrCodeController::class)
+    ->middleware('signed')
+    ->name('documents.qr');
+
 Route::get('/document-status/{document}', function (int $document) {
     $documentRecord = Document::query()
         ->with(['user'])

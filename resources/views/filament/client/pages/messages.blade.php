@@ -1141,6 +1141,9 @@
 
                 @endforelse
 
+                <x-documents.conversation-qr :document="$activeConversation?->document" />
+
+
             </div>
 
 
