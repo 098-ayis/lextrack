@@ -71,7 +71,11 @@
                                 );
                             @endphp
 
+<<<<<<< HEAD
                             @if (in_array($extension, ['pdf', 'doc', 'docx'], true))
+=======
+                            @if (in_array($extension, ['pdf', 'doc', 'docx']))
+>>>>>>> 1a07ec0 (view docx partial fix)
 
                                 <iframe
                                     src="{{ $previewUrl }}"
