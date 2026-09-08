@@ -18,18 +18,15 @@
                 ] as $section => $item)
                     <a
                         href="{{ request()->fullUrlWithQuery(['section' => $section]) }}"
-                        class="group relative flex h-12 flex-1 items-center justify-center gap-1.5 border-b-2 border-transparent px-3 text-xs font-medium whitespace-nowrap transition-colors
+                        class="group relative flex h-12 flex-1 items-center justify-center gap-2 border-b-2 border-transparent px-3 text-sm font-medium whitespace-nowrap transition-colors
                             {{ $activeSection === $section
                                 ? 'border-violet-600 text-violet-600 dark:border-violet-400 dark:text-violet-400'
                                 : 'text-gray-500 hover:border-gray-200 hover:text-gray-800 dark:text-gray-400 dark:hover:border-gray-700 dark:hover:text-gray-200' }}"
                     >
-                        <x-filament::icon :icon="$item['icon']" class="h-4 w-4 shrink-0" />
+                        <x-filament::icon :icon="$item['icon']" class="h-5 w-5 shrink-0" />
                         <span>{{ $item['label'] }}</span>
                         <span
-                            class="ml-0.5 text-[10px] font-semibold
-                                {{ $activeSection === $section
-                                    ? 'text-violet-600 dark:text-violet-400'
-                                    : 'text-gray-400 dark:text-gray-500' }}"
+                            class="ml-0.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white shadow-sm"
                         >
                             {{ $statusCounts[$section] ?? 0 }}
                         </span>
@@ -90,9 +87,9 @@
                     ]) }}"
                     target="_blank"
                     rel="noopener"
-                    class="inline-flex h-9 items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 text-xs font-semibold text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-white/10"
+                    class="documents-export-button inline-flex h-9 items-center gap-1 rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs font-semibold text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-white/10"
                 >
-                    <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M12 3v12m0 0 4-4m-4 4-4-4M5 18v3h14v-3" />
                     </svg>
                     Export Excel

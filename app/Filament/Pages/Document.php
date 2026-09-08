@@ -369,7 +369,7 @@ class Document extends Page implements HasTable
             $columns[] = ViewColumn::make('subjects')
                 ->label('DETAILS')
                 ->view('filament.tables.columns.subjects')
-                ->alignCenter()
+                ->alignStart()
                 ->width('18rem')
                 ->extraHeaderAttributes(['class' => 'min-w-[200px]'])
                 ->extraCellAttributes(['class' => 'align-middle']);
