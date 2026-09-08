@@ -288,6 +288,7 @@ class DocumentRequests extends Page implements HasTable
             }
 
             $document->status = 'in_progress';
+            $document->deadline = Document::deadlineForType($document->document_type);
             $document->save();
 
             $request->update([
@@ -339,10 +340,18 @@ class DocumentRequests extends Page implements HasTable
             Notification::make()
                 ->title('Document Accepted')
                 ->body(
-                    'Your requested document has been accepted. You can now view it in your Documents page.'
+                    'Your requested document has been accepted. Your document QR code is ready. Open it below and scan it to track the document status.'
                 )
                 ->success()
                 ->actions([
+                    Action::make('viewDocumentQrCode')
+                        ->label('View QR code')
+                        ->icon('heroicon-o-qr-code')
+                        ->url(\Illuminate\Support\Facades\URL::signedRoute('documents.qr', [
+                            'document' => $document->document_id,
+                        ]))
+                        ->openUrlInNewTab()
+                        ->button(),
                     Action::make('viewAcceptedDocument')
                         ->label('View document')
                         ->url(
@@ -473,16 +482,6 @@ class DocumentRequests extends Page implements HasTable
                             $document
                         )
                     );
-
-                    // CLIENT FILAMENT BELL
-                    Notification::make()
-                        ->title('Document Rejected')
-                        ->body(
-                            'Your document has been rejected. Reason: ' .
-                            $document->rejection_reason
-                        )
-                        ->danger()
-                        ->sendToDatabase($client);
                 }
 
                 // ADMIN TOAST

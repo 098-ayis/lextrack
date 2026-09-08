@@ -166,14 +166,18 @@ class Cabinet extends Page
                     ->datalist(fn () => DocumentType::query()->orderBy('type_name')->pluck('type_name'))
                     ->live()
                     ->afterStateUpdated(function ($state, Set $set): void {
-                        $set('deadline', Document::deadlineForType($state));
+                        $deadline = Document::deadlineForType($state);
+
+                        if (filled($deadline)) {
+                            $set('deadline', $deadline);
+                        }
                     })
                     ->required(),
 
                 DatePicker::make('deadline')
                     ->label('Deadline')
-                    ->readOnly()
-                    ->helperText('Calculated from the document type.'),
+                    ->default(now()->toDateString())
+                    ->helperText('Preselected to today; calculated from the document type when configured.'),
 
                 TextInput::make('office_unit')
                     ->label('Office / Unit')
@@ -215,14 +219,16 @@ class Cabinet extends Page
                         'document_name' =>
                             basename((string) $filePath),
 
+                        // Generate at save time so an old form value cannot
+                        // reuse a LAO number assigned by another upload.
                         'lao_number' =>
-                            $data['lao_number'] ?? Document::generateLaoNumber(),
+                            Document::generateLaoNumber(),
 
                         'particulars' =>
                             $data['particulars'] ?? null,
 
                         'deadline' =>
-                            Document::deadlineForType($data['document_type']),
+                            $data['deadline'] ?? Document::deadlineForType($data['document_type']),
 
                         'status' =>
                             'in_progress',

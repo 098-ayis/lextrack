@@ -204,31 +204,11 @@ class Dashboard extends Page
 
     public function getCalendarEvents()
     {
-        $start = Carbon::create(
-            $this->year,
-            $this->month,
-            1
-        )->startOfMonth();
+        $calendar = new \App\Filament\Pages\Calendar;
+        $calendar->year = $this->year;
+        $calendar->month = $this->month;
 
-        $end = $start
-            ->copy()
-            ->endOfMonth();
-
-        return Calendar::query()
-
-            ->whereBetween(
-                'date',
-                [
-                    $start->toDateString(),
-                    $end->toDateString(),
-                ]
-            )
-
-            ->orderBy('date')
-
-            ->orderBy('time')
-
-            ->get();
+        return $calendar->getMonthEvents();
     }
 
     /*
@@ -291,9 +271,7 @@ class Dashboard extends Page
             ->getCalendarEvents()
             ->groupBy(
                 function ($event) {
-                    return $event
-                        ->date
-                        ->format('Y-m-d');
+                    return Carbon::parse($event->date)->format('Y-m-d');
                 }
             );
 
@@ -327,6 +305,9 @@ class Dashboard extends Page
 
                 'hasEvent' =>
                     $events->has($dateKey),
+
+                'isCompleted' => $events->has($dateKey)
+                    && $events->get($dateKey)->every(fn ($event) => $event->is_completed),
             ];
 
             $date->addDay();

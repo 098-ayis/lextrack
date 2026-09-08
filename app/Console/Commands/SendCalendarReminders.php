@@ -3,7 +3,9 @@
 namespace App\Console\Commands;
 
 use App\Models\Calendar;
+use App\Models\Document;
 use App\Notifications\CalendarEventReminder;
+use App\Services\AdminDocumentNotificationService;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 
@@ -11,9 +13,9 @@ class SendCalendarReminders extends Command
 {
     protected $signature = 'calendar:send-reminders';
 
-    protected $description = 'Send email reminders for upcoming calendar events';
+    protected $description = 'Send email and in-app reminders for calendar events and document deadlines';
 
-    public function handle(): int
+    public function handle(AdminDocumentNotificationService $notifications): int
     {
         $now = now();
 
@@ -57,15 +59,6 @@ class SendCalendarReminders extends Command
                     new CalendarEventReminder($event, '3_days')
                 );
 
-                // Notification bell
-                \Filament\Notifications\Notification::make()
-                    ->title('Calendar Reminder')
-                    ->body(
-                        $event->event . ' is scheduled in 3 days.'
-                    )
-                    ->info()
-                    ->sendToDatabase($event->user);
-
                 $event->update([
                     'reminder_3_days_sent_at' => now(),
                 ]);
@@ -89,14 +82,6 @@ class SendCalendarReminders extends Command
                     new CalendarEventReminder($event, '1_day')
                 );
 
-                \Filament\Notifications\Notification::make()
-                    ->title('Calendar Reminder')
-                    ->body(
-                        $event->event . ' is scheduled for tomorrow.'
-                    )
-                    ->warning()
-                    ->sendToDatabase($event->user);
-
                 $event->update([
                     'reminder_1_day_sent_at' => now(),
                 ]);
@@ -118,14 +103,6 @@ class SendCalendarReminders extends Command
                     new CalendarEventReminder($event, '10_minutes')
                 );
 
-                \Filament\Notifications\Notification::make()
-                    ->title('Upcoming Calendar Event')
-                    ->body(
-                        $event->event . ' will start in 10 minutes.'
-                    )
-                    ->warning()
-                    ->sendToDatabase($event->user);
-
                 $event->update([
                     'reminder_10_minutes_sent_at' => now(),
                 ]);
@@ -136,6 +113,48 @@ class SendCalendarReminders extends Command
             }
         }
 
+        $this->sendDocumentDeadlineReminders($notifications);
+
         return self::SUCCESS;
+    }
+
+    private function sendDocumentDeadlineReminders(
+        AdminDocumentNotificationService $notifications,
+    ): void {
+        $documents = Document::query()
+            ->whereNotNull('deadline')
+            ->whereNotIn('status', [
+                'completed',
+                'rejected',
+                'archived',
+            ])
+            ->get();
+
+        foreach ($documents as $document) {
+            $daysUntilDeadline = today()->diffInDays(
+                $document->deadline,
+                false,
+            );
+
+            $reminderType = match ($daysUntilDeadline) {
+                3 => '3_days',
+                1 => '1_day',
+                0 => 'deadline_day',
+                default => null,
+            };
+
+            if (! $reminderType) {
+                continue;
+            }
+
+            $notifications->notifyDocumentDeadline(
+                $document,
+                $reminderType,
+            );
+
+            $this->info(
+                "{$reminderType} deadline reminder checked for document #{$document->document_id}"
+            );
+        }
     }
 }

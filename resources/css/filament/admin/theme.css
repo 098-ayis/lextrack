@@ -190,6 +190,35 @@
     box-shadow: none !important;
 }
 
+/* Keep the notification count red without Filament's white badge wrapper. */
+.fi-topbar .fi-topbar-database-notifications-btn {
+    position: relative !important;
+    width: 2.5rem !important;
+    min-width: 2.5rem !important;
+    height: 2.5rem !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    flex: 0 0 2.5rem !important;
+}
+
+.fi-topbar .fi-topbar-database-notifications-btn > .fi-icon-btn-badge-ctn {
+    background: transparent !important;
+    border-radius: 9999px !important;
+    inset-inline-start: calc(100% - 0.5rem) !important;
+    top: 35% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    transform: translate(0, -50%) !important;
+}
+
+.fi-topbar .fi-topbar-database-notifications-btn .fi-badge {
+    margin: 0 !important;
+}
+
+.fi-topbar .fi-topbar-end {
+    gap: 0.75rem !important;
+}
+
 /* ================================
    ACTIVE UNDERLINE
 ================================ */

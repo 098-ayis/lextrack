@@ -3,6 +3,7 @@
 namespace App\Providers\Filament;
 
 use App\Filament\Pages\Dashboard;
+use App\Livewire\DatabaseNotifications;
 use App\Filament\Widgets\DocumentStats;
 use App\Http\Middleware\FilamentAuthenticate;
 use App\Models\Document;
@@ -78,7 +79,7 @@ class AdminPanelProvider extends PanelProvider
                 fn () => view('filament.admin.sidebar-default-state'),
             )
             ->globalSearch(false)
-            ->databaseNotifications()
+            ->databaseNotifications(true, DatabaseNotifications::class)
 
             ->brandLogo(fn () => view('filament.components.brand'))
             ->brandLogoHeight('3rem')

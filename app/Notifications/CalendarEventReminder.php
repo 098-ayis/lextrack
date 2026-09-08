@@ -3,6 +3,7 @@
 namespace App\Notifications;
 
 use App\Models\Calendar;
+use Filament\Notifications\Notification as FilamentNotification;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
@@ -18,7 +19,7 @@ class CalendarEventReminder extends Notification
 
     public function via(object $notifiable): array
     {
-        return ['mail'];
+        return ['mail', 'database'];
     }
 
     public function toMail(object $notifiable): MailMessage
@@ -42,6 +43,26 @@ class CalendarEventReminder extends Notification
             ->line(
                 'This is an automated reminder from LexTrack.'
             );
+    }
+
+    public function toDatabase(object $notifiable): array
+    {
+        $title = $this->reminderType === '10_minutes'
+            ? 'Upcoming Calendar Event'
+            : 'Calendar Reminder';
+
+        return [
+            ...FilamentNotification::make()
+                ->title($title)
+                ->body($this->getReminderMessage())
+                ->warning()
+                ->getDatabaseMessage(),
+            'calendar_event_id' => $this->event->sched_id,
+            'redirect_url' => url(
+                '/admin/calendar?date=' .
+                $this->event->date->format('Y-m-d')
+            ),
+        ];
     }
 
     private function getReminderMessage(): string

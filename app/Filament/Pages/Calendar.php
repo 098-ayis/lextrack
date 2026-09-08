@@ -46,9 +46,32 @@ class Calendar extends Page
     public function mount(): void
     {
         $now = now();
-
         $this->year = $now->year;
         $this->month = $now->month;
+        $this->selectedDate = $now->toDateString();
+
+        $requestedDate = request()->query('date');
+
+        if (!is_string($requestedDate)) {
+            return;
+        }
+
+        try {
+            $calendarDate = Carbon::createFromFormat(
+                '!Y-m-d',
+                $requestedDate,
+            );
+
+            if ($calendarDate->format('Y-m-d') !== $requestedDate) {
+                return;
+            }
+
+            $this->selectedDate = $requestedDate;
+            $this->year = $calendarDate->year;
+            $this->month = $calendarDate->month;
+        } catch (\Throwable) {
+            // Keep today selected when the query date is invalid.
+        }
     }
 
 
@@ -86,6 +109,15 @@ class Calendar extends Page
         $this->selectedDate = null;
     }
 
+    public function goToToday(): void
+    {
+        $today = now();
+
+        $this->year = $today->year;
+        $this->month = $today->month;
+        $this->selectedDate = $today->format('Y-m-d');
+    }
+
 
     /*
     |--------------------------------------------------------------------------
@@ -95,15 +127,21 @@ class Calendar extends Page
 
     public function selectDate(string $date): void
     {
-        $this->selectedDate =
-            $this->selectedDate === $date
-                ? null
-                : $date;
+        $this->selectedDate = $date;
     }
 
     public function clearSelectedDate(): void
     {
         $this->selectedDate = null;
+    }
+
+    public function openDocumentDeadline(int $documentId): void
+    {
+        $this->redirect(
+            ViewDocument::getUrl([
+                'document' => $documentId,
+            ])
+        );
     }
 
 
@@ -276,6 +314,7 @@ class Calendar extends Page
                     'sched_id' => "document-deadline-{$document->document_id}",
                     'document_id' => $document->document_id,
                     'is_document_deadline' => true,
+                    'is_completed' => $document->status === 'completed',
                     'user_id' => $document->user_id,
                     'user' => null,
                     'event' => $title,
@@ -447,6 +486,7 @@ class Calendar extends Page
                     ->label('Date')
                     ->native(false)
                     ->displayFormat('M d, Y')
+                    ->default(now()->toDateString())
                     ->required(),
 
                 $this->eventTimeField(),
@@ -478,15 +518,9 @@ class Calendar extends Page
     |--------------------------------------------------------------------------
     */
 
-    public function editEvent(?int $eventId): ?Action
+    public function editEventAction(): Action
     {
-        if (!$eventId) {
-            return null;
-        }
-
-        $event = CalendarModel::findOrFail($eventId);
-
-        return Action::make("editEvent{$eventId}")
+        return Action::make('editEvent')
             ->label('')
             ->icon('heroicon-o-pencil')
             ->tooltip('Edit event')
@@ -495,24 +529,16 @@ class Calendar extends Page
             ->modalDescription(
                 'Update the event information below.'
             )
-            ->fillForm([
+            ->fillForm(function (array $arguments): array {
+                $event = CalendarModel::findOrFail($arguments['eventId']);
 
-                'event' => $event->event,
-
-                'details' => $event->details,
-
-                'date' => $event->date
-                    ? Carbon::parse(
-                        $event->date
-                    )->format('Y-m-d')
-                    : null,
-
-                'time' => $event->time
-                    ? Carbon::parse(
-                        $event->time
-                    )->format('H:i')
-                    : null,
-            ])
+                return [
+                    'event' => $event->event,
+                    'details' => $event->details,
+                    'date' => $event->date?->format('Y-m-d'),
+                    'time' => $event->time?->format('H:i'),
+                ];
+            })
             ->form([
 
                 TextInput::make('event')
@@ -531,12 +557,14 @@ class Calendar extends Page
                     ->label('Date')
                     ->native(false)
                     ->displayFormat('M d, Y')
+                    ->default(now()->toDateString())
                     ->required(),
 
                 $this->eventTimeField(),
             ])
             ->action(
-                function (array $data) use ($event): void {
+                function (array $data, array $arguments): void {
+                    $event = CalendarModel::findOrFail($arguments['eventId']);
 
                     /*
                      * Original date

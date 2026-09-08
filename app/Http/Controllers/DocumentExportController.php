@@ -89,22 +89,22 @@ class DocumentExportController extends Controller
             $status = ucwords(str_replace('_', ' ', (string) $document->status));
             $action = $document->action_type ?? '—';
 
-                $this->writeCsvRow($handle, [
-                    $index + 1,
-                    $document->lao_number,
-                    $document->office_unit,
-                    $document->particulars,
-                    $type,
-                    $document->user?->name ?? '—',
-                    $this->formatDate($document->created_at) ?? '—',
-                    $action,
-                    $status,
-                    $this->formatDate($document->outgoing_date) ?? '—',
-                    $document->sent_to ?? '—',
-                    $this->formatDate($document->sent_date) ?? '—',
-                    $this->formatDate($document->updated_at) ?? '—',
-                ]);
-            }
+            $rows->push([
+                $index + 1,
+                $document->lao_number,
+                $document->office_unit,
+                $document->particulars,
+                $type,
+                $document->user?->name ?? '—',
+                $this->formatDate($document->created_at) ?? '—',
+                $action,
+                $status,
+                $this->formatDate($document->outgoing_date) ?? '—',
+                $document->sent_to ?? '—',
+                $this->formatDate($document->sent_date) ?? '—',
+                $this->formatDate($document->updated_at) ?? '—',
+            ]);
+        }
 
         return app(DocumentSpreadsheetService::class)->build($rows, $sectionLabel);
     }

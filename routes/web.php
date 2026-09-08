@@ -61,6 +61,10 @@ Route::get('/admin/reports/monthly', App\Http\Controllers\MonthlyReportControlle
     ->middleware(['auth', AdminMiddleware::class])
     ->name('admin.reports.monthly');
 
+Route::get('/document-qr/{document}', App\Http\Controllers\DocumentQrCodeController::class)
+    ->middleware('signed')
+    ->name('documents.qr');
+
 Route::get('/document-status/{document}', function (int $document) {
     $documentRecord = Document::query()
         ->with(['user'])
@@ -165,6 +169,22 @@ Route::get('/dashboard', function () {
     return view('dashboard');
 })->middleware('auth')->name('dashboard');
 
+
+Route::get('/admin/document-temp-preview/{file}', function (string $file) {
+    $path = storage_path('app/private/temp-previews/'.$file);
+
+    abort_unless(is_file($path), 404);
+
+    return response()->file($path, [
+        'Content-Type' => 'application/pdf',
+        'Content-Disposition' => 'inline; filename="'.$file.'"',
+        'X-Content-Type-Options' => 'nosniff',
+        'Cache-Control' => 'private, no-store',
+    ]);
+})
+    ->where('file', '[a-f0-9]{32}\.pdf')
+    ->middleware(['auth', AdminMiddleware::class])
+    ->name('admin.document.temp-preview');
 
 Route::get('/admin/documents/{document}/preview', function (int $document) {
 
