@@ -3,9 +3,10 @@
 namespace App\Providers\Filament;
 
 use App\Filament\Pages\Dashboard;
-use App\Livewire\DatabaseNotifications;
 use App\Filament\Widgets\DocumentStats;
 use App\Http\Middleware\FilamentAuthenticate;
+use App\Http\Middleware\IdleTimeout;
+use App\Livewire\DatabaseNotifications;
 use App\Models\Document;
 use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -23,7 +24,6 @@ use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Route;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
-use App\Http\Middleware\IdleTimeout;
 
 class AdminPanelProvider extends PanelProvider
 {
@@ -80,6 +80,7 @@ class AdminPanelProvider extends PanelProvider
             )
             ->globalSearch(false)
             ->databaseNotifications(true, DatabaseNotifications::class)
+            ->databaseNotificationsPolling('15s')
 
             ->brandLogo(fn () => view('filament.components.brand'))
             ->brandLogoHeight('3rem')

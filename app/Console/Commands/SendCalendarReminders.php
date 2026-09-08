@@ -6,6 +6,7 @@ use App\Models\Calendar;
 use App\Models\Document;
 use App\Notifications\CalendarEventReminder;
 use App\Services\AdminDocumentNotificationService;
+use App\Services\InAppNotificationService;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 
@@ -26,12 +27,12 @@ class SendCalendarReminders extends Command
             ->get();
 
         foreach ($events as $event) {
-            if (!$event->user || !$event->user->email) {
+            if (! $event->user || ! $event->user->email) {
                 continue;
             }
 
             $eventDateTime = Carbon::parse(
-                $event->date->format('Y-m-d') . ' ' .
+                $event->date->format('Y-m-d').' '.
                 $event->time->format('H:i:s')
             );
 
@@ -53,15 +54,16 @@ class SendCalendarReminders extends Command
             if (
                 $minutesUntilEvent <= 4320 &&
                 $minutesUntilEvent > 4319 &&
-                !$event->reminder_3_days_sent_at
+                ! $event->reminder_3_days_sent_at
             ) {
-                $event->user->notify(
+                app(InAppNotificationService::class)->send(
+                    $event->user,
                     new CalendarEventReminder($event, '3_days')
                 );
 
-                $event->update([
+                $event->forceFill([
                     'reminder_3_days_sent_at' => now(),
-                ]);
+                ])->save();
 
                 $this->info(
                     "3-day reminder sent for: {$event->event}"
@@ -76,15 +78,16 @@ class SendCalendarReminders extends Command
             if (
                 $minutesUntilEvent <= 1440 &&
                 $minutesUntilEvent > 1439 &&
-                !$event->reminder_1_day_sent_at
+                ! $event->reminder_1_day_sent_at
             ) {
-                $event->user->notify(
+                app(InAppNotificationService::class)->send(
+                    $event->user,
                     new CalendarEventReminder($event, '1_day')
                 );
 
-                $event->update([
+                $event->forceFill([
                     'reminder_1_day_sent_at' => now(),
-                ]);
+                ])->save();
 
                 $this->info(
                     "1-day reminder sent for: {$event->event}"
@@ -97,15 +100,16 @@ class SendCalendarReminders extends Command
             if (
                 $minutesUntilEvent <= 10 &&
                 $minutesUntilEvent > 9 &&
-                !$event->reminder_10_minutes_sent_at
+                ! $event->reminder_10_minutes_sent_at
             ) {
-                $event->user->notify(
+                app(InAppNotificationService::class)->send(
+                    $event->user,
                     new CalendarEventReminder($event, '10_minutes')
                 );
 
-                $event->update([
+                $event->forceFill([
                     'reminder_10_minutes_sent_at' => now(),
-                ]);
+                ])->save();
 
                 $this->info(
                     "10-minute reminder sent for: {$event->event}"
@@ -131,7 +135,7 @@ class SendCalendarReminders extends Command
             ->get();
 
         foreach ($documents as $document) {
-            $daysUntilDeadline = today()->diffInDays(
+            $daysUntilDeadline = (int) today()->diffInDays(
                 $document->deadline,
                 false,
             );
