@@ -7,9 +7,12 @@ use App\Models\DocumentVersion;
 use chillerlan\QRCode\Output\QROutputInterface;
 use chillerlan\QRCode\QRCode;
 use chillerlan\QRCode\QROptions;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\URL;
 use RuntimeException;
+use setasign\Fpdi\Fpdi;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\Process\Process;
 use Throwable;
 
 class DocumentDownloadService
@@ -23,26 +26,26 @@ class DocumentDownloadService
             throw new RuntimeException('Unable to create the temporary download directory.');
         }
 
-        $temporaryPath = $temporaryDirectory . '/' . uniqid('document-', true) . '.pdf';
+        $workingDirectory = $temporaryDirectory.'/'.bin2hex(random_bytes(16));
+        File::makeDirectory($workingDirectory, 0775, true);
+        $temporaryPath = $workingDirectory.'-with-qr.pdf';
 
         try {
-            $pdfPath = $this->convertToPdf($sourcePath, $temporaryDirectory);
-            $this->appendQrPage($pdfPath, $temporaryPath, $document->document_id);
-
-            if ($pdfPath !== $sourcePath && file_exists($pdfPath)) {
-                unlink($pdfPath);
-            }
+            $pdfPath = $this->convertToPdf($sourcePath, $workingDirectory);
+            $this->stampQrCode($pdfPath, $temporaryPath, $document->document_id);
         } catch (Throwable $exception) {
             if (file_exists($temporaryPath)) {
                 unlink($temporaryPath);
             }
 
             throw $exception;
+        } finally {
+            File::deleteDirectory($workingDirectory);
         }
 
         return response()->download(
             $temporaryPath,
-            pathinfo((string) $version->file_path, PATHINFO_FILENAME) . '-with-qr.pdf'
+            pathinfo((string) $version->file_path, PATHINFO_FILENAME).'-with-qr.pdf'
         )->deleteFileAfterSend(true);
     }
 
@@ -58,26 +61,30 @@ class DocumentDownloadService
             throw new RuntimeException('QR code attachment is not supported for this file type.');
         }
 
-        $output = [];
-        $exitCode = 0;
-        $command = sprintf(
-            'libreoffice --headless --convert-to pdf --outdir %s %s 2>&1',
-            escapeshellarg($temporaryDirectory),
-            escapeshellarg($sourcePath)
-        );
+        // A writable, per-download profile avoids headless startup failures and
+        // prevents simultaneous LibreOffice processes sharing a profile.
+        $profile = 'file://'.$temporaryDirectory.'/libreoffice-profile';
+        $process = new Process([
+            'libreoffice',
+            '-env:UserInstallation='.$profile,
+            '--headless',
+            '--convert-to', 'pdf:writer_pdf_Export',
+            '--outdir', $temporaryDirectory,
+            $sourcePath,
+        ]);
+        $process->setTimeout(120);
+        $process->run();
 
-        exec($command, $output, $exitCode);
+        $pdfPath = $temporaryDirectory.'/'.pathinfo($sourcePath, PATHINFO_FILENAME).'.pdf';
 
-        $pdfPath = $temporaryDirectory . '/' . pathinfo($sourcePath, PATHINFO_FILENAME) . '.pdf';
-
-        if ($exitCode !== 0 || ! file_exists($pdfPath)) {
-            throw new RuntimeException('Unable to convert the document to PDF.');
+        if (! $process->isSuccessful() || ! is_file($pdfPath) || filesize($pdfPath) === 0) {
+            throw new RuntimeException('Unable to convert the document to PDF: '.trim($process->getErrorOutput().' '.$process->getOutput()));
         }
 
         return $pdfPath;
     }
 
-    private function appendQrPage(string $sourcePath, string $targetPath, int $documentId): void
+    private function stampQrCode(string $sourcePath, string $targetPath, int $documentId): void
     {
         $statusUrl = URL::signedRoute('documents.public-status', ['document' => $documentId]);
         $qrCode = (new QRCode(new QROptions([
@@ -86,25 +93,37 @@ class DocumentDownloadService
             'scale' => 10,
         ])))->render($statusUrl);
 
-        $pages = new \Imagick();
-        $pages->readImage($sourcePath);
+        // Import PDF page content directly: text, fonts and graphics stay at
+        // their original quality instead of becoming a flattened page image.
+        $pdf = new Fpdi;
+        $pdf->SetAutoPageBreak(false);
+        $pageCount = $pdf->setSourceFile($sourcePath);
+        $qrPath = tempnam(sys_get_temp_dir(), 'document-qr-');
+        if ($qrPath === false) {
+            throw new RuntimeException('Unable to create the QR image.');
+        }
 
-        $qrPage = new \Imagick();
-        $qrPage->newImage(1200, 1400, new \ImagickPixel('white'));
-        $qrPage->setImageFormat('png');
+        try {
+            if (file_put_contents($qrPath, $qrCode) === false) {
+                throw new RuntimeException('Unable to save the QR image.');
+            }
 
-        $qrImage = new \Imagick();
-        $qrImage->readImageBlob($qrCode);
-        $qrImage->setImageFormat('png');
-        $qrImage->resizeImage(900, 900, \Imagick::FILTER_LANCZOS, 1);
-        $qrPage->compositeImage($qrImage, \Imagick::COMPOSITE_DEFAULT, 150, 180);
+            for ($pageNumber = 1; $pageNumber <= $pageCount; $pageNumber++) {
+                $template = $pdf->importPage($pageNumber, importExternalLinks: true);
+                $page = $pdf->getTemplateSize($template);
+                $pdf->AddPage($page['orientation'], [$page['width'], $page['height']]);
+                $pdf->useTemplate($template);
 
-        $pages->addImage($qrPage);
-        $pages->setImageFormat('pdf');
-        $pages->writeImages($targetPath, true);
+                if ($pageNumber === 1) {
+                    // Fit within the top margin of a standard document header.
+                    $size = min(20.0, min($page['width'], $page['height']) * 0.095);
+                    $pdf->Image($qrPath, $page['width'] - $size - 5, 3, $size, $size, 'PNG', $statusUrl);
+                }
+            }
 
-        $qrImage->clear();
-        $qrPage->clear();
-        $pages->clear();
+            $pdf->Output('F', $targetPath);
+        } finally {
+            unlink($qrPath);
+        }
     }
 }

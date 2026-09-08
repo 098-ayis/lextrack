@@ -170,6 +170,22 @@ Route::get('/dashboard', function () {
 })->middleware('auth')->name('dashboard');
 
 
+Route::get('/admin/document-temp-preview/{file}', function (string $file) {
+    $path = storage_path('app/private/temp-previews/'.$file);
+
+    abort_unless(is_file($path), 404);
+
+    return response()->file($path, [
+        'Content-Type' => 'application/pdf',
+        'Content-Disposition' => 'inline; filename="'.$file.'"',
+        'X-Content-Type-Options' => 'nosniff',
+        'Cache-Control' => 'private, no-store',
+    ]);
+})
+    ->where('file', '[a-f0-9]{32}\.pdf')
+    ->middleware(['auth', AdminMiddleware::class])
+    ->name('admin.document.temp-preview');
+
 Route::get('/admin/documents/{document}/preview', function (int $document) {
 
     $documentRecord = Document::findOrFail($document);
