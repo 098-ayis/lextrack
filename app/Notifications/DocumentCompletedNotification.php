@@ -4,17 +4,13 @@ namespace App\Notifications;
 
 use App\Models\Document;
 use Filament\Notifications\Notification as FilamentNotification;
-use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
-class DocumentAcceptedNotification extends Notification
+class DocumentCompletedNotification extends Notification
 {
-    use Queueable;
-
     public function __construct(
         public Document $document,
-        public string $tab = 'in_progress',
     ) {}
 
     public function via(object $notifiable): array
@@ -26,35 +22,36 @@ class DocumentAcceptedNotification extends Notification
     {
         return (new MailMessage)
             ->subject(
-                'LexTrack: Document Accepted - ' .
-                $this->document->lao_number
+                'LexTrack: Document Completed - ' .
+                ($this->document->lao_number ?? $this->document->document_id)
             )
             ->greeting('Hello, ' . $notifiable->name . '!')
-            ->line('Your submitted document has been accepted by the Legal Office.')
+            ->line('Your document has been completed by the Legal Office.')
             ->line('Document: ' . $this->document->particulars)
-            ->line('Assigned LAO Number: ' . $this->document->lao_number)
-            ->line('Status: In Progress')
+            ->line('Status: Completed')
             ->action(
                 'View Document',
                 url('/client/documents/' . $this->document->document_id)
             )
-            ->line('You can use your LAO number to track the document in LexTrack.');
+            ->line(
+                'You can view the completed document and its latest status in LexTrack.'
+            );
     }
 
     public function toDatabase(object $notifiable): array
     {
         return [
             ...FilamentNotification::make()
-                ->title('Document Accepted')
+                ->title('Document Completed')
                 ->body(
-                    'Your document has been accepted and is now being processed.'
+                    'Your document has been completed by the Legal Office.'
                 )
                 ->success()
                 ->getDatabaseMessage(),
             'document_id' => $this->document->document_id,
             'redirect_url' => url(
-                '/client/documents?tab=' . $this->tab .
-                '&document=' . $this->document->document_id
+                '/client/documents?tab=completed&document=' .
+                $this->document->document_id
             ),
         ];
     }

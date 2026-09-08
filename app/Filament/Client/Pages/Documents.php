@@ -24,6 +24,7 @@ class Documents extends Page implements HasTable
     protected string $view = 'filament.client.pages.documents'; 
 
     public string $activeTab = 'all'; 
+    public ?int $highlightedDocumentId = null;
     public string $documentSearch = '';
     public string $documentType = '';
     public string $documentStatus = '';
@@ -51,6 +52,7 @@ class Documents extends Page implements HasTable
     public function mount(): void
     {
         $tab = request()->query('tab', 'all');
+        $document = request()->query('document');
 
         $this->activeTab = in_array($tab, [
             'all',
@@ -60,6 +62,10 @@ class Documents extends Page implements HasTable
             'rejected',
             'requested',
         ], true) ? $tab : 'all';
+
+        $this->highlightedDocumentId = is_numeric($document) && (int) $document > 0
+            ? (int) $document
+            : null;
     }
 
     // This method sets the tab AND instantly refreshes the table data
@@ -225,6 +231,12 @@ class Documents extends Page implements HasTable
                     'from' => 'documents',
                     'tab' => $this->activeTab,
                 ])
+            )
+            ->recordClasses(
+                fn (Document $record): string => $this->highlightedDocumentId !== null &&
+                    (int) $record->document_id === $this->highlightedDocumentId
+                    ? 'document-highlighted'
+                    : ''
             )
             ->columns([
                 TextColumn::make('lao_number')

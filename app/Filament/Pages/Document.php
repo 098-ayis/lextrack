@@ -7,6 +7,7 @@ use App\Models\DocumentVersion;
 use App\Models\RejectedDocument;
 use App\Notifications\DocumentRejectedNotification;
 use App\Notifications\DocumentAcceptedNotification;
+use App\Notifications\DocumentCompletedNotification;
 use Filament\Pages\Page;
 use Filament\Notifications\Notification;
 use Filament\Actions\Action;
@@ -71,6 +72,8 @@ class Document extends Page implements HasTable
 
     public string $activeSection = 'incoming';
 
+    public ?int $highlightedDocumentId = null;
+
     public bool $showAcceptedModal = false;
 
     public ?string $acceptedDocumentUploader = null;
@@ -84,6 +87,7 @@ class Document extends Page implements HasTable
     public function mount(): void
     {
         $section = request()->query('section', 'incoming');
+        $document = request()->query('document');
 
         $this->activeSection = in_array($section, [
             'pending',
@@ -93,6 +97,10 @@ class Document extends Page implements HasTable
             'rejected',
             'archived',
         ], true) ? $section : 'incoming';
+
+        $this->highlightedDocumentId = is_numeric($document) && (int) $document > 0
+            ? (int) $document
+            : null;
     }
 
     public function getMaxContentWidth(): Width
@@ -349,6 +357,12 @@ class Document extends Page implements HasTable
             ->recordUrl(fn (DocumentModel $record): string => ViewDocument::getUrl([
                 'document' => $record->document_id,
             ]))
+            ->recordClasses(
+                fn (DocumentModel $record): string => $this->highlightedDocumentId !== null &&
+                    (int) $record->document_id === $this->highlightedDocumentId
+                    ? 'document-highlighted'
+                    : ''
+            )
             ->groups([
                 Group::make('created_at')
                     ->date()
@@ -617,7 +631,8 @@ class Document extends Page implements HasTable
                 TextInput::make('lao_number')
                     ->label('LAO Number')
                     ->default(fn (): string => DocumentModel::generateLaoNumber())
-                    ->readOnly(),
+                    ->readOnly()
+                    ->helperText('Automatically assigned from the current LAO sequence.'),
 
                 TextInput::make('document_name')
                     ->label('Document Name')
@@ -633,12 +648,17 @@ class Document extends Page implements HasTable
                             ->datalist(fn () => DocumentType::query()->orderBy('type_name')->pluck('type_name'))
                             ->live()
                             ->afterStateUpdated(function ($state, Set $set): void {
-                                $set('deadline', DocumentModel::deadlineForType($state));
+                                $deadline = DocumentModel::deadlineForType($state);
+
+                                if (filled($deadline)) {
+                                    $set('deadline', $deadline);
+                                }
                             })
                             ->required(),
 
                         DatePicker::make('deadline')
-                            ->label('Deadline'),
+                            ->label('Deadline')
+                            ->default(now()->toDateString()),
                     ]),
 
                 TextInput::make('action_type')
@@ -672,13 +692,15 @@ class Document extends Page implements HasTable
                 unset($data['file_path']);
 
                 $data['user_id'] = auth()->id();
-                $data['deadline'] = DocumentModel::deadlineForType($data['document_type'] ?? null);
+                $data['deadline'] ??= DocumentModel::deadlineForType($data['document_type'] ?? null);
                 $data['document_name'] = filled($filePath)
                     ? basename((string) $filePath)
                     : ($data['document_name'] ?? null);
 
                 $document = DB::transaction(function () use ($data, $filePath): DocumentModel {
-                    $data['lao_number'] ??= DocumentModel::generateLaoNumber();
+                    // Generate again at save time so the number is always the
+                    // latest available one, even if the form stayed open.
+                    $data['lao_number'] = DocumentModel::generateLaoNumber();
                     $document = DocumentModel::create($data);
 
                     if (filled($filePath)) {
@@ -735,34 +757,41 @@ class Document extends Page implements HasTable
                                 ->datalist(fn () => DocumentType::query()->orderBy('type_name')->pluck('type_name'))
                                 ->live()
                                 ->afterStateUpdated(function ($state, Set $set): void {
-                                    $set('deadline', DocumentModel::deadlineForType($state));
+                                    $deadline = DocumentModel::deadlineForType($state);
+
+                                    if (filled($deadline)) {
+                                        $set('deadline', $deadline);
+                                    }
                                 })
                                 ->required(),
 
                             DatePicker::make('deadline')
                                 ->label('Deadline')
-                                ->readOnly()
-                                ->helperText('Calculated from the document type.'),
+                                ->default(now()->toDateString())
+                                ->helperText('Preselected to today; calculated from the document type when configured.'),
                         ]),
 
 
 
                         DatePicker::make('outgoing_date')
-                            ->label('Outgoing Date'),
+                            ->label('Outgoing Date')
+                            ->default(now()->toDateString()),
 
                         TextInput::make('sent_to')
                             ->label('Sent To')
                             ->maxLength(255),
 
                         DatePicker::make('sent_date')
-                            ->label('Sent Date'),
+                            ->label('Sent Date')
+                            ->default(now()->toDateString()),
 
                         TextInput::make('returned_from')
                             ->label('Returned From')
                             ->maxLength(255),
 
                         DatePicker::make('date_returned')
-                            ->label('Returned Date'),
+                            ->label('Returned Date')
+                            ->default(now()->toDateString()),
                     ];
                 }
 
@@ -781,7 +810,11 @@ class Document extends Page implements HasTable
                     ->datalist(fn () => DocumentType::query()->orderBy('type_name')->pluck('type_name'))
                     ->live()
                     ->afterStateUpdated(function ($state, Set $set): void {
-                        $set('deadline', DocumentModel::deadlineForType($state));
+                        $deadline = DocumentModel::deadlineForType($state);
+
+                        if (filled($deadline)) {
+                            $set('deadline', $deadline);
+                        }
                     })
                     ->required(),
 
@@ -802,8 +835,8 @@ class Document extends Page implements HasTable
 
                 DatePicker::make('deadline')
                     ->label('Deadline')
-                    ->readOnly()
-                    ->helperText('Calculated from the document type.'),
+                    ->default(now()->toDateString())
+                    ->helperText('Preselected to today; calculated from the document type when configured.'),
 
                 Select::make('status')
                     ->options([
@@ -838,7 +871,7 @@ class Document extends Page implements HasTable
 
                     'office_unit' => $document->office_unit,
                     'particulars' => $document->particulars,
-                    'deadline' => $document->deadline,
+                    'deadline' => $document->deadline ?? now()->toDateString(),
                     'status' => $document->status,
                     'outgoing_date' => $document->outgoing_date,
                     'sent_to' => $document->sent_to,
@@ -1115,6 +1148,7 @@ class Document extends Page implements HasTable
 
             $document->update([
                 'status' => 'rejected',
+                'rejection_reason' => $reason,
             ]);
 
             return $rejection;
@@ -1211,11 +1245,17 @@ class Document extends Page implements HasTable
 
     public function completeDocument(int $documentId): void
     {
-        $document = DocumentModel::findOrFail($documentId);
+        $document = DocumentModel::with('user')->findOrFail($documentId);
 
         $document->update([
             'status' => 'completed',
         ]);
+
+        if ($document->user) {
+            $document->user->notify(
+                new DocumentCompletedNotification($document)
+            );
+        }
 
         $this->recordDocumentActivity(
             $document->document_id,

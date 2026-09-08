@@ -181,21 +181,24 @@ class ViewDocument extends Page
                             ->required(),
 
                         DatePicker::make('outgoing_date')
-                            ->label('Outgoing Date'),
+                            ->label('Outgoing Date')
+                            ->default(now()->toDateString()),
 
                         TextInput::make('sent_to')
                             ->label('Sent To')
                             ->maxLength(255),
 
                         DatePicker::make('sent_date')
-                            ->label('Sent Date'),
+                            ->label('Sent Date')
+                            ->default(now()->toDateString()),
 
                         TextInput::make('returned_from')
                             ->label('Returned From')
                             ->maxLength(255),
 
                         DatePicker::make('date_returned')
-                            ->label('Returned Date'),
+                            ->label('Returned Date')
+                            ->default(now()->toDateString()),
                     ];
                 }
 
@@ -223,7 +226,11 @@ class ViewDocument extends Page
                         ->datalist(fn () => DocumentType::query()->orderBy('type_name')->pluck('type_name'))
                         ->live()
                         ->afterStateUpdated(function ($state, Set $set): void {
-                            $set('deadline', Document::deadlineForType($state));
+                            $deadline = Document::deadlineForType($state);
+
+                            if (filled($deadline)) {
+                                $set('deadline', $deadline);
+                            }
                         })
                         ->required(),
 
@@ -234,8 +241,8 @@ class ViewDocument extends Page
 
                     DatePicker::make('deadline')
                         ->label('Deadline')
-                        ->readOnly()
-                        ->helperText('Calculated from the document type.'),
+                        ->default(now()->toDateString())
+                        ->helperText('Preselected to today; calculated from the document type when configured.'),
                 ];
 
                 if ($this->documentRecord->status !== 'completed') {
@@ -258,21 +265,24 @@ class ViewDocument extends Page
                         ->required(),
 
                     DatePicker::make('outgoing_date')
-                        ->label('Outgoing Date'),
+                        ->label('Outgoing Date')
+                        ->default(now()->toDateString()),
 
                     TextInput::make('sent_to')
                         ->label('Sent To')
                         ->maxLength(255),
 
                     DatePicker::make('sent_date')
-                        ->label('Sent Date'),
+                        ->label('Sent Date')
+                        ->default(now()->toDateString()),
 
                     TextInput::make('returned_from')
                         ->label('Returned From')
                         ->maxLength(255),
 
                     DatePicker::make('date_returned')
-                        ->label('Returned Date'),
+                        ->label('Returned Date')
+                        ->default(now()->toDateString()),
 
                     FileUpload::make('file_path')
                         ->label('Upload New Document Version')
@@ -292,7 +302,7 @@ class ViewDocument extends Page
                     'action_type' => $this->documentRecord->action_type,
                     'office_unit' => $this->documentRecord->office_unit,
                     'particulars' => $this->documentRecord->particulars,
-                    'deadline' => $this->documentRecord->deadline,
+                    'deadline' => $this->documentRecord->deadline ?? now()->toDateString(),
                     'status' => $this->documentRecord->status,
                     'outgoing_date' => $this->documentRecord->outgoing_date,
                     'sent_to' => $this->documentRecord->sent_to,

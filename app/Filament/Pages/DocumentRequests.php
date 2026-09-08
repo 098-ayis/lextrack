@@ -288,6 +288,7 @@ class DocumentRequests extends Page implements HasTable
             }
 
             $document->status = 'in_progress';
+            $document->deadline = Document::deadlineForType($document->document_type);
             $document->save();
 
             $request->update([
@@ -481,16 +482,6 @@ class DocumentRequests extends Page implements HasTable
                             $document
                         )
                     );
-
-                    // CLIENT FILAMENT BELL
-                    Notification::make()
-                        ->title('Document Rejected')
-                        ->body(
-                            'Your document has been rejected. Reason: ' .
-                            $document->rejection_reason
-                        )
-                        ->danger()
-                        ->sendToDatabase($client);
                 }
 
                 // ADMIN TOAST
