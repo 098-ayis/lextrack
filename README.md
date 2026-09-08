@@ -7,6 +7,24 @@
 <a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
 </p>
 
+## Document downloads
+
+Word document downloads require LibreOffice Writer to convert the document to PDF before adding its QR code. The Sail image includes `libreoffice-writer` and `fonts-liberation` in `docker/8.5/Dockerfile`.
+
+If downloads fail with `exec: libreoffice: not found`, rebuild the application image and recreate the application container from the project directory:
+
+```bash
+docker compose build laravel.test
+docker compose up -d --no-deps laravel.test
+docker compose exec -T laravel.test libreoffice --version
+```
+
+Verify PDF conversion and QR stamping with:
+
+```bash
+docker compose exec -T --user sail laravel.test php artisan test --filter=DocumentDownloadTest
+```
+
 ## About Laravel
 
 Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
