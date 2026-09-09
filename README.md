@@ -25,6 +25,28 @@ Verify PDF conversion and QR stamping with:
 docker compose exec -T --user sail laravel.test php artisan test --filter=DocumentDownloadTest
 ```
 
+## Monthly report PDF downloads
+
+Monthly report PDFs use Playwright's Chromium browser in `/opt/playwright`.
+If an older running container reports `Executable doesn't exist`, install the
+browser matching the project's installed Playwright version:
+
+```bash
+docker compose exec -T --user root -e PLAYWRIGHT_BROWSERS_PATH=/opt/playwright laravel.test npx playwright install --with-deps chromium
+docker compose exec -T --user sail laravel.test php artisan test --filter=MonthlyReportPdfTest
+```
+
+This repairs the current container. To include the browser when the container is
+recreated, rebuild using the existing browser installation step in the Dockerfile:
+
+```bash
+docker compose build laravel.test
+docker compose up -d --no-deps laravel.test
+```
+
+After updating Playwright, install its matching browser again and update the
+Playwright version in `docker/8.5/Dockerfile` before rebuilding.
+
 ## About Laravel
 
 Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
