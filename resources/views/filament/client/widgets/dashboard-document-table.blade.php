@@ -350,7 +350,7 @@
                                     alt="{{ $document->particulars ?: 'Document preview' }}"
                                     class="h-full w-full object-cover object-top transition duration-300 group-hover:scale-105"
                                 >
-                            @elseif ($previewUrl && $extension === 'pdf')
+                            @elseif ($previewUrl && in_array($extension, ['pdf', 'doc', 'docx'], true))
                                 <iframe
                                     src="{{ $previewUrl }}"
                                     title="{{ $document->particulars ?: 'Document preview' }}"

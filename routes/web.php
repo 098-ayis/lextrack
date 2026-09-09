@@ -120,9 +120,7 @@ Route::get('/client/document-preview/{document}', function ($document) {
         404
     );
 
-    return response()->file(
-        $disk->path($filePath)
-    );
+    return app(\App\Services\DocumentPreviewService::class)->preview($disk->path($filePath));
 
 })
     ->middleware('auth')
@@ -210,12 +208,7 @@ Route::get('/admin/documents/{document}/preview', function (int $document) {
 
     $path = $disk->path($filePath);
 
-    return response()->file($path, [
-        'Content-Type' => 'application/pdf',
-        'Content-Disposition' => 'inline; filename="' .
-            basename($path) .
-            '"',
-    ]);
+    return app(\App\Services\DocumentPreviewService::class)->preview($path);
 })
     ->middleware('auth')
     ->name('admin.documents.preview');
@@ -263,12 +256,7 @@ Route::get('/admin/documents/{document}/versions/{version}/preview', function (
 
     $path = $versionRecord->storageDisk()->path($versionRecord->file_path);
 
-    return response()->file($path, [
-        'Content-Type' => 'application/pdf',
-        'Content-Disposition' => 'inline; filename="' .
-            basename($versionRecord->file_path) .
-            '"',
-    ]);
+    return app(\App\Services\DocumentPreviewService::class)->preview($path);
 })
     ->middleware('auth')
     ->name('admin.document.version.preview');

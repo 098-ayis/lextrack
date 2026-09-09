@@ -7,6 +7,13 @@
             : null;
         $displayedFilePath = $selectedVersion?->file_path
             ?? $latestFilePath;
+        $displayedExtension = strtolower(pathinfo((string) $displayedFilePath, PATHINFO_EXTENSION));
+        $displayedFileType = match ($displayedExtension) {
+            'docx' => 'Word Document (DOCX)',
+            'doc' => 'Word Document (DOC)',
+            'pdf' => 'PDF Document',
+            default => 'Document',
+        };
         $displayedVersionNumber = $selectedVersion?->version_number
             ?? $documentRecord->latestVersion?->version_number
             ?? '1';
@@ -46,10 +53,10 @@
     >
         <div class="flex min-w-0 items-center gap-3">
 
-            {{-- PDF Icon --}}
+            {{-- Document Icon --}}
             <div
                 class="flex h-10 w-10 shrink-0 items-center justify-center
-                       rounded-lg bg-red-50 text-red-600"
+                       rounded-lg {{ in_array($displayedExtension, ['doc', 'docx'], true) ? 'bg-blue-50 text-blue-600' : 'bg-red-50 text-red-600' }}"
             >
                 <svg
                     class="h-6 w-6"
@@ -92,7 +99,7 @@
                 </div>
 
                 <p class="mt-0.5 text-xs text-gray-500">
-                    PDF Document
+                    {{ $displayedFileType }}
                 </p>
             </div>
         </div>
@@ -123,7 +130,7 @@
         {{-- ========================================================= --}}
         <div class="document-preview-pane flex min-h-0 min-w-0 flex-col bg-white">
 
-            {{-- PDF VIEWER --}}
+            {{-- DOCUMENT VIEWER --}}
             {{-- ===================================================== --}}
             <div class="min-h-0 flex-1 overflow-hidden bg-gray-100">
 
@@ -453,7 +460,7 @@
                                     : 'v' . ($loop->iteration + 1);
                                 $versionFileName = $version->file_path
                                     ? basename($version->file_path)
-                                    : 'Document.pdf';
+                                    : 'Document';
                                 $isSelectedVersion = $selectedVersionId === $version->version_id;
                             @endphp
 
@@ -475,7 +482,7 @@
                                         class="inline-flex h-6 w-6 shrink-0 items-center justify-center
                                                rounded-sm bg-red-500 text-[8px] font-bold text-white"
                                     >
-                                        PDF
+                                        {{ strtoupper(pathinfo($versionFileName, PATHINFO_EXTENSION)) ?: 'FILE' }}
                                     </span>
 
                                     <span class="min-w-0 flex-1 break-words text-xs font-medium
@@ -531,7 +538,7 @@
                             @php
                                 $currentFileName = $latestFilePath
                                     ? basename($latestFilePath)
-                                    : 'Document.pdf';
+                                    : 'Document';
                             @endphp
 
                             <button
@@ -547,7 +554,7 @@
                                     class="inline-flex h-6 w-6 shrink-0 items-center justify-center
                                            rounded-sm bg-red-500 text-[8px] font-bold text-white"
                                 >
-                                    PDF
+                                    {{ strtoupper(pathinfo($currentFileName, PATHINFO_EXTENSION)) ?: 'FILE' }}
                                 </span>
 
                                 <div class="flex min-w-0 flex-1 items-center gap-2">

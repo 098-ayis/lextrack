@@ -7,6 +7,48 @@
 <a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
 </p>
 
+## Document downloads
+
+DOCX downloads keep their Word format and include a clickable QR image above the document content. The original upload is unchanged. PDF downloads remain PDF. Legacy `.doc` downloads require LibreOffice Writer to convert the document to PDF before adding its QR code. The Sail image includes `libreoffice-writer` and `fonts-liberation` in `docker/8.5/Dockerfile`.
+
+If downloads fail with `exec: libreoffice: not found`, rebuild the application image and recreate the application container from the project directory:
+
+```bash
+docker compose build laravel.test
+docker compose up -d --no-deps laravel.test
+docker compose exec -T laravel.test libreoffice --version
+```
+
+Verify PDF conversion and QR stamping with:
+
+```bash
+docker compose exec -T --user sail laravel.test php artisan test --filter=DocumentDownloadTest
+```
+
+DOCX previews render the original Word data directly in the browser, without PDF conversion. DOCX downloads retain their Word format with the QR code. Only legacy `.doc` previews require LibreOffice Writer.
+
+## Monthly report PDF downloads
+
+Monthly report PDFs use Playwright's Chromium browser in `/opt/playwright`.
+If an older running container reports `Executable doesn't exist`, install the
+browser matching the project's installed Playwright version:
+
+```bash
+docker compose exec -T --user root -e PLAYWRIGHT_BROWSERS_PATH=/opt/playwright laravel.test npx playwright install --with-deps chromium
+docker compose exec -T --user sail laravel.test php artisan test --filter=MonthlyReportPdfTest
+```
+
+This repairs the current container. To include the browser when the container is
+recreated, rebuild using the existing browser installation step in the Dockerfile:
+
+```bash
+docker compose build laravel.test
+docker compose up -d --no-deps laravel.test
+```
+
+After updating Playwright, install its matching browser again and update the
+Playwright version in `docker/8.5/Dockerfile` before rebuilding.
+
 ## About Laravel
 
 Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:

@@ -3,12 +3,28 @@
 namespace Tests\Feature;
 
 use App\Models\User;
+use App\Services\DocumentPreviewService;
 use Illuminate\Support\Facades\File;
 use Mockery;
 use Tests\TestCase;
 
 class DocumentPreviewTest extends TestCase
 {
+    public function test_docx_preview_uses_original_word_data_without_pdf_conversion(): void
+    {
+        $this->withoutVite();
+        $source = base_path('LETTERHEAD-LAO.docx');
+        $hash = hash_file('sha256', $source);
+        $response = app(DocumentPreviewService::class)->preview($source);
+        $this->assertStringContainsString('text/html', $response->headers->get('Content-Type'));
+        $this->assertStringContainsString('Word document preview', $response->getContent());
+        $marker = '<script id="document-data" type="application/json">';
+        $this->assertStringContainsString($marker, $response->getContent());
+        $json = explode('</script>', explode($marker, $response->getContent(), 2)[1], 2)[0];
+        $this->assertSame(file_get_contents($source), base64_decode(json_decode($json)));
+        $this->assertSame($hash, hash_file('sha256', $source));
+    }
+
     private function signIn(bool $admin): void
     {
         $user = Mockery::mock(User::class)->makePartial();

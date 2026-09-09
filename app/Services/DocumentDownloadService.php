@@ -27,23 +27,16 @@ class DocumentDownloadService
 
         $workingDirectory = $temporaryDirectory.'/'.bin2hex(random_bytes(16));
         File::makeDirectory($workingDirectory, 0775, true);
-        $temporaryPath = $workingDirectory.'-with-qr.pdf';
-        $qrCodeStamped = false;
+        $extension = strtolower(pathinfo($sourcePath, PATHINFO_EXTENSION)) === 'docx' ? 'docx' : 'pdf';
+        $temporaryPath = $workingDirectory.'-with-qr.'.$extension;
 
         try {
-            $pdfPath = $this->convertToPdf($sourcePath, $workingDirectory);
-
-            if (class_exists(\setasign\Fpdi\Fpdi::class)) {
-                $this->stampQrCode($pdfPath, $temporaryPath, $document->document_id);
-                $qrCodeStamped = true;
+            if ($extension === 'docx') {
+                $statusUrl = URL::signedRoute('documents.public-status', ['document' => $document->document_id]);
+                app(DocumentWordQrService::class)->stamp($sourcePath, $temporaryPath, $this->qrImage($statusUrl), $statusUrl);
             } else {
-                logger()->warning('FPDI is unavailable; downloading the document without a QR code.', [
-                    'document_id' => $document->document_id,
-                ]);
-
-                if (! copy($pdfPath, $temporaryPath)) {
-                    throw new RuntimeException('Unable to prepare the document for download.');
-                }
+                $pdfPath = $this->convertToPdf($sourcePath, $workingDirectory);
+                $this->stampQrCode($pdfPath, $temporaryPath, $document->document_id);
             }
         } catch (Throwable $exception) {
             if (file_exists($temporaryPath)) {
@@ -57,8 +50,10 @@ class DocumentDownloadService
 
         return response()->download(
             $temporaryPath,
-            pathinfo((string) $version->file_path, PATHINFO_FILENAME).
-                ($qrCodeStamped ? '-with-qr' : '').'.pdf'
+            pathinfo((string) $version->file_path, PATHINFO_FILENAME).'-with-qr.'.$extension,
+            ['Content-Type' => $extension === 'docx'
+                ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+                : 'application/pdf']
         )->deleteFileAfterSend(true);
     }
 
@@ -100,11 +95,7 @@ class DocumentDownloadService
     private function stampQrCode(string $sourcePath, string $targetPath, int $documentId): void
     {
         $statusUrl = URL::signedRoute('documents.public-status', ['document' => $documentId]);
-        $qrCode = (new QRCode(new QROptions([
-            'outputType' => QROutputInterface::GDIMAGE_PNG,
-            'outputBase64' => false,
-            'scale' => 10,
-        ])))->render($statusUrl);
+        $qrCode = $this->qrImage($statusUrl);
 
         // Import PDF page content directly: text, fonts and graphics stay at
         // their original quality instead of becoming a flattened page image.
@@ -138,5 +129,14 @@ class DocumentDownloadService
         } finally {
             unlink($qrPath);
         }
+    }
+
+    private function qrImage(string $statusUrl): string
+    {
+        return (new QRCode(new QROptions([
+            'outputType' => QROutputInterface::GDIMAGE_PNG,
+            'outputBase64' => false,
+            'scale' => 10,
+        ])))->render($statusUrl);
     }
 }

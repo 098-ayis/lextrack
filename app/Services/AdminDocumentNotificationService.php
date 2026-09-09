@@ -51,7 +51,7 @@ class AdminDocumentNotificationService
                 continue;
             }
 
-            $admin->notify($notification);
+            app(InAppNotificationService::class)->send($admin, $notification);
         }
     }
 
@@ -71,8 +71,7 @@ class AdminDocumentNotificationService
                 ->where('type', DocumentDeadlineReminder::class)
                 ->get()
                 ->contains(
-                    fn ($notification): bool =>
-                        (int) data_get($notification->data, 'document_id') === (int) $document->document_id
+                    fn ($notification): bool => (int) data_get($notification->data, 'document_id') === (int) $document->document_id
                         && data_get($notification->data, 'deadline') === $document->deadline->format('Y-m-d')
                         && data_get($notification->data, 'reminder_type') === $reminderType
                 );
@@ -81,7 +80,8 @@ class AdminDocumentNotificationService
                 continue;
             }
 
-            $admin->notify(
+            app(InAppNotificationService::class)->send(
+                $admin,
                 new DocumentDeadlineReminder($document, $reminderType)
             );
         }
