@@ -645,7 +645,7 @@ class Document extends Page implements HasTable
                         TextInput::make('document_type')
                             ->label('Document Type')
                             ->placeholder('Select document type')
-                            ->datalist(fn () => DocumentType::query()->orderBy('type_name')->pluck('type_name'))
+                            ->datalist(fn () => DocumentType::query()->orderedForChoices()->pluck('type_name'))
                             ->live()
                             ->afterStateUpdated(function ($state, Set $set): void {
                                 $deadline = DocumentModel::deadlineForType($state);
@@ -754,7 +754,7 @@ class Document extends Page implements HasTable
                             TextInput::make('document_type')
                                 ->label('Document Type')
                                 ->placeholder('Select document type')
-                                ->datalist(fn () => DocumentType::query()->orderBy('type_name')->pluck('type_name'))
+                                ->datalist(fn () => DocumentType::query()->orderedForChoices()->pluck('type_name'))
                                 ->live()
                                 ->afterStateUpdated(function ($state, Set $set): void {
                                     $deadline = DocumentModel::deadlineForType($state);
@@ -807,7 +807,7 @@ class Document extends Page implements HasTable
                 TextInput::make('document_type')
                     ->label('Document Type')
                     ->placeholder('Select document type')
-                    ->datalist(fn () => DocumentType::query()->orderBy('type_name')->pluck('type_name'))
+                    ->datalist(fn () => DocumentType::query()->orderedForChoices()->pluck('type_name'))
                     ->live()
                     ->afterStateUpdated(function ($state, Set $set): void {
                         $deadline = DocumentModel::deadlineForType($state);

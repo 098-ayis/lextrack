@@ -5,22 +5,50 @@ namespace Tests\Feature;
 use App\Models\Document;
 use App\Models\DocumentVersion;
 use App\Services\DocumentDownloadService;
+use chillerlan\QRCode\Output\QROutputInterface;
+use chillerlan\QRCode\QRCode;
+use chillerlan\QRCode\QROptions;
 use FPDF;
 use Illuminate\Support\Facades\Storage;
 use setasign\Fpdi\Fpdi;
-use Symfony\Component\Process\Process;
 use Tests\TestCase;
 
 class DocumentDownloadTest extends TestCase
 {
-    public function test_word_download_converts_to_pdf_with_qr_and_cleans_working_files(): void
+    public function test_docx_download_keeps_existing_template_parts(): void
     {
-        $check = new Process(['libreoffice', '--version']);
-        $check->run();
-        if (! $check->isSuccessful()) {
-            $this->markTestSkipped('LibreOffice is required for Word downloads.');
+        Storage::fake('local');
+        $path = Storage::disk('local')->path('letterhead.docx');
+        copy(base_path('LETTERHEAD-LAO.docx'), $path);
+        $hash = hash_file('sha256', $path);
+        $response = app(DocumentDownloadService::class)->download(
+            (new Document)->forceFill(['document_id' => 42]),
+            (new DocumentVersion)->forceFill(['file_path' => 'letterhead.docx'])
+        );
+        $source = new \ZipArchive;
+        $output = new \ZipArchive;
+        $source->open($path);
+        $output->open($response->getFile()->getPathname());
+        try {
+            for ($index = 0; $index < $source->numFiles; $index++) {
+                $name = $source->getNameIndex($index);
+                if (! in_array($name, ['word/document.xml', 'word/_rels/document.xml.rels', '[Content_Types].xml'], true)) {
+                    $this->assertSame($source->getFromName($name), $output->getFromName($name), $name);
+                }
+            }
+            foreach (['word/document.xml', 'word/_rels/document.xml.rels', '[Content_Types].xml'] as $name) {
+                $this->assertTrue((new \DOMDocument)->loadXML($output->getFromName($name)), $name);
+            }
+            $this->assertSame($hash, hash_file('sha256', $path));
+        } finally {
+            $source->close();
+            $output->close();
+            unlink($response->getFile()->getPathname());
         }
+    }
 
+    public function test_docx_download_preserves_word_format_with_qr_and_cleans_working_files(): void
+    {
         Storage::fake('local');
         $disk = Storage::disk('local');
         $path = $disk->path('sample document.docx');
@@ -36,11 +64,38 @@ class DocumentDownloadTest extends TestCase
         $response = app(DocumentDownloadService::class)->download($document, $version);
         $outputPath = $response->getFile()->getPathname();
         try {
-            $pdf = new Fpdi;
-            $this->assertSame(1, $pdf->setSourceFile($outputPath));
+            $this->assertSame('application/vnd.openxmlformats-officedocument.wordprocessingml.document', $response->headers->get('Content-Type'));
+            $this->assertStringContainsString('sample document-with-qr.docx', $response->headers->get('Content-Disposition'));
             $this->assertSame($hash, hash_file('sha256', $path));
-            $this->assertStringContainsString('/document-status/42?signature=', file_get_contents($outputPath));
-            $this->assertDirectoryDoesNotExist(substr($outputPath, 0, -strlen('-with-qr.pdf')));
+            $this->assertDirectoryDoesNotExist(substr($outputPath, 0, -strlen('-with-qr.docx')));
+            $output = new \ZipArchive;
+            $this->assertTrue($output->open($outputPath));
+            try {
+                $xml = new \DOMDocument;
+                $this->assertTrue($xml->loadXML($output->getFromName('word/document.xml')));
+                $xpath = new \DOMXPath($xml);
+                $xpath->registerNamespace('w', 'http://schemas.openxmlformats.org/wordprocessingml/2006/main');
+                $xpath->registerNamespace('a', 'http://schemas.openxmlformats.org/drawingml/2006/main');
+                $xpath->registerNamespace('r', 'http://schemas.openxmlformats.org/officeDocument/2006/relationships');
+                $this->assertSame('Word download regression test', $xpath->evaluate('string(//w:t)'));
+                $imageId = $xpath->evaluate('string(//a:blip/@r:embed)');
+                $this->assertNotEmpty($imageId);
+                $relationships = new \DOMDocument;
+                $this->assertTrue($relationships->loadXML($output->getFromName('word/_rels/document.xml.rels')));
+                $rels = new \DOMXPath($relationships);
+                $imagePath = $rels->evaluate('string(//*[@Id="'.$imageId.'"]/@Target)');
+                $png = $output->getFromName('word/'.$imagePath);
+                $this->assertStringStartsWith("\x89PNG\r\n\x1a\n", $png);
+                $statusUrl = $rels->evaluate('string(//*[@Id="'.$imageId.'Link"]/@Target)');
+                $this->assertStringContainsString('/document-status/42?signature=', $statusUrl);
+                $expected = (new QRCode(new QROptions([
+                    'outputType' => QROutputInterface::GDIMAGE_PNG,
+                    'outputBase64' => false, 'scale' => 10,
+                ])))->render($statusUrl);
+                $this->assertSame($expected, $png);
+            } finally {
+                $output->close();
+            }
         } finally {
             unlink($outputPath);
         }

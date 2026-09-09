@@ -71,7 +71,7 @@
                                 );
                             @endphp
 
-                            @if ($extension === 'pdf')
+                            @if (in_array($extension, ['pdf', 'doc', 'docx'], true))
 
                                 <iframe
                                     src="{{ $previewUrl }}"

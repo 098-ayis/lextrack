@@ -9,7 +9,7 @@
 
 ## Document downloads
 
-Word document downloads require LibreOffice Writer to convert the document to PDF before adding its QR code. The Sail image includes `libreoffice-writer` and `fonts-liberation` in `docker/8.5/Dockerfile`.
+DOCX downloads keep their Word format and include a clickable QR image above the document content. The original upload is unchanged. PDF downloads remain PDF. Legacy `.doc` downloads require LibreOffice Writer to convert the document to PDF before adding its QR code. The Sail image includes `libreoffice-writer` and `fonts-liberation` in `docker/8.5/Dockerfile`.
 
 If downloads fail with `exec: libreoffice: not found`, rebuild the application image and recreate the application container from the project directory:
 
@@ -24,6 +24,8 @@ Verify PDF conversion and QR stamping with:
 ```bash
 docker compose exec -T --user sail laravel.test php artisan test --filter=DocumentDownloadTest
 ```
+
+DOCX previews render the original Word data directly in the browser, without PDF conversion. DOCX downloads retain their Word format with the QR code. Only legacy `.doc` previews require LibreOffice Writer.
 
 ## Monthly report PDF downloads
 

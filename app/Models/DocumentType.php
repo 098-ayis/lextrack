@@ -3,9 +3,16 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Builder;
 
 class DocumentType extends Model
 {
+    public function scopeOrderedForChoices(Builder $query): Builder
+    {
+        return $query->orderByRaw("CASE WHEN LOWER(TRIM(type_name)) = 'others' THEN 1 ELSE 0 END")
+            ->orderBy('type_name');
+    }
+
     protected $primaryKey = 'type_id';
 
     protected $fillable = [

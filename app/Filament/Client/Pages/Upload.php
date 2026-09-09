@@ -54,7 +54,7 @@ class Upload extends Page implements HasForms
 
                 TextInput::make('document_type')
                     ->label('Document Type')
-                    ->datalist(fn () => DocumentType::query()->orderBy('type_name')->pluck('type_name'))
+                    ->datalist(fn () => DocumentType::query()->orderedForChoices()->pluck('type_name'))
                     ->required(),
                     
                 FileUpload::make('file_path')

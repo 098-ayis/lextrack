@@ -281,7 +281,7 @@
 
                                     @if (
                                         $document->latestVersion?->file_path &&
-                                        strtolower(pathinfo($document->latestVersion->file_path, PATHINFO_EXTENSION)) === 'pdf'
+                                        in_array(strtolower(pathinfo($document->latestVersion->file_path, PATHINFO_EXTENSION)), ['pdf', 'doc', 'docx'], true)
                                     )
 
                                         <iframe

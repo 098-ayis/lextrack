@@ -20,7 +20,6 @@ use Filament\Pages\Page;
 use Filament\Support\Enums\Width;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 // use BezhanSalleh\FilamentShield\Traits\HasPageShield;
 
 class ViewDocument extends Page
@@ -177,7 +176,7 @@ class ViewDocument extends Page
 
                         TextInput::make('document_type')
                             ->label('Document Type')
-                            ->datalist(fn () => DocumentType::query()->orderBy('type_name')->pluck('type_name'))
+                            ->datalist(fn () => DocumentType::query()->orderedForChoices()->pluck('type_name'))
                             ->required(),
 
                         DatePicker::make('outgoing_date')
@@ -223,7 +222,7 @@ class ViewDocument extends Page
 
                     TextInput::make('document_type')
                         ->label('Document Type')
-                        ->datalist(fn () => DocumentType::query()->orderBy('type_name')->pluck('type_name'))
+                        ->datalist(fn () => DocumentType::query()->orderedForChoices()->pluck('type_name'))
                         ->live()
                         ->afterStateUpdated(function ($state, Set $set): void {
                             $deadline = Document::deadlineForType($state);
@@ -696,137 +695,18 @@ class ViewDocument extends Page
             });
     }
 
-    /**
-     * Generate a preview URL for the document.
-     *
-     * PDF:
-     *     Display directly.
-     *
-     * DOC / DOCX:
-     *     Convert to a temporary PDF using LibreOffice.
-     */
+    /** Generate an authenticated preview URL for browser-supported and Word files. */
     protected function generatePreview(): string
     {
-        $path = $this->documentRecord->latestVersion?->file_path;
-
-        if (!$path) {
+        $version = $this->documentRecord->latestVersion;
+        if (! $version?->file_path || ! $version->storageDisk()->exists($version->file_path)) {
             return '';
         }
 
-        $disk = $this->documentRecord->latestVersion?->storageDisk()
-            ?? Storage::disk('local');
-
-        if (!$disk->exists($path)) {
+        if (! in_array(strtolower(pathinfo($version->file_path, PATHINFO_EXTENSION)), ['pdf', 'doc', 'docx'], true)) {
             return '';
         }
 
-        $extension = strtolower(
-            pathinfo($path, PATHINFO_EXTENSION)
-        );
-
-        // PDF
-        if ($extension === 'pdf') {
-            return route(
-                'admin.documents.preview',
-                [
-                    'document' => $this->documentRecord->document_id,
-                ]
-            );
-        }
-
-        if (!in_array($extension, ['doc', 'docx'], true)) {
-            return '';
-        }
-
-        $source = $disk->path($path);
-
-        $previewDirectory = storage_path(
-            'app/private/temp-previews'
-        );
-
-        if (!is_dir($previewDirectory)) {
-            mkdir($previewDirectory, 0775, true);
-        }
-
-        $previewName = md5($path) . '.pdf';
-
-        $previewPath =
-            $previewDirectory . '/' . $previewName;
-
-        if (
-            file_exists($previewPath) &&
-            filemtime($previewPath) >= filemtime($source)
-        ) {
-            return route(
-                'admin.document.temp-preview',
-                ['file' => $previewName]
-            );
-        }
-
-        if (file_exists($previewPath)) {
-            unlink($previewPath);
-        }
-
-        $command = sprintf(
-            'libreoffice --headless --convert-to pdf --outdir %s %s 2>&1',
-            escapeshellarg($previewDirectory),
-            escapeshellarg($source)
-        );
-
-        $output = [];
-        $exitCode = 0;
-
-        exec(
-            $command,
-            $output,
-            $exitCode
-        );
-
-        if ($exitCode !== 0) {
-            logger()->error(
-                'LibreOffice conversion failed',
-                [
-                    'document_id' =>
-                        $this->documentRecord->document_id,
-                    'source' => $source,
-                    'exit_code' => $exitCode,
-                    'output' => $output,
-                ]
-            );
-
-            return '';
-        }
-
-        $generatedPdf =
-            $previewDirectory .
-            '/' .
-            pathinfo($source, PATHINFO_FILENAME) .
-            '.pdf';
-
-        if (!file_exists($generatedPdf)) {
-            logger()->error(
-                'LibreOffice PDF was not generated',
-                [
-                    'document_id' =>
-                        $this->documentRecord->document_id,
-                    'expected' => $generatedPdf,
-                    'output' => $output,
-                ]
-            );
-
-            return '';
-        }
-
-        if ($generatedPdf !== $previewPath) {
-            rename(
-                $generatedPdf,
-                $previewPath
-            );
-        }
-
-        return route(
-            'admin.document.temp-preview',
-            ['file' => $previewName]
-        );
+        return route('admin.documents.preview', ['document' => $this->documentRecord->document_id]);
     }
 }
