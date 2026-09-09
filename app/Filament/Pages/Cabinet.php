@@ -63,6 +63,10 @@ class Cabinet extends Page
 
     public function loadCabinet(): void
     {
+        $knownTypes = DocumentType::query()->pluck('type_name')
+            ->mapWithKeys(fn (string $name) => [strtolower(trim($name)) => trim($name)])
+            ->all();
+
         $documents = Document::query()
             ->with(['latestVersion'])
             ->whereNotNull('document_type')
@@ -76,11 +80,15 @@ class Cabinet extends Page
             )
             ->groupBy(
                 fn (Document $document) =>
-                    $document->document_type
+                    $knownTypes[strtolower(trim($document->document_type))] ?? 'Others'
             )
-            ->map(function ($documentsByType) {
+            ->map(function ($documentsByType, string $type) {
                 return $documentsByType
-                    ->groupBy(function (Document $document) {
+                    ->groupBy(function (Document $document) use ($type) {
+                        if (strcasecmp($type, 'Others') === 0) {
+                            return trim($document->document_type);
+                        }
+
                         $office = trim((string) $document->office_unit);
 
                         return $office !== ''
