@@ -93,6 +93,7 @@ class DocumentRequests extends Page implements HasTable
         return DocumentRequest::query()
             ->with([
                 'document.user',
+                'document.latestVersion',
                 'user',
             ])
             ->where('status', $status)
@@ -164,17 +165,12 @@ class DocumentRequests extends Page implements HasTable
     protected function getDocumentRequestTableColumns(): array
     {
         $columns = [
-            TextColumn::make('request_number')
-                ->label('NO.')
-                ->rowIndex()
-                ->alignCenter()
-                ->extraHeaderAttributes(['class' => 'w-16']),
 
             ViewColumn::make('document_details')
                 ->label('DOCUMENT')
                 ->view('filament.tables.columns.request-document-details')
-                ->width('24rem')
-                ->extraHeaderAttributes(['class' => 'min-w-[280px]']),
+                ->width('20rem')
+                ->extraHeaderAttributes(['class' => 'min-w-[240px]']),
 
             TextColumn::make('purpose')
                 ->label('PURPOSE')
@@ -191,8 +187,10 @@ class DocumentRequests extends Page implements HasTable
 
             ViewColumn::make('requested_by')
                 ->label('REQUESTED BY')
-                ->view('filament.tables.columns.uploaded-by')
-                ->extraHeaderAttributes(['class' => 'min-w-[180px]']),
+                ->view('filament.tables.columns.requested-by')
+                ->alignCenter()
+                ->width('5rem')
+                ->extraHeaderAttributes(['class' => 'min-w-[80px]']),
 
             TextColumn::make('date_of_request')
                 ->label('DATE OF REQUEST')
@@ -223,7 +221,7 @@ class DocumentRequests extends Page implements HasTable
         }
 
         return [
-            $this->returnRequestAction(),
+            $this->returnRequestAction()->button(),
         ];
     }
 
@@ -505,15 +503,16 @@ class DocumentRequests extends Page implements HasTable
     {
         return Action::make('returnRequest')
             ->label('Return')
-            ->color('gray')
-            ->button()
+            ->icon('heroicon-o-arrow-uturn-left')
+            ->color('success')
+            ->tooltip('Return Document')
             ->requiresConfirmation()
             ->modalHeading('Return Document Request')
             ->modalDescription('Are you sure you want to return this request to pending?')
             ->modalSubmitActionLabel('Return')
             ->modalCancelActionLabel('Cancel')
             ->extraAttributes([
-                'class' => 'inline-flex h-9 items-center justify-center rounded-md border-0 bg-[#DCFCE7] px-3 text-xs font-semibold text-[#15803D] transition hover:bg-[#BBF7D0]',
+                'class' => 'return-document-button',
             ])
             ->action(function (array $arguments, ?DocumentRequest $record = null): void {
                 $requestId = $record?->request_id ?? ($arguments['request'] ?? null);

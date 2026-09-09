@@ -14,6 +14,7 @@ class Document extends Model
     
     protected $fillable = [
         'user_id',
+        'file_hash',
         'document_type',
         'action_type',
         'lao_number',

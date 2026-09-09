@@ -780,7 +780,7 @@
          */
         .document-viewer-layout {
             display: grid;
-            grid-template-columns: 320px minmax(0, 1fr) 320px;
+            grid-template-columns: 280px minmax(0, 1fr) 360px;
 
             gap: 0;
             margin: 0;
@@ -825,7 +825,7 @@
 
         .document-details-sidebar,
         .document-details-sidebar * {
-            font-size: 10px !important;
+            font-size: 12px !important;
         }
 
         .document-viewer-header,
@@ -834,7 +834,7 @@
         }
 
         .document-details-sidebar .sidebar-section-title {
-            font-size: 12px !important;
+            font-size: 14px !important;
         }
 
         .document-notes-sidebar .add-note-button > .fi-icon {

@@ -10,7 +10,6 @@ use chillerlan\QRCode\QROptions;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\URL;
 use RuntimeException;
-use setasign\Fpdi\Fpdi;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\Process\Process;
 use Throwable;
@@ -29,10 +28,23 @@ class DocumentDownloadService
         $workingDirectory = $temporaryDirectory.'/'.bin2hex(random_bytes(16));
         File::makeDirectory($workingDirectory, 0775, true);
         $temporaryPath = $workingDirectory.'-with-qr.pdf';
+        $qrCodeStamped = false;
 
         try {
             $pdfPath = $this->convertToPdf($sourcePath, $workingDirectory);
-            $this->stampQrCode($pdfPath, $temporaryPath, $document->document_id);
+
+            if (class_exists(\setasign\Fpdi\Fpdi::class)) {
+                $this->stampQrCode($pdfPath, $temporaryPath, $document->document_id);
+                $qrCodeStamped = true;
+            } else {
+                logger()->warning('FPDI is unavailable; downloading the document without a QR code.', [
+                    'document_id' => $document->document_id,
+                ]);
+
+                if (! copy($pdfPath, $temporaryPath)) {
+                    throw new RuntimeException('Unable to prepare the document for download.');
+                }
+            }
         } catch (Throwable $exception) {
             if (file_exists($temporaryPath)) {
                 unlink($temporaryPath);
@@ -45,7 +57,8 @@ class DocumentDownloadService
 
         return response()->download(
             $temporaryPath,
-            pathinfo((string) $version->file_path, PATHINFO_FILENAME).'-with-qr.pdf'
+            pathinfo((string) $version->file_path, PATHINFO_FILENAME).
+                ($qrCodeStamped ? '-with-qr' : '').'.pdf'
         )->deleteFileAfterSend(true);
     }
 
@@ -95,7 +108,7 @@ class DocumentDownloadService
 
         // Import PDF page content directly: text, fonts and graphics stay at
         // their original quality instead of becoming a flattened page image.
-        $pdf = new Fpdi;
+        $pdf = new \setasign\Fpdi\Fpdi;
         $pdf->SetAutoPageBreak(false);
         $pageCount = $pdf->setSourceFile($sourcePath);
         $qrPath = tempnam(sys_get_temp_dir(), 'document-qr-');

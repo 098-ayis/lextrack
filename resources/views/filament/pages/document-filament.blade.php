@@ -3,6 +3,7 @@
         @php
             $activeSection = $this->activeSection;
             $statusCounts = $this->getStatusCounts();
+            $newStatusSections = $this->getNewStatusSections();
         @endphp
 
         {{-- STATUS HEADER --}}
@@ -26,7 +27,9 @@
                         <x-filament::icon :icon="$item['icon']" class="h-5 w-5 shrink-0" />
                         <span>{{ $item['label'] }}</span>
                         <span
-                            class="ml-0.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white shadow-sm"
+                            class="{{ in_array($section, $newStatusSections, true)
+                                ? 'ml-0.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white shadow-sm'
+                                : 'ml-0.5 text-[10px] font-semibold' }}"
                         >
                             {{ $statusCounts[$section] ?? 0 }}
                         </span>
