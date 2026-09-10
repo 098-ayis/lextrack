@@ -7,7 +7,7 @@
     <div class="admin-document-requests-page">
         {{-- STATUS HEADER --}}
         <div class="mb-0 w-full overflow-x-auto border border-gray-300 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
-            <nav class="flex w-full min-w-[720px] items-stretch px-3" aria-label="Document request status">
+            <nav class="flex w-full min-w-[720px] items-stretch px-3 py-2" aria-label="Document request status">
                 @foreach ([
                     'pending' => ['label' => 'Pending', 'icon' => 'heroicon-o-document-text'],
                     'accepted' => ['label' => 'Accepted', 'icon' => 'heroicon-o-check-circle'],
@@ -15,17 +15,15 @@
                 ] as $section => $item)
                     <a
                         href="{{ request()->fullUrlWithQuery(['section' => $section]) }}"
-                        class="group relative flex h-12 flex-1 items-center justify-center gap-2 border-b-2 border-transparent px-3 text-sm font-medium whitespace-nowrap transition-colors
+                        class="group relative flex h-10 flex-1 items-center justify-center gap-2 border-b-2 border-transparent px-3 text-sm font-medium whitespace-nowrap transition-colors
                             {{ $activeSection === $section
-                                ? 'border-violet-600 text-violet-600 dark:border-violet-400 dark:text-violet-400'
+                                ? 'rounded-md bg-[#0F172A] text-white'
                                 : 'text-gray-500 hover:border-gray-200 hover:text-gray-800 dark:text-gray-400 dark:hover:border-gray-700 dark:hover:text-gray-200' }}"
                     >
-                        <x-filament::icon :icon="$item['icon']" class="h-5 w-5 shrink-0" />
+                        <x-filament::icon :icon="$item['icon']" class="h-4 w-4 shrink-0" />
                         <span>{{ $item['label'] }}</span>
                         <span
-                            class="{{ ($statusCounts[$section] ?? 0) > 0
-                                ? 'ml-0.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white shadow-sm'
-                                : 'ml-0.5 text-[10px] font-semibold' }}"
+                            class="ml-0.5 text-xs font-semibold {{ $activeSection === $section ? 'text-white' : 'text-gray-500 dark:text-gray-400' }}"
                         >
                             {{ $statusCounts[$section] ?? 0 }}
                         </span>
