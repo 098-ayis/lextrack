@@ -216,8 +216,8 @@
 ================================ */
 
 /* Make unopened notifications stand out from notifications that were read. */
-.fi-no-database .fi-no-notification-unread-ctn {
-    background-color: rgb(243 244 246 / 0.8);
+.fi-no-database .fi-no-notifications > [role='listitem'].fi-no-notification-unread-ctn {
+    background-color: #f3f4f6;
 }
 
 .fi-no-database .fi-no-notification-unread-ctn .fi-no-notification-title {
@@ -225,8 +225,8 @@
     font-weight: 700;
 }
 
-.dark .fi-no-database .fi-no-notification-unread-ctn {
-    background-color: rgb(31 41 55 / 0.8);
+.dark .fi-no-database .fi-no-notifications > [role='listitem'].fi-no-notification-unread-ctn {
+    background-color: #1f2937;
 }
 
 .dark .fi-no-database .fi-no-notification-unread-ctn .fi-no-notification-title {
