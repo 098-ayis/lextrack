@@ -19,6 +19,14 @@ class ClickableDatabaseNotification extends FilamentNotification
     {
         $html = parent::toEmbeddedHtml();
 
+        // Database notifications must not be dismissible because dismissing
+        // one also deletes it from the user's notification history.
+        $html = preg_replace(
+            '/\s*<button\b(?=[^>]*\bfi-no-notification-close-btn\b)[^>]*>.*?<\/button>/s',
+            '',
+            $html,
+        ) ?? $html;
+
         if (! filled($this->redirectUrl)) {
             return $html;
         }

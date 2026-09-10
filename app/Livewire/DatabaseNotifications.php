@@ -3,12 +3,31 @@
 namespace App\Livewire;
 
 use App\Filament\Notifications\ClickableDatabaseNotification;
+use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Support\Str;
+use Livewire\Attributes\On;
 
 class DatabaseNotifications extends \Filament\Livewire\DatabaseNotifications
 {
+    #[On('notificationClosed')]
+    public function removeNotification(string $id): void
+    {
+        // Database notifications are retained permanently. The close event is
+        // ignored so a notification cannot be deleted from the notification UI.
+    }
+
+    public function clearNotifications(): void
+    {
+        // Database notifications are retained permanently.
+    }
+
+    public function clearNotificationsAction(): Action
+    {
+        return parent::clearNotificationsAction()->hidden();
+    }
+
     public function openNotification(string $id): void
     {
         if (! Str::isUuid($id)) {
