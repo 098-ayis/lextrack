@@ -485,6 +485,172 @@
         border: none !important;
     }
 
+    .t-message-content > .t-bubble + .t-bubble {
+        margin-top: 4px;
+    }
+
+    .message-reply-context {
+        display: flex;
+        flex-direction: column;
+        width: min(100%, 320px);
+        min-width: 0;
+        gap: 2px;
+        margin-bottom: 4px;
+        padding: 6px 9px;
+        background: #f0f1ff;
+        border-left: 3px solid #6366f1;
+        border-radius: 8px;
+        color: #4b5563;
+        font-size: 11px;
+    }
+
+    .message-reply-context-label {
+        color: #4f46e5;
+        font-weight: 700;
+    }
+
+    .message-reply-context-text {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .message-interactions {
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        flex-wrap: wrap;
+        gap: 4px;
+        margin-top: 4px;
+    }
+
+    .t-msg-row.staff-message .message-interactions {
+        justify-content: flex-end;
+    }
+
+    .message-reply-button,
+    .message-reaction,
+    .message-reaction-trigger {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 24px;
+        padding: 3px 8px;
+        background: transparent;
+        border: 1px solid #e5e7eb;
+        border-radius: 999px;
+        color: #6b7280;
+        cursor: pointer;
+        font-size: 11px;
+        line-height: 1;
+        transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+
+    .message-reply-button:hover,
+    .message-reaction:hover,
+    .message-reaction-trigger:hover,
+    .message-reaction.is-reacted {
+        background: #eef2ff;
+        border-color: #a5b4fc;
+        color: #4f46e5;
+    }
+
+    .message-reaction-picker {
+        position: relative;
+    }
+
+    .message-reaction-menu {
+        position: absolute;
+        z-index: 30;
+        bottom: calc(100% + 6px);
+        left: 0;
+        display: flex;
+        gap: 2px;
+        padding: 4px;
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 9px;
+        box-shadow: 0 8px 20px rgba(15, 23, 42, 0.16);
+    }
+
+    .t-msg-row.staff-message .message-reaction-menu {
+        right: 0;
+        left: auto;
+    }
+
+    .message-reaction-menu button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        padding: 0;
+        background: transparent;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 15px;
+    }
+
+    .message-reaction-menu button:hover {
+        background: #f0f1ff;
+    }
+
+    .reply-composer-preview {
+        order: -2;
+        display: flex;
+        align-items: center;
+        flex: 1 0 100%;
+        gap: 8px;
+        min-width: 0;
+        margin: 0 2px;
+        padding: 6px 8px;
+        background: #f8fafc;
+        border-left: 3px solid #6366f1;
+        border-radius: 8px;
+        color: #4b5563;
+        font-size: 11px;
+    }
+
+    .reply-composer-preview-content {
+        display: flex;
+        flex: 1 1 auto;
+        flex-direction: column;
+        min-width: 0;
+        gap: 2px;
+    }
+
+    .reply-composer-preview-label {
+        color: #4f46e5;
+        font-weight: 700;
+    }
+
+    .reply-composer-preview-text {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .reply-composer-cancel {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex: 0 0 auto;
+        width: 24px;
+        height: 24px;
+        padding: 0;
+        background: transparent;
+        border: none;
+        border-radius: 50%;
+        color: #6b7280;
+        cursor: pointer;
+    }
+
+    .reply-composer-cancel:hover {
+        background: #e5e7eb;
+        color: #111827;
+    }
+
     .revision-card {
         width: min(286px, 100%);
         overflow: hidden;
@@ -606,6 +772,40 @@
         object-fit: cover;
     }
 
+    .attachment-image-bubble {
+        padding: 8px;
+    }
+
+    .attachment-image-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 6px;
+        width: 360px;
+        max-width: 100%;
+    }
+
+    .attachment-image-link {
+        display: block;
+        min-width: 0;
+    }
+
+    .attachment-image-grid .t-attachment-image {
+        width: 100%;
+        height: 140px;
+        max-width: none;
+        max-height: none;
+        margin-top: 0;
+        border-radius: 8px;
+    }
+
+    .attachment-image-grid.single {
+        width: 220px;
+    }
+
+    .attachment-image-grid.single .t-attachment-image {
+        height: 180px;
+    }
+
 
     /* =========================
        MESSAGE TIME
@@ -634,6 +834,7 @@
     .message-composer-shell {
         display: flex;
         align-items: center;
+        flex-wrap: wrap;
         gap: 8px;
         width: 100%;
         min-height: 58px;
@@ -669,14 +870,14 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        flex: 0 0 40px;
-        width: 40px;
-        height: 40px;
+        flex: 0 0 34px;
+        width: 34px;
+        height: 34px;
         padding: 0;
         background: transparent;
         color: #6366f1;
         border: none;
-        border-radius: 50%;
+        border-radius: 7px;
         cursor: pointer;
         transition: background 0.15s, color 0.15s, transform 0.15s;
     }
@@ -684,7 +885,7 @@
     .message-drawer-action:hover {
         background: #f0f1ff;
         color: #4f46e5;
-        transform: scale(1.04);
+        transform: none;
     }
 
     .message-drawer-action[data-tooltip]::after {
@@ -749,8 +950,8 @@
     }
 
     .message-composer-shell.is-composing .message-composer-menu-toggle {
-        flex-basis: 40px;
-        width: 40px;
+        flex-basis: 34px;
+        width: 34px;
         visibility: visible;
         opacity: 1;
         pointer-events: auto;
@@ -847,28 +1048,42 @@
         color: #4f46e5;
     }
 
-    .attachment-pending {
+    .attachment-preview-row {
+        order: -1;
+        display: flex;
+        align-items: center;
+        flex: 1 0 100%;
+        flex-wrap: wrap;
+        gap: 6px;
+        min-width: 0;
+        padding: 2px 4px 7px;
+        border-bottom: 1px solid #e5e7eb;
+    }
+
+    .attachment-pill {
         display: inline-flex;
         align-items: center;
         gap: 5px;
-        flex: 0 1 auto;
-        max-width: 150px;
-        padding: 7px 8px 7px 10px;
+        min-width: 0;
+        max-width: 220px;
+        padding: 6px 7px 6px 10px;
         background: #eef2ff;
-        border-radius: 14px;
+        border: 1px solid #c7d2fe;
+        border-radius: 999px;
         color: #4f46e5;
         font-size: 11px;
         font-weight: 600;
+        line-height: 1.2;
     }
 
-    .attachment-pending-name {
+    .attachment-pill-name {
         min-width: 0;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
     }
 
-    .attachment-pending-clear {
+    .attachment-pill-remove {
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -883,7 +1098,7 @@
         cursor: pointer;
     }
 
-    .attachment-pending-clear:hover {
+    .attachment-pill-remove:hover {
         background: rgba(79, 70, 229, 0.12);
         color: #3730a3;
     }
@@ -1015,6 +1230,49 @@
         color: #f3f4f6;
     }
 
+    .dark .message-reply-context,
+    .dark .reply-composer-preview {
+        background: #1f2937;
+        border-left-color: #818cf8;
+        color: #d1d5db;
+    }
+
+    .dark .message-reply-context-label,
+    .dark .reply-composer-preview-label {
+        color: #a5b4fc;
+    }
+
+    .dark .message-reply-button,
+    .dark .message-reaction,
+    .dark .message-reaction-trigger {
+        border-color: #4b5563;
+        color: #9ca3af;
+    }
+
+    .dark .message-reply-button:hover,
+    .dark .message-reaction:hover,
+    .dark .message-reaction-trigger:hover,
+    .dark .message-reaction.is-reacted {
+        background: #312e81;
+        border-color: #6366f1;
+        color: #e0e7ff;
+    }
+
+    .dark .message-reaction-menu {
+        background: #1f2937;
+        border-color: #374151;
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+    }
+
+    .dark .message-reaction-menu button:hover {
+        background: #312e81;
+    }
+
+    .dark .reply-composer-cancel:hover {
+        background: #374151;
+        color: #f9fafb;
+    }
+
     .dark .t-msg-row.client-message .t-bubble {
         background: #1f2937;
         border-color: #374151;
@@ -1090,16 +1348,21 @@
         color: #ffffff;
     }
 
-    .dark .attachment-pending {
+    .dark .attachment-preview-row {
+        border-bottom-color: #374151;
+    }
+
+    .dark .attachment-pill {
         background: #312e81;
+        border-color: #4338ca;
         color: #c7d2fe;
     }
 
-    .dark .attachment-pending-clear {
+    .dark .attachment-pill-remove {
         color: #c7d2fe;
     }
 
-    .dark .attachment-pending-clear:hover {
+    .dark .attachment-pill-remove:hover {
         background: rgba(199, 210, 254, 0.14);
         color: #ffffff;
     }
@@ -1443,17 +1706,6 @@
 
 
                 {{-- Optional Assign to Me --}}
-                @if ($activeConversation?->document)
-                    <a
-                        href="{{ \App\Filament\Pages\ViewDocument::getUrl([
-                            'document' => $activeConversation->document->document_id,
-                        ]) }}"
-                        class="inline-flex items-center rounded-md border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-100 dark:border-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-300 dark:hover:bg-indigo-950/70"
-                    >
-                        Review document
-                    </a>
-                @endif
-
                 @if (
                     $activeConversation
                     && ! $activeConversation->assigned_to
@@ -1601,8 +1853,30 @@
                                     );
                             @endphp
 
-                            <div class="t-bubble {{ $isRevisionRequest ? 'revision-bubble' : '' }}">
-                                @if ($isRevisionRequest)
+                            @if ($message->replyTo)
+                                @php
+                                    $replySenderName = $message->replyTo->sender?->name ?? 'Message';
+                                    $replyPreview = $message->replyTo->body;
+
+                                    if ($replyPreview === 'revision_request') {
+                                        $replyPreview = 'Revision request';
+                                    } elseif ($replyPreview === 'Attachment sent.') {
+                                        $replyPreview = $message->replyTo->attachments->first()?->original_name ?? 'Attachment';
+                                    }
+                                @endphp
+
+                                <div class="message-reply-context">
+                                    <span class="message-reply-context-label">
+                                        Replying to {{ $replySenderName }}
+                                    </span>
+                                    <span class="message-reply-context-text">
+                                        {{ \Illuminate\Support\Str::limit((string) $replyPreview, 72) }}
+                                    </span>
+                                </div>
+                            @endif
+
+                            @if ($isRevisionRequest)
+                                <div class="t-bubble revision-bubble">
                                     <div class="revision-card">
                                         <div class="revision-card-header">
                                             <div class="revision-card-brand">
@@ -1631,45 +1905,138 @@
                                             </div>
                                         </div>
                                     </div>
-                                @elseif ($message->body !== 'Attachment sent.')
+                                </div>
+                            @elseif ($message->body !== 'Attachment sent.')
+                                <div class="t-bubble">
                                     {!! nl2br(e($message->body)) !!}
-                                @endif
+                                </div>
+                            @endif
 
-                                @if ($message->attachment_path)
-                                    @php
-                                        $attachmentUrl = route('messages.attachment', [
-                                            'message' => $message->id,
-                                        ]);
-                                        $isImageAttachment = \Illuminate\Support\Str::startsWith(
-                                            (string) $message->attachment_mime_type,
-                                            'image/'
-                                        );
-                                    @endphp
+                            @php
+                                $imageAttachments = $message->attachments->filter(
+                                    fn ($attachment) => \Illuminate\Support\Str::startsWith(
+                                        (string) $attachment->mime_type,
+                                        'image/'
+                                    )
+                                );
+                                $fileAttachments = $message->attachments->reject(
+                                    fn ($attachment) => \Illuminate\Support\Str::startsWith(
+                                        (string) $attachment->mime_type,
+                                        'image/'
+                                    )
+                                );
+                            @endphp
 
-                                    @if ($isImageAttachment)
-                                        <a
-                                            href="{{ $attachmentUrl }}"
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                        >
-                                            <img
-                                                src="{{ $attachmentUrl }}"
-                                                alt="{{ $message->attachment_name ?: 'Attached image' }}"
-                                                class="t-attachment-image"
+                            @if ($imageAttachments->isNotEmpty())
+                                <div
+                                    class="t-bubble attachment-bubble attachment-image-bubble"
+                                    wire:key="message-{{ $message->id }}-image-grid"
+                                >
+                                    <div class="attachment-image-grid {{ $imageAttachments->count() === 1 ? 'single' : '' }}">
+                                        @foreach ($imageAttachments as $attachment)
+                                            @php
+                                                $attachmentUrl = route('messages.attachment', [
+                                                    'message' => $message->id,
+                                                    'attachment' => $attachment->id,
+                                                ]);
+                                            @endphp
+
+                                            <a
+                                                href="{{ $attachmentUrl }}"
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                class="attachment-image-link"
                                             >
-                                        </a>
-                                    @else
-                                        <a
-                                            href="{{ $attachmentUrl }}"
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            class="t-attachment"
-                                        >
-                                            <x-heroicon-o-paper-clip class="h-4 w-4" />
-                                            {{ $message->attachment_name ?: 'Attached document' }}
-                                        </a>
-                                    @endif
-                                @endif
+                                                <img
+                                                    src="{{ $attachmentUrl }}"
+                                                    alt="{{ $attachment->original_name ?: 'Attached image' }}"
+                                                    class="t-attachment-image"
+                                                >
+                                            </a>
+                                        @endforeach
+                                    </div>
+                                </div>
+                            @endif
+
+                            @foreach ($fileAttachments as $attachment)
+                                @php
+                                    $attachmentUrl = route('messages.attachment', [
+                                        'message' => $message->id,
+                                        'attachment' => $attachment->id,
+                                    ]);
+                                @endphp
+
+                                <div
+                                    class="t-bubble attachment-bubble"
+                                    wire:key="message-{{ $message->id }}-attachment-{{ $attachment->id }}"
+                                >
+                                    <a
+                                        href="{{ $attachmentUrl }}"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        class="t-attachment"
+                                    >
+                                        <x-heroicon-o-paper-clip class="h-4 w-4" />
+                                        {{ $attachment->original_name ?: 'Attached document' }}
+                                    </a>
+                                </div>
+                            @endforeach
+
+                            <div class="message-interactions">
+                                <button
+                                    type="button"
+                                    class="message-reply-button"
+                                    wire:click="startReply({{ $message->id }})"
+                                    title="Reply to message"
+                                >
+                                    <x-heroicon-o-arrow-uturn-left class="mr-1 h-3.5 w-3.5" />
+                                    Reply
+                                </button>
+
+                                @foreach ($message->reactions->groupBy('reaction') as $reaction => $reactionUsers)
+                                    <button
+                                        type="button"
+                                        class="message-reaction {{ $reactionUsers->contains('user_id', auth()->id()) ? 'is-reacted' : '' }}"
+                                        wire:click="reactToMessage({{ $message->id }}, '{{ $reaction }}')"
+                                        title="Toggle {{ $reaction }} reaction"
+                                    >
+                                        {{ $reaction }} {{ $reactionUsers->count() }}
+                                    </button>
+                                @endforeach
+
+                                <div
+                                    class="message-reaction-picker"
+                                    x-data="{ open: false }"
+                                    @click.outside="open = false"
+                                >
+                                    <button
+                                        type="button"
+                                        class="message-reaction-trigger"
+                                        @click="open = ! open"
+                                        :aria-expanded="open.toString()"
+                                        aria-label="Add reaction"
+                                        title="Add reaction"
+                                    >
+                                        ☺
+                                    </button>
+
+                                    <div
+                                        x-cloak
+                                        x-show="open"
+                                        class="message-reaction-menu"
+                                    >
+                                        @foreach (['👍', '❤️', '😂', '😮', '😢', '🙏'] as $reaction)
+                                            <button
+                                                type="button"
+                                                wire:click="reactToMessage({{ $message->id }}, '{{ $reaction }}')"
+                                                @click="open = false"
+                                                aria-label="React {{ $reaction }}"
+                                            >
+                                                {{ $reaction }}
+                                            </button>
+                                        @endforeach
+                                    </div>
+                                </div>
                             </div>
 
                             <div class="t-time">
@@ -1696,9 +2063,6 @@
 
                 @endforelse
 
-                <x-documents.conversation-qr :document="$activeConversation?->document" :staff-view="true" />
-
-
             </div>
 
 
@@ -1718,6 +2082,7 @@
                         x-data="{ open: false, hasText: false }"
                         :class="{ 'is-composing': hasText }"
                         @click.outside="open = false"
+                        x-on:reply-started.window="$nextTick(() => $refs.messageInput?.focus())"
                     >
 
                         <div class="message-action-drawer" aria-label="Quick message actions">
@@ -1759,27 +2124,68 @@
                             @endif
                         </div>
 
-                        @if ($attachment)
-                            <div
-                                class="attachment-pending"
-                                title="{{ $attachment->getClientOriginalName() }}"
-                            >
-                                <span class="attachment-pending-name">
-                                    {{ \Illuminate\Support\Str::limit($attachment->getClientOriginalName(), 20) }}
-                                </span>
+                        @if ($replyingToMessageId)
+                            @php
+                                $replyingToMessage = collect($messages)->firstWhere('id', $replyingToMessageId);
+                            @endphp
 
-                                <button
-                                    type="button"
-                                    class="attachment-pending-clear"
-                                    wire:click="clearAttachment"
-                                    wire:loading.attr="disabled"
-                                    wire:target="clearAttachment"
-                                    @click="$refs.imageFile.value = ''; $refs.documentFile.value = ''"
-                                    aria-label="Remove selected attachment"
-                                    title="Remove selected attachment"
-                                >
-                                    <x-heroicon-o-x-mark class="h-3.5 w-3.5" />
-                                </button>
+                            @if ($replyingToMessage)
+                                @php
+                                    $replyingToPreview = $replyingToMessage->body;
+
+                                    if ($replyingToPreview === 'revision_request') {
+                                        $replyingToPreview = 'Revision request';
+                                    } elseif ($replyingToPreview === 'Attachment sent.') {
+                                        $replyingToPreview = $replyingToMessage->attachments->first()?->original_name ?? 'Attachment';
+                                    }
+                                @endphp
+
+                                <div class="reply-composer-preview">
+                                    <div class="reply-composer-preview-content">
+                                        <span class="reply-composer-preview-label">Replying to message</span>
+                                        <span class="reply-composer-preview-text">
+                                            {{ \Illuminate\Support\Str::limit((string) $replyingToPreview, 72) }}
+                                        </span>
+                                    </div>
+
+                                    <button
+                                        type="button"
+                                        class="reply-composer-cancel"
+                                        wire:click="cancelReply"
+                                        aria-label="Cancel reply"
+                                        title="Cancel reply"
+                                    >
+                                        <x-heroicon-o-x-mark class="h-4 w-4" />
+                                    </button>
+                                </div>
+                            @endif
+                        @endif
+
+                        @if (count($attachments) > 0)
+                            <div class="attachment-preview-row" aria-label="Selected attachments">
+                                @foreach ($attachments as $index => $attachment)
+                                    <div
+                                        class="attachment-pill"
+                                        wire:key="pending-attachment-{{ $index }}"
+                                        title="{{ $attachment->getClientOriginalName() }}"
+                                    >
+                                        <span class="attachment-pill-name">
+                                            {{ \Illuminate\Support\Str::limit($attachment->getClientOriginalName(), 24) }}
+                                        </span>
+
+                                        <button
+                                            type="button"
+                                            class="attachment-pill-remove"
+                                            wire:click="removeAttachment({{ $index }})"
+                                            wire:loading.attr="disabled"
+                                            wire:target="removeAttachment({{ $index }})"
+                                            aria-label="Remove {{ $attachment->getClientOriginalName() }}"
+                                            title="Remove file"
+                                        >
+                                            <x-heroicon-o-x-mark class="h-3.5 w-3.5" />
+                                        </button>
+                                    </div>
+                                @endforeach
                             </div>
                         @endif
 
@@ -1825,20 +2231,14 @@
                                         @click="open = false"
                                     >
                                         <x-heroicon-o-arrow-path class="h-4 w-4" />
-
-                                        <span wire:loading.remove wire:target="requestRevision">
-                                            Ask for revision
-                                        </span>
-
-                                        <span wire:loading wire:target="requestRevision">
-                                            Sending...
-                                        </span>
+                                        Ask for revision
                                     </button>
                                 @endif
                             </div>
 
                             <input
                                 type="text"
+                                x-ref="messageInput"
                                 wire:model="newMessage"
                                 wire:keydown.enter="sendMessage"
                                 @input="hasText = $event.target.value.length > 0"
@@ -1865,16 +2265,20 @@
                         <input
                             x-ref="imageFile"
                             type="file"
-                            accept=".jpg,.jpeg,.png,.gif,.webp,image/jpeg,image/png,image/gif,image/webp"
-                            wire:model="attachment"
+                            multiple
+                            accept=".jpg,.jpeg,.png,image/jpeg,image/png"
+                            wire:model="attachments"
+                            wire:change="$set('attachmentKind', 'image')"
                             class="hidden"
                         >
 
                         <input
                             x-ref="documentFile"
                             type="file"
+                            multiple
                             accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                            wire:model="attachment"
+                            wire:model="attachments"
+                            wire:change="$set('attachmentKind', 'document')"
                             class="hidden"
                         >
 
@@ -1897,7 +2301,21 @@
 
                 @enderror
 
-                @error('attachment')
+                @error('attachments')
+
+                    <div
+                        style="
+                            color: #dc2626;
+                            font-size: 12px;
+                            padding: 0 18px 12px;
+                        "
+                    >
+                        {{ $message }}
+                    </div>
+
+                @enderror
+
+                @error('attachments.*')
 
                     <div
                         style="

@@ -10,7 +10,6 @@ use App\Models\ActionType;
 use App\Models\DocumentType;
 use App\Models\Message;
 use App\Models\RejectedDocument;
-use App\Notifications\DocumentRejectedNotification;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
@@ -780,12 +779,6 @@ class ViewDocument extends Page
                 'reason' => $reason,
             ]);
 
-            $document->update([
-                'lao_number' => $document->lao_number,
-                'status' => 'rejected',
-                'rejection_reason' => $reason,
-            ]);
-
             $conversation = $document->conversation()->first();
 
             if ($conversation) {
@@ -816,12 +809,6 @@ class ViewDocument extends Page
             'Revised document rejected',
             'Rejected the revised document: ' . $reason
         );
-
-        if ($document->user) {
-            $document->user->notify(
-                new DocumentRejectedNotification($document)
-            );
-        }
 
         Notification::make()
             ->success()

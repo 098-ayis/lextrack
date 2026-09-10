@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Storage;
 use App\Models\Document;
 use App\Models\DocumentVersion;
 use App\Models\Message;
+use App\Models\MessageAttachment;
 use App\Http\Controllers\AIController;
 use App\Http\Controllers\Auth\GoogleAuthController;
 use App\Http\Controllers\UserExportController;
@@ -177,24 +178,32 @@ Route::get('/client/document-download/{document}', function (int $document) {
     ->middleware('auth')
     ->name('client.document.download');
 
-Route::get('/messages/{message}/attachment', function (Message $message) {
+Route::get('/messages/{message}/attachment/{attachment}', function (
+    Message $message,
+    MessageAttachment $attachment
+) {
+    abort_unless(
+        (int) $attachment->message_id === (int) $message->id,
+        404
+    );
+
     $conversation = $message->conversation;
 
     abort_unless($conversation, 404);
 
     Gate::authorize('view', $conversation);
 
-    $filePath = $message->attachment_path;
-    $disk = Storage::disk('local');
+    $filePath = $attachment->path;
+    $disk = Storage::disk($attachment->disk ?: 'local');
 
-    if ($filePath && ! $disk->exists($filePath)) {
+    if (! $disk->exists($filePath) && $attachment->disk !== 'public') {
         $disk = Storage::disk('public');
     }
 
-    abort_unless($filePath && $disk->exists($filePath), 404);
+    abort_unless($disk->exists($filePath), 404);
 
-    $fileName = basename($message->attachment_name ?: $filePath);
-    $mimeType = $message->attachment_mime_type
+    $fileName = basename($attachment->original_name ?: $filePath);
+    $mimeType = $attachment->mime_type
         ?: $disk->mimeType($filePath)
         ?: 'application/octet-stream';
     $quotedFileName = addcslashes($fileName, "\\\"");

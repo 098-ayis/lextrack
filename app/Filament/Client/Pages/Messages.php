@@ -5,18 +5,29 @@ namespace App\Filament\Client\Pages;
 use App\Models\Conversation;
 use App\Models\Document;
 use App\Models\Message;
+use App\Models\MessageAttachment;
+use App\Models\MessageReaction;
 use App\Models\User;
 use Filament\Pages\Page;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Livewire\WithFileUploads;
 
 class Messages extends Page
 {
+    use WithFileUploads;
+
     protected string $view = 'filament.client.pages.messages';
 
     public ?int $selectedConversation = null;
 
     public string $newMessage = '';
+
+    public array $attachments = [];
+
+    public string $attachmentKind = '';
+
+    public ?int $replyingToMessageId = null;
 
     public $messages = [];
 
@@ -34,8 +45,12 @@ class Messages extends Page
             ->with([
                 'document',
                 'assignedStaff',
-                'participants',
+                    'participants',
                     'messages.sender',
+                    'messages.attachments',
+                    'messages.reactions',
+                    'messages.replyTo.sender',
+                    'messages.replyTo.attachments',
                 ])
                 ->withCount([
                     'messages as unread_messages_count' => function ($query) use ($userId) {
@@ -58,6 +73,9 @@ class Messages extends Page
         $conversation = $this->getOrCreateConversation($documentId);
 
         $this->selectedConversation = $conversation->id;
+
+        $this->clearAttachment();
+        $this->cancelReply();
 
         $this->loadMessages();
 
@@ -135,6 +153,9 @@ class Messages extends Page
 
         $this->selectedConversation = $conversation->id;
 
+        $this->clearAttachment();
+        $this->cancelReply();
+
         $this->loadMessages();
 
         $this->markMessagesAsRead();
@@ -200,8 +221,15 @@ class Messages extends Page
 
         $this->messages = $conversation
             ->messages()
-            ->with('sender')
+            ->with([
+                'sender',
+                'attachments',
+                'reactions',
+                'replyTo.sender',
+                'replyTo.attachments',
+            ])
             ->oldest('created_at')
+            ->oldest('id')
             ->get();
     }
 
@@ -221,17 +249,44 @@ class Messages extends Page
      */
     public function sendMessage(): void
     {
-        $this->validate([
-            'newMessage' => [
-                'required',
-                'string',
-                'max:5000',
-            ],
-        ]);
-
         if (! $this->selectedConversation) {
             return;
         }
+
+        $messageBody = trim($this->newMessage);
+
+        if ($messageBody === '' && count($this->attachments) === 0) {
+            $this->addError(
+                'newMessage',
+                'Write a message or attach a file before sending.'
+            );
+
+            return;
+        }
+
+        $attachmentRule = match ($this->attachmentKind) {
+            'image' => 'mimes:jpg,jpeg,png',
+            'document' => 'mimes:pdf,docx',
+            default => 'mimes:pdf,docx',
+        };
+
+        $this->validate([
+            'newMessage' => [
+                'nullable',
+                'string',
+                'max:5000',
+            ],
+            'attachments' => [
+                'nullable',
+                'array',
+                'max:10',
+            ],
+            'attachments.*' => [
+                'file',
+                'max:25600',
+                $attachmentRule,
+            ],
+        ]);
 
         $conversation = Conversation::findOrFail(
             $this->selectedConversation
@@ -239,11 +294,38 @@ class Messages extends Page
 
         Gate::authorize('sendMessage', $conversation);
 
-        Message::create([
+        $replyToMessageId = null;
+
+        if ($this->replyingToMessageId !== null) {
+            $replyToMessageId = $conversation
+                ->messages()
+                ->whereKey($this->replyingToMessageId)
+                ->value('id');
+
+            abort_unless($replyToMessageId, 404);
+        }
+
+        $message = Message::create([
             'conversation_id' => $conversation->id,
             'sender_id' => auth()->id(),
-            'body' => trim($this->newMessage),
+            'body' => $messageBody !== '' ? $messageBody : 'Attachment sent.',
+            'reply_to_message_id' => $replyToMessageId,
         ]);
+
+        foreach ($this->attachments as $sortOrder => $attachment) {
+            $path = $attachment->store('message-attachments', 'local');
+
+            MessageAttachment::create([
+                'message_id' => $message->id,
+                'disk' => 'local',
+                'path' => $path,
+                'original_name' => $attachment->getClientOriginalName(),
+                'mime_type' => $attachment->getMimeType(),
+                'size' => $attachment->getSize(),
+                'sha256' => hash_file('sha256', $attachment->getRealPath()),
+                'sort_order' => $sortOrder,
+            ]);
+        }
 
         /*
          * Make conversation move to top of inbox.
@@ -251,10 +333,89 @@ class Messages extends Page
         $conversation->touch();
 
         $this->newMessage = '';
+        $this->clearAttachment();
+        $this->cancelReply();
 
         $this->loadMessages();
 
         $this->dispatch('message-sent');
+    }
+
+    /**
+     * Remove a file selected for the next message.
+     */
+    public function clearAttachment(): void
+    {
+        $this->attachments = [];
+        $this->attachmentKind = '';
+        $this->resetValidation('attachments');
+        $this->resetValidation('attachments.*');
+    }
+
+    public function startReply(int $messageId): void
+    {
+        if (! $this->selectedConversation) {
+            return;
+        }
+
+        $conversation = Conversation::findOrFail($this->selectedConversation);
+
+        Gate::authorize('view', $conversation);
+
+        $conversation->messages()->findOrFail($messageId);
+
+        $this->replyingToMessageId = $messageId;
+        $this->dispatch('reply-started');
+    }
+
+    public function cancelReply(): void
+    {
+        $this->replyingToMessageId = null;
+    }
+
+    public function reactToMessage(int $messageId, string $reaction): void
+    {
+        $allowedReactions = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
+
+        if (! in_array($reaction, $allowedReactions, true) || ! $this->selectedConversation) {
+            return;
+        }
+
+        $conversation = Conversation::findOrFail($this->selectedConversation);
+
+        Gate::authorize('view', $conversation);
+
+        $message = $conversation->messages()->findOrFail($messageId);
+
+        $existingReaction = MessageReaction::query()
+            ->where('message_id', $message->id)
+            ->where('user_id', auth()->id())
+            ->where('reaction', $reaction)
+            ->first();
+
+        if ($existingReaction) {
+            $existingReaction->delete();
+        } else {
+            MessageReaction::create([
+                'message_id' => $message->id,
+                'user_id' => auth()->id(),
+                'reaction' => $reaction,
+            ]);
+        }
+
+        $this->loadMessages();
+    }
+
+    public function removeAttachment(int $index): void
+    {
+        if (! array_key_exists($index, $this->attachments)) {
+            return;
+        }
+
+        unset($this->attachments[$index]);
+        $this->attachments = array_values($this->attachments);
+        $this->resetValidation('attachments');
+        $this->resetValidation('attachments.*');
     }
 
     /**

@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use App\Models\User;
 
 class Message extends Model
@@ -13,9 +14,7 @@ class Message extends Model
         'conversation_id',
         'sender_id',
         'body',
-        'attachment_path',
-        'attachment_name',
-        'attachment_mime_type',
+        'reply_to_message_id',
     ];
 
     protected function casts(): array
@@ -50,6 +49,27 @@ class Message extends Model
             'message_id',
             'user_id'
         )->withPivot('read_at');
+    }
+
+    public function attachments(): HasMany
+    {
+        return $this->hasMany(MessageAttachment::class)
+            ->orderBy('sort_order');
+    }
+
+    public function replyTo(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'reply_to_message_id');
+    }
+
+    public function replies(): HasMany
+    {
+        return $this->hasMany(self::class, 'reply_to_message_id');
+    }
+
+    public function reactions(): HasMany
+    {
+        return $this->hasMany(MessageReaction::class);
     }
 
     public static function getNavigationBadge(): ?string
