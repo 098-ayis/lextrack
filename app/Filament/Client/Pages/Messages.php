@@ -31,10 +31,10 @@ class Messages extends Page
             'conversations' => auth()
                 ->user()
                 ->conversations()
-                ->with([
-                    'document',
-                    'assignedStaff',
-                    'participants',
+            ->with([
+                'document',
+                'assignedStaff',
+                'participants',
                     'messages.sender',
                 ])
                 ->withCount([
@@ -145,6 +145,40 @@ class Messages extends Page
         );
 
         $this->dispatch('conversation-opened');
+    }
+
+    /**
+     * Open a revision request without exposing its destination in the chat.
+     */
+    public function openRevisionRequest(int $messageId): mixed
+    {
+        $message = Message::query()
+            ->with('conversation.document')
+            ->findOrFail($messageId);
+
+        $conversation = $message->conversation;
+
+        Gate::authorize('view', $conversation);
+
+        $document = $conversation?->document;
+
+        abort_unless(
+            $document && (int) $document->user_id === (int) auth()->id(),
+            404
+        );
+
+        $isRevisionRequest =
+            $message->body === 'revision_request'
+            || str_contains(
+                (string) $message->body,
+                'Please upload a revised version of your document using this link:'
+            );
+
+        abort_unless($isRevisionRequest, 404);
+
+        return redirect()->to(ReviseDocument::getUrl([
+            'document' => $document->document_id,
+        ], false, 'client'));
     }
 
     /**

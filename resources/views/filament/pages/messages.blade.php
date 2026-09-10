@@ -1,6 +1,23 @@
 <x-filament-panels::page>
 
 <style>
+    [x-cloak] {
+        display: none !important;
+    }
+
+    /* Keep the messages screen inside the viewport. The list and thread
+       handle their own scrolling instead of making the whole page scroll. */
+    html:has(.msg-wrap),
+    body:has(.msg-wrap) {
+        overflow: hidden;
+    }
+
+    .fi-page:has(.msg-wrap),
+    .fi-page:has(.msg-wrap) .fi-page-content,
+    .fi-page:has(.msg-wrap) .fi-page-content-ctn {
+        min-height: 0;
+    }
+
     /* =========================
        MAIN LAYOUT
     ========================== */
@@ -10,6 +27,10 @@
         grid-template-columns: 320px 1fr;
         gap: 16px;
         height: calc(100vh - 180px);
+        height: calc(100dvh - 180px);
+        min-height: 0;
+        max-height: calc(100dvh - 180px);
+        overflow: hidden;
     }
 
 
@@ -18,12 +39,14 @@
     ========================== */
 
     .msg-list {
-        background: white;
+        background: #ffffff;
         border: 1px solid #e5e7eb;
         border-radius: 12px;
-        overflow: hidden;
+        overflow: visible;
         display: flex;
         flex-direction: column;
+        min-height: 0;
+        height: 100%;
     }
 
     .msg-list-header {
@@ -32,6 +55,7 @@
     }
 
     .msg-list-header h3 {
+        color: #111827;
         font-size: 16px;
         font-weight: 700;
         margin-bottom: 10px;
@@ -54,14 +78,20 @@
     .msg-search input {
         width: 100%;
         padding: 8px 12px 8px 32px;
+        background: #ffffff;
         border: 1.5px solid #e5e7eb;
         border-radius: 18px;
+        color: #111827;
         font-size: 12.5px;
         outline: none;
     }
 
+    .msg-search input::placeholder {
+        color: #9ca3af;
+    }
+
     .msg-search input:focus {
-        border-color: #2563eb;
+        border-color: #6366f1;
     }
 
     .msg-search .s-icon {
@@ -89,12 +119,12 @@
     }
 
     .msg-item:hover {
-        background: #f3f8fc;
+        background: #f0f1ff;
     }
 
     .msg-item.active {
-        background: #f3f8fc;
-        border-left: 3px solid #1b6ca8;
+        background: #f0f1ff;
+        border-left: 3px solid #6366f1;
     }
 
     .msg-item.unread .m-preview,
@@ -120,8 +150,8 @@
         align-items: center;
         justify-content: center;
 
-        background: #ffe0b2;
-        color: #a05200;
+        background: #e0e7ff;
+        color: #4f46e5;
 
         font-size: 13px;
         font-weight: 700;
@@ -181,7 +211,7 @@
 
     .m-sub {
         font-size: 11px;
-        color: #1b6ca8;
+        color: #6366f1;
         font-weight: 600;
         margin-bottom: 2px;
     }
@@ -225,12 +255,14 @@
     ========================== */
 
     .msg-thread {
-        background: white;
+        background: #ffffff;
         border: 1px solid #e5e7eb;
         border-radius: 12px;
 
         display: flex;
         flex-direction: column;
+        min-height: 0;
+        height: 100%;
 
         overflow: hidden;
     }
@@ -266,8 +298,8 @@
         align-items: center;
         justify-content: center;
 
-        background: #f3f8fc;
-        color: #1b6ca8;
+        background: #f0f1ff;
+        color: #6366f1;
 
         flex: 0 0 40px;
     }
@@ -289,6 +321,7 @@
 
     .thread-body {
         flex: 1;
+        min-height: 0;
         overflow-y: auto;
 
         padding: 18px;
@@ -342,7 +375,7 @@
         border-radius: 50%;
         overflow: hidden;
 
-        background: #ffe0b2;
+        background: #e0e7ff;
 
         display: flex;
         align-items: center;
@@ -350,7 +383,7 @@
 
         font-size: 11px;
         font-weight: 700;
-        color: #a05200;
+        color: #4f46e5;
 
         flex: 0 0 28px;
     }
@@ -367,8 +400,8 @@
     }
 
     .t-msg-row.staff-message .t-msg-avatar {
-        background: #dbeafe;
-        color: #1b6ca8;
+        background: #e0e7ff;
+        color: #4f46e5;
     }
 
 
@@ -436,9 +469,141 @@
 
     /* Admin/staff bubble */
     .t-msg-row.staff-message .t-bubble {
-        background: #1b6ca8;
-        color: white;
+        background: #6366f1;
+        color: #ffffff;
         border: none;
+    }
+
+    .t-msg-row.client-message .t-bubble {
+        background: #ffffff;
+        color: #111827;
+    }
+
+    .t-bubble.revision-bubble {
+        padding: 0;
+        background: transparent !important;
+        border: none !important;
+    }
+
+    .revision-card {
+        width: min(286px, 100%);
+        overflow: hidden;
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 14px;
+        color: #111827;
+        box-shadow: 0 8px 20px rgba(15, 23, 42, 0.1);
+    }
+
+    .revision-card-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 14px;
+    }
+
+    .revision-card-brand {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 34px;
+        height: 34px;
+        flex: 0 0 34px;
+        background: #e0e7ff;
+        border-radius: 50%;
+        color: #4f46e5;
+    }
+
+    .revision-card-heading {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+    }
+
+    .revision-card-heading strong {
+        font-size: 13px;
+        line-height: 1.25;
+    }
+
+    .revision-card-heading span {
+        margin-top: 2px;
+        color: #6b7280;
+        font-size: 10.5px;
+    }
+
+    .revision-card-banner {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 112px;
+        background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 52%, #c026d3 100%);
+        color: #ffffff;
+    }
+
+    .revision-card-banner-icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 58px;
+        height: 58px;
+        background: rgba(255, 255, 255, 0.2);
+        border: 2px solid rgba(255, 255, 255, 0.7);
+        border-radius: 50%;
+        box-shadow: 0 6px 16px rgba(30, 27, 75, 0.2);
+    }
+
+    .revision-card-content {
+        padding: 13px 14px 14px;
+        background: #ffffff;
+    }
+
+    .revision-card-content p {
+        margin: 0 0 12px;
+        color: #374151;
+        font-size: 12px;
+        line-height: 1.4;
+        text-align: center;
+    }
+
+    .revision-card-action {
+        display: block;
+        width: 100%;
+        padding: 9px 12px;
+        background: #f8fafc;
+        border: 1px solid #e5e7eb;
+        border-radius: 9px;
+        color: #4f46e5;
+        cursor: default;
+        font-size: 12px;
+        font-weight: 700;
+        text-align: center;
+    }
+
+    .t-bubble a {
+        color: inherit;
+        text-decoration: underline;
+        text-underline-offset: 2px;
+    }
+
+    .t-attachment {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 8px;
+        color: inherit;
+        font-size: 12px;
+        font-weight: 600;
+        text-decoration: underline;
+        text-underline-offset: 2px;
+    }
+
+    .t-attachment-image {
+        display: block;
+        max-width: 220px;
+        max-height: 180px;
+        margin-top: 8px;
+        border-radius: 10px;
+        object-fit: cover;
     }
 
 
@@ -462,45 +627,266 @@
     ========================== */
 
     .thread-footer {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-
         padding: 14px 18px;
-
         border-top: 1px solid #e5e7eb;
     }
 
-    .thread-footer input {
-        flex: 1;
+    .message-composer-shell {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+        min-height: 58px;
+        padding: 5px 6px 5px 8px;
+        box-sizing: border-box;
+        background: #ffffff;
+        border: 2px solid #e5e7eb;
+        border-radius: 30px;
+    }
 
-        padding: 10px 16px;
+    .message-action-drawer {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex: 0 0 auto;
+        max-width: 160px;
+        overflow: hidden;
+        padding: 0 10px 0 2px;
+        border-right: 1px solid #e5e7eb;
+        opacity: 1;
+        transform: translateX(0);
+        transition:
+            max-width 0.28s ease,
+            padding 0.28s ease,
+            border-color 0.2s ease,
+            opacity 0.18s ease,
+            transform 0.28s ease;
+    }
 
-        border: 1.5px solid #e5e7eb;
-        border-radius: 22px;
+    .message-drawer-action,
+    .thread-footer .message-composer-menu-toggle {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex: 0 0 40px;
+        width: 40px;
+        height: 40px;
+        padding: 0;
+        background: transparent;
+        color: #6366f1;
+        border: none;
+        border-radius: 50%;
+        cursor: pointer;
+        transition: background 0.15s, color 0.15s, transform 0.15s;
+    }
 
+    .message-drawer-action:hover {
+        background: #f0f1ff;
+        color: #4f46e5;
+        transform: scale(1.04);
+    }
+
+    .message-drawer-action[data-tooltip]::after {
+        position: absolute;
+        z-index: 40;
+        top: calc(100% + 7px);
+        left: 50%;
+        width: max-content;
+        max-width: 150px;
+        padding: 5px 8px;
+        background: #111827;
+        border-radius: 6px;
+        color: #ffffff;
+        content: attr(data-tooltip);
+        font-size: 11px;
+        font-weight: 600;
+        line-height: 1.2;
+        opacity: 0;
+        pointer-events: none;
+        transform: translate(-50%, -3px);
+        transition: opacity 0.15s ease, transform 0.15s ease;
+        white-space: nowrap;
+    }
+
+    .message-drawer-action[data-tooltip]:hover::after,
+    .message-drawer-action[data-tooltip]:focus-visible::after {
+        opacity: 1;
+        transform: translate(-50%, 0);
+    }
+
+    .thread-footer .message-composer-menu-toggle {
+        flex: 0 0 0;
+        width: 0;
+        visibility: hidden;
+        opacity: 0;
+        pointer-events: none;
+        background: transparent;
+        color: #6366f1;
+        transition:
+            flex-basis 0.28s ease,
+            width 0.28s ease,
+            opacity 0.18s ease,
+            visibility 0.28s ease,
+            background 0.15s,
+            color 0.15s,
+            transform 0.15s;
+    }
+
+    .thread-footer .message-composer-menu-toggle:hover {
+        background: transparent;
+        color: #4f46e5;
+    }
+
+    .message-composer-shell.is-composing .message-action-drawer {
+        max-width: 0;
+        padding-left: 0;
+        padding-right: 0;
+        border-right-color: transparent;
+        opacity: 0;
+        transform: translateX(-18px);
+        pointer-events: none;
+    }
+
+    .message-composer-shell.is-composing .message-composer-menu-toggle {
+        flex-basis: 40px;
+        width: 40px;
+        visibility: visible;
+        opacity: 1;
+        pointer-events: auto;
+    }
+
+    .message-composer-input {
+        display: flex;
+        align-items: center;
+        position: relative;
+        flex: 1 1 auto;
+        gap: 8px;
+        min-width: 0;
+    }
+
+    .message-composer-input input {
+        flex: 1 1 auto;
+        min-width: 0;
+        width: 100%;
+        padding: 10px 8px;
+        background: transparent;
+        border: none;
+        border-radius: 0;
+        color: #111827;
         font-size: 13.5px;
         outline: none;
     }
 
-    .thread-footer input:focus {
-        border-color: #1b6ca8;
+    .message-composer-input input::placeholder {
+        color: #9ca3af;
     }
 
-    .thread-footer button {
+    .message-composer-input input:focus {
+        border: none;
+        box-shadow: none;
+    }
+
+    .thread-footer .message-composer-send {
+        flex: 0 0 auto;
         width: 40px;
         height: 40px;
-
-        background: #1b6ca8;
-        color: white;
-
+        background: #6366f1;
+        color: #ffffff;
         border: none;
         border-radius: 50%;
-
         cursor: pointer;
         font-size: 15px;
+        transition: background 0.15s, transform 0.15s;
     }
 
+    .thread-footer .message-composer-send:hover {
+        background: #4f46e5;
+        transform: scale(1.04);
+    }
+
+    .thread-footer .message-composer-send:disabled,
+    .thread-footer .message-composer-menu-toggle:disabled,
+    .message-drawer-action:disabled {
+        cursor: not-allowed;
+        opacity: 0.6;
+        transform: none;
+    }
+
+    .message-action-menu {
+        position: absolute;
+        z-index: 20;
+        bottom: calc(100% + 8px);
+        left: 0;
+        width: 210px;
+        padding: 6px;
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 10px;
+        box-shadow: 0 10px 25px rgba(15, 23, 42, 0.16);
+    }
+
+    .thread-footer .message-action-menu button {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        width: 100%;
+        height: auto;
+        padding: 9px 10px;
+        background: transparent;
+        border: none;
+        border-radius: 7px;
+        color: #374151;
+        font-size: 12px;
+        font-weight: 600;
+        text-align: left;
+    }
+
+    .thread-footer .message-action-menu button:hover {
+        background: #f0f1ff;
+        color: #4f46e5;
+    }
+
+    .attachment-pending {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        flex: 0 1 auto;
+        max-width: 150px;
+        padding: 7px 8px 7px 10px;
+        background: #eef2ff;
+        border-radius: 14px;
+        color: #4f46e5;
+        font-size: 11px;
+        font-weight: 600;
+    }
+
+    .attachment-pending-name {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .attachment-pending-clear {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex: 0 0 auto;
+        width: 20px;
+        height: 20px;
+        padding: 0;
+        background: transparent;
+        border: none;
+        border-radius: 50%;
+        color: #4f46e5;
+        cursor: pointer;
+    }
+
+    .attachment-pending-clear:hover {
+        background: rgba(79, 70, 229, 0.12);
+        color: #3730a3;
+    }
 
     /* =========================
        EMPTY THREAD
@@ -543,21 +929,31 @@
         color: #f9fafb;
     }
 
-    .dark .msg-search input,
-    .dark .thread-footer input {
+    .dark .msg-search input {
         background: #1f2937;
         border-color: #4b5563;
+        color: #f9fafb;
+    }
 
+    .dark .message-composer-shell {
+        background: #111827;
+        border-color: #4b5563;
+    }
+
+    .dark .message-action-drawer {
+        border-color: #374151;
+    }
+
+    .dark .message-composer-input input {
         color: #f9fafb;
     }
 
     .dark .msg-search input::placeholder,
-    .dark .thread-footer input::placeholder {
+    .dark .message-composer-input input::placeholder {
         color: #9ca3af;
     }
 
-    .dark .msg-search input:focus,
-    .dark .thread-footer input:focus {
+    .dark .msg-search input:focus {
         border-color: #818cf8;
     }
 
@@ -619,6 +1015,44 @@
         color: #f3f4f6;
     }
 
+    .dark .t-msg-row.client-message .t-bubble {
+        background: #1f2937;
+        border-color: #374151;
+        color: #f3f4f6;
+    }
+
+    .dark .t-msg-row.staff-message .t-bubble {
+        background: #6366f1;
+        border: none;
+        color: #ffffff;
+    }
+
+    .dark .revision-card {
+        background: #1f2937;
+        border-color: #374151;
+        color: #f9fafb;
+    }
+
+    .dark .revision-card-brand {
+        background: #312e81;
+        color: #c7d2fe;
+    }
+
+    .dark .revision-card-heading span,
+    .dark .revision-card-content p {
+        color: #d1d5db;
+    }
+
+    .dark .revision-card-content {
+        background: #1f2937;
+    }
+
+    .dark .revision-card-action {
+        background: #111827;
+        border-color: #4b5563;
+        color: #c7d2fe;
+    }
+
     .dark .t-msg-row.own .t-bubble {
         background: #6366f1;
         border: none;
@@ -630,12 +1064,44 @@
         background: #111827;
     }
 
-    .dark .thread-footer button {
+    .dark .thread-footer .message-composer-send {
         background: #6366f1;
     }
 
-    .dark .thread-footer button:hover {
-        background: #4f46e5;
+    .dark .message-drawer-action:hover,
+    .dark .thread-footer .message-composer-send:hover {
+        background: #312e81;
+        color: #ffffff;
+    }
+
+    .dark .message-action-menu {
+        background: #1f2937;
+        border-color: #374151;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
+    }
+
+    .dark .thread-footer .message-action-menu button {
+        background: transparent;
+        color: #f3f4f6;
+    }
+
+    .dark .thread-footer .message-action-menu button:hover {
+        background: #312e81;
+        color: #ffffff;
+    }
+
+    .dark .attachment-pending {
+        background: #312e81;
+        color: #c7d2fe;
+    }
+
+    .dark .attachment-pending-clear {
+        color: #c7d2fe;
+    }
+
+    .dark .attachment-pending-clear:hover {
+        background: rgba(199, 210, 254, 0.14);
+        color: #ffffff;
     }
 
     .dark .thread-header > button {
@@ -748,6 +1214,14 @@
                         ->sortBy('created_at')
                         ->last();
 
+                    $latestIsRevisionRequest = $latestMessage && (
+                        $latestMessage->body === 'revision_request'
+                        || str_contains(
+                            (string) $latestMessage->body,
+                            'Please upload a revised version of your document using this link:'
+                        )
+                    );
+
                     $searchText = strtolower(
                         $clientName . ' ' .
                         ($conversation->document?->lao_number ?? '') . ' ' .
@@ -837,10 +1311,14 @@
                                     You:
                                 @endif
 
-                                {{ \Illuminate\Support\Str::limit(
-                                    $latestMessage->body,
-                                    55
-                                ) }}
+                                @if ($latestIsRevisionRequest)
+                                    Revision request
+                                @else
+                                    {{ \Illuminate\Support\Str::limit(
+                                        $latestMessage->body,
+                                        55
+                                    ) }}
+                                @endif
 
                             @else
 
@@ -965,6 +1443,17 @@
 
 
                 {{-- Optional Assign to Me --}}
+                @if ($activeConversation?->document)
+                    <a
+                        href="{{ \App\Filament\Pages\ViewDocument::getUrl([
+                            'document' => $activeConversation->document->document_id,
+                        ]) }}"
+                        class="inline-flex items-center rounded-md border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-100 dark:border-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-300 dark:hover:bg-indigo-950/70"
+                    >
+                        Review document
+                    </a>
+                @endif
+
                 @if (
                     $activeConversation
                     && ! $activeConversation->assigned_to
@@ -988,7 +1477,6 @@
                     </button>
 
                 @endif
-
 
                 <button
                     type="button"
@@ -1104,8 +1592,84 @@
                                 {{ $senderName }}
                             </div>
 
-                            <div class="t-bubble">
-                                {{ $message->body }}
+                            @php
+                                $isRevisionRequest =
+                                    $message->body === 'revision_request'
+                                    || str_contains(
+                                        (string) $message->body,
+                                        'Please upload a revised version of your document using this link:'
+                                    );
+                            @endphp
+
+                            <div class="t-bubble {{ $isRevisionRequest ? 'revision-bubble' : '' }}">
+                                @if ($isRevisionRequest)
+                                    <div class="revision-card">
+                                        <div class="revision-card-header">
+                                            <div class="revision-card-brand">
+                                                <x-heroicon-o-document-text class="h-5 w-5" />
+                                            </div>
+
+                                            <div class="revision-card-heading">
+                                                <strong>Legal Affairs Office</strong>
+                                                <span>Revision request</span>
+                                            </div>
+                                        </div>
+
+                                        <div class="revision-card-banner">
+                                            <div class="revision-card-banner-icon">
+                                                <x-heroicon-o-arrow-path class="h-8 w-8" />
+                                            </div>
+                                        </div>
+
+                                        <div class="revision-card-content">
+                                            <p>
+                                                Please upload a revised version of your document.
+                                            </p>
+
+                                            <div class="revision-card-action">
+                                                Revision request sent
+                                            </div>
+                                        </div>
+                                    </div>
+                                @elseif ($message->body !== 'Attachment sent.')
+                                    {!! nl2br(e($message->body)) !!}
+                                @endif
+
+                                @if ($message->attachment_path)
+                                    @php
+                                        $attachmentUrl = route('messages.attachment', [
+                                            'message' => $message->id,
+                                        ]);
+                                        $isImageAttachment = \Illuminate\Support\Str::startsWith(
+                                            (string) $message->attachment_mime_type,
+                                            'image/'
+                                        );
+                                    @endphp
+
+                                    @if ($isImageAttachment)
+                                        <a
+                                            href="{{ $attachmentUrl }}"
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                        >
+                                            <img
+                                                src="{{ $attachmentUrl }}"
+                                                alt="{{ $message->attachment_name ?: 'Attached image' }}"
+                                                class="t-attachment-image"
+                                            >
+                                        </a>
+                                    @else
+                                        <a
+                                            href="{{ $attachmentUrl }}"
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            class="t-attachment"
+                                        >
+                                            <x-heroicon-o-paper-clip class="h-4 w-4" />
+                                            {{ $message->attachment_name ?: 'Attached document' }}
+                                        </a>
+                                    @endif
+                                @endif
                             </div>
 
                             <div class="t-time">
@@ -1149,43 +1713,191 @@
 
                 <div class="thread-footer">
 
-                    <input
-                        type="text"
-                        wire:model="newMessage"
-                        wire:keydown.enter="sendMessage"
-                        placeholder="Type a message..."
-                        maxlength="5000"
-                        autocomplete="off"
+                    <div
+                        class="message-composer-shell"
+                        x-data="{ open: false, hasText: false }"
+                        :class="{ 'is-composing': hasText }"
+                        @click.outside="open = false"
                     >
 
-                    <button
-                        type="button"
-                        wire:click="sendMessage"
-                        wire:loading.attr="disabled"
-                        wire:target="sendMessage"
-                        title="Send message"
-                    >
+                        <div class="message-action-drawer" aria-label="Quick message actions">
+                            <button
+                                type="button"
+                                class="message-drawer-action"
+                                @click="$wire.set('attachmentKind', 'image'); $refs.imageFile.click()"
+                                aria-label="Attach image"
+                                title="Attach image"
+                                data-tooltip="Attach image"
+                            >
+                                <x-heroicon-o-photo class="h-5 w-5" />
+                            </button>
 
-                        <span
-                            wire:loading.remove
-                            wire:target="sendMessage"
+                            <button
+                                type="button"
+                                class="message-drawer-action"
+                                @click="$wire.set('attachmentKind', 'document'); $refs.documentFile.click()"
+                                aria-label="Attach PDF or DOCX"
+                                title="Attach PDF or DOCX"
+                                data-tooltip="Attach PDF or DOCX"
+                            >
+                                <x-heroicon-o-document-text class="h-5 w-5" />
+                            </button>
+
+                            @if ($activeConversation?->document)
+                                <button
+                                    type="button"
+                                    class="message-drawer-action"
+                                    wire:click="requestRevision"
+                                    wire:loading.attr="disabled"
+                                    wire:target="requestRevision"
+                                    aria-label="Ask for revision"
+                                    title="Ask for revision"
+                                    data-tooltip="Ask for revision"
+                                >
+                                    <x-heroicon-o-arrow-path class="h-5 w-5" />
+                                </button>
+                            @endif
+                        </div>
+
+                        @if ($attachment)
+                            <div
+                                class="attachment-pending"
+                                title="{{ $attachment->getClientOriginalName() }}"
+                            >
+                                <span class="attachment-pending-name">
+                                    {{ \Illuminate\Support\Str::limit($attachment->getClientOriginalName(), 20) }}
+                                </span>
+
+                                <button
+                                    type="button"
+                                    class="attachment-pending-clear"
+                                    wire:click="clearAttachment"
+                                    wire:loading.attr="disabled"
+                                    wire:target="clearAttachment"
+                                    @click="$refs.imageFile.value = ''; $refs.documentFile.value = ''"
+                                    aria-label="Remove selected attachment"
+                                    title="Remove selected attachment"
+                                >
+                                    <x-heroicon-o-x-mark class="h-3.5 w-3.5" />
+                                </button>
+                            </div>
+                        @endif
+
+                        <div class="message-composer-input">
+                            <button
+                                type="button"
+                                class="message-composer-menu-toggle"
+                                @click="open = ! open"
+                                :aria-expanded="open.toString()"
+                                aria-label="Show message actions"
+                                title="Show message actions"
+                            >
+                                <x-heroicon-o-squares-2x2 class="h-5 w-5" />
+                            </button>
+
+                            <div
+                                x-cloak
+                                x-show="open"
+                                class="message-action-menu"
+                            >
+                                <button
+                                    type="button"
+                                    @click="$wire.set('attachmentKind', 'image'); $refs.imageFile.click(); open = false"
+                                >
+                                    <x-heroicon-o-photo class="h-4 w-4" />
+                                    Attach image
+                                </button>
+
+                                <button
+                                    type="button"
+                                    @click="$wire.set('attachmentKind', 'document'); $refs.documentFile.click(); open = false"
+                                >
+                                    <x-heroicon-o-document-text class="h-4 w-4" />
+                                    Attach PDF or DOCX
+                                </button>
+
+                                @if ($activeConversation?->document)
+                                    <button
+                                        type="button"
+                                        wire:click="requestRevision"
+                                        wire:loading.attr="disabled"
+                                        wire:target="requestRevision"
+                                        @click="open = false"
+                                    >
+                                        <x-heroicon-o-arrow-path class="h-4 w-4" />
+
+                                        <span wire:loading.remove wire:target="requestRevision">
+                                            Ask for revision
+                                        </span>
+
+                                        <span wire:loading wire:target="requestRevision">
+                                            Sending...
+                                        </span>
+                                    </button>
+                                @endif
+                            </div>
+
+                            <input
+                                type="text"
+                                wire:model="newMessage"
+                                wire:keydown.enter="sendMessage"
+                                @input="hasText = $event.target.value.length > 0"
+                                @keydown.enter="hasText = false"
+                                placeholder="Type a message..."
+                                maxlength="5000"
+                                autocomplete="off"
+                            >
+
+                            <button
+                                type="button"
+                                class="message-composer-send"
+                                wire:click="sendMessage"
+                                wire:loading.attr="disabled"
+                                wire:target="sendMessage"
+                                @click="hasText = false"
+                                title="Send message"
+                            >
+                                <span wire:loading.remove wire:target="sendMessage">➤</span>
+                                <span wire:loading wire:target="sendMessage">...</span>
+                            </button>
+                        </div>
+
+                        <input
+                            x-ref="imageFile"
+                            type="file"
+                            accept=".jpg,.jpeg,.png,.gif,.webp,image/jpeg,image/png,image/gif,image/webp"
+                            wire:model="attachment"
+                            class="hidden"
                         >
-                            ➤
-                        </span>
 
-                        <span
-                            wire:loading
-                            wire:target="sendMessage"
+                        <input
+                            x-ref="documentFile"
+                            type="file"
+                            accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                            wire:model="attachment"
+                            class="hidden"
                         >
-                            ...
-                        </span>
 
-                    </button>
+                    </div>
 
                 </div>
 
 
                 @error('newMessage')
+
+                    <div
+                        style="
+                            color: #dc2626;
+                            font-size: 12px;
+                            padding: 0 18px 12px;
+                        "
+                    >
+                        {{ $message }}
+                    </div>
+
+                @enderror
+
+                @error('attachment')
 
                     <div
                         style="

@@ -19,6 +19,8 @@ class ViewDocument extends Page
 
     public ?string $previewUrl = null;
 
+    public ?string $downloadUrl = null;
+
     public string $returnTab = 'all';
 
     public string $returnPage = 'documents';
@@ -81,6 +83,10 @@ class ViewDocument extends Page
             $this->documentRecord->latestVersion?->file_path
         ) {
             $this->previewUrl = route('client.document.preview', [
+                'document' => $this->documentRecord->document_id,
+            ]);
+
+            $this->downloadUrl = route('client.document.download', [
                 'document' => $this->documentRecord->document_id,
             ]);
         }

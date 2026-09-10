@@ -210,9 +210,20 @@
     </div>
 
     <!-- Render the data table below the custom tabs -->
+       <!-- Render the data table below the custom tabs -->
     <div
+        class="client-documents-table"
         x-data
-        x-init="$nextTick(() => { const row = $el.querySelector('.document-highlighted'); if (row) row.scrollIntoView({ behavior: 'smooth', block: 'center' }); })"
+        x-init="$nextTick(() => {
+            const row = $el.querySelector('.document-highlighted');
+
+            if (row) {
+                row.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'center',
+                });
+            }
+        })"
     >
         {{ $this->table }}
     </div>
@@ -226,5 +237,4 @@
             background-color: rgb(55 65 81) !important;
         }
     </style>
-
 </x-filament-panels::page>

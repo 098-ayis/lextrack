@@ -1158,6 +1158,45 @@ Edit-Button
     color: #6366f1 !important;
 }
 
+/* ================================
+   CLIENT DOCUMENTS TABLE DARK MODE
+================================ */
+
+.dark .client-documents-table .fi-ta-ctn,
+.dark .client-documents-table .fi-ta-content,
+.dark .client-documents-table .fi-ta-footer {
+    background-color: #171717 !important;
+    border-color: #374151 !important;
+    color: #e5e7eb !important;
+    box-shadow: none !important;
+}
+
+.dark .client-documents-table .fi-ta-table,
+.dark .client-documents-table .fi-ta-table tbody tr {
+    background-color: #171717 !important;
+    color: #e5e7eb !important;
+}
+
+.dark .client-documents-table .fi-ta-table thead tr,
+.dark .client-documents-table .fi-ta-table thead .fi-ta-header-cell,
+.dark .client-documents-table .fi-ta-table thead .fi-ta-actions-header-cell,
+.dark .client-documents-table .fi-ta-table thead .fi-ta-header-cell button {
+    background-color: #262626 !important;
+    border-color: #374151 !important;
+    color: #f3f4f6 !important;
+}
+
+.dark .client-documents-table .fi-ta-table tbody tr:hover {
+    background-color: #262626 !important;
+}
+
+.dark .client-documents-table .fi-ta-table tbody .fi-ta-cell,
+.dark .client-documents-table .fi-ta-footer,
+.dark .client-documents-table .fi-ta-footer * {
+    border-color: #374151 !important;
+    color: #d1d5db !important;
+}
+
 /* Filament table column headers */
 .fi-ta-table thead tr,
 .fi-ta-table thead .fi-ta-header-cell,

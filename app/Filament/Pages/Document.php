@@ -26,7 +26,6 @@ use App\Models\OfficeUnit;
 use Filament\Support\Enums\Alignment;
 use Filament\Support\Enums\Width;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\URL;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
 use chillerlan\QRCode\QRCode;
@@ -36,6 +35,7 @@ use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\User;
 use App\Services\DocumentDownloadService;
+use App\Services\DocumentQrToken;
 use Illuminate\Support\Facades\DB;
 use Filament\Actions\ActionGroup;
 use Filament\Tables\Columns\TextColumn;
@@ -82,8 +82,6 @@ class Document extends Page implements HasTable
     public ?int $qrCodeDocumentId = null;
 
     public ?string $qrCodeSvg = null;
-
-    public ?string $qrCodeUrl = null;
 
     public function mount(): void
     {
@@ -219,7 +217,7 @@ class Document extends Page implements HasTable
 
             /*
             |--------------------------------------------------------------------------
-            | 1. Generate LAO number
+            | 1. Keep the existing LAO number, or assign one to a new request
             |--------------------------------------------------------------------------
             */
 
@@ -230,7 +228,10 @@ class Document extends Page implements HasTable
             */
 
             $document->update([
-                'lao_number' => DocumentModel::generateLaoNumber(),
+                // A revised document is the same request, so never replace an
+                // LAO number that was already assigned to it.
+                'lao_number' => $document->lao_number
+                    ?: DocumentModel::generateLaoNumber(),
                 'status' => 'in_progress',
                 'deadline' => DocumentModel::deadlineForType($document->document_type),
             ]);
@@ -634,19 +635,15 @@ class Document extends Page implements HasTable
     public function openQrCode(int $documentId): void
     {
         try {
-            DocumentModel::findOrFail($documentId);
-
-            $url = URL::signedRoute('documents.public-status', [
-                'document' => $documentId,
-            ]);
+            $document = DocumentModel::findOrFail($documentId);
+            $qrPayload = DocumentQrToken::encode($document);
 
             $this->qrCodeDocumentId = $documentId;
-            $this->qrCodeUrl = $url;
             $this->qrCodeSvg = (new QRCode(new QROptions([
                 'outputType' => QROutputInterface::MARKUP_SVG,
                 'outputBase64' => false,
                 'scale' => 5,
-            ])))->render($url);
+            ])))->render($qrPayload);
         } catch (\Throwable $exception) {
             report($exception);
 
@@ -664,7 +661,6 @@ class Document extends Page implements HasTable
     {
         $this->qrCodeDocumentId = null;
         $this->qrCodeSvg = null;
-        $this->qrCodeUrl = null;
     }
 
     public function addDocumentAction(): Action

@@ -378,6 +378,10 @@
                     $hasCurrentVersion = $versions->contains(
                         fn ($version): bool => $version->file_path === $latestFilePath
                     );
+                    $hasPendingRevision = $this->hasPendingRevision();
+                    $pendingRevisionVersionId = $hasPendingRevision
+                        ? $documentRecord->latestVersion?->version_id
+                        : null;
                     $showCurrentDocument = filled($latestFilePath) && !$hasCurrentVersion;
                     $attachmentCount = max(
                         1,
@@ -462,6 +466,8 @@
                                     ? basename($version->file_path)
                                     : 'Document';
                                 $isSelectedVersion = $selectedVersionId === $version->version_id;
+                                $isPendingRevisionVersion = $pendingRevisionVersionId !== null
+                                    && (int) $pendingRevisionVersionId === (int) $version->version_id;
                             @endphp
 
                             <div
@@ -500,36 +506,48 @@
                                 </button>
 
                                 <div
-                                    class="flex shrink-0 items-center gap-1 opacity-0
-                                           transition-opacity group-hover:opacity-100
-                                           group-focus-within:opacity-100"
+                                    class="flex shrink-0 items-center gap-1
+                                           transition-opacity
+                                           {{ $isPendingRevisionVersion
+                                                ? 'opacity-100'
+                                                : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100' }}"
                                 >
-                                    <button
-                                        type="button"
-                                        wire:click="selectVersion({{ $version->version_id }})"
-                                        wire:loading.attr="disabled"
-                                        class="inline-flex h-7 w-7 items-center justify-center
-                                               rounded-md text-gray-600 hover:bg-white
-                                               hover:text-blue-600"
-                                        title="View version"
-                                        aria-label="View version"
-                                    >
-                                        <svg
-                                            class="h-4 w-4"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            stroke-width="1.8"
-                                            viewBox="0 0 24 24"
-                                            aria-hidden="true"
-                                        >
-                                            <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" />
-                                            <circle cx="12" cy="12" r="2.75" />
-                                        </svg>
-                                    </button>
+                                    @if ($isPendingRevisionVersion)
+                                        {{ ($this->acceptRevisionAction)([
+                                            'version' => $version->version_id,
+                                        ]) }}
 
-                                    {{ ($this->deleteVersionAction)([
-                                        'version' => $version->version_id,
-                                    ]) }}
+                                        {{ ($this->rejectRevisionAction)([
+                                            'version' => $version->version_id,
+                                        ]) }}
+                                    @else
+                                        <button
+                                            type="button"
+                                            wire:click="selectVersion({{ $version->version_id }})"
+                                            wire:loading.attr="disabled"
+                                            class="inline-flex h-7 w-7 items-center justify-center
+                                                   rounded-md text-gray-600 hover:bg-white
+                                                   hover:text-blue-600"
+                                            title="View version"
+                                            aria-label="View version"
+                                        >
+                                            <svg
+                                                class="h-4 w-4"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                stroke-width="1.8"
+                                                viewBox="0 0 24 24"
+                                                aria-hidden="true"
+                                            >
+                                                <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" />
+                                                <circle cx="12" cy="12" r="2.75" />
+                                            </svg>
+                                        </button>
+
+                                        {{ ($this->deleteVersionAction)([
+                                            'version' => $version->version_id,
+                                        ]) }}
+                                    @endif
                                 </div>
                             </div>
                         @endforeach

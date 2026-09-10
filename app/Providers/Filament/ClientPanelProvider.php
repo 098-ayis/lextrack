@@ -37,7 +37,7 @@ class ClientPanelProvider extends PanelProvider
 
             ->viteTheme('resources/css/filament/admin/theme.css')
             ->colors([
-                'primary' => Color::Amber,
+                'primary' => Color::Indigo,
                 'purple' => Color::Purple,
             ])
             ->discoverResources(in: app_path('Filament/Client/Resources'), for: 'App\Filament\Client\Resources')

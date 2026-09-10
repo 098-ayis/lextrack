@@ -250,7 +250,7 @@
                         <button type="button" wire:click="closeQrCode" class="rounded-md p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-800 dark:text-gray-300 dark:hover:bg-white/10 dark:hover:text-white" aria-label="Close QR code"><span class="text-xl leading-none">&times;</span></button>
                     </div>
                     <div class="mx-auto mt-5 flex h-64 w-64 items-center justify-center overflow-hidden rounded-lg border border-gray-200 bg-white p-2 dark:border-gray-600">{!! $qrCodeSvg !!}</div>
-                    <p class="mt-4 text-sm text-gray-600 dark:text-gray-300">Scan this code to view the document status and details.</p>
+                    <p class="mt-4 text-sm text-gray-600 dark:text-gray-300">Scan this code on the public Track page to view the document status and details.</p>
                     <button type="button" wire:click="closeQrCode" class="mt-5 w-full rounded-lg bg-[#0F172A] px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-700">Close</button>
                 </div>
             </div>

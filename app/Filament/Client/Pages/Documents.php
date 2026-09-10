@@ -175,6 +175,14 @@ class Documents extends Page implements HasTable
                 } else {
                     $query->where('status', $this->activeTab);
                 }
+
+                if ($this->activeTab === 'rejected') {
+                    $query->with([
+                        'rejections' => fn ($rejectionQuery) => $rejectionQuery
+                            ->latest('created_at')
+                            ->latest('rejected_id'),
+                    ]);
+                }
             }
         }
 
@@ -241,6 +249,7 @@ class Documents extends Page implements HasTable
             ->columns([
                 TextColumn::make('lao_number')
                     ->label('LAO #')
+                    ->visible(fn (): bool => $this->activeTab !== 'rejected')
                     ->formatStateUsing(fn ($state) => $state ?? ''),
 
                 TextColumn::make('document_type')
@@ -302,6 +311,16 @@ class Documents extends Page implements HasTable
                             default => ucwords(str_replace('_', ' ', (string) $state)),
                         }
                     ),
+
+                TextColumn::make('rejection_reason')
+                    ->label('REASON')
+                    ->visible(fn (): bool => $this->activeTab === 'rejected')
+                    ->state(
+                        fn (Document $record): string => $record->rejections->first()?->reason
+                            ?? $record->rejection_reason
+                            ?? 'No reason provided'
+                    )
+                    ->wrap(),
 
                 // Filament hides record actions when there are no rows.
                 // Keep the empty table header aligned with populated tables.

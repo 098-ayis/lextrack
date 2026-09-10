@@ -512,6 +512,146 @@
         color: #ffffff;
     }
 
+    .t-bubble.revision-bubble {
+        padding: 0;
+        background: transparent;
+        border: none;
+    }
+
+    .revision-card {
+        width: min(286px, 100%);
+        overflow: hidden;
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 14px;
+        color: #111827;
+        box-shadow: 0 8px 20px rgba(15, 23, 42, 0.1);
+    }
+
+    .revision-card-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 14px;
+    }
+
+    .revision-card-brand {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 34px;
+        height: 34px;
+        flex: 0 0 34px;
+        background: #e0e7ff;
+        border-radius: 50%;
+        color: #4f46e5;
+    }
+
+    .revision-card-heading {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+    }
+
+    .revision-card-heading strong {
+        font-size: 13px;
+        line-height: 1.25;
+    }
+
+    .revision-card-heading span {
+        margin-top: 2px;
+        color: #6b7280;
+        font-size: 10.5px;
+    }
+
+    .revision-card-banner {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 112px;
+        background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 52%, #c026d3 100%);
+        color: #ffffff;
+    }
+
+    .revision-card-banner-icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 58px;
+        height: 58px;
+        background: rgba(255, 255, 255, 0.2);
+        border: 2px solid rgba(255, 255, 255, 0.7);
+        border-radius: 50%;
+        box-shadow: 0 6px 16px rgba(30, 27, 75, 0.2);
+    }
+
+    .revision-card-content {
+        padding: 13px 14px 14px;
+        background: #ffffff;
+    }
+
+    .revision-card-content p {
+        margin: 0 0 12px;
+        color: #374151;
+        font-size: 12px;
+        line-height: 1.4;
+        text-align: center;
+    }
+
+    .revision-card-action {
+        display: block;
+        width: 100%;
+        padding: 9px 12px;
+        background: #f8fafc;
+        border: 1px solid #e5e7eb;
+        border-radius: 9px;
+        color: #4f46e5;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 700;
+        text-align: center;
+        transition: background 0.15s, border-color 0.15s, transform 0.15s;
+    }
+
+    .revision-card-action:hover {
+        background: #eef2ff;
+        border-color: #a5b4fc;
+        transform: translateY(-1px);
+    }
+
+    .revision-card-action:disabled {
+        cursor: wait;
+        opacity: 0.65;
+        transform: none;
+    }
+
+    .t-bubble a {
+        color: inherit;
+        text-decoration: underline;
+        text-underline-offset: 2px;
+    }
+
+    .t-attachment {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 8px;
+        color: inherit;
+        font-size: 12px;
+        font-weight: 600;
+        text-decoration: underline;
+        text-underline-offset: 2px;
+    }
+
+    .t-attachment-image {
+        display: block;
+        max-width: 220px;
+        max-height: 180px;
+        margin-top: 8px;
+        border-radius: 10px;
+        object-fit: cover;
+    }
+
 
     /* =========================================================
        MESSAGE TIME
@@ -726,6 +866,38 @@
         color: #ffffff;
     }
 
+    .dark .revision-card {
+        background: #1f2937;
+        border-color: #374151;
+        color: #f9fafb;
+    }
+
+    .dark .revision-card-brand {
+        background: #312e81;
+        color: #c7d2fe;
+    }
+
+    .dark .revision-card-heading span,
+    .dark .revision-card-content p {
+        color: #d1d5db;
+    }
+
+    .dark .revision-card-content {
+        background: #1f2937;
+    }
+
+    .dark .revision-card-action {
+        background: #111827;
+        border-color: #4b5563;
+        color: #c7d2fe;
+    }
+
+    .dark .revision-card-action:hover {
+        background: #312e81;
+        border-color: #6366f1;
+        color: #ffffff;
+    }
+
     .dark .thread-footer {
         background: #111827;
     }
@@ -836,6 +1008,14 @@
                     @php
                         $latestMessage = $conversation->messages->last();
 
+                        $latestIsRevisionRequest = $latestMessage && (
+                            $latestMessage->body === 'revision_request'
+                            || str_contains(
+                                (string) $latestMessage->body,
+                                'Please upload a revised version of your document using this link:'
+                            )
+                        );
+
                         $displayName = $conversation->document?->particulars
                             ?: 'General Conversation';
 
@@ -929,10 +1109,14 @@
                                         You:
                                     @endif
 
-                                    {{ \Illuminate\Support\Str::limit(
-                                        $latestMessage->body,
-                                        60
-                                    ) }}
+                                    @if ($latestIsRevisionRequest)
+                                        Revision request
+                                    @else
+                                        {{ \Illuminate\Support\Str::limit(
+                                            $latestMessage->body,
+                                            60
+                                        ) }}
+                                    @endif
 
                                 @else
                                     No messages yet
@@ -1118,8 +1302,96 @@
 
                             @endunless
 
-                            <div class="t-bubble">
-                                {{ $message->body }}
+                            @php
+                                $isRevisionRequest =
+                                    $message->body === 'revision_request'
+                                    || str_contains(
+                                        (string) $message->body,
+                                        'Please upload a revised version of your document using this link:'
+                                    );
+                            @endphp
+
+                            <div class="t-bubble {{ $isRevisionRequest ? 'revision-bubble' : '' }}">
+                                @if ($isRevisionRequest)
+                                    <div class="revision-card">
+                                        <div class="revision-card-header">
+                                            <div class="revision-card-brand">
+                                                <x-heroicon-o-document-text class="h-5 w-5" />
+                                            </div>
+
+                                            <div class="revision-card-heading">
+                                                <strong>Legal Affairs Office</strong>
+                                                <span>Revision request</span>
+                                            </div>
+                                        </div>
+
+                                        <div class="revision-card-banner">
+                                            <div class="revision-card-banner-icon">
+                                                <x-heroicon-o-arrow-path class="h-8 w-8" />
+                                            </div>
+                                        </div>
+
+                                        <div class="revision-card-content">
+                                            <p>
+                                                Please upload a revised version of your document.
+                                            </p>
+
+                                            <button
+                                                type="button"
+                                                class="revision-card-action"
+                                                wire:click="openRevisionRequest({{ $message->id }})"
+                                                wire:loading.attr="disabled"
+                                                wire:target="openRevisionRequest"
+                                            >
+                                                <span wire:loading.remove wire:target="openRevisionRequest">
+                                                    View Revision Request
+                                                </span>
+
+                                                <span wire:loading wire:target="openRevisionRequest">
+                                                    Opening...
+                                                </span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                @elseif ($message->body !== 'Attachment sent.')
+                                    {!! nl2br(e($message->body)) !!}
+                                @endif
+
+                                @if ($message->attachment_path)
+                                    @php
+                                        $attachmentUrl = route('messages.attachment', [
+                                            'message' => $message->id,
+                                        ]);
+                                        $isImageAttachment = \Illuminate\Support\Str::startsWith(
+                                            (string) $message->attachment_mime_type,
+                                            'image/'
+                                        );
+                                    @endphp
+
+                                    @if ($isImageAttachment)
+                                        <a
+                                            href="{{ $attachmentUrl }}"
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                        >
+                                            <img
+                                                src="{{ $attachmentUrl }}"
+                                                alt="{{ $message->attachment_name ?: 'Attached image' }}"
+                                                class="t-attachment-image"
+                                            >
+                                        </a>
+                                    @else
+                                        <a
+                                            href="{{ $attachmentUrl }}"
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            class="t-attachment"
+                                        >
+                                            <x-heroicon-o-paper-clip class="h-4 w-4" />
+                                            {{ $message->attachment_name ?: 'Attached document' }}
+                                        </a>
+                                    @endif
+                                @endif
                             </div>
 
                             <div class="t-time">

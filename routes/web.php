@@ -3,15 +3,18 @@
 use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
 use App\Models\Document;
 use App\Models\DocumentVersion;
+use App\Models\Message;
 use App\Http\Controllers\AIController;
 use App\Http\Controllers\Auth\GoogleAuthController;
 use App\Http\Controllers\UserExportController;
 use App\Http\Controllers\DocumentExportController;
 use App\Http\Middleware\AdminMiddleware;
 use App\Services\DocumentDownloadService;
+use App\Services\DocumentQrToken;
 use Spatie\Honeypot\Honeypot;
 use Spatie\Honeypot\ProtectAgainstSpam;
 
@@ -70,9 +73,12 @@ Route::get('/document-status/{document}', function (int $document) {
         ->with(['user'])
         ->findOrFail($document);
 
-    return view('documents.public-status', [
-        'document' => $documentRecord,
-    ]);
+    return response()
+        ->view('documents.public-status', [
+            'document' => $documentRecord,
+        ])
+        ->header('Cache-Control', 'no-store, private')
+        ->header('X-Robots-Tag', 'noindex, nofollow, noarchive');
 })
     ->middleware('signed')
     ->name('documents.public-status');
@@ -157,10 +163,57 @@ Route::get('/client/document-download/{document}', function (int $document) {
 
     abort_unless($filePath && $disk->exists($filePath), 404);
 
-    return app(DocumentDownloadService::class)->download($documentRecord, $versionRecord);
+    $fileName = basename($filePath);
+
+    return response()->download(
+        $disk->path($filePath),
+        $fileName,
+        [
+            'Content-Type' => $disk->mimeType($filePath)
+                ?: 'application/octet-stream',
+        ]
+    );
 })
     ->middleware('auth')
     ->name('client.document.download');
+
+Route::get('/messages/{message}/attachment', function (Message $message) {
+    $conversation = $message->conversation;
+
+    abort_unless($conversation, 404);
+
+    Gate::authorize('view', $conversation);
+
+    $filePath = $message->attachment_path;
+    $disk = Storage::disk('local');
+
+    if ($filePath && ! $disk->exists($filePath)) {
+        $disk = Storage::disk('public');
+    }
+
+    abort_unless($filePath && $disk->exists($filePath), 404);
+
+    $fileName = basename($message->attachment_name ?: $filePath);
+    $mimeType = $message->attachment_mime_type
+        ?: $disk->mimeType($filePath)
+        ?: 'application/octet-stream';
+    $quotedFileName = addcslashes($fileName, "\\\"");
+
+    if (str_starts_with($mimeType, 'image/') || $mimeType === 'application/pdf') {
+        return response()->file($disk->path($filePath), [
+            'Content-Type' => $mimeType,
+            'Content-Disposition' => 'inline; filename="' . $quotedFileName . '"',
+        ]);
+    }
+
+    return response()->download(
+        $disk->path($filePath),
+        $fileName,
+        ['Content-Type' => $mimeType]
+    );
+})
+    ->middleware('auth')
+    ->name('messages.attachment');
 
 
 Route::get('/dashboard', function () {
@@ -261,62 +314,76 @@ Route::get('/admin/documents/{document}/versions/{version}/preview', function (
     ->middleware('auth')
     ->name('admin.document.version.preview');
 
+Route::get('/admin/document-temp-preview/{file}', function (string $file) {
+    abort_unless(
+        preg_match('/^[a-f0-9]{32}\.pdf$/', $file) === 1,
+        404
+    );
+
+    $path = storage_path('app/private/temp-previews/' . $file);
+
+    abort_unless(is_file($path), 404);
+
+    return response()->file($path, [
+        'Content-Type' => 'application/pdf',
+        'Content-Disposition' => 'inline; filename="' . $file . '"',
+    ]);
+})
+    ->middleware(['auth', AdminMiddleware::class])
+    ->name('admin.document.temp-preview');
+
 
 Route::get('/api/honeypot', function (Honeypot $honeypot) {
     return response()->json($honeypot->toArray());
 })->name('public.honeypot');
 
 
-Route::post('/api/track', function (Request $request) {
-
+Route::post('/api/track/qr', function (Request $request) {
     $validated = $request->validate([
-        'tracking_number' => [
+        'qr_token' => [
             'required',
             'string',
-            'max:50',
-            'regex:/^[A-Za-z0-9-]+$/',
+            'max:512',
+            'regex:/^LEXTRACK-QR-1\.[A-Za-z0-9_-]+$/',
         ],
     ]);
 
-    $trackingNumber = strtoupper(
-        trim($validated['tracking_number'])
-    );
+    $documentId = DocumentQrToken::decode($validated['qr_token']);
+
+    if ($documentId === null) {
+        return response()
+            ->json(['found' => false], 404)
+            ->header('Cache-Control', 'no-store, private');
+    }
 
     $document = Document::query()
-        ->where('lao_number', $trackingNumber)
+        ->whereKey($documentId)
         ->first();
 
     if (! $document) {
-        return response()->json([
-            'found' => false,
-        ], 404);
+        return response()
+            ->json(['found' => false], 404)
+            ->header('Cache-Control', 'no-store, private');
     }
 
-    return response()->json([
-        'found' => true,
-
-        'document' => [
-            'tracking_number' => $document->lao_number,
-
-            'document_type' =>
-                $document->document_type ?? 'N/A',
-
-            'particulars' =>
-                $document->particulars,
-
-            'date_submitted' =>
-                $document->created_at?->format('F d, Y'),
-
-            'status' =>
-                $document->status,
-        ],
-    ]);
+    return response()
+        ->json([
+            'found' => true,
+            'document' => [
+                'tracking_number' => $document->lao_number,
+                'document_type' => $document->document_type ?? 'N/A',
+                'particulars' => $document->particulars,
+                'date_submitted' => $document->created_at?->format('F d, Y'),
+                'status' => $document->status,
+            ],
+        ])
+        ->header('Cache-Control', 'no-store, private');
 })
-->middleware([
-    ProtectAgainstSpam::class,
-    'throttle:10,1',
-])
-->name('public.track.document');
+    ->middleware([
+        ProtectAgainstSpam::class,
+        'throttle:10,1',
+    ])
+    ->name('public.track.qr');
 
 
 /*

@@ -13,6 +13,9 @@ class Message extends Model
         'conversation_id',
         'sender_id',
         'body',
+        'attachment_path',
+        'attachment_name',
+        'attachment_mime_type',
     ];
 
     protected function casts(): array

@@ -6,12 +6,16 @@ use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\User;
 use Filament\Pages\Page;
+use Filament\Notifications\Notification;
 use Filament\Support\Enums\Width;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Livewire\WithFileUploads;
 
 class Messages extends Page
 {
+    use WithFileUploads;
+
     protected static ?int $navigationSort = 5;
 
     protected static string|\BackedEnum|null $navigationIcon =
@@ -22,6 +26,10 @@ class Messages extends Page
     public ?int $selectedConversation = null;
 
     public string $newMessage = '';
+
+    public $attachment = null;
+
+    public string $attachmentKind = '';
 
     public $messages = [];
 
@@ -78,6 +86,8 @@ class Messages extends Page
         Gate::authorize('view', $conversation);
 
         $this->selectedConversation = $conversation->id;
+        $this->attachment = null;
+        $this->attachmentKind = '';
 
         $this->loadMessages();
 
@@ -130,17 +140,40 @@ class Messages extends Page
      */
     public function sendMessage(): void
     {
-        $this->validate([
-            'newMessage' => [
-                'required',
-                'string',
-                'max:5000',
-            ],
-        ]);
-
         if (! $this->selectedConversation) {
             return;
         }
+
+        $messageBody = trim($this->newMessage);
+
+        if ($messageBody === '' && ! $this->attachment) {
+            $this->addError(
+                'newMessage',
+                'Write a message or attach a file before sending.'
+            );
+
+            return;
+        }
+
+        $attachmentRule = match ($this->attachmentKind) {
+            'image' => 'mimes:jpg,jpeg,png,gif,webp',
+            'document' => 'mimes:pdf,docx',
+            default => 'mimes:pdf,docx',
+        };
+
+        $this->validate([
+            'newMessage' => [
+                'nullable',
+                'string',
+                'max:5000',
+            ],
+            'attachment' => [
+                'nullable',
+                'file',
+                'max:5120',
+                $attachmentRule,
+            ],
+        ]);
 
         $conversation = Conversation::findOrFail(
             $this->selectedConversation
@@ -148,17 +181,94 @@ class Messages extends Page
 
         Gate::authorize('sendMessage', $conversation);
 
+        $attachmentPath = null;
+        $attachmentName = null;
+        $attachmentMimeType = null;
+
+        if ($this->attachment) {
+            $attachmentPath = $this->attachment->store(
+                'message-attachments',
+                'local'
+            );
+            $attachmentName = $this->attachment->getClientOriginalName();
+            $attachmentMimeType = $this->attachment->getMimeType();
+        }
+
         Message::create([
             'conversation_id' => $conversation->id,
             'sender_id' => auth()->id(),
-            'body' => trim($this->newMessage),
+            'body' => $messageBody !== '' ? $messageBody : 'Attachment sent.',
+            'attachment_path' => $attachmentPath,
+            'attachment_name' => $attachmentName,
+            'attachment_mime_type' => $attachmentMimeType,
         ]);
 
         $conversation->touch();
 
         $this->newMessage = '';
+        $this->attachment = null;
+        $this->attachmentKind = '';
 
         $this->loadMessages();
+
+        $this->dispatch('message-sent');
+    }
+
+    /**
+     * Remove a file selected for the next message.
+     */
+    public function clearAttachment(): void
+    {
+        $this->attachment = null;
+        $this->attachmentKind = '';
+        $this->resetValidation('attachment');
+    }
+
+    /**
+     * Send the client a revision request card.
+     *
+     * The destination is intentionally not stored in or displayed as
+     * message text. The client opens it through a server-authorized action.
+     */
+    public function requestRevision(): void
+    {
+        if (! $this->selectedConversation) {
+            return;
+        }
+
+        $conversation = Conversation::query()
+            ->with('document')
+            ->findOrFail($this->selectedConversation);
+
+        Gate::authorize('sendMessage', $conversation);
+
+        $document = $conversation->document;
+
+        if (! $document) {
+            Notification::make()
+                ->warning()
+                ->title('Revision request could not be sent')
+                ->body('This conversation is not linked to a document.')
+                ->send();
+
+            return;
+        }
+
+        Message::create([
+            'conversation_id' => $conversation->id,
+            'sender_id' => auth()->id(),
+            'body' => 'revision_request',
+        ]);
+
+        $conversation->touch();
+
+        $this->loadMessages();
+
+        Notification::make()
+            ->success()
+            ->title('Revision request sent')
+            ->body('The client can open the revision request card to upload a revised document.')
+            ->send();
 
         $this->dispatch('message-sent');
     }

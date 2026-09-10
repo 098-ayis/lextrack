@@ -8,12 +8,16 @@ use App\Models\DocumentVersion;
 use App\Models\ActivityLog;
 use App\Models\ActionType;
 use App\Models\DocumentType;
+use App\Models\Message;
+use App\Models\RejectedDocument;
+use App\Notifications\DocumentRejectedNotification;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
@@ -24,6 +28,10 @@ use Illuminate\Support\Facades\DB;
 
 class ViewDocument extends Page
 {
+    private const string REVISION_UPLOAD_PREFIX = 'A revised document was uploaded';
+
+    private const string REVISION_DECISION_PREFIX = 'The revised document (';
+
     // use HasPageShield;
 
     protected static string|\BackedEnum|null $navigationIcon = null;
@@ -395,7 +403,7 @@ class ViewDocument extends Page
             $this->documentRecord->status,
             ['pending', 'rejected'],
             true
-        );
+        ) || $this->hasPendingRevision();
 
         return Action::make('addVersion')
             ->label('')
@@ -403,7 +411,7 @@ class ViewDocument extends Page
             ->iconButton()
             ->disabled($isLocked)
             ->tooltip($isLocked
-                ? 'Uploading is disabled for pending or rejected documents'
+                ? 'Uploading is disabled while this document is awaiting review'
                 : 'Add attachment')
             ->extraAttributes([
                 'class' => 'h-7 w-7 rounded-md p-1 text-gray-900 ' .
@@ -423,11 +431,14 @@ class ViewDocument extends Page
                     ->required(),
             ])
             ->action(function (array $data): void {
-                if (in_array($this->documentRecord->status, ['pending', 'rejected'], true)) {
+                if (
+                    in_array($this->documentRecord->status, ['pending', 'rejected'], true)
+                    || $this->hasPendingRevision()
+                ) {
                     Notification::make()
                         ->warning()
                         ->title('Version upload is disabled')
-                        ->body('Pending and rejected documents are locked.')
+                        ->body('Review the pending revision before uploading another version.')
                         ->send();
 
                     return;
@@ -462,7 +473,6 @@ class ViewDocument extends Page
 
                 $this->documentRecord->load([
                     'notes.user',
-                    'type',
                     'versions',
                     'latestVersion',
                     'activityLogs.user',
@@ -527,7 +537,6 @@ class ViewDocument extends Page
 
         $this->documentRecord->load([
             'notes.user',
-            'type',
             'versions',
             'latestVersion',
             'activityLogs.user',
@@ -557,6 +566,268 @@ class ViewDocument extends Page
             ->action(function (array $arguments): void {
                 $this->deleteVersion((int) $arguments['version']);
             });
+    }
+
+    /**
+     * A revised version is reviewed from this document page instead of being
+     * treated as a new request that needs a new LAO number.
+     */
+    public function hasPendingRevision(): bool
+    {
+        $conversation = $this->documentRecord->conversation()
+            ->with([
+                'messages' => fn ($query) => $query
+                    ->oldest('created_at')
+                    ->oldest('id'),
+            ])
+            ->first();
+
+        if (! $conversation) {
+            return false;
+        }
+
+        $pending = false;
+
+        foreach ($conversation->messages as $message) {
+            $body = (string) $message->body;
+
+            if (
+                (int) $message->sender_id === (int) $this->documentRecord->user_id
+                && str_starts_with($body, self::REVISION_UPLOAD_PREFIX)
+            ) {
+                $pending = true;
+
+                continue;
+            }
+
+            if (
+                $pending
+                && (
+                    str_starts_with($body, self::REVISION_DECISION_PREFIX)
+                    || str_starts_with($body, 'The revised document was ')
+                )
+            ) {
+                $pending = false;
+            }
+        }
+
+        return $pending;
+    }
+
+    public function acceptRevisionAction(): Action
+    {
+        return Action::make('acceptRevision')
+            ->label('')
+            ->icon('heroicon-o-check')
+            ->iconButton()
+            ->color('success')
+            ->size('xs')
+            ->tooltip('Accept revision')
+            ->modalHeading('Accept revised document')
+            ->modalDescription('Accept this revised version and keep the existing LAO number?')
+            ->modalIcon('heroicon-o-check-circle')
+            ->modalIconColor('success')
+            ->modalSubmitActionLabel('Accept')
+            ->action(function (array $arguments): void {
+                $this->acceptRevision((int) ($arguments['version'] ?? 0));
+            });
+    }
+
+    public function acceptRevision(int $versionId): void
+    {
+        $document = DB::transaction(function () use ($versionId): Document {
+            $document = Document::query()
+                ->with('user')
+                ->whereKey($this->documentRecord->document_id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $version = $document->versions()
+                ->whereKey($versionId)
+                ->firstOrFail();
+
+            $latestVersionId = $document->versions()
+                ->latest('created_at')
+                ->latest('version_id')
+                ->value('version_id');
+
+            abort_unless(
+                (int) $version->version_id === (int) $latestVersionId,
+                403,
+                'Only the latest revision can be reviewed.'
+            );
+            abort_unless($this->hasPendingRevision(), 403, 'There is no pending revision to accept.');
+
+            $document->update([
+                // Accepting a revision never generates or changes the LAO number.
+                'lao_number' => $document->lao_number,
+                'status' => 'in_progress',
+                'rejection_reason' => null,
+            ]);
+
+            $conversation = $document->conversation()->first();
+
+            if ($conversation) {
+                Message::create([
+                    'conversation_id' => $conversation->id,
+                    'sender_id' => auth()->id(),
+                    'body' => 'The revised document (version ' .
+                        $version->version_number .
+                        ') was accepted and is now being processed.',
+                ]);
+
+                $conversation->touch();
+            }
+
+            return $document;
+        });
+
+        $this->documentRecord->load([
+            'user',
+            'notes.user',
+            'versions',
+            'latestVersion',
+            'rejections',
+            'activityLogs.user',
+        ]);
+
+        $this->logDocumentActivity(
+            'Revised document accepted',
+            'Accepted the revised document without changing the LAO number.'
+        );
+
+        Notification::make()
+            ->success()
+            ->title('Revision accepted')
+            ->body('The existing LAO number was kept unchanged.')
+            ->send();
+    }
+
+    public function rejectRevisionAction(): Action
+    {
+        return Action::make('rejectRevision')
+            ->label('')
+            ->icon('heroicon-o-x-mark')
+            ->iconButton()
+            ->color('danger')
+            ->size('xs')
+            ->tooltip('Reject revision')
+            ->modalHeading('Reject revised document')
+            ->modalDescription('Please provide a reason for rejecting this revised version.')
+            ->modalIcon('heroicon-o-x-circle')
+            ->modalIconColor('danger')
+            ->modalSubmitActionLabel('Reject')
+            ->schema([
+                Select::make('reason')
+                    ->label('Rejection reason')
+                    ->placeholder('Select a reason')
+                    ->options([
+                        'Incomplete or missing information' => 'Incomplete or missing information',
+                        'Incorrect document type' => 'Incorrect document type',
+                        'Missing signature or approval' => 'Missing signature or approval',
+                        'Unreadable or corrupted file' => 'Unreadable or corrupted file',
+                        'other' => 'Other',
+                    ])
+                    ->live()
+                    ->required(),
+                Textarea::make('custom_reason')
+                    ->label('Specify other reason')
+                    ->placeholder('Type the reason for rejecting this revision')
+                    ->visible(fn (Get $get): bool => $get('reason') === 'other')
+                    ->required(fn (Get $get): bool => $get('reason') === 'other')
+                    ->rows(4)
+                    ->maxLength(5000),
+            ])
+            ->action(function (array $data, array $arguments): void {
+                $reason = $data['reason'] === 'other'
+                    ? trim((string) ($data['custom_reason'] ?? ''))
+                    : (string) $data['reason'];
+
+                $this->rejectRevision(
+                    (int) ($arguments['version'] ?? 0),
+                    $reason,
+                );
+            });
+    }
+
+    public function rejectRevision(int $versionId, string $reason): void
+    {
+        [$document, $rejection] = DB::transaction(function () use ($versionId, $reason): array {
+            $document = Document::query()
+                ->with('user')
+                ->whereKey($this->documentRecord->document_id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $version = $document->versions()
+                ->whereKey($versionId)
+                ->firstOrFail();
+
+            $latestVersionId = $document->versions()
+                ->latest('created_at')
+                ->latest('version_id')
+                ->value('version_id');
+
+            abort_unless(
+                (int) $version->version_id === (int) $latestVersionId,
+                403,
+                'Only the latest revision can be reviewed.'
+            );
+            abort_unless($this->hasPendingRevision(), 403, 'There is no pending revision to reject.');
+
+            $rejection = RejectedDocument::create([
+                'document_id' => $document->document_id,
+                'reason' => $reason,
+            ]);
+
+            $document->update([
+                'lao_number' => $document->lao_number,
+                'status' => 'rejected',
+                'rejection_reason' => $reason,
+            ]);
+
+            $conversation = $document->conversation()->first();
+
+            if ($conversation) {
+                Message::create([
+                    'conversation_id' => $conversation->id,
+                    'sender_id' => auth()->id(),
+                    'body' => 'The revised document (version ' .
+                        $version->version_number .
+                        ') was rejected. Reason: ' . $reason,
+                ]);
+
+                $conversation->touch();
+            }
+
+            return [$document, $rejection];
+        });
+
+        $this->documentRecord->load([
+            'user',
+            'notes.user',
+            'versions',
+            'latestVersion',
+            'rejections',
+            'activityLogs.user',
+        ]);
+
+        $this->logDocumentActivity(
+            'Revised document rejected',
+            'Rejected the revised document: ' . $reason
+        );
+
+        if ($document->user) {
+            $document->user->notify(
+                new DocumentRejectedNotification($document)
+            );
+        }
+
+        Notification::make()
+            ->success()
+            ->title('Revision rejected')
+            ->body('The rejection reason was sent to the client. The existing LAO number was kept unchanged.')
+            ->send();
     }
 
     public function viewAllAuditTrailsAction(): Action
