@@ -10,7 +10,6 @@ use chillerlan\QRCode\QROptions;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\URL;
 use RuntimeException;
-use setasign\Fpdi\Fpdi;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\Process\Process;
 use Throwable;
@@ -100,7 +99,7 @@ class DocumentDownloadService
 
         // Import PDF page content directly: text, fonts and graphics stay at
         // their original quality instead of becoming a flattened page image.
-        $pdf = new Fpdi;
+        $pdf = new \setasign\Fpdi\Fpdi;
         $pdf->SetAutoPageBreak(false);
         $pageCount = $pdf->setSourceFile($sourcePath);
         $qrPath = tempnam(sys_get_temp_dir(), 'document-qr-');

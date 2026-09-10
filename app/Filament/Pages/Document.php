@@ -5,6 +5,7 @@ namespace App\Filament\Pages;
 use App\Models\Document as DocumentModel;
 use App\Models\DocumentVersion;
 use App\Models\RejectedDocument;
+use Carbon\Carbon;
 use App\Notifications\DocumentRejectedNotification;
 use App\Notifications\DocumentAcceptedNotification;
 use App\Notifications\DocumentCompletedNotification;
@@ -101,6 +102,57 @@ class Document extends Page implements HasTable
         $this->highlightedDocumentId = is_numeric($document) && (int) $document > 0
             ? (int) $document
             : null;
+
+        $this->initializeDocumentNavigationViewState();
+        $this->markDocumentSectionAsViewed($this->activeSection);
+    }
+
+    protected function initializeDocumentNavigationViewState(): void
+    {
+        if (! session()->has('admin.documents.navigation_started_at')) {
+            session()->put(
+                'admin.documents.navigation_started_at',
+                now()->toIso8601String()
+            );
+        }
+    }
+
+    protected function markDocumentSectionAsViewed(string $section): void
+    {
+        session()->put(
+            "admin.documents.sections.{$section}.viewed_at",
+            now()->toIso8601String()
+        );
+    }
+
+    public function getNewStatusSections(): array
+    {
+        $sections = [
+            'pending' => 'pending',
+            'incoming' => 'in_progress',
+            'outgoing' => 'outgoing',
+            'completed' => 'completed',
+            'rejected' => 'rejected',
+            'archived' => 'archived',
+        ];
+        $navigationStartedAt = session('admin.documents.navigation_started_at');
+
+        if (! $navigationStartedAt) {
+            return [];
+        }
+
+        return collect($sections)
+            ->filter(function (string $status, string $section) use ($navigationStartedAt): bool {
+                $viewedAt = session("admin.documents.sections.{$section}.viewed_at")
+                    ?? $navigationStartedAt;
+
+                return DocumentModel::query()
+                    ->where('status', $status)
+                    ->where('updated_at', '>', Carbon::parse($viewedAt))
+                    ->exists();
+            })
+            ->keys()
+            ->all();
     }
 
     public function getMaxContentWidth(): Width
@@ -260,6 +312,14 @@ class Document extends Page implements HasTable
 
         $document = $result['document'];
 
+        if ($result['accepted']) {
+            Notification::make()
+                ->success()
+                ->title('Document accepted')
+                ->body('The document was accepted and moved to Incoming. LAO Number: ' . $document->lao_number)
+                ->send();
+        }
+
         /*
         |--------------------------------------------------------------------------
         | 7. Send acceptance notification
@@ -301,15 +361,6 @@ class Document extends Page implements HasTable
             }
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | 8. Redirect
-        |--------------------------------------------------------------------------
-        */
-
-        $this->redirect(
-            self::getUrl(['section' => 'incoming'])
-        );
     }
 
     protected function getDocumentTableQuery(): Builder
@@ -399,7 +450,7 @@ class Document extends Page implements HasTable
             $columns[] = ViewColumn::make('subjects')
                 ->label('DETAILS')
                 ->view('filament.tables.columns.subjects')
-                ->alignCenter()
+                ->alignStart()
                 ->width('18rem')
                 ->extraHeaderAttributes(['class' => 'min-w-[200px]'])
                 ->extraCellAttributes(['class' => 'align-middle']);
@@ -631,45 +682,50 @@ class Document extends Page implements HasTable
                 TextInput::make('lao_number')
                     ->label('LAO Number')
                     ->default(fn (): string => DocumentModel::generateLaoNumber())
-                    ->readOnly()
-                    ->helperText('Automatically assigned from the current LAO sequence.'),
-
-                TextInput::make('document_name')
-                    ->label('Document Name')
-                    ->placeholder('e.g. BSIT OJT Memo')
-                    ->readOnly()
-                    ->maxLength(255),
+                    ->readOnly(),
 
                 Grid::make(2)
                     ->schema([
-                        TextInput::make('document_type')
+                        Select::make('document_type')
                             ->label('Document Type')
                             ->placeholder('Select document type')
-                            ->datalist(fn () => DocumentType::query()->orderedForChoices()->pluck('type_name'))
+                            ->options(fn () => DocumentType::query()
+                                ->orderBy('type_name')
+                                ->pluck('type_name', 'type_name'))
+                            ->searchable()
+                            ->preload()
                             ->live()
                             ->afterStateUpdated(function ($state, Set $set): void {
-                                $deadline = DocumentModel::deadlineForType($state);
-
-                                if (filled($deadline)) {
-                                    $set('deadline', $deadline);
-                                }
+                                $set('deadline', DocumentModel::deadlineForType(
+                                    filled($state) ? (string) $state : null,
+                                ));
                             })
                             ->required(),
 
                         DatePicker::make('deadline')
-                            ->label('Deadline')
-                            ->default(now()->toDateString()),
+                            ->label('Deadline'),
                     ]),
 
-                TextInput::make('action_type')
-                ->label('Action Taken')
-                ->datalist(fn () => ActionType::query()->orderBy('action_name')->pluck('action_name'))
-                ->nullable(),
+                Grid::make(2)
+                    ->schema([
+                        Select::make('action_type')
+                            ->label('Action Taken')
+                            ->options(fn () => ActionType::query()
+                                ->orderBy('action_name')
+                                ->pluck('action_name', 'action_name'))
+                            ->searchable()
+                            ->preload()
+                            ->nullable(),
                     
-                TextInput::make('office_unit')
-                    ->label('Office / Unit')
-                    ->datalist(fn () => OfficeUnit::query()->orderBy('name')->pluck('name'))
-                    ->required(),
+                        Select::make('office_unit')
+                            ->label('Office / Unit')
+                            ->options(fn () => OfficeUnit::query()
+                                ->orderBy('name')
+                                ->pluck('name', 'name'))
+                            ->searchable()
+                            ->preload()
+                            ->required(),
+                    ]),
 
                 Textarea::make('particulars')
                     ->label('Particulars')
@@ -680,7 +736,12 @@ class Document extends Page implements HasTable
                     ->disk('local')
                     ->directory('documents')
                     ->maxSize(5120)
-                    ->helperText('Maximum file size: 5 MB.')
+                    ->acceptedFileTypes([
+                        'application/pdf',
+                        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                    ])
+                    ->rules(['mimes:pdf,docx'])
+                    ->helperText('Only PDF and DOCX files are accepted. Maximum file size: 5 MB.')
                     ->preserveFilenames()
                     ->live()
                     ->afterStateUpdated(function ($state, Set $set): void {
@@ -701,6 +762,9 @@ class Document extends Page implements HasTable
                     // Generate again at save time so the number is always the
                     // latest available one, even if the form stayed open.
                     $data['lao_number'] = DocumentModel::generateLaoNumber();
+                    // Documents added by staff are already in processing;
+                    // pending is reserved for client submissions awaiting acceptance.
+                    $data['status'] = 'in_progress';
                     $document = DocumentModel::create($data);
 
                     if (filled($filePath)) {
@@ -720,6 +784,10 @@ class Document extends Page implements HasTable
                     'Document created',
                     'Created a new document.'
                 );
+
+                if ($this->activeSection === 'incoming') {
+                    $this->markDocumentSectionAsViewed('incoming');
+                }
             });
     }
 
@@ -751,10 +819,14 @@ class Document extends Page implements HasTable
 
                         Grid::make(2)
                         ->schema([
-                            TextInput::make('document_type')
+                            Select::make('document_type')
                                 ->label('Document Type')
                                 ->placeholder('Select document type')
-                                ->datalist(fn () => DocumentType::query()->orderedForChoices()->pluck('type_name'))
+                                ->options(fn () => DocumentType::query()
+                                    ->orderBy('type_name')
+                                    ->pluck('type_name', 'type_name'))
+                                ->searchable()
+                                ->preload()
                                 ->live()
                                 ->afterStateUpdated(function ($state, Set $set): void {
                                     $deadline = DocumentModel::deadlineForType($state);
@@ -804,10 +876,14 @@ class Document extends Page implements HasTable
                     ->label('Document Name')
                     ->maxLength(255),
 
-                TextInput::make('document_type')
+                Select::make('document_type')
                     ->label('Document Type')
                     ->placeholder('Select document type')
-                    ->datalist(fn () => DocumentType::query()->orderedForChoices()->pluck('type_name'))
+                    ->options(fn () => DocumentType::query()
+                        ->orderBy('type_name')
+                        ->pluck('type_name', 'type_name'))
+                    ->searchable()
+                    ->preload()
                     ->live()
                     ->afterStateUpdated(function ($state, Set $set): void {
                         $deadline = DocumentModel::deadlineForType($state);
@@ -818,15 +894,23 @@ class Document extends Page implements HasTable
                     })
                     ->required(),
 
-                TextInput::make('action_type')
-                ->label('Action Taken')
-                ->placeholder('Select action')
-                ->datalist(fn () => ActionType::query()->orderBy('action_name')->pluck('action_name'))
-                ->nullable(),
+                Select::make('action_type')
+                    ->label('Action Taken')
+                    ->placeholder('Select action')
+                    ->options(fn () => ActionType::query()
+                        ->orderBy('action_name')
+                        ->pluck('action_name', 'action_name'))
+                    ->searchable()
+                    ->preload()
+                    ->nullable(),
 
-                TextInput::make('office_unit')
+                Select::make('office_unit')
                     ->label('Office / Unit')
-                    ->datalist(fn () => OfficeUnit::query()->orderBy('name')->pluck('name'))
+                    ->options(fn () => OfficeUnit::query()
+                        ->orderBy('name')
+                        ->pluck('name', 'name'))
+                    ->searchable()
+                    ->preload()
                     ->required(),
 
                 Textarea::make('particulars')
@@ -983,7 +1067,8 @@ class Document extends Page implements HasTable
 
     public function redirectToIncoming(): void
     {
-        $this->redirect(self::getUrl(['section' => 'incoming']));
+        $this->showAcceptedModal = false;
+        $this->acceptedDocumentUploader = null;
     }
 
     public function acceptDocumentAction(): Action
@@ -1041,7 +1126,6 @@ class Document extends Page implements HasTable
             ->body('The document was successfully added to the Outgoing table.')
             ->send();
 
-        $this->redirect(self::getUrl(['section' => 'outgoing']));
     }
 
     public function markAsOutgoingAction(): Action
@@ -1166,7 +1250,11 @@ class Document extends Page implements HasTable
             'Rejected the document: ' . $reason
         );
 
-        $this->redirect(self::getUrl(['section' => 'rejected']));
+        Notification::make()
+            ->success()
+            ->title('Document rejected')
+            ->body('The document was rejected and remains on the current table.')
+            ->send();
     }
 
     public function returnDocumentAction(): Action
@@ -1204,9 +1292,11 @@ class Document extends Page implements HasTable
                     'Returned the document to ' . $data['destination'] . '.'
                 );
 
-                $this->redirect(self::getUrl([
-                    'section' => $isOutgoing ? 'outgoing' : 'incoming',
-                ]));
+                Notification::make()
+                    ->success()
+                    ->title('Document returned')
+                    ->body('The document was returned successfully.')
+                    ->send();
             });
     }
 
@@ -1269,7 +1359,6 @@ class Document extends Page implements HasTable
             ->body('The document was successfully marked as completed and moved to the Completed table.')
             ->send();
 
-        $this->redirect(self::getUrl(['section' => 'completed']));
     }
 
     public function completeDocumentAction(): Action
@@ -1348,7 +1437,6 @@ class Document extends Page implements HasTable
             ->body('The document was successfully marked as archived.')
             ->send();
 
-        $this->redirect(self::getUrl(['section' => 'archived']));
     }
 
     public function returnArchivedDocumentAction(): Action
@@ -1385,7 +1473,6 @@ class Document extends Page implements HasTable
                     ->body('The document was restored to the Completed section.')
                     ->send();
 
-                $this->redirect(self::getUrl(['section' => 'archived']));
             });
     }
 

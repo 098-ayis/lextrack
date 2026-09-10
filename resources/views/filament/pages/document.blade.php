@@ -69,13 +69,14 @@
     @php
         $activeSection = $this->activeSection;
         $statusCounts = $this->getStatusCounts();
+        $newStatusSections = $this->getNewStatusSections();
         $documents = $this->getDocuments($activeSection);
     @endphp
 
     {{-- STATUS HEADER --}}
 
     <div class="mb-0 w-full overflow-x-auto border border-gray-300 bg-white shadow-sm">
-        <nav class="flex min-w-max items-center gap-1 p-2" aria-label="Document status">
+        <nav class="flex min-w-max items-center gap-1 p-2 text-base" aria-label="Document status">
             @foreach ([
                 'pending' => 'Pending',
                 'incoming' => 'Incoming',
@@ -85,17 +86,16 @@
             ] as $section => $label)
                 <a
                     href="{{ request()->fullUrlWithQuery(['section' => $section]) }}"
-                    class="rounded-md px-4 py-2 text-sm font-semibold transition-colors
+                    class="rounded-md px-4 py-2 text-base font-semibold transition-colors
                         {{ $activeSection === $section
                             ? 'bg-[#0F172A] text-white'
                             : 'text-gray-600 hover:bg-gray-100' }}"
                 >
                     {{ $label }}
                     <span
-                        class="ml-2 inline-flex min-w-5 justify-center rounded-full px-1.5 py-0.5 text-xs
-                            {{ $activeSection === $section
-                                ? 'bg-white/20 text-white'
-                                : 'bg-gray-200 text-gray-600' }}"
+                        class="{{ in_array($section, $newStatusSections, true)
+                            ? 'ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 py-0.5 text-xs font-semibold text-white shadow-sm'
+                            : 'ml-2 text-xs font-semibold' }}"
                     >
                         {{ $statusCounts[$section] ?? 0 }}
                     </span>
@@ -202,7 +202,7 @@
                 <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
                     <use href="#icon-download"/>
                 </svg>
-                Export Excel
+                Export
             </a>
             {{ $this->addDocumentAction }}
         </div>

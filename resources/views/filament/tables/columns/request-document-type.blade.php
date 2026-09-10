@@ -7,8 +7,8 @@
 
 @if ($documentType)
     <span
-        class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold text-white"
-        style="background-color: {{ $color ?? '#059669' }};"
+        class="inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold leading-4"
+        style="--badge-color: {{ $color ?? '#059669' }}; background-color: color-mix(in srgb, var(--badge-color) 14%, white); color: var(--badge-color); border: 1px solid color-mix(in srgb, var(--badge-color) 18%, transparent);"
     >
         {{ $documentType }}
     </span>

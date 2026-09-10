@@ -3,6 +3,9 @@
         ?: ($record->latestVersion?->file_path
             ? basename($record->latestVersion->file_path)
             : null);
+    $displayDocumentName = $documentName
+        ? \Illuminate\Support\Str::limit($documentName, 25)
+        : 'Unnamed document';
 @endphp
 
 <div class="flex items-start gap-3 text-xs">
@@ -20,9 +23,12 @@
             </span>
         </div>
 
-        <div class="truncate">
+        <div
+            class="max-w-[25ch] truncate"
+            title="{{ $documentName ?: 'Unnamed document' }}"
+        >
             <span class="font-medium text-gray-800 dark:text-gray-200">
-                {{ $documentName ?: 'Unnamed document' }}
+                {{ $displayDocumentName }}
             </span>
         </div>
     </div>

@@ -164,9 +164,13 @@ class ViewDocument extends Page
                             ->label('Document Name')
                             ->maxLength(255),
 
-                        TextInput::make('office_unit')
+                        Select::make('office_unit')
                             ->label('Office / Unit')
-                            ->datalist(fn () => \App\Models\OfficeUnit::query()->orderBy('name')->pluck('name'))
+                            ->options(fn () => \App\Models\OfficeUnit::query()
+                                ->orderBy('name')
+                                ->pluck('name', 'name'))
+                            ->searchable()
+                            ->preload()
                             ->required(),
 
                         Textarea::make('particulars')
@@ -174,9 +178,13 @@ class ViewDocument extends Page
                             ->required()
                             ->rows(4),
 
-                        TextInput::make('document_type')
+                        Select::make('document_type')
                             ->label('Document Type')
-                            ->datalist(fn () => DocumentType::query()->orderedForChoices()->pluck('type_name'))
+                            ->options(fn () => DocumentType::query()
+                                ->orderBy('type_name')
+                                ->pluck('type_name', 'type_name'))
+                            ->searchable()
+                            ->preload()
                             ->required(),
 
                         DatePicker::make('outgoing_date')
@@ -210,9 +218,13 @@ class ViewDocument extends Page
                         ->label('Document Name')
                         ->maxLength(255),
 
-                    TextInput::make('office_unit')
+                    Select::make('office_unit')
                         ->label('Office / Unit')
-                        ->datalist(fn () => \App\Models\OfficeUnit::query()->orderBy('name')->pluck('name'))
+                        ->options(fn () => \App\Models\OfficeUnit::query()
+                            ->orderBy('name')
+                            ->pluck('name', 'name'))
+                        ->searchable()
+                        ->preload()
                         ->required(),
 
                     Textarea::make('particulars')
@@ -220,9 +232,13 @@ class ViewDocument extends Page
                         ->required()
                         ->rows(4),
 
-                    TextInput::make('document_type')
+                    Select::make('document_type')
                         ->label('Document Type')
-                        ->datalist(fn () => DocumentType::query()->orderedForChoices()->pluck('type_name'))
+                        ->options(fn () => DocumentType::query()
+                            ->orderBy('type_name')
+                            ->pluck('type_name', 'type_name'))
+                        ->searchable()
+                        ->preload()
                         ->live()
                         ->afterStateUpdated(function ($state, Set $set): void {
                             $deadline = Document::deadlineForType($state);
@@ -233,9 +249,13 @@ class ViewDocument extends Page
                         })
                         ->required(),
 
-                    TextInput::make('action_type')
+                    Select::make('action_type')
                         ->label('Action Taken')
-                        ->datalist(fn () => ActionType::query()->orderBy('action_name')->pluck('action_name'))
+                        ->options(fn () => ActionType::query()
+                            ->orderBy('action_name')
+                            ->pluck('action_name', 'action_name'))
+                        ->searchable()
+                        ->preload()
                         ->nullable(),
 
                     DatePicker::make('deadline')

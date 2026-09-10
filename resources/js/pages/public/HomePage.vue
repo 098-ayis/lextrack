@@ -37,7 +37,11 @@
       </div>
 
       <!-- Mission / Vision Statement -->
-      <div class="mission-statement">
+      <div
+        ref="missionSection"
+        class="mission-statement"
+        :class="{ 'is-visible': missionVisible }"
+      >
         <h2>
           <span class="text-light">
             To be a Premier Model of Legal Integrity and Proactive Governance, Safeguarding the University's Rights and Assets while&nbsp;
@@ -158,8 +162,11 @@ const router = useRouter()
 /* ---------- Mobile nav ---------- */
 const navOpen = ref(false)
 const navRef = ref(null)
+const missionSection = ref(null)
 const servicesSection = ref(null)
+const missionVisible = ref(false)
 const servicesVisible = ref(false)
+let missionObserver = null
 
 function toggleNav() {
   navOpen.value = !navOpen.value
@@ -183,6 +190,19 @@ function scrollToServices() {
 onMounted(() => {
   document.addEventListener("click", handleOutsideClick)
 
+  missionObserver = new IntersectionObserver(
+    ([entry]) => {
+      missionVisible.value = entry.isIntersecting
+    },
+    {
+      threshold: 0.35
+    }
+  )
+
+  if (missionSection.value) {
+    missionObserver.observe(missionSection.value)
+  }
+
   const observer = new IntersectionObserver(
     ([entry]) => {
       if (entry.isIntersecting) {
@@ -199,7 +219,10 @@ onMounted(() => {
     observer.observe(servicesSection.value)
   }
 })
-onBeforeUnmount(() => document.removeEventListener('click', handleOutsideClick))
+onBeforeUnmount(() => {
+  document.removeEventListener('click', handleOutsideClick)
+  missionObserver?.disconnect()
+})
 
 /* ---------- Toast helper ---------- */
 const toast = reactive({ visible: false, message: '' })
@@ -405,19 +428,38 @@ function openChatbot() {
 }
 
 .mission-statement h2 {
-  font-size: 30px;
+  font-size: 38px;
   line-height: 1.5;
   letter-spacing: -0.01em;
 }
 
 .mission-statement .text-light {
-  color: #a5b4fc; 
+  color: #d8dde6;
   font-weight: 700;
+  transition: color 2.2s ease, font-weight 2.2s ease;
 }
 
 .mission-statement .text-bold {
+  color: #d8dde6;
+  font-weight: 700;
+  transition: color 2.2s ease, font-weight 2.2s ease;
+}
+
+.mission-statement.is-visible .text-light {
   color: #000000;
   font-weight: 900;
+}
+
+.mission-statement.is-visible .text-bold {
+  color: #000000;
+  font-weight: 900;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mission-statement .text-light,
+  .mission-statement .text-bold {
+    transition: none;
+  }
 }
 
 /* Overlapping Circular Button */
@@ -712,7 +754,7 @@ function openChatbot() {
 
 @media (max-width:860px){
   .services-grid{grid-template-columns:repeat(2,1fr);}
-  .mission-statement h2 { font-size: 24px; }
+  .mission-statement h2 { font-size: 30px; }
   .bg-text { font-size: 18vw; }
 }
 
