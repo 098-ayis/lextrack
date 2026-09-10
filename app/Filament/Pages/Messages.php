@@ -373,20 +373,6 @@ class Messages extends Page
     }
 
     /**
-     * Staff makes themselves the primary handler.
-     */
-    public function assignToMe(int $conversationId): void
-    {
-        $conversation = Conversation::findOrFail($conversationId);
-
-        Gate::authorize('assign', $conversation);
-
-        $conversation->update([
-            'assigned_to' => auth()->id(),
-        ]);
-    }
-
-    /**
      * Assign another authorized staff member.
      */
     public function assignStaff(

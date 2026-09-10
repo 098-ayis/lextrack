@@ -1705,31 +1705,6 @@
                 </div>
 
 
-                {{-- Optional Assign to Me --}}
-                @if (
-                    $activeConversation
-                    && ! $activeConversation->assigned_to
-                )
-
-                    <button
-                        type="button"
-                        wire:click="assignToMe({{ $activeConversation->id }})"
-                        style="
-                            background: #1b6ca8;
-                            color: white;
-                            border: none;
-                            border-radius: 7px;
-                            padding: 7px 12px;
-                            font-size: 12px;
-                            font-weight: 600;
-                            cursor: pointer;
-                        "
-                    >
-                        Assign to Me
-                    </button>
-
-                @endif
-
                 <button
                     type="button"
                     wire:click="$set('selectedConversation', null)"
