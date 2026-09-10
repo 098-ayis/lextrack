@@ -86,16 +86,6 @@
             )
             ->values();
 
-        $allOffices = collect($cabinet)
-            ->flatMap(fn ($type) => array_keys($type))
-            ->unique()
-            ->sort()
-            ->values();
-
-        $filterOptions = $currentType !== '' && isset($cabinet[$currentType])
-            ? collect(array_keys($cabinet[$currentType]))->sort()->values()
-            : $allOffices;
-
         $isRoot = $currentType === '';
 
         $isTypeView =
@@ -121,13 +111,7 @@
                 return $normalizedSearch === ''
                     || str_contains(strtolower($folder), $normalizedSearch)
                     || collect($documents)->contains($documentMatchesSearch);
-            })
-            ->when(
-                $sourceFilter !== 'all',
-                fn ($folders) => $folders->filter(
-                    fn (array $documents, string $folder) => $folder === $sourceFilter
-                )
-            );
+            });
 
         $currentFolders = match ($sortBy) {
             'date' => $currentFolders->sortByDesc(
@@ -147,9 +131,6 @@
         $currentDocuments = match ($sortBy) {
             'date' => $currentDocuments->sortByDesc(
                 fn (array $document) => strtotime($document['date'] ?? '') ?: 0
-            ),
-            'type' => $currentDocuments->sortBy(
-                fn (array $document) => strtolower($document['type'] ?? '')
             ),
             'size' => $currentDocuments->sortByDesc(
                 fn (array $document) => $sizeToBytes($document['size'] ?? null)
@@ -336,21 +317,6 @@
                             <span>Date modified</span>
 
                             @if($sortBy === 'date')
-                                <x-heroicon-m-check class="h-4 w-4 text-indigo-600" />
-                            @endif
-
-                        </button>
-
-
-                        <button
-                            wire:click="setSort('type')"
-                            @click="open = false"
-                            class="flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-sm hover:bg-gray-100 dark:hover:bg-gray-800"
-                        >
-
-                            <span>Type</span>
-
-                            @if($sortBy === 'type')
                                 <x-heroicon-m-check class="h-4 w-4 text-indigo-600" />
                             @endif
 
@@ -581,59 +547,6 @@
                 </div>
 
 
-                {{-- FILTER --}}
-                <div
-                    x-data="{ open: false }"
-                    class="relative"
-                >
-
-                    <button
-                        type="button"
-                        @click="open = !open"
-                        class="rounded-lg p-2.5 text-gray-500 transition hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
-                        title="Filter"
-                    >
-
-                        <x-heroicon-o-funnel class="h-5 w-5" />
-
-                    </button>
-
-
-                    <div
-                        x-show="open"
-                        x-transition
-                        @click.outside="open = false"
-                        class="absolute right-0 z-50 mt-2 w-64 rounded-xl border border-gray-200 bg-white p-4 shadow-xl dark:border-gray-700 dark:bg-gray-900"
-                    >
-
-                        <p class="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-500">
-                            {{ $currentType === 'Others' ? 'Filter by document type' : 'Filter by source' }}
-                        </p>
-
-                        <select
-                            wire:model.live="sourceFilter"
-                            class="w-full rounded-lg border-gray-300 bg-gray-50 text-sm dark:border-gray-700 dark:bg-gray-800"
-                        >
-
-                            <option value="all">
-                                {{ $currentType === 'Others' ? 'All Document Types' : 'All Sources' }}
-                            </option>
-
-                            @foreach($filterOptions as $office)
-
-                                <option value="{{ $office }}">
-                                    {{ $office }}
-                                </option>
-
-                            @endforeach
-
-                        </select>
-
-                    </div>
-
-                </div>
-
-
                 {{-- ADD DOCUMENT --}}
                 <button
                     type="button"
@@ -654,7 +567,7 @@
         {{-- CONTENT AREA --}}
         {{-- ============================================================= --}}
 
-        <div class="flex gap-4">
+        <div class="flex flex-col gap-4 lg:flex-row">
 
 
             {{-- MAIN CONTENT --}}
@@ -674,7 +587,8 @@
                             @foreach($documentTypes as $type)
 
                                     <button
-                                        wire:click="openType('{{ $type }}')"
+                                        wire:click="openType(@js($type))"
+                                        wire:key="root-type-tile-{{ $type }}"
                                         class="group rounded-xl border border-gray-200 bg-white p-5 text-left transition hover:border-indigo-300 hover:bg-indigo-50/40 hover:shadow-sm dark:border-gray-700 dark:bg-gray-900 dark:hover:border-indigo-500 dark:hover:bg-indigo-500/5"
                                     >
 
@@ -711,7 +625,8 @@
                             @foreach($documentTypes as $type)
 
                                     <button
-                                        wire:click="openType('{{ $type }}')"
+                                        wire:click="openType(@js($type))"
+                                        wire:key="root-type-content-{{ $type }}"
                                         class="flex w-full items-center gap-4 border-b border-gray-100 px-5 py-4 text-left transition hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800"
                                     >
 
@@ -762,7 +677,8 @@
                             @foreach($currentFolders as $office => $documents)
 
                                     <button
-                                        wire:click="openOffice('{{ $office }}')"
+                                        wire:click="openOffice(@js($office))"
+                                        wire:key="office-tile-{{ $office }}"
                                         class="group rounded-xl border border-gray-200 bg-white p-5 text-left transition hover:border-indigo-300 hover:bg-indigo-50/40 hover:shadow-sm dark:border-gray-700 dark:bg-gray-900 dark:hover:border-indigo-500 dark:hover:bg-indigo-500/5"
                                     >
 
@@ -795,7 +711,8 @@
                             @foreach($currentFolders as $office => $documents)
 
                                     <button
-                                        wire:click="openOffice('{{ $office }}')"
+                                        wire:click="openOffice(@js($office))"
+                                        wire:key="office-content-{{ $office }}"
                                         class="flex w-full items-center gap-4 border-b border-gray-100 px-5 py-4 text-left transition hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800"
                                     >
 
@@ -834,6 +751,69 @@
 
                 @else
 
+                    @if($viewMode === 'tiles')
+
+                        <div class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+
+                            @forelse($currentDocuments as $document)
+
+                                @php
+                                    $fileName = $document['name'];
+                                    $displayName = $showFileExtensions
+                                        ? $fileName
+                                        : pathinfo($fileName, PATHINFO_FILENAME);
+                                @endphp
+
+                                <a
+                                    href="{{ route('admin.documents.file', [
+                                        'document' => $document['id'],
+                                        'filename' => $fileName,
+                                    ]) }}"
+                                    @if($previewPane || $detailsPane)
+                                        wire:click.prevent="selectItem(@js($displayName), {{ $document['id'] }})"
+                                    @else
+                                        target="_blank"
+                                    @endif
+                                    wire:key="document-tile-{{ $document['id'] }}"
+                                    rel="noopener noreferrer"
+                                    class="group rounded-xl border border-gray-200 bg-white p-5 text-left transition hover:border-indigo-300 hover:bg-indigo-50/40 hover:shadow-sm dark:border-gray-700 dark:bg-gray-900 dark:hover:border-indigo-500 dark:hover:bg-indigo-500/5"
+                                >
+
+                                    <div class="flex h-14 w-14 items-center justify-center rounded-xl bg-red-50 text-red-500 dark:bg-red-500/10 dark:text-red-400">
+                                        @if(str_ends_with(strtolower($fileName), '.pdf'))
+                                            <x-heroicon-o-document-text class="h-8 w-8" />
+                                        @else
+                                            <x-heroicon-o-document class="h-8 w-8" />
+                                        @endif
+                                    </div>
+
+                                    <p class="mt-4 line-clamp-2 text-sm font-semibold text-gray-900 dark:text-white">
+                                        {{ $displayName }}
+                                    </p>
+
+                                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                        {{ $document['size'] }} · {{ $document['date'] }}
+                                    </p>
+
+                                </a>
+
+                            @empty
+
+                                <div class="col-span-full px-6 py-16 text-center">
+                                    <x-heroicon-o-document-magnifying-glass
+                                        class="mx-auto h-12 w-12 text-gray-300 dark:text-gray-600"
+                                    />
+                                    <h3 class="mt-3 text-sm font-semibold text-gray-900 dark:text-white">
+                                        No documents found
+                                    </h3>
+                                </div>
+
+                            @endforelse
+
+                        </div>
+
+                    @else
+
                     <div class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
 
                         {{-- HEADER --}}
@@ -868,11 +848,12 @@
                                         'document' => $document['id'],
                                         'filename' => $fileName,
                                     ]) }}"
-                                    @if($previewPane)
+                                    @if($previewPane || $detailsPane)
                                         wire:click.prevent="selectItem(@js($displayName), {{ $document['id'] }})"
                                     @else
                                         target="_blank"
                                     @endif
+                                    wire:key="document-row-{{ $document['id'] }}"
                                     rel="noopener noreferrer"
                                     class="grid w-full cursor-pointer grid-cols-[minmax(0,1fr)_120px_160px_60px] items-center border-b border-gray-100 px-5 py-4 text-left transition hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800"
                                 >
@@ -959,6 +940,8 @@
 
                     </div>
 
+                    @endif
+
                 @endif
 
             </div>
@@ -970,7 +953,7 @@
 
             @if($detailsPane)
 
-                <aside class="hidden w-80 shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm lg:block dark:border-gray-700 dark:bg-gray-900">
+                <aside class="w-full shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm lg:w-80 dark:border-gray-700 dark:bg-gray-900">
 
                     <div class="flex items-center justify-between border-b border-gray-200 px-5 py-4 dark:border-gray-700">
 
@@ -998,7 +981,7 @@
 
                                 <div class="flex h-20 w-20 items-center justify-center rounded-xl bg-indigo-50 dark:bg-indigo-500/10">
 
-                                    @if($currentOffice)
+                                    @if($selectedDocumentId)
 
                                         <x-heroicon-o-document-text
                                             class="h-11 w-11 text-indigo-500"
@@ -1031,13 +1014,13 @@
                                     </p>
 
                                     <p class="mt-1 text-sm font-medium text-gray-900 dark:text-white">
-                                        {{ $currentOffice ? 'Document' : 'Folder' }}
+                                        {{ $selectedDocumentId ? 'Document' : 'Folder' }}
                                     </p>
 
                                 </div>
 
 
-                                @if($currentOffice)
+                                @if($selectedDocumentId)
 
                                     <div>
 
@@ -1047,6 +1030,20 @@
 
                                         <p class="mt-1 break-words text-sm font-medium text-gray-900 dark:text-white">
                                             Cabinet / {{ $currentType }} / {{ $currentOffice }}
+                                        </p>
+
+                                    </div>
+
+                                @elseif($currentOffice)
+
+                                    <div>
+
+                                        <p class="text-xs text-gray-500 dark:text-gray-400">
+                                            Location
+                                        </p>
+
+                                        <p class="mt-1 break-words text-sm font-medium text-gray-900 dark:text-white">
+                                            Cabinet / {{ $currentType }}
                                         </p>
 
                                     </div>
@@ -1061,7 +1058,7 @@
                                     </p>
 
                                     <p class="mt-1 text-sm font-medium text-gray-900 dark:text-white">
-                                        {{ $currentOffice ?: 'Multiple offices' }}
+                                        {{ $currentOffice ?: $currentType ?: 'Cabinet' }}
                                     </p>
 
                                 </div>
@@ -1097,7 +1094,7 @@
 
             @if($previewPane)
 
-                <aside class="hidden w-96 shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm lg:block dark:border-gray-700 dark:bg-gray-900">
+                <aside class="w-full shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm lg:w-96 dark:border-gray-700 dark:bg-gray-900">
 
                     <div class="flex items-center justify-between border-b border-gray-200 px-5 py-4 dark:border-gray-700">
 

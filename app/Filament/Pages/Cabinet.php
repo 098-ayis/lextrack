@@ -36,8 +36,6 @@ class Cabinet extends Page
 
     public string $search = '';
 
-    public string $sourceFilter = 'all';
-
     public string $sortBy = 'name';
 
     public string $viewMode = 'tiles';
@@ -270,9 +268,8 @@ class Cabinet extends Page
 
         $this->currentType = $type;
         $this->currentOffice = '';
-        $this->sourceFilter = 'all';
 
-        $this->selectedItem = null;
+        $this->selectedItem = $type;
         $this->selectedDocumentId = null;
     }
 
@@ -287,7 +284,7 @@ class Cabinet extends Page
 
         $this->currentOffice = $office;
 
-        $this->selectedItem = null;
+        $this->selectedItem = $office;
         $this->selectedDocumentId = null;
     }
 
@@ -295,7 +292,6 @@ class Cabinet extends Page
     {
         $this->currentType = '';
         $this->currentOffice = '';
-        $this->sourceFilter = 'all';
 
         $this->selectedItem = null;
         $this->selectedDocumentId = null;
@@ -304,9 +300,8 @@ class Cabinet extends Page
     public function goToType(): void
     {
         $this->currentOffice = '';
-        $this->sourceFilter = 'all';
 
-        $this->selectedItem = null;
+        $this->selectedItem = $this->currentType;
         $this->selectedDocumentId = null;
     }
 
@@ -326,7 +321,7 @@ class Cabinet extends Page
 
     public function setSort(string $sort): void
     {
-        if (! in_array($sort, ['name', 'date', 'type', 'size'])) {
+        if (! in_array($sort, ['name', 'date', 'size'])) {
             return;
         }
 
