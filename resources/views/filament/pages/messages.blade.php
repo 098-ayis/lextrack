@@ -1685,21 +1685,6 @@
                         @endif
 
 
-                        @if ($activeConversation?->assignedStaff)
-
-                            &nbsp; • &nbsp;
-
-                            Primary handler:
-                            {{ $activeConversation->assignedStaff->name }}
-
-                        @else
-
-                            &nbsp; • &nbsp;
-
-                            Unassigned
-
-                        @endif
-
                     </div>
 
                 </div>

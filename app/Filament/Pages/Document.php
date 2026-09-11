@@ -268,7 +268,6 @@ class Document extends Page implements HasTable
                 ],
                 [
                     'created_by' => $document->user_id,
-                    'assigned_to' => null,
                     'status' => 'active',
                 ]
             );

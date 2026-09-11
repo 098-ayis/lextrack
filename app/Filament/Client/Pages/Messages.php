@@ -42,9 +42,8 @@ class Messages extends Page
             'conversations' => auth()
                 ->user()
                 ->conversations()
-            ->with([
-                'document',
-                'assignedStaff',
+                ->with([
+                    'document',
                     'participants',
                     'messages.sender',
                     'messages.attachments',
@@ -117,7 +116,6 @@ class Messages extends Page
                 ],
                 [
                     'created_by' => auth()->id(),
-                    'assigned_to' => null,
                     'status' => 'active',
                 ]
             );

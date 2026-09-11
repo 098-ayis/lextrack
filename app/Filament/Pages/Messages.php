@@ -6,7 +6,6 @@ use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\MessageAttachment;
 use App\Models\MessageReaction;
-use App\Models\User;
 use Filament\Pages\Page;
 use Filament\Notifications\Notification;
 use Filament\Support\Enums\Width;
@@ -62,7 +61,6 @@ class Messages extends Page
                 ->with([
                     'document.user',
                     'creator',
-                    'assignedStaff',
                     'participants',
                     'messages.sender',
                     'messages.attachments',
@@ -374,50 +372,6 @@ class Messages extends Page
             ->send();
 
         $this->dispatch('message-sent');
-    }
-
-    /**
-     * Assign another authorized staff member.
-     */
-    public function assignStaff(
-        int $conversationId,
-        int $staffId
-    ): void {
-        $conversation = Conversation::findOrFail($conversationId);
-
-        Gate::authorize('assign', $conversation);
-
-        $staff = User::permission('view_shared_messages')
-            ->where('id', $staffId)
-            ->firstOrFail();
-
-        $conversation->update([
-            'assigned_to' => $staff->id,
-        ]);
-
-        /*
-         * Make sure assigned employee is also
-         * a conversation participant.
-         */
-        $conversation->participants()->syncWithoutDetaching([
-            $staff->id => [
-                'joined_at' => now(),
-            ],
-        ]);
-    }
-
-    /**
-     * Remove primary assignment.
-     */
-    public function unassign(int $conversationId): void
-    {
-        $conversation = Conversation::findOrFail($conversationId);
-
-        Gate::authorize('assign', $conversation);
-
-        $conversation->update([
-            'assigned_to' => null,
-        ]);
     }
 
     /**

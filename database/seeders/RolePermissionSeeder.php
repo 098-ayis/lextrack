@@ -22,7 +22,6 @@ class RolePermissionSeeder extends Seeder
         $permissions = [
             'view_shared_messages',
             'reply_shared_messages',
-            'assign_conversations',
             'close_conversations',
         ];
 
@@ -68,7 +67,6 @@ class RolePermissionSeeder extends Seeder
         $admin->syncPermissions([
             'view_shared_messages',
             'reply_shared_messages',
-            'assign_conversations',
             'close_conversations',
         ]);
 

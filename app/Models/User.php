@@ -159,14 +159,6 @@ class User extends Authenticatable implements HasAvatar, FilamentUser
         ->withTimestamps();
     }
 
-    public function assignedConversations(): HasMany
-    {
-        return $this->hasMany(
-            Conversation::class,
-            'assigned_to'
-        );
-    }
-
     public function documentRequests(): HasMany
     {
         return $this->hasMany(DocumentRequest::class, 'user_id');

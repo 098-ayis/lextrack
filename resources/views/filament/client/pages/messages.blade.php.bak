@@ -531,11 +531,6 @@
                             Document #{{ $activeConversation->document_id }}
                         @endif
 
-                        @if ($activeConversation?->assignedStaff)
-                            • Primary handler:
-                            {{ $activeConversation->assignedStaff->name }}
-                        @endif
-
                     </div>
 
                 </div>

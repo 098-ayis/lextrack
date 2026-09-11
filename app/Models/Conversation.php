@@ -12,7 +12,6 @@ class Conversation extends Model
     protected $fillable = [
         'document_id',
         'created_by',
-        'assigned_to',
         'status',
     ];
 
@@ -30,14 +29,6 @@ class Conversation extends Model
         return $this->belongsTo(
             User::class,
             'created_by'
-        );
-    }
-
-    public function assignedStaff(): BelongsTo
-    {
-        return $this->belongsTo(
-            User::class,
-            'assigned_to'
         );
     }
 

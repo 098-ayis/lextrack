@@ -256,7 +256,6 @@ return [
     'custom_permissions' => [
         'view_shared_messages' => 'View Shared Messages',
         'reply_shared_messages' => 'Reply Shared Messages',
-        'assign_conversations' => 'Assign Conversations',
         'close_conversations' => 'Close Conversations',
     ],
 

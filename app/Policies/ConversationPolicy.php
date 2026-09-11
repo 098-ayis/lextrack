@@ -49,13 +49,6 @@ class ConversationPolicy
     }
 
 
-    public function assign(
-        User $user,
-        Conversation $conversation
-    ): bool {
-        return $user->can('assign_conversations');
-    }
-
     public function close(
         User $user,
         Conversation $conversation
