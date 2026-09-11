@@ -43,11 +43,32 @@
         :class="{ 'is-visible': missionVisible }"
       >
         <h2>
-          <span class="text-light">
-            To be a Premier Model of Legal Integrity and Proactive Governance, Safeguarding the University's Rights and Assets while&nbsp;
+          <span
+            class="mission-text-reserve"
+            aria-hidden="true"
+          >
+            <span class="text-light">{{ missionPrefix }}</span>
+            <span class="text-bold">{{ missionSuffix }}</span>
           </span>
-          <span class="text-bold">
-            Providing Efficient, Modern Legal Stewardship that Supports Academic and Institutional Excellence.
+
+          <span
+            class="mission-text-typing"
+            aria-live="polite"
+          >
+            <span class="text-light">
+              {{ typedMissionText.slice(0, missionPrefix.length) }}<span
+                v-if="missionTypingActive && typedMissionText.length < missionPrefix.length"
+                class="typing-caret typing-caret-light"
+                aria-hidden="true"
+              ></span>
+            </span>
+            <span class="text-bold">
+              {{ typedMissionText.slice(missionPrefix.length) }}<span
+                v-if="missionTypingActive && typedMissionText.length >= missionPrefix.length"
+                class="typing-caret"
+                aria-hidden="true"
+              ></span>
+            </span>
           </span>
         </h2>
       </div>
@@ -166,7 +187,53 @@ const missionSection = ref(null)
 const servicesSection = ref(null)
 const missionVisible = ref(false)
 const servicesVisible = ref(false)
+const typedMissionText = ref('')
+const missionTypingActive = ref(false)
+const missionPrefix = "To be a Premier Model of Legal Integrity and Proactive Governance, Safeguarding the University's Rights and Assets while "
+const missionSuffix = 'Providing Efficient, Modern Legal Stewardship that Supports Academic and Institutional Excellence.'
+const missionText = missionPrefix + missionSuffix
 let missionObserver = null
+let missionTypingTimer = null
+let missionTypingStarted = false
+
+function startMissionTyping() {
+  if (missionTypingStarted) {
+    return
+  }
+
+  missionTypingStarted = true
+
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    typedMissionText.value = missionText
+
+    return
+  }
+
+  missionTypingActive.value = true
+
+  let characterIndex = 0
+
+  const typeNextCharacter = () => {
+    typedMissionText.value = missionText.slice(0, characterIndex + 1)
+    characterIndex += 1
+
+    if (characterIndex < missionText.length) {
+      missionTypingTimer = window.setTimeout(typeNextCharacter, 32)
+    } else {
+      missionTypingActive.value = false
+    }
+  }
+
+  typeNextCharacter()
+}
+
+function resetMissionTyping() {
+  window.clearTimeout(missionTypingTimer)
+  missionTypingTimer = null
+  typedMissionText.value = ''
+  missionTypingActive.value = false
+  missionTypingStarted = false
+}
 
 function toggleNav() {
   navOpen.value = !navOpen.value
@@ -193,6 +260,12 @@ onMounted(() => {
   missionObserver = new IntersectionObserver(
     ([entry]) => {
       missionVisible.value = entry.isIntersecting
+
+      if (entry.isIntersecting) {
+        startMissionTyping()
+      } else {
+        resetMissionTyping()
+      }
     },
     {
       threshold: 0.35
@@ -222,6 +295,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   document.removeEventListener('click', handleOutsideClick)
   missionObserver?.disconnect()
+  resetMissionTyping()
 })
 
 /* ---------- Toast helper ---------- */
@@ -428,9 +502,21 @@ function openChatbot() {
 }
 
 .mission-statement h2 {
+  position: relative;
   font-size: 38px;
   line-height: 1.5;
   letter-spacing: -0.01em;
+}
+
+.mission-text-reserve {
+  display: block;
+  visibility: hidden;
+}
+
+.mission-text-typing {
+  position: absolute;
+  inset: 0;
+  display: block;
 }
 
 .mission-statement .text-light {
@@ -440,7 +526,7 @@ function openChatbot() {
 }
 
 .mission-statement .text-bold {
-  color: #d8dde6;
+  color: #6b77ff;
   font-weight: 700;
   transition: color 2.2s ease, font-weight 2.2s ease;
 }
@@ -451,14 +537,36 @@ function openChatbot() {
 }
 
 .mission-statement.is-visible .text-bold {
-  color: #000000;
+  color: #6b77ff;
   font-weight: 900;
+}
+
+.typing-caret {
+  display: inline-block;
+  width: 3px;
+  height: 0.9em;
+  margin-left: 4px;
+  vertical-align: -0.08em;
+  background: #6b77ff;
+  animation: typing-caret-blink 0.8s steps(1, end) infinite;
+}
+
+.typing-caret-light {
+  background: #000000;
+}
+
+@keyframes typing-caret-blink {
+  50% {
+    opacity: 0;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .mission-statement .text-light,
-  .mission-statement .text-bold {
+  .mission-statement .text-bold,
+  .typing-caret {
     transition: none;
+    animation: none;
   }
 }
 

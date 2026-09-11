@@ -147,13 +147,13 @@ function goTo(path) {
 .hero-image-circle {
   position: absolute;
   right: 0; 
-  top: 50%;
+  top: 60%;
   transform: translate(45%, -65%); 
   width: 1400px;
   height: 1400px;
   border-radius: 50%;
-  background-size: cover;
-  background-position: center left;
+  background-size: auto 94%;
+  background-position: 54% bottom;
   background-repeat: no-repeat;
   border: 32px solid #6b77ff; 
   box-shadow: 0 0 0 32px #ffffff; 
@@ -184,7 +184,7 @@ function goTo(path) {
   }
 
   .hero-image-circle {
-    top: 25%;
+    top: 36%;
     right: -37vw;
     transform: translateY(-50%);
     width: min(82vw, 1400px);
@@ -268,6 +268,7 @@ function goTo(path) {
     border: 0;
     border-radius: 0;
     box-shadow: none;
+    background-size: cover;
     background-position: center;
     opacity: 0.2;
     z-index: 0;

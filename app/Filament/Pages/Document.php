@@ -46,6 +46,7 @@ use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Filament\Schemas\Components\Grid;
+use Illuminate\Support\Facades\URL;
 // use BezhanSalleh\FilamentShield\Traits\HasPageShield;
 
 class Document extends Page implements HasTable

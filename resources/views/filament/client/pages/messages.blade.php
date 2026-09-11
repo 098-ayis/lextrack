@@ -875,12 +875,7 @@
     ========================================================= */
 
     .thread-footer {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-
         padding: 14px 18px;
-
         border-top: 1px solid #e5e7eb;
     }
 
@@ -894,40 +889,48 @@
         padding: 5px 6px 5px 8px;
         box-sizing: border-box;
         background: #ffffff;
-        border: 1.5px solid #e5e7eb;
+        border: 2px solid #e5e7eb;
         border-radius: 30px;
     }
 
     .message-action-drawer {
         display: flex;
         align-items: center;
-        gap: 4px;
+        gap: 6px;
         flex: 0 0 auto;
         max-width: 160px;
         overflow: hidden;
-        padding-right: 8px;
+        padding: 0 10px 0 2px;
         border-right: 1px solid #e5e7eb;
-        transition: max-width 0.28s ease, padding 0.28s ease, border-color 0.2s ease, opacity 0.18s ease, transform 0.28s ease;
+        opacity: 1;
+        transform: translateX(0);
+        transition:
+            max-width 0.28s ease,
+            padding 0.28s ease,
+            border-color 0.2s ease,
+            opacity 0.18s ease,
+            transform 0.28s ease;
     }
 
-    .message-drawer-action {
+    .message-drawer-action,
+    .thread-footer .message-composer-menu-toggle {
         position: relative;
         display: flex;
         align-items: center;
         justify-content: center;
+        flex: 0 0 34px;
         width: 34px;
         height: 34px;
         padding: 0;
         background: transparent;
-        border: 0;
-        border-radius: 7px;
         color: #6366f1;
+        border: none;
+        border-radius: 7px;
         cursor: pointer;
         transition: background 0.15s, color 0.15s, transform 0.15s;
     }
 
-    .message-drawer-action:hover,
-    .message-drawer-action:focus-visible {
+    .message-drawer-action:hover {
         background: #f0f1ff;
         color: #4f46e5;
         transform: none;
@@ -935,11 +938,11 @@
 
     .message-drawer-action[data-tooltip]::after {
         position: absolute;
-        z-index: 30;
+        z-index: 40;
         top: calc(100% + 7px);
         left: 50%;
         width: max-content;
-        max-width: 170px;
+        max-width: 150px;
         padding: 5px 8px;
         background: #111827;
         border-radius: 6px;
@@ -947,6 +950,7 @@
         content: attr(data-tooltip);
         font-size: 11px;
         font-weight: 600;
+        line-height: 1.2;
         opacity: 0;
         pointer-events: none;
         transform: translate(-50%, -3px);
@@ -960,26 +964,25 @@
         transform: translate(-50%, 0);
     }
 
-    .message-composer-menu-toggle {
-        display: flex;
-        align-items: center;
-        justify-content: center;
+    .thread-footer .message-composer-menu-toggle {
         flex: 0 0 0;
         width: 0;
-        height: 34px;
-        padding: 0;
         visibility: hidden;
         opacity: 0;
         pointer-events: none;
         background: transparent;
-        border: 0;
         color: #6366f1;
-        cursor: pointer;
-        transition: flex-basis 0.28s ease, width 0.28s ease, opacity 0.18s ease, visibility 0.28s ease;
+        transition:
+            flex-basis 0.28s ease,
+            width 0.28s ease,
+            opacity 0.18s ease,
+            visibility 0.28s ease,
+            background 0.15s,
+            color 0.15s,
+            transform 0.15s;
     }
 
-    .message-composer-menu-toggle:hover,
-    .message-composer-menu-toggle:focus-visible {
+    .thread-footer .message-composer-menu-toggle:hover {
         background: transparent;
         color: #4f46e5;
     }
@@ -1000,6 +1003,63 @@
         visibility: visible;
         opacity: 1;
         pointer-events: auto;
+    }
+
+    .message-composer-input {
+        display: flex;
+        align-items: center;
+        position: relative;
+        flex: 1 1 auto;
+        gap: 8px;
+        min-width: 0;
+    }
+
+    .message-composer-input input {
+        flex: 1 1 auto;
+        min-width: 0;
+        width: 100%;
+        padding: 10px 8px;
+        background: transparent;
+        border: none;
+        border-radius: 0;
+        color: #111827;
+        font-size: 13.5px;
+        outline: none;
+    }
+
+    .message-composer-input input::placeholder {
+        color: #9ca3af;
+    }
+
+    .message-composer-input input:focus {
+        border: none;
+        box-shadow: none;
+    }
+
+    .thread-footer .message-composer-send {
+        flex: 0 0 auto;
+        width: 40px;
+        height: 40px;
+        background: #6366f1;
+        color: #ffffff;
+        border: none;
+        border-radius: 50%;
+        cursor: pointer;
+        font-size: 15px;
+        transition: background 0.15s, transform 0.15s;
+    }
+
+    .thread-footer .message-composer-send:hover {
+        background: #4f46e5;
+        transform: scale(1.04);
+    }
+
+    .thread-footer .message-composer-send:disabled,
+    .thread-footer .message-composer-menu-toggle:disabled,
+    .message-drawer-action:disabled {
+        cursor: not-allowed;
+        opacity: 0.6;
+        transform: none;
     }
 
     .message-action-menu {
@@ -1023,7 +1083,7 @@
         height: auto;
         padding: 9px 10px;
         background: transparent;
-        border: 0;
+        border: none;
         border-radius: 7px;
         color: #374151;
         font-size: 12px;
@@ -1034,49 +1094,6 @@
     .thread-footer .message-action-menu button:hover {
         background: #f0f1ff;
         color: #4f46e5;
-    }
-
-    .message-composer-input {
-        display: flex;
-        align-items: center;
-        position: relative;
-        flex: 1 1 auto;
-        gap: 8px;
-        min-width: 0;
-    }
-
-    .message-composer-input input {
-        flex: 1 1 auto;
-        min-width: 0;
-        width: 100%;
-        padding: 10px 8px;
-        background: transparent;
-        border: 0;
-        border-radius: 0;
-        color: #111827;
-        font-size: 13.5px;
-        outline: none;
-    }
-
-    .message-composer-input input:focus {
-        border: 0;
-        box-shadow: none;
-    }
-
-    .message-composer-send {
-        flex: 0 0 auto;
-        width: 40px !important;
-        height: 40px !important;
-        padding: 0 !important;
-        background: #6366f1 !important;
-        border: 0 !important;
-        border-radius: 50% !important;
-        color: #ffffff !important;
-    }
-
-    .message-composer-send:hover {
-        background: #4f46e5 !important;
-        transform: scale(1.04);
     }
 
     .attachment-preview-row {
@@ -1134,71 +1151,6 @@
         color: #3730a3;
     }
 
-    .thread-footer input {
-        flex: 1;
-
-        padding: 10px 16px;
-
-        background: #ffffff;
-        border: 1.5px solid #e5e7eb;
-        border-radius: 22px;
-
-        color: #111827;
-
-        font-size: 13.5px;
-
-        outline: none;
-    }
-
-    .thread-footer input::placeholder {
-        color: #9ca3af;
-    }
-
-    .thread-footer input:focus {
-        border-color: #6366f1;
-    }
-
-    .thread-footer button {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-
-        width: 40px;
-        height: 40px;
-
-        border: none;
-        border-radius: 50%;
-
-        background: #6366f1;
-
-        color: #ffffff;
-
-        cursor: pointer;
-
-        font-size: 15px;
-
-        transition: background 0.15s;
-    }
-
-    .thread-footer button:hover {
-        background: #4f46e5;
-    }
-
-    .thread-footer .message-composer-input input,
-    .thread-footer .message-composer-input input:focus {
-        padding: 10px 8px;
-        background: transparent;
-        border: 0;
-        border-radius: 0;
-        box-shadow: none;
-    }
-
-    .thread-footer button:disabled {
-        cursor: not-allowed;
-        opacity: 0.6;
-    }
-
-
     /* =========================================================
        EMPTY STATE
     ========================================================= */
@@ -1242,8 +1194,7 @@
         color: #f9fafb;
     }
 
-    .dark .msg-search input,
-    .dark .thread-footer input {
+    .dark .msg-search input {
         background: #1f2937;
         border-color: #4b5563;
 
@@ -1251,12 +1202,11 @@
     }
 
     .dark .msg-search input::placeholder,
-    .dark .thread-footer input::placeholder {
+    .dark .message-composer-input input::placeholder {
         color: #9ca3af;
     }
 
-    .dark .msg-search input:focus,
-    .dark .thread-footer input:focus {
+    .dark .msg-search input:focus {
         border-color: #818cf8;
     }
 
@@ -2101,7 +2051,7 @@
                         @click.outside="open = false"
                         x-on:reply-started.window="$nextTick(() => $refs.messageInput?.focus())"
                     >
-                        <div class="message-action-drawer" aria-label="Message attachments">
+                        <div class="message-action-drawer" aria-label="Quick message actions">
                             <button
                                 type="button"
                                 class="message-drawer-action"
