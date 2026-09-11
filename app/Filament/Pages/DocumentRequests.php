@@ -47,6 +47,20 @@ class DocumentRequests extends Page implements HasTable
 
     public string $dateFilter = '';
 
+    public static function getNavigationBadge(): ?string
+    {
+        $count = DocumentRequest::query()
+            ->where('status', 'pending')
+            ->count();
+
+        return $count > 0 ? (string) $count : null;
+    }
+
+    public static function getNavigationBadgeColor(): ?string
+    {
+        return 'danger';
+    }
+
     public function mount(): void
     {
         $section = request()->query('section', 'pending');

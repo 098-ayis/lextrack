@@ -480,6 +480,10 @@ class Messages extends Page
             ->whereHas('conversation.participants', function ($query) use ($userId) {
                 $query->where('users.id', $userId);
             })
+            ->whereHas(
+                'conversation.document',
+                fn ($query) => $query->availableForMessaging()
+            )
             ->whereDoesntHave('readers', function ($query) use ($userId) {
                 $query->where('users.id', $userId);
             })

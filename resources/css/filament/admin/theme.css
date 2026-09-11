@@ -284,6 +284,44 @@
         height: 1.5rem;
         flex-shrink: 0;
     }
+
+    /*
+     * Keep navigation counts visible when the desktop sidebar is collapsed.
+     * Filament normally hides this wrapper with x-show in the collapsed state.
+     */
+    .fi-body-has-sidebar-collapsible-on-desktop
+        .fi-main-sidebar:not(.fi-sidebar-open)
+        .fi-sidebar-item-badge-ctn {
+        display: inline-flex !important;
+        position: absolute;
+        inset-inline-end: 0.35rem;
+        top: 0.15rem;
+        z-index: 10;
+        margin: 0;
+        pointer-events: none;
+    }
+
+    .fi-body-has-sidebar-collapsible-on-desktop
+        .fi-main-sidebar:not(.fi-sidebar-open)
+        .fi-sidebar-item-badge-ctn
+        .fi-badge {
+        margin: 0 !important;
+    }
+}
+
+/* Use the same compact red count badge in both sidebar states. */
+.fi-main-sidebar .fi-sidebar-item-badge-ctn .fi-badge {
+    min-width: 1.125rem !important;
+    height: 1.125rem !important;
+    padding: 0 0.25rem !important;
+    border: none !important;
+    border-radius: 9999px !important;
+    background: #ef4444 !important;
+    color: #ffffff !important;
+    font-size: 0.625rem !important;
+    font-weight: 700 !important;
+    line-height: 1.125rem !important;
+    box-shadow: none !important;
 }
 
 /* ================================
