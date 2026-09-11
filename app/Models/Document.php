@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -178,19 +179,18 @@ class Document extends Model
         return $this->hasOne(Conversation::class, 'document_id');
     }
 
-    protected static function booted(): void
+    public function scopeAvailableForMessaging(Builder $query): Builder
     {
-        static::created(function (Document $document) {
+        return $query
+            ->whereNotNull('lao_number')
+            ->where('lao_number', '!=', '')
+            ->whereNotIn('status', ['pending', 'rejected']);
+    }
 
-        // Load the uploader
-        $user = $document->user;
-
-        // Only create a conversation for client uploads
-        if ($user?->hasRole('Client')) {
-            $document->conversation()->create();
-        }
-    
-        });
+    public function isAvailableForMessaging(): bool
+    {
+        return filled($this->lao_number)
+            && ! in_array($this->status, ['pending', 'rejected'], true);
     }
 
     public function messageDocument(int $documentId): void

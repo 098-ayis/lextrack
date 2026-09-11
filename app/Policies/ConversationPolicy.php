@@ -11,7 +11,11 @@ class ConversationPolicy
         User $user, 
         Conversation $conversation
         ): bool {
-    // Any user with this permission can view shared office conversations.
+        if (! $conversation->document?->isAvailableForMessaging()) {
+            return false;
+        }
+
+        // Any user with this permission can view shared office conversations.
         if ($user->can('view_shared_messages')) {
             return true;
         }
@@ -27,7 +31,10 @@ class ConversationPolicy
         User $user, 
         Conversation $conversation
         ): bool {
-        if ($conversation->status !== 'active') {
+        if (
+            $conversation->status !== 'active'
+            || ! $conversation->document?->isAvailableForMessaging()
+        ) {
             return false;
         }
 

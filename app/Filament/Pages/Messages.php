@@ -79,6 +79,10 @@ class Messages extends Page
                             });
                     },
                 ])
+                ->whereHas(
+                    'document',
+                    fn ($query) => $query->availableForMessaging()
+                )
                 ->latest('conversations.updated_at')
                 ->get(),
             ];
@@ -501,6 +505,10 @@ class Messages extends Page
 
         $conversation = Conversation::query()
             ->where('document_id', $documentId)
+            ->whereHas(
+                'document',
+                fn ($query) => $query->availableForMessaging()
+            )
             ->first();
 
         if (! $conversation) {

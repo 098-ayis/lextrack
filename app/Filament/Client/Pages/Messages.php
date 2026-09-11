@@ -61,6 +61,10 @@ class Messages extends Page
                             });
                     },
                 ])
+                ->whereHas(
+                    'document',
+                    fn ($query) => $query->availableForMessaging()
+                )
                 ->latest('conversations.updated_at')
                 ->get(),
         ];
@@ -98,6 +102,12 @@ class Messages extends Page
             ->where('document_id', $documentId)
             ->where('user_id', auth()->id())
             ->firstOrFail();
+
+        abort_unless(
+            $document->isAvailableForMessaging(),
+            403,
+            'Messaging is available after the document is accepted.'
+        );
 
         return DB::transaction(function () use ($document) {
 
@@ -494,6 +504,10 @@ class Messages extends Page
 
         $conversation = Conversation::query()
             ->where('document_id', $document->document_id)
+            ->whereHas(
+                'document',
+                fn ($query) => $query->availableForMessaging()
+            )
             ->first();
 
         if (! $conversation) {

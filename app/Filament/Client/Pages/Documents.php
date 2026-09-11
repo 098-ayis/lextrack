@@ -340,17 +340,16 @@ class Documents extends Page implements HasTable
                     ->extraAttributes(['class' => 'documents-table-action'])
                     ->tooltip(
                         fn (Document $record): string =>
-                            $record->status === 'rejected'
-                                ? 'Messaging is unavailable for rejected documents'
+                            ! $record->isAvailableForMessaging()
+                                ? 'Messaging is available after the document is accepted'
                                 : 'Message'
                     )
                     ->disabled(
-                        fn (Document $record): bool =>
-                            $record->status === 'rejected'
+                        fn (Document $record): bool => ! $record->isAvailableForMessaging()
                     )
                     ->url(
                         fn (Document $record): ?string =>
-                            $record->status !== 'rejected'
+                            $record->isAvailableForMessaging()
                                 ? ClientMessages::getUrl([
                                     'document' => $record->document_id,
                                 ])
