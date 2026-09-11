@@ -12,15 +12,32 @@
 
       <!-- Chart Container -->
       <div class="flex flex-col items-center w-full">
+
+        <!-- New Highest-Level Node -->
+        <div class="flex flex-col items-center z-10">
+          <div class="w-[76px] h-[76px] rounded-full bg-gray-200 border-2 border-gray-500 flex items-center justify-center z-10 mb-3">
+            <Icon icon="ph:user" class="text-[40px] text-gray-500" />
+          </div>
+          <div class="flex min-h-[80px] w-[min(360px,calc(100vw-2rem))] flex-col items-center justify-center rounded-full border border-[#828cff] bg-[#eef2ff] px-4 py-2 text-center text-sm leading-tight text-[#121722]">
+            <span class="font-bold">Dr. Baby Boy Benjamin D. Nebres III</span>
+            <span>SUC President IV</span>
+            <span>Office of the President</span>
+          </div>
+        </div>
+
+        <!-- Connector to the Existing Top-Level Node -->
+        <div class="w-[2px] h-[24px] bg-gray-500"></div>
         
-        <!-- Top Level Node -->
+        <!-- Existing Top-Level Node -->
         <div class="flex flex-col items-center z-10">
           <!-- CHANGED: Replaced -mb-3 with mb-3 to add space! -->
           <div class="w-[76px] h-[76px] rounded-full bg-gray-200 border-2 border-gray-500 flex items-center justify-center z-10 mb-3">
             <Icon icon="ph:user" class="text-[40px] text-gray-500" />
           </div>
-          <div class="h-10 w-[min(300px,calc(100vw-2rem))] rounded-full border border-[#828cff] bg-[#eef2ff] flex items-center justify-center">
-            <!-- Add Name/Title Here -->
+          <div class="flex min-h-[80px] w-[min(360px,calc(100vw-2rem))] flex-col items-center justify-center rounded-full border border-[#828cff] bg-[#eef2ff] px-4 py-2 text-center text-sm leading-tight text-[#121722]">
+            <span class="font-bold">Atty. Daryl A. Redoblado</span>
+            <span>Legal Officer</span>
+            <span>Legal Affairs Office</span>
           </div>
         </div>
 

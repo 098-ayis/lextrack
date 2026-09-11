@@ -472,10 +472,22 @@ function openChatbot() {
   display: flex;
   align-items: center;
   gap: 24px;
-  color: #6b77ff; 
+  color: #6b77ff;
   font-weight: 500;
   letter-spacing: 0.05em;
   font-size: 15px;
+}
+
+.value-group > span {
+  display: inline-block;
+  cursor: pointer;
+  transition: transform 0.2s ease, color 0.2s ease, text-shadow 0.2s ease;
+}
+
+.value-group > span:hover {
+  color: #4f46e5;
+  text-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+  transform: translateY(-4px) scale(1.08);
 }
 
 .value-group .divider {
