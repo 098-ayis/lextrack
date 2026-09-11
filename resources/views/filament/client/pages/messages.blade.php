@@ -1478,7 +1478,6 @@
 
     <div
         class="msg-wrap {{ $selectedConversation ? 'has-selection' : 'no-selection' }}"
-        x-data="{ search: '' }"
     >
 
         {{-- =========================
@@ -1499,7 +1498,7 @@
                     <input
                         type="text"
                         placeholder="Search Messages"
-                        x-model="search"
+                        wire:model.live.debounce.300ms="search"
                     >
 
                 </div>
@@ -1525,19 +1524,6 @@
                         $displayName = $conversation->document?->particulars
                             ?: 'General Conversation';
 
-                        $officeName = 'Legal Affairs Office';
-
-
-                        $searchText = strtolower(
-                            $displayName . ' ' .
-                            ($conversation->document?->lao_number ?? '')
-                        );
-
-                        $searchKey = preg_replace(
-                            '/[^a-z0-9]/',
-                            '',
-                            $searchText
-                        );
                     @endphp
 
 
@@ -1550,8 +1536,6 @@
                                 : '' }}
                         "
                         wire:click="selectConversation({{ $conversation->id }})"
-                        data-search-text="{{ $searchKey }}"
-                        x-show="!search.trim() || $el.dataset.searchText.includes(search.trim().toLowerCase().replace(/[^a-z0-9]/g, ''))"
                     >
 
                     @if ($conversation->unread_messages_count > 0)
@@ -1637,18 +1621,10 @@
                 @empty
 
                     <div class="p-6 text-center text-gray-500">
-                        No conversations yet.
+                        {{ filled(trim($search)) ? 'No conversations match your search.' : 'No conversations yet.' }}
                     </div>
 
                 @endforelse
-
-                <div
-                    x-cloak
-                    x-show="search.trim() && !Array.from($root.querySelectorAll('.msg-item')).some(item => item.offsetParent !== null)"
-                    class="p-6 text-center text-gray-500 dark:text-gray-400"
-                >
-                    No conversations match your search.
-                </div>
 
             </div>
 
@@ -1678,8 +1654,8 @@
         @else
 
             @php
-                $activeConversation = $conversations
-                    ->firstWhere('id', $selectedConversation);
+                $activeConversation = $activeConversationRecord
+                    ?? $conversations->firstWhere('id', $selectedConversation);
 
                 $threadName = $activeConversation?->document?->particulars
                     ?: 'Untitled Document';

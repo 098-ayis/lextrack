@@ -26,6 +26,8 @@ class Messages extends Page
 
     public ?int $selectedConversation = null;
 
+    public string $search = '';
+
     public string $newMessage = '';
 
     public array $attachments = [];
@@ -56,34 +58,70 @@ class Messages extends Page
     {
         $userId = auth()->id();
 
-        return [
-            'conversations' => Conversation::query()
-                ->with([
-                    'document.user',
-                    'creator',
-                    'participants',
-                    'messages.sender',
-                    'messages.attachments',
-                    'messages.reactions',
-                    'messages.replyTo.sender',
-                    'messages.replyTo.attachments',
-                ])
-                ->withCount([
-                    'messages as unread_messages_count' => function ($query) use ($userId) {
-                        $query
-                            ->where('sender_id', '!=', $userId)
-                            ->whereDoesntHave('readers', function ($query) use ($userId) {
-                                $query->where('users.id', $userId);
-                            });
-                    },
-                ])
-                ->whereHas(
-                    'document',
-                    fn ($query) => $query->availableForMessaging()
+        $allConversations = Conversation::query()
+            ->with([
+                'document.user',
+                'creator',
+                'participants',
+                'messages.sender',
+                'messages.attachments',
+                'messages.reactions',
+                'messages.replyTo.sender',
+                'messages.replyTo.attachments',
+            ])
+            ->withCount([
+                'messages as unread_messages_count' => function ($query) use ($userId) {
+                    $query
+                        ->where('sender_id', '!=', $userId)
+                        ->whereDoesntHave('readers', function ($query) use ($userId) {
+                            $query->where('users.id', $userId);
+                        });
+                },
+            ])
+            ->whereHas(
+                'document',
+                fn ($query) => $query->availableForMessaging()
+            )
+            ->latest('conversations.updated_at')
+            ->get();
+
+        $search = $this->normalizeSearch($this->search);
+        $conversations = $search === ''
+            ? $allConversations
+            : $allConversations
+                ->filter(
+                    fn (Conversation $conversation): bool => str_contains(
+                        $this->getSearchableConversationText($conversation),
+                        $search
+                    )
                 )
-                ->latest('conversations.updated_at')
-                ->get(),
+                ->values();
+
+        return [
+            'conversations' => $conversations,
+            'activeConversationRecord' => $allConversations
+                ->firstWhere('id', $this->selectedConversation),
             ];
+    }
+
+    private function getSearchableConversationText(Conversation $conversation): string
+    {
+        return $this->normalizeSearch(implode(' ', [
+            $conversation->document?->user?->name,
+            $conversation->document?->lao_number,
+            $conversation->document?->particulars,
+            $conversation->document?->document_name,
+            $conversation->messages->pluck('body')->filter()->implode(' '),
+        ]));
+    }
+
+    private function normalizeSearch(?string $value): string
+    {
+        return preg_replace(
+            '/[^\p{L}\p{N}]/u',
+            '',
+            mb_strtolower((string) $value)
+        ) ?? '';
     }
 
     /**

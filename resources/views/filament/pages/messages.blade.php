@@ -1429,7 +1429,6 @@
 
     <div
     class="msg-wrap {{ $selectedConversation ? 'has-selection' : 'no-selection' }}"
-    x-data="{ search: '' }"
 >
 
     {{-- =========================================================
@@ -1450,7 +1449,7 @@
                 <input
                     type="text"
                     placeholder="Search Messages"
-                    x-model="search"
+                    wire:model.live.debounce.300ms="search"
                 >
 
             </div>
@@ -1485,11 +1484,6 @@
                         )
                     );
 
-                    $searchText = strtolower(
-                        $clientName . ' ' .
-                        ($conversation->document?->lao_number ?? '') . ' ' .
-                        ($conversation->document?->particulars ?? '')
-                    );
                 @endphp
 
 
@@ -1605,7 +1599,7 @@
                         font-size: 13px;
                     "
                 >
-                    No conversations available.
+                    {{ filled(trim($search)) ? 'No conversations match your search.' : 'No conversations available.' }}
                 </div>
 
             @endforelse
@@ -1641,14 +1635,14 @@
         @else
 
             @php
-                $activeConversation = $conversations
-                    ->firstWhere('id', $selectedConversation);
+                $activeConversation = $activeConversationRecord
+                    ?? $conversations->firstWhere('id', $selectedConversation);
 
                 $client = $activeConversation?->document?->user;
 
                 $clientName = $client?->name ?? 'Unknown Client';
 
-                $documentTitle = $activeConversation->document?->particulars
+                $documentTitle = $activeConversation?->document?->particulars
                     ?? 'Untitled Document';
             @endphp
 
