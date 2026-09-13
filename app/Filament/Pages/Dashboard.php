@@ -52,6 +52,34 @@ class Dashboard extends Page
     |--------------------------------------------------------------------------
     */
 
+    public function getProcessingTrend(): array
+    {
+        $start = today()->subDays(13);
+        $daily = \App\Models\ActivityLog::query()
+            ->where('created_at', '>=', $start)
+            ->where('created_at', '<', today()->addDay())
+            ->whereIn('action_type', \App\Services\MonthlyReportService::PROCESSING_ACTIONS)
+            ->whereNotNull('document_id')
+            ->selectRaw('DATE(created_at) as day, COUNT(DISTINCT document_id) as total')
+            ->groupByRaw('DATE(created_at)')->pluck('total', 'day');
+
+        $days = [];
+        for ($i = 0; $i < 14; $i++) {
+            $date = $start->copy()->addDays($i);
+            $days[] = ['date' => $date->format('M d'), 'count' => (int) ($daily[$date->toDateString()] ?? 0)];
+        }
+
+        $current = array_sum(array_column(array_slice($days, 7), 'count'));
+        $previous = array_sum(array_column(array_slice($days, 0, 7), 'count'));
+
+        $days = array_slice($days, 7);
+
+        return ['today' => $days[6]['count'], 'yesterday' => $days[5]['count'],
+            'average' => round($current / 7, 1),
+            'days' => $days, 'total' => $current, 'change' => $current - $previous,
+            'maximum' => max(1, max(array_column($days, 'count')))];
+    }
+
     public function getStats(): array
     {
         return [

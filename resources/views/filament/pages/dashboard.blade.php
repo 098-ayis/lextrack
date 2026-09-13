@@ -2,6 +2,7 @@
 
     @php
         $stats = $this->getStats();
+        $trend = $this->getProcessingTrend();
         $documents = $this->getRecentDocuments();
         $calendarCells = $this->getCalendarCells();
         $currentMonthLabel = $this->getCurrentMonthLabel();
@@ -9,13 +10,23 @@
         $upcomingEvents = $this->getUpcomingEvents();
     @endphp
 
-    <div class="space-y-6">
+    <div class="office-dashboard space-y-6" wire:poll.60s>
+
+        <div class="dashboard-productivity">
+            <section class="dashboard-today" aria-labelledby="today-progress-title">
+                <div class="dashboard-today-top"><h2 id="today-progress-title">Processed today</h2><span>{{ now()->format('M d, Y') }}</span></div>
+                <div class="dashboard-today-number">{{ number_format($trend['today']) }}</div>
+                <p class="dashboard-today-change">{{ $trend['today'] > $trend['yesterday'] ? '↑' : ($trend['today'] < $trend['yesterday'] ? '↓' : '↔') }} {{ abs($trend['today'] - $trend['yesterday']) }} {{ $trend['today'] > $trend['yesterday'] ? 'more than yesterday' : ($trend['today'] < $trend['yesterday'] ? 'fewer than yesterday' : 'change from yesterday') }}</p>
+                <div class="dashboard-today-footer"><div><strong>{{ $trend['yesterday'] }}</strong><span>Yesterday</span></div><div><strong>{{ $trend['average'] }}</strong><span>7-day average</span></div></div>
+            </section>
+            @include('filament.pages.partials.processing-trend', ['trend' => $trend])
+        </div>
 
         {{-- ========================================================= --}}
         {{-- STATS --}}
         {{-- ========================================================= --}}
 
-        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div class="dashboard-status-grid grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
 
             {{-- TOTAL DOCUMENTS --}}
             <a
@@ -73,9 +84,9 @@
                         </p>
                     </div>
 
-                    <div class="flex h-11 w-11 items-center justify-center rounded-lg bg-indigo-50 dark:bg-indigo-500/10">
+                    <div class="flex h-11 w-11 items-center justify-center rounded-lg bg-violet-50 dark:bg-violet-500/10">
                         <svg
-                            class="h-5 w-5 text-indigo-500"
+                            class="h-5 w-5 text-violet-500"
                             fill="none"
                             viewBox="0 0 24 24"
                             stroke="currentColor"
@@ -175,6 +186,26 @@
         {{-- SEARCH / FILTER --}}
         {{-- ========================================================= --}}
 
+        {{-- ========================================================= --}}
+        {{-- RECENT DOCUMENTS + CALENDAR --}}
+        {{-- ========================================================= --}}
+
+        <div class="grid grid-cols-1 gap-6 xl:grid-cols-3">
+
+            {{-- ===================================================== --}}
+            {{-- RECENT DOCUMENTS --}}
+            {{-- ===================================================== --}}
+
+            <div class="dashboard-work-panel min-w-0 xl:col-span-2">
+
+                <div class="mb-4">
+                    <h2 class="text-lg font-semibold text-violet-800 dark:text-violet-300">
+                        Recent Documents
+                    </h2>
+
+                </div>
+
+
         <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
 
             {{-- SEARCH --}}
@@ -230,26 +261,6 @@
             </div>
 
         </div>
-
-
-        {{-- ========================================================= --}}
-        {{-- RECENT DOCUMENTS + CALENDAR --}}
-        {{-- ========================================================= --}}
-
-        <div class="grid grid-cols-1 gap-6 xl:grid-cols-3">
-
-            {{-- ===================================================== --}}
-            {{-- RECENT DOCUMENTS --}}
-            {{-- ===================================================== --}}
-
-            <div class="min-w-0 xl:col-span-2">
-
-                <div class="mb-4">
-                    <h2 class="text-lg font-semibold text-gray-950 dark:text-white">
-                        Recent Documents
-                    </h2>
-
-                </div>
 
 
                 @if ($documents->isNotEmpty())
@@ -411,7 +422,7 @@
             <div class="min-w-0">
 
                 <div class="mb-4">
-                    <h2 class="text-lg font-semibold text-gray-950 dark:text-white">
+                    <h2 class="text-lg font-semibold text-violet-800 dark:text-violet-300">
                         <a href="{{ \App\Filament\Pages\Calendar::getUrl(['date' => sprintf('%04d-%02d-01', $year, $month)]) }}" class="hover:underline">My Calendar</a>
                     </h2>
 
@@ -419,7 +430,7 @@
 
 
                 <div
-                    class="overflow-hidden rounded-xl border border-gray-200 bg-white p-5 shadow-sm
+                    class="dashboard-work-panel overflow-hidden rounded-xl border border-gray-200 bg-white p-5 shadow-sm
                            dark:border-gray-700 dark:bg-gray-900"
                 >
 
@@ -516,7 +527,7 @@
                                     /*
                                      * TODAY
                                      */
-                                    'bg-indigo-500 font-semibold text-white'
+                                    'bg-violet-500 font-semibold text-white'
                                         => $cell['isToday'],
 
                                     /*
@@ -525,7 +536,7 @@
                                      * No dots / labels.
                                      * Day number only.
                                      */
-                                    'bg-indigo-50 font-semibold text-indigo-700 ring-1 ring-inset ring-indigo-200 dark:bg-indigo-500/10 dark:text-indigo-300 dark:ring-indigo-500/30'
+                                    'bg-violet-50 font-semibold text-violet-700 ring-1 ring-inset ring-violet-200 dark:bg-violet-500/10 dark:text-violet-300 dark:ring-violet-500/30'
                                         => !$cell['isToday']
                                             && $cell['hasEvent']
                                             && $cell['date'] >= now()->toDateString()
@@ -559,7 +570,7 @@
                     <div class="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-gray-100 pt-4 dark:border-gray-800">
 
                         <div class="flex items-center gap-2">
-                            <span class="h-2.5 w-2.5 rounded bg-indigo-500"></span>
+                            <span class="h-2.5 w-2.5 rounded bg-violet-500"></span>
 
                             <span class="text-xs text-gray-500 dark:text-gray-400">
                                 Today
@@ -568,7 +579,7 @@
 
 
                         <div class="flex items-center gap-2">
-                            <span class="h-2.5 w-2.5 rounded bg-indigo-100 ring-1 ring-indigo-200 dark:bg-indigo-500/20 dark:ring-indigo-500/40"></span>
+                            <span class="h-2.5 w-2.5 rounded bg-violet-100 ring-1 ring-violet-200 dark:bg-violet-500/20 dark:ring-violet-500/40"></span>
 
                             <span class="text-xs text-gray-500 dark:text-gray-400">
                                 Event
@@ -591,10 +602,10 @@
         <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
 
             {{-- UPCOMING DEADLINES --}}
-            <div class="rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
+            <div class="dashboard-work-panel rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
 
                 <div class="border-b border-gray-200 px-5 py-4 dark:border-gray-700">
-                    <h2 class="text-base font-semibold text-gray-950 dark:text-white">
+                    <h2 class="text-base font-semibold text-violet-800 dark:text-violet-300">
                         Upcoming Deadlines
                     </h2>
 
@@ -660,10 +671,10 @@
 
 
             {{-- UPCOMING REMINDERS --}}
-            <div class="rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
+            <div class="dashboard-work-panel rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
 
                 <div class="border-b border-gray-200 px-5 py-4 dark:border-gray-700">
-                    <h2 class="text-base font-semibold text-gray-950 dark:text-white">
+                    <h2 class="text-base font-semibold text-violet-800 dark:text-violet-300">
                         Upcoming Reminders
                     </h2>
 

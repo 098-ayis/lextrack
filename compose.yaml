@@ -6,6 +6,7 @@ services:
             args:
                 WWWGROUP: '${WWWGROUP}'
         image: 'sail-8.5/app'
+        entrypoint: ['bash', '/usr/local/bin/start-container']
         extra_hosts:
             - 'host.docker.internal:host-gateway'
         ports:
@@ -14,11 +15,14 @@ services:
         environment:
             WWWUSER: '${WWWUSER}'
             LARAVEL_SAIL: 1
+            PLAYWRIGHT_BROWSERS_PATH: /opt/playwright
             XDEBUG_MODE: '${SAIL_XDEBUG_MODE:-off}'
             XDEBUG_CONFIG: '${SAIL_XDEBUG_CONFIG:-client_host=host.docker.internal}'
             IGNITION_LOCAL_SITES_PATH: '${PWD}'
         volumes:
             - '.:/var/www/html'
+            - 'report-browsers:/opt/playwright'
+            - './docker/8.5/start-container:/usr/local/bin/start-container:ro'
             - './docker/8.5/supervisord.conf:/etc/supervisor/conf.d/supervisord.conf:ro'
         networks:
             - sail
@@ -53,5 +57,6 @@ networks:
     sail:
         driver: bridge
 volumes:
+    report-browsers:
     sail-mysql:
         driver: local

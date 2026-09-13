@@ -127,6 +127,26 @@ class Document extends Model
             'document_id');
     }
 
+    public function getDateAccomplishedAttribute(): ?\Carbon\CarbonInterface
+    {
+        $log = $this->activityLogs
+            ->filter(function ($log) {
+                if ($log->action_type === 'Document completed') {
+                    return true;
+                }
+
+                $old = json_decode($log->old_value ?? '', true);
+                $new = json_decode($log->new_value ?? '', true);
+
+                return $log->action_type === 'Document updated'
+                    && ($new['status'] ?? null) === 'completed'
+                    && ($old['status'] ?? null) !== 'completed';
+            })
+            ->sortByDesc('created_at')->first();
+
+        return $log?->created_at;
+    }
+
     public function rejections(): HasMany
     {
         return $this->hasMany(
@@ -146,6 +166,11 @@ class Document extends Model
     }
 
     
+
+    public function notificationLabel(): string
+    {
+        return $this->document_name ?: $this->particulars ?: $this->lao_number ?: 'Untitled document';
+    }
 
     public function statusLabel(): string
     {

@@ -6,7 +6,7 @@
         .report-field input,.report-field select { width:100%; min-width:0; border:1px solid #d1d5db; border-radius:7px; padding:9px 11px; background:var(--report-bg,#fff); color:inherit; }
         .report-table-wrap { overflow-x:auto; }
         .report-table { width:100%; text-align:left; border-collapse:collapse; font-size:13px; }
-        .report-table th { background:#f8fafc; color:#64748b; font-weight:500; white-space:nowrap; }
+        .report-table th { background:#ede9fe; color:#5b21b6; font-weight:500; white-space:nowrap; }
         .report-table th,.report-table td { padding:16px; border-bottom:1px solid #edf0f4; vertical-align:top; }
         .report-table td { min-width:105px; }
         .report-muted { color:#64748b; font-size:12px; }
@@ -19,7 +19,7 @@
         .report-generate-form { display:flex; flex-wrap:wrap; align-items:flex-end; gap:16px; }
         .report-generate-form input,.report-generate-form button { height:48px; box-sizing:border-box; }
         .dark .report-panel { --report-bg:#18181b; border-color:#3f3f46; }
-        .dark .report-table th { background:#27272a; }
+        .dark .report-table th { background:#2e2245; color:#ddd6fe; }
         .dark .report-table td,.dark .report-table th { border-color:#3f3f46; }
         @media(min-width:1100px) { .report-filters { grid-template-columns:repeat(6,minmax(0,1fr)) auto; } .report-cards { grid-template-columns:repeat(4,minmax(0,1fr)); } }
         @media(max-width:500px) { .report-filters,.report-cards { grid-template-columns:1fr; } }
@@ -41,7 +41,7 @@
     <div class="report-panel" style="padding:0" wire:loading.class="opacity-50">
         <div class="report-table-wrap">
             <table class="report-table">
-                <thead><tr><th>Date uploaded</th><th>LAO number</th><th>Particulars</th><th>Document type</th><th>Office / Unit</th><th>Uploaded by</th><th>Action taken</th><th>Status</th></tr></thead>
+                <thead><tr><th>Date uploaded</th><th>LAO number</th><th>Particulars</th><th>Document type</th><th>Office / Unit</th><th>Uploaded by</th><th>Action taken</th><th>Status</th><th>Date accomplished</th></tr></thead>
                 <tbody>
                     @forelse($documents as $document)
                         <tr wire:key="report-document-{{ $document->document_id }}">
@@ -51,9 +51,10 @@
                             <td>{{ $document->document_type ?? '—' }}</td><td>{{ $document->office_unit ?? '—' }}</td>
                             <td>{{ $document->user?->name ?? '—' }}</td><td>{{ $document->action_type ?? '—' }}</td>
                             <td><span class="report-badge">{{ \App\Filament\Pages\Reports::STATUSES[$document->status] ?? $document->status }}</span></td>
+                            <td>{{ $document->date_accomplished?->format('M d, Y') ?? '—' }}</td>
                         </tr>
                     @empty
-                        <tr><td colspan="8" style="text-align:center;padding:40px">No documents match the selected filters.</td></tr>
+                        <tr><td colspan="9" style="text-align:center;padding:40px">No documents match the selected filters.</td></tr>
                     @endforelse
                 </tbody>
             </table>

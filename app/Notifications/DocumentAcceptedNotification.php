@@ -25,13 +25,10 @@ class DocumentAcceptedNotification extends Notification
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
-            ->subject(
-                'LexTrack: Document Accepted - ' .
-                $this->document->lao_number
-            )
+            ->subject($this->document->notificationLabel())
             ->greeting('Hello, ' . $notifiable->name . '!')
             ->line('Your submitted document has been accepted by the Legal Office.')
-            ->line('Document: ' . $this->document->particulars)
+            ->line('Document: ' . $this->document->notificationLabel())
             ->line('Assigned LAO Number: ' . $this->document->lao_number)
             ->line('Status: In Progress')
             ->action(
@@ -45,7 +42,7 @@ class DocumentAcceptedNotification extends Notification
     {
         return [
             ...FilamentNotification::make()
-                ->title('Document Accepted')
+                ->title($this->document->notificationLabel())
                 ->body(
                     'Your document has been accepted and is now being processed.'
                 )

@@ -115,16 +115,17 @@
                     <p class="note">Processed counts unique documents with recorded acceptance, update, outgoing, rejection, return, or completion actions during this month. Completed counts unique documents with a recorded completion action or status change. Requests count accepted or rejected requests by processing date. Counts can overlap; downloads and views are excluded. Missing historical logs are not inferred from current status.</p>
                 @endif
                 <table>
-                    <thead><tr><th style="width: 17%">Date</th><th style="width: 27%">Document / type</th><th>Accomplishment</th></tr></thead>
+                    <thead><tr><th style="width: 17%">Date</th><th style="width: 23%">Document / type</th><th>Accomplishment</th><th style="width: 19%">Date accomplished</th></tr></thead>
                     <tbody>
                         @forelse ($entries as $entry)
                             <tr>
                                 <td>{{ $entry->created_at->format('M d, Y') }}</td>
                                 <td>{{ $entry->document?->lao_number ?? 'Unavailable document' }}<br>{{ $entry->document?->document_type }}</td>
                                 <td><strong>{{ $entry->action_type }}</strong><br>{{ \Illuminate\Support\Str::limit($entry->action_details, 180) }}</td>
+                                <td>{{ $entry->document?->date_accomplished?->format('M d, Y') ?? '—' }}</td>
                             </tr>
                         @empty
-                            <tr><td colspan="3">No processing activities recorded for this month.</td></tr>
+                            <tr><td colspan="4">No processing activities recorded for this month.</td></tr>
                         @endforelse
                     </tbody>
                 </table>

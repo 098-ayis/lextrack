@@ -38,13 +38,13 @@
 {!! $p('Processed counts unique documents with recorded acceptance, update, outgoing, rejection, return, or completion actions during this month. Completed counts unique documents with a recorded completion action or status change. Requests count accepted or rejected requests by processing date. Counts can overlap; downloads and views are excluded. Missing historical logs are not inferred from current status.',false,18) !!}
 @endif
 @php
-$rows = [[$p('Date',true,18),$p('Document / type',true,18),$p('Accomplishment',true,18)]];
+$rows = [[$p('Date',true,18),$p('Document / type',true,18),$p('Accomplishment',true,18),$p('Date accomplished',true,18)]];
 foreach ($entries as $entry) {
-    $rows[] = [$p($entry->created_at->format('M d, Y'),false,18),$p($entry->document?->lao_number ?? 'Unavailable document',false,18).$p($entry->document?->document_type ?? '',false,18),$p($entry->action_type,true,18).$p(\Illuminate\Support\Str::limit($entry->action_details,180),false,18)];
+    $rows[] = [$p($entry->created_at->format('M d, Y'),false,18),$p($entry->document?->lao_number ?? 'Unavailable document',false,18).$p($entry->document?->document_type ?? '',false,18),$p($entry->action_type,true,18).$p(\Illuminate\Support\Str::limit($entry->action_details,180),false,18),$p($entry->document?->date_accomplished?->format('M d, Y') ?? '—',false,18)];
 }
-if ($entries->isEmpty()) { $rows[] = [$p(''),$p(''),$p('No processing activities recorded for this month.',false,18)]; }
+if ($entries->isEmpty()) { $rows[] = [$p(''),$p(''),$p('No processing activities recorded for this month.',false,18),$p('')]; }
 @endphp
-{!! $table($rows,[1904,3024,6272]) !!}
+{!! $table($rows,[1904,2576,4592,2128]) !!}
 @if($loop->last){!! $p('Prepared by: '.$preparedBy) !!}@endif
 {!! $p('Generated '.now()->format('M d, Y H:i').' · Page '.$loop->iteration.' of '.$pages->count(),false,18,'right') !!}
 {!! $table([[$image(4,14,14),$p('A University for Humanity characterized by productive scholarship, transformative leadership, collaborative service and distinctive character for sustainable societies.',false,18,'center'),$p(''),$p('This communication is aligned to',false,11).$p('SDG No. ______',true,16)]],[1100,8030,170,1900],false) !!}

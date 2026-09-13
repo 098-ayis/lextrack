@@ -1,17 +1,28 @@
 <x-filament-panels::page>
 
     <style>
-        .theme-indigo-action .fi-btn {
-            background-color: #6366f1 !important;
+        .calendar-event-strip { display:block; width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:left; padding:3px 6px; border-radius:5px; background:var(--event-color); color:#fff; border-left:4px solid color-mix(in srgb,var(--event-color) 40%,white); font-size:11px; font-weight:600; line-height:1.4; }
+        .calendar-event-more { display:block; width:100%; text-align:left; padding:2px 6px; border-radius:5px; border-left:3px solid #004b80; background:#edf5fc; color:#004b80; font-size:10px; font-weight:600; line-height:1.4; }
+        .calendar-event-strip:focus-visible,.calendar-event-more:focus-visible { outline:2px solid #a78bfa; outline-offset:2px; }
+        .dark .calendar-event-more { background:#24364a; color:#bfdbfe; }
+
+        .calendar-category-legend { display:flex; flex-wrap:wrap; align-items:center; gap:14px 24px; padding:18px; border-top:1px solid #e5e7eb; color:#748492; font-size:12px; background:#fff; }
+        .calendar-category-legend strong { font-weight:650; }
+        .calendar-category-legend span { display:inline-flex; align-items:center; gap:8px; }
+        .calendar-category-legend i { width:9px; height:9px; flex-shrink:0; border-radius:50%; }
+        .dark .calendar-category-legend { background:#18181b; color:#a8b3c1; border-color:#374151; }
+
+        .theme-violet-action .fi-btn {
+            background-color: #7c3aed !important;
             color: #ffffff !important;
         }
 
-        .theme-indigo-action .fi-btn:hover {
-            background-color: #4f46e5 !important;
+        .theme-violet-action .fi-btn:hover {
+            background-color: #6d28d9 !important;
         }
 
-        .theme-indigo-action .fi-btn:focus-visible {
-            outline: 2px solid #818cf8;
+        .theme-violet-action .fi-btn:focus-visible {
+            outline: 2px solid #a78bfa;
             outline-offset: 2px;
         }
     </style>
@@ -51,8 +62,8 @@
                         text-base
                         shadow-sm
 
-                        focus:border-indigo-500
-                        focus:ring-indigo-500
+                        focus:border-violet-500
+                        focus:ring-violet-500
 
                         dark:border-gray-700
                         dark:bg-gray-800
@@ -93,8 +104,7 @@
                 );
 
 
-            $staffLegend =
-                $this->getStaffLegend();
+
 
         @endphp
 
@@ -103,10 +113,6 @@
         {{-- MAIN LAYOUT --}}
         {{-- ========================================================= --}}
 
-        <p class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-            <x-heroicon-m-check-circle class="h-4 w-4 shrink-0 text-green-600" />
-            Check marks show completed events. A checked date means all its events are completed.
-        </p>
 
         <div
             class="
@@ -204,29 +210,7 @@
                         ›
                     </button>
 
-                    <button
-                        wire:click="goToToday"
-                        type="button"
-                        class="
-                            h-9
-                            rounded-lg
-                            border
-                            border-indigo-200
-                            bg-indigo-50
-                            px-3
-                            text-xs
-                            font-semibold
-                            text-indigo-700
-                            transition
-                            hover:bg-indigo-100
-                            dark:border-indigo-800
-                            dark:bg-indigo-950
-                            dark:text-indigo-300
-                            dark:hover:bg-indigo-900
-                        "
-                    >
-                        Today
-                    </button>
+
 
                 </div>
 
@@ -531,21 +515,21 @@
                                     @elseif($isSelected)
 
                                         cursor-pointer
-                                        bg-indigo-50
+                                        bg-violet-50
 
                                         ring-2
                                         ring-inset
-                                        ring-indigo-500
+                                        ring-violet-500
 
-                                        dark:bg-indigo-950
+                                        dark:bg-violet-950
 
 
                                     @elseif($isToday)
 
                                         cursor-pointer
-                                        bg-indigo-50
+                                        bg-violet-50
 
-                                        dark:bg-indigo-950
+                                        dark:bg-violet-950
 
 
                                     @else
@@ -592,7 +576,7 @@
 
                                                 rounded-full
 
-                                                bg-indigo-500
+                                                bg-violet-500
 
                                                 text-white
 
@@ -647,12 +631,7 @@
                                                         ?? false
                                                     );
 
-                                                $eventColor =
-                                                    $isDocumentDeadline
-                                                        ? '#DC2626'
-                                                        : $this->getUserColor(
-                                                            $event->user_id
-                                                        );
+                                                $eventColor = $this->getEventColor($event);
 
 
                                                 $staffName =
@@ -682,126 +661,18 @@
                                             {{-- EVENT PREVIEW --}}
                                             {{-- ===================== --}}
 
-                                            <div
-
-                                                wire:key="
-                                                    calendar-event-
-                                                    {{ $event->sched_id }}
-                                                "
-
-                                                class="
-                                                    overflow-hidden
-                                                    rounded-md
-
-                                                    px-2
-                                                    py-1.5
-
-                                                    text-left
-
-                                                    transition
-
-                                                    hover:brightness-95
-                                                    {{ $isDocumentDeadline ? 'cursor-pointer' : '' }}
-                                                "
-
+                                            <button
+                                                type="button"
+                                                wire:key="calendar-event-{{ $event->sched_id }}"
+                                                class="calendar-event-strip"
+                                                style="--event-color:{{ $eventColor }}"
                                                 @if($isDocumentDeadline)
                                                     wire:click.stop="openDocumentDeadline({{ $event->document_id }})"
+                                                @else
+                                                    wire:click.stop="openDayEvents('{{ $dateString }}')"
                                                 @endif
-
-                                                style="
-                                                    background-color:
-                                                        {{ $eventColor }}18;
-
-                                                    border-left:
-                                                        3px solid
-                                                        {{ $eventColor }};
-                                                "
-
-                                                title="{{
-                                                    $eventTime
-                                                }} - {{
-                                                    $event->event
-                                                }} - {{
-                                                    $staffName
-                                                }}"
-                                            >
-
-
-                                                @if ($event->is_completed)
-                                                    <span class="inline-flex items-center gap-1 text-[10px] font-semibold text-green-600 dark:text-green-400">
-                                                        <x-heroicon-m-check-circle class="h-3.5 w-3.5 shrink-0" />
-                                                        Completed
-                                                    </span>
-                                                @endif
-
-                                                {{-- TIME --}}
-                                                @if($eventTime)
-
-                                                    <div
-                                                        class="
-                                                            flex
-                                                            items-center
-                                                            gap-1.5
-
-                                                            truncate
-
-                                                            text-[9px]
-                                                            font-semibold
-                                                            text-gray-500
-                                                        "
-                                                    >
-
-                                                        <span
-                                                            class="
-                                                                h-1.5
-                                                                w-1.5
-                                                                shrink-0
-                                                                rounded-full
-                                                            "
-                                                            style="
-                                                                background-color:
-                                                                    {{ $eventColor }};
-                                                            "
-                                                        ></span>
-
-                                                        {{ $eventTime }}
-
-                                                    </div>
-
-                                                @endif
-
-
-                                                {{-- EVENT TITLE --}}
-                                                <div
-                                                    class="
-                                                        truncate
-
-                                                        text-[11px]
-                                                        font-semibold
-
-                                                        text-gray-800
-
-                                                        dark:text-gray-100
-                                                    "
-                                                >
-                                                    {{ $event->event }}
-                                                </div>
-
-
-                                                {{-- STAFF NAME --}}
-                                                <div
-                                                    class="
-                                                        truncate
-
-                                                        text-[9px]
-
-                                                        text-gray-500
-                                                    "
-                                                >
-                                                    {{ $staffName }}
-                                                </div>
-
-                                            </div>
+                                                title="{{ $event->event }}{{ $eventTime ? ' · '.$eventTime : '' }}"
+                                            >{{ $event->event }}</button>
 
                                         @endforeach
 
@@ -817,18 +688,9 @@
 
                                             <button
                                                 type="button"
-                                                wire:click.stop="$set('selectedDate', '{{ $dateString }}')"
+                                                wire:click.stop="openDayEvents('{{ $dateString }}')"
                                                 aria-label="View all {{ $dayEvents->count() }} events on {{ $dateString }}"
-                                                style="display: block; text-align: left; white-space: nowrap; color: #075985; cursor: pointer;"
-                                                class="
-                                                    px-1
-                                                    pt-0.5
-
-                                                    text-[10px]
-                                                    font-semibold
-
-                                                    text-indigo-600
-                                                "
+                                                class="calendar-event-more"
                                             >
 
                                                 +{{ $dayEvents->count() - 2 }} more
@@ -845,6 +707,12 @@
 
                         @endfor
 
+                    </div>
+                    <div class="calendar-category-legend">
+                        <strong>Legend:</strong>
+                        @foreach($this->getEventCategories() as $category => $label)
+                            <span><i style="background:{{ $this->getEventColor((object) ['category' => $category]) }}"></i>{{ $label }}</span>
+                        @endforeach
                     </div>
 
                 </div>
@@ -962,7 +830,7 @@
                             class="
                                 text-2xl
                                 font-bold
-                                text-indigo-600
+                                text-violet-600
                             "
                         ></div>
 
@@ -1034,7 +902,7 @@
 
                                 <span
                                     class="
-                                    text-indigo-600
+                                    text-violet-600
                                     "
                                 >
                                     {{
@@ -1053,37 +921,9 @@
                         </h3>
 
 
-                        {{-- SHOW ALL BUTTON --}}
-                        @if($selectedDate)
-
-                            <button
-                                wire:click="
-                                    clearSelectedDate
-                                "
-                                type="button"
-                                class="
-                                    ml-auto
-
-                                    rounded-md
-
-                                    bg-indigo-50
-
-                                    px-2
-                                    py-1
-
-                                    text-xs
-                                    font-semibold
-                                    text-indigo-700
-
-                                    transition
-
-                                    hover:bg-indigo-100
-                                "
-                            >
-                                Show all
-                            </button>
-
-                        @endif
+                        <div class="theme-violet-action ml-auto">
+                            {{ $this->createEvent() }}
+                        </div>
 
                     </div>
 
@@ -1132,12 +972,7 @@
                                         ?? false
                                     );
 
-                                $eventColor =
-                                    $isDocumentDeadline
-                                        ? '#DC2626'
-                                        : $this->getUserColor(
-                                            $event->user_id
-                                        );
+                                $eventColor = $this->getEventColor($event);
 
 
                                 $staffName =
@@ -1356,7 +1191,7 @@
                                 {{-- EVENT ACTIONS --}}
                                 {{-- ================================= --}}
 
-                                @if(! $isDocumentDeadline)
+                                @if(! $isDocumentDeadline && ! ($event->is_automatic_holiday ?? false))
 
                                 <div
                                     class="
@@ -1472,7 +1307,7 @@
 
                     <div
                         class="
-                            theme-indigo-action
+                            theme-violet-action
 
                             mt-3
 
@@ -1485,7 +1320,37 @@
                         "
                     >
 
-                        {{ $this->createEvent() }}
+                        {{-- SHOW ALL BUTTON --}}
+                        @if($selectedDate)
+
+                            <button
+                                wire:click="
+                                    clearSelectedDate
+                                "
+                                type="button"
+                                class="
+                                    ml-auto
+
+                                    rounded-md
+
+                                    bg-violet-50
+
+                                    px-2
+                                    py-1
+
+                                    text-xs
+                                    font-semibold
+                                    text-violet-700
+
+                                    transition
+
+                                    hover:bg-violet-100
+                                "
+                            >
+                                Show all
+                            </button>
+
+                        @endif
 
                     </div>
 
@@ -1493,104 +1358,6 @@
 
 
                 {{-- ================================================= --}}
-                {{-- STAFF COLOR LEGEND --}}
-                {{-- ================================================= --}}
-
-                @if(
-                    $staffLegend->isNotEmpty()
-                )
-
-                    <div
-                        class="
-                            rounded-xl
-
-                            border
-                            border-gray-200
-
-                            bg-white
-
-                            p-4
-
-                            shadow-sm
-
-                            dark:border-gray-700
-                            dark:bg-gray-900
-                        "
-                    >
-
-                        <h3
-                            class="
-                                mb-3
-
-                                text-sm
-                                font-bold
-
-                                text-gray-900
-
-                                dark:text-white
-                            "
-                        >
-                            Staff
-                        </h3>
-
-
-                        <div class="space-y-2">
-
-                            @foreach(
-                                $staffLegend
-                                as $staff
-                            )
-
-                                <div
-                                    class="
-                                        flex
-                                        items-center
-                                        gap-2.5
-                                    "
-                                >
-
-                                    {{-- COLOR --}}
-                                    <span
-                                        class="
-                                            h-2.5
-                                            w-2.5
-
-                                            shrink-0
-
-                                            rounded-full
-                                        "
-
-                                        style="
-                                            background-color:
-                                                {{ $staff['color'] }};
-                                        "
-                                    ></span>
-
-
-                                    {{-- NAME --}}
-                                    <span
-                                        class="
-                                            truncate
-
-                                            text-xs
-
-                                            text-gray-600
-
-                                            dark:text-gray-300
-                                        "
-                                    >
-                                        {{ $staff['name'] }}
-                                    </span>
-
-                                </div>
-
-                            @endforeach
-
-                        </div>
-
-                    </div>
-
-                @endif
 
             </div>
 
@@ -1598,4 +1365,9 @@
 
     </div>
 
+    @php($modalEntries = $selectedDate ? ($eventsByDate[$selectedDate] ?? collect()) : collect())
+    <x-filament::modal id="calendar-day-events" width="xl">
+        <x-slot name="heading">All events on {{ $selectedDate ? \Carbon\Carbon::parse($selectedDate)->format('M j, Y') : '' }} ({{ $modalEntries->count() }})</x-slot>
+        @include('filament.pages.partials.calendar-event-list', ['entries' => $modalEntries, 'showDetails' => false])
+    </x-filament::modal>
 </x-filament-panels::page>

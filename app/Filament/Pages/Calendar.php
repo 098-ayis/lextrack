@@ -130,6 +130,26 @@ class Calendar extends Page
         $this->selectedDate = $date;
     }
 
+    public function openDayEvents(string $date): void
+    {
+        $this->selectDate($date);
+        $this->dispatch('open-modal', id: 'calendar-day-events');
+    }
+
+    public function changeMonth(string $value): void
+    {
+        if (! preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $value)) {
+            return;
+        }
+        [$year, $month] = array_map('intval', explode('-', $value));
+        if ($year < 1 || $year > 9999) {
+            return;
+        }
+        $this->year = $year;
+        $this->month = $month;
+        $this->selectedDate = null;
+    }
+
     public function clearSelectedDate(): void
     {
         $this->selectedDate = null;
@@ -216,7 +236,7 @@ class Calendar extends Page
                 $this->getDocumentDeadlineEvents(
                     $this->selectedDate
                 )
-            )
+            )->concat($this->getHolidayEvents($this->selectedDate))
         );
     }
 
@@ -249,7 +269,7 @@ class Calendar extends Page
         return $this->sortEvents(
             $calendarEvents->concat(
                 $this->getDocumentDeadlineEvents()
-            )
+            )->concat($this->getHolidayEvents())
         );
     }
 
@@ -268,7 +288,7 @@ class Calendar extends Page
         return $this->sortEvents(
             $calendarEvents->concat(
                 $this->getDocumentDeadlineEvents($date)
-            )
+            )->concat($this->getHolidayEvents($date))
         );
     }
 
@@ -277,6 +297,14 @@ class Calendar extends Page
      * Convert documents with deadlines into calendar-compatible items.
      * These are virtual events, so no duplicate Calendar record is created.
      */
+    protected function getHolidayEvents(?string $date = null): Collection
+    {
+        $display = $date ? Carbon::parse($date) : Carbon::create($this->year, $this->month, 1);
+
+        return app(\App\Services\PhilippineHolidayService::class)
+            ->events($display->year, $display->month, $date);
+    }
+
     protected function getDocumentDeadlineEvents(?string $date = null): Collection
     {
         return Document::query()
@@ -366,6 +394,85 @@ class Calendar extends Page
     | Each user receives a consistent color based on user_id.
     |
     */
+
+    public const EVENT_CATEGORIES = [
+        'holiday' => 'Holidays',
+        'meeting' => 'Meetings',
+        'deadline' => 'Deadlines',
+    ];
+
+    protected ?Collection $customCategories = null;
+
+    protected function customCategories(): Collection
+    {
+        return $this->customCategories ??= \App\Models\CalendarCategory::orderBy('name')->get();
+    }
+
+    public function getEventCategories(): array
+    {
+        return self::EVENT_CATEGORIES + $this->customCategories()->pluck('name', 'key')->all();
+    }
+
+    public function getEventCategory(object $event): string
+    {
+        if ($event->is_document_deadline ?? false) {
+            return 'deadline';
+        }
+        $category = $event->category ?? 'meeting';
+        if (isset(self::EVENT_CATEGORIES[$category])) {
+            return $category;
+        }
+
+        return $this->customCategories()->contains('key', $category) ? $category : 'meeting';
+    }
+
+    public function getEventColor(object $event): string
+    {
+        return match ($category = $this->getEventCategory($event)) {
+            'holiday' => '#c9362b',
+            'meeting' => '#0f766e',
+            'deadline' => '#7c3aed',
+            default => $this->customCategories()->firstWhere('key', $category)->color,
+        };
+    }
+
+    public function addEventCategory(array $data): string
+    {
+        \Illuminate\Support\Facades\Validator::make($data, [
+            'name' => ['required', 'string', 'max:100', 'unique:calendar_categories,name',
+                function ($attribute, $value, $fail) {
+                    if (in_array(strtolower(trim($value)), array_map('strtolower', self::EVENT_CATEGORIES))) {
+                        $fail('This category already exists.');
+                    }
+                }],
+            'color' => ['required', 'regex:/^#[0-9a-fA-F]{6}$/'],
+        ])->validate();
+
+        $category = \App\Models\CalendarCategory::create([
+            'key' => 'category-'.\Illuminate\Support\Str::uuid(),
+            'name' => trim($data['name']), 'color' => $data['color'],
+        ]);
+        $this->customCategories = null;
+
+        return $category->key;
+    }
+
+    protected function eventCategoryField(): Select
+    {
+        return Select::make('category')
+            ->label('Category')
+            ->options(fn () => $this->getEventCategories())
+            ->native(false)
+            ->searchable()
+            ->default('meeting')
+            ->required()
+            ->in(fn () => array_keys($this->getEventCategories()))
+            ->createOptionForm([
+                TextInput::make('name')->label('Category name')->required()->maxLength(100),
+                \Filament\Forms\Components\ColorPicker::make('color')->label('Color')->default('#7c3aed')->required(),
+            ])
+            ->createOptionUsing(fn (array $data): string => $this->addEventCategory($data));
+    }
 
     public function getUserColor(?int $userId): string
     {
@@ -462,13 +569,12 @@ class Calendar extends Page
             ->label('Add Event')
             ->icon('heroicon-o-plus')
             ->modalHeading('Add Event')
-            ->modalDescription(
-                'Add a schedule or important calendar event.'
-            )
             ->fillForm(fn (): array => [
                 'date' => $this->selectedDate ?? now()->toDateString(),
+                'category' => 'meeting',
             ])
             ->form([
+                $this->eventCategoryField(),
 
                 TextInput::make('event')
                     ->label('Event')
@@ -526,20 +632,19 @@ class Calendar extends Page
             ->tooltip('Edit event')
             ->color('gray')
             ->modalHeading('Edit Event')
-            ->modalDescription(
-                'Update the event information below.'
-            )
             ->fillForm(function (array $arguments): array {
                 $event = CalendarModel::findOrFail($arguments['eventId']);
 
                 return [
                     'event' => $event->event,
+                    'category' => $event->category ?? 'meeting',
                     'details' => $event->details,
                     'date' => $event->date?->format('Y-m-d'),
                     'time' => $event->time?->format('H:i'),
                 ];
             })
             ->form([
+                $this->eventCategoryField(),
 
                 TextInput::make('event')
                     ->label('Event')

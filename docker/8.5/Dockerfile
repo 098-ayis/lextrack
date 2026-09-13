@@ -86,7 +86,7 @@ COPY php.ini /etc/php/8.5/cli/conf.d/99-sail.ini
 RUN chmod +x /usr/local/bin/start-container
 
 ENV PLAYWRIGHT_BROWSERS_PATH=/opt/playwright
-RUN npx -y playwright@1.63.0 install --with-deps chromium
+RUN mkdir -p /opt/playwright && chown sail:sail /opt/playwright
 
 EXPOSE 80/tcp
 

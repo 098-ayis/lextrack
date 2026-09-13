@@ -4,7 +4,8 @@
     "type": "module",
     "scripts": {
         "build": "vite build",
-        "dev": "vite"
+        "dev": "vite",
+        "postinstall": "node scripts/ensure-report-browser.mjs --postinstall"
     },
     "devDependencies": {
         "@tailwindcss/vite": "^4.3.3",
