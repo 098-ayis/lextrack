@@ -22,5 +22,11 @@ if [ $# -gt 0 ]; then
         exec gosu $WWWUSER "$@"
     fi
 else
+    export PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-/opt/playwright}"
+    mkdir -p "$PLAYWRIGHT_BROWSERS_PATH"
+    chown sail:"$(id -gn sail)" "$PLAYWRIGHT_BROWSERS_PATH"
+    if [ -f /var/www/html/node_modules/playwright/package.json ]; then
+        gosu sail node /var/www/html/scripts/ensure-report-browser.mjs || exit 1
+    fi
     exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf
 fi

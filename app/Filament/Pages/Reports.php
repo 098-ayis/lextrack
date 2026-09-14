@@ -70,7 +70,7 @@ class Reports extends Page
         $counts = (clone $query)->selectRaw('status, COUNT(*) as total')->groupBy('status')->pluck('total', 'status');
 
         return [
-            'documents' => (clone $query)->with('user')->latest('created_at')->orderByDesc('document_id')->paginate(15),
+            'documents' => (clone $query)->with(['user', 'activityLogs'])->latest('created_at')->orderByDesc('document_id')->paginate(15),
             'counts' => $counts,
             'total' => $counts->sum(),
             'types' => Document::whereNotNull('document_type')->distinct()->orderBy('document_type')->pluck('document_type'),

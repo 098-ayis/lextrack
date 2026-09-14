@@ -21,13 +21,10 @@ class DocumentCompletedNotification extends Notification
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
-            ->subject(
-                'LexTrack: Document Completed - ' .
-                ($this->document->lao_number ?? $this->document->document_id)
-            )
+            ->subject($this->document->notificationLabel())
             ->greeting('Hello, ' . $notifiable->name . '!')
             ->line('Your document has been completed by the Legal Office.')
-            ->line('Document: ' . $this->document->particulars)
+            ->line('Document: ' . $this->document->notificationLabel())
             ->line('Status: Completed')
             ->action(
                 'View Document',
@@ -42,7 +39,7 @@ class DocumentCompletedNotification extends Notification
     {
         return [
             ...FilamentNotification::make()
-                ->title('Document Completed')
+                ->title($this->document->notificationLabel())
                 ->body(
                     'Your document has been completed by the Legal Office.'
                 )

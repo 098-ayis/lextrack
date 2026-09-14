@@ -22,6 +22,14 @@ class ReportsPageTest extends TestCase
             }
             $table->timestamps();
         });
+        Schema::create('activity_logs', function (Blueprint $table) {
+            $table->id('log_id');
+            $table->unsignedBigInteger('document_id');
+            $table->string('action_type');
+            $table->text('old_value')->nullable();
+            $table->text('new_value')->nullable();
+            $table->timestamps();
+        });
         for ($i = 1; $i <= 17; $i++) {
             DB::table('documents')->insert(['document_type' => 'Contract', 'office_unit' => 'Legal', 'status' => 'completed', 'lao_number' => 'LAO-'.$i, 'particulars' => 'Review', 'created_at' => '2026-09-08 23:59:59']);
         }

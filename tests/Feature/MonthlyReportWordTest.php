@@ -26,6 +26,7 @@ class MonthlyReportWordTest extends TestCase
             $this->assertStringContainsString('MONTHLY ACCOMPLISHMENT REPORT', $xml);
             $this->assertStringContainsString('Admin &amp; Staff', $xml);
             $this->assertStringContainsString('<w:tbl>', $xml);
+            $this->assertStringContainsString('Date accomplished', $xml);
             $this->assertStringContainsString('w:headerReference', $xml);
             $this->assertStringContainsString('w:footerReference', $xml);
             $this->assertStringNotContainsString('BICOL UNIVERSITY', $xml);

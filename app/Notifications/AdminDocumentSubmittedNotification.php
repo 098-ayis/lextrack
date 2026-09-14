@@ -27,15 +27,13 @@ class AdminDocumentSubmittedNotification extends Notification
             : 'documents';
 
         return (new MailMessage)
-            ->subject(
-                'LexTrack: New document submission from ' . $submitterName
-            )
+            ->subject($this->document->notificationLabel())
             ->greeting('Hello, ' . $notifiable->name . '!')
             ->line(
                 $submitterName . ' has submitted ' .
                 $this->documentCount . ' ' . $documentLabel . ' for review.'
             )
-            ->line('Latest submission: ' . ($this->document->description ?: $this->document->particulars ?: 'Untitled document'))
+            ->line('Latest submission: ' . ($this->document->description ?: $this->document->particulars ?: 'Untitled document: ' . $this->document->notificationLabel()))
             ->line('Status: Pending review')
             ->action(
                 'Review Submissions',
@@ -53,7 +51,7 @@ class AdminDocumentSubmittedNotification extends Notification
 
         return [
             ...FilamentNotification::make()
-                ->title('New document submission')
+                ->title($this->document->notificationLabel())
                 ->body(
                     $submitterName . ' submitted ' .
                     $this->documentCount . ' ' . $documentLabel . ' for review.'

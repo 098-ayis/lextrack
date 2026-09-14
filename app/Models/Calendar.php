@@ -14,6 +14,7 @@ class Calendar extends Model
         'date',
         'time',
         'event',
+        'category',
         'details',
     ];
 

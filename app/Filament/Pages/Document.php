@@ -362,7 +362,7 @@ class Document extends Page implements HasTable
 
         if ($result['accepted'] && $document->user) {
             Notification::make()
-                ->title('Document accepted — QR code ready')
+                ->title($document->notificationLabel())
                 ->body('Your document has been accepted. Open your QR code below and scan it to track the document status. LAO Number: ' . $document->lao_number)
                 ->success()
                 ->actions([

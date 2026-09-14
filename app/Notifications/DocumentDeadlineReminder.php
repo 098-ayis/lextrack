@@ -22,10 +22,10 @@ class DocumentDeadlineReminder extends Notification
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
-            ->subject('LexTrack: Document deadline reminder')
+            ->subject($this->document->notificationLabel())
             ->greeting('Hello, ' . $notifiable->name . '!')
             ->line($this->getReminderMessage())
-            ->line('Document: ' . ($this->document->particulars ?: 'Untitled document'))
+            ->line('Document: ' . $this->document->notificationLabel())
             ->line('LAO Number: ' . ($this->document->lao_number ?: 'Not assigned'))
             ->line('Deadline: ' . $this->document->deadline->format('F d, Y'))
             ->action('Open Calendar', url('/admin/calendar'))
@@ -36,7 +36,7 @@ class DocumentDeadlineReminder extends Notification
     {
         return [
             ...FilamentNotification::make()
-                ->title('Document deadline reminder')
+                ->title($this->document->notificationLabel())
                 ->body(
                     $this->getReminderMessage() . ' Deadline: ' .
                     $this->document->deadline->format('F d, Y') . '.'

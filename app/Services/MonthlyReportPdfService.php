@@ -45,7 +45,7 @@ class MonthlyReportPdfService
         file_put_contents($directory.'/report.html', $html);
         $process = new Process(['node', base_path('scripts/render-monthly-report.mjs'), $directory.'/report.html', $directory, $mode]);
         $process->setEnv(['PLAYWRIGHT_BROWSERS_PATH' => '/opt/playwright']);
-        $process->setTimeout(120);
+        $process->setTimeout(360);
         $process->mustRun();
     }
 }

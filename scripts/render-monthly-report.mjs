@@ -1,7 +1,8 @@
-import { chromium } from 'playwright';
+import { ensureReportBrowser } from './ensure-report-browser.mjs';
+const { chromium } = await import('playwright');
 import { readFile } from 'node:fs/promises';
 const [input, directory, mode] = process.argv.slice(2);
-const browser = await chromium.launch({ headless: true });
+const browser = await chromium.launch({ headless: true, executablePath: await ensureReportBrowser() });
 try {
     const page = await browser.newPage({ viewport: { width: 1100, height: 1200 }, deviceScaleFactor: 2 });
     await page.route('**/*', route => route.abort());

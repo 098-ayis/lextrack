@@ -31,6 +31,7 @@ class CalendarEditTest extends TestCase
             $table->date('date');
             $table->time('time');
             $table->string('event');
+            $table->string('category')->default('meeting');
             $table->text('details');
             $table->timestamp('reminder_3_days_sent_at')->nullable();
             $table->timestamp('reminder_1_day_sent_at')->nullable();
@@ -48,12 +49,13 @@ class CalendarEditTest extends TestCase
         $this->assertSame('editEvent', $action->getName());
 
         ($action->getActionFunction())([
-            'event' => 'Updated meeting', 'details' => 'New details',
+            'event' => 'Updated meeting', 'details' => 'New details', 'category' => 'holiday',
             'date' => '2026-09-10', 'time' => '14:30',
         ], ['eventId' => $event->sched_id]);
 
         $event->refresh();
         $this->assertSame('Updated meeting', $event->event);
+        $this->assertSame('holiday', $event->category);
         $this->assertSame('New details', $event->details);
         $this->assertSame('2026-09-10', $event->date->format('Y-m-d'));
         $this->assertSame('14:30', $event->time->format('H:i'));

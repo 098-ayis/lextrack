@@ -26,12 +26,12 @@ class DocumentRejectedNotification extends Notification
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
-            ->subject('LexTrack: Document Submission Rejected')
+            ->subject($this->document->notificationLabel())
             ->greeting('Hello, ' . $notifiable->name . '!')
             ->line(
                 'Your submitted document has been rejected by the Legal Office.'
             )
-            ->line('Document: ' . $this->document->particulars)
+            ->line('Document: ' . $this->document->notificationLabel())
             ->line('Status: Rejected')
             ->line(
                 'Reason: ' . (
@@ -60,7 +60,7 @@ class DocumentRejectedNotification extends Notification
 
         return [
             ...FilamentNotification::make()
-                ->title('Document Rejected')
+                ->title($this->document->notificationLabel())
                 ->body('Your document has been rejected. Reason: ' . $reason)
                 ->danger()
                 ->getDatabaseMessage(),

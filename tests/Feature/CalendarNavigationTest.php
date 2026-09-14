@@ -21,6 +21,27 @@ class CalendarNavigationTest extends TestCase
         $this->assertSame(1, $page->month);
     }
 
+    public function test_month_picker_changes_the_display_and_clears_selection(): void
+    {
+        $page = new CalendarPage;
+        $page->mount();
+        $page->changeMonth('2027-02');
+        $this->assertSame(2027, $page->year);
+        $this->assertSame(2, $page->month);
+        $this->assertNull($page->selectedDate);
+        $page->changeMonth('2027-13');
+        $this->assertSame(2, $page->month);
+    }
+
+    public function test_calendar_colors_follow_categories_and_document_deadlines(): void
+    {
+        $page = new CalendarPage;
+        $this->assertSame('meeting', $page->getEventCategory((object) []));
+        $this->assertSame('#c9362b', $page->getEventColor((object) ['category' => 'holiday']));
+        $this->assertSame('#0f766e', $page->getEventColor((object) ['category' => 'meeting']));
+        $this->assertSame('#7c3aed', $page->getEventColor((object) ['is_document_deadline' => true]));
+    }
+
     public function test_invalid_date_falls_back_to_today(): void
     {
         $this->app->instance('request', Request::create('/admin/calendar?date=2026-02-31'));
