@@ -391,10 +391,21 @@
         align-items: flex-end;
         gap: 8px;
 
+        position: relative;
+
         width: fit-content;
         max-width: 70%;
 
         margin: 0;
+    }
+
+    .t-msg-row:hover,
+    .t-msg-row:focus-within {
+        z-index: 30;
+    }
+
+    .t-msg-row.message-continuation {
+        margin-top: -8px;
     }
 
     /* Client messages = LEFT */
@@ -446,6 +457,10 @@
         display: block;
     }
 
+    .t-msg-avatar-placeholder {
+        visibility: hidden;
+    }
+
     .t-msg-row.staff-message .t-msg-avatar {
         background: #e0e7ff;
         color: #4f46e5;
@@ -459,6 +474,8 @@
     .t-message-content {
         display: flex;
         flex-direction: column;
+
+        position: relative;
 
         width: fit-content;
         max-width: 100%;
@@ -622,9 +639,14 @@
     }
 
     .t-bubble.revision-bubble {
+        display: block;
+        width: 286px;
+        max-width: 100%;
+        margin: 0 !important;
         padding: 0;
         background: transparent !important;
         border: none !important;
+        flex: 0 0 auto;
     }
 
     .t-message-content > .t-bubble + .t-bubble {
@@ -640,10 +662,21 @@
         margin-bottom: 4px;
         padding: 6px 9px;
         background: #f0f1ff;
-        border-left: 3px solid #6366f1;
+        border-left: none;
+        border: 0;
         border-radius: 8px;
         color: #4b5563;
+        cursor: pointer;
+        font: inherit;
         font-size: 11px;
+        text-align: left;
+        transition: background 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .message-reply-context:hover,
+    .message-reply-context:focus-visible {
+        background: #e8eaff;
+        outline: none;
     }
 
     .message-reply-context-label {
@@ -657,22 +690,95 @@
         white-space: nowrap;
     }
 
+    .t-msg-row.message-targeted .t-bubble,
+    .t-msg-row.message-targeted .message-reply-context {
+        animation: message-target-pulse 1.8s ease;
+    }
+
+    @keyframes message-target-pulse {
+        0%, 100% {
+            box-shadow: none;
+        }
+        25%, 65% {
+            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.28);
+        }
+    }
+
     .message-interactions {
+        position: absolute;
+        top: 50%;
+        z-index: 20;
+
         display: flex;
         align-items: center;
-        justify-content: flex-start;
-        flex-wrap: wrap;
+        justify-content: center;
+        flex-wrap: nowrap;
         gap: 4px;
-        margin-top: 4px;
+        width: max-content;
+        margin: 0;
+        padding: 4px;
+        transform: translateY(-50%);
+
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.15s ease;
+
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 999px;
+        box-shadow: 0 6px 16px rgba(15, 23, 42, 0.14);
+    }
+
+    .t-msg-row:hover .message-interactions,
+    .t-msg-row:focus-within .message-interactions {
+        opacity: 1;
+        pointer-events: auto;
+    }
+
+    .message-interactions::before {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 8px;
+        content: '';
+    }
+
+    .t-msg-row.client-message .message-interactions {
+        left: calc(100% + 8px);
+    }
+
+    .t-msg-row.client-message .message-interactions::before {
+        right: 100%;
     }
 
     .t-msg-row.staff-message .message-interactions {
-        justify-content: flex-end;
+        right: calc(100% + 8px);
+    }
+
+    .t-msg-row.staff-message .message-interactions::before {
+        left: 100%;
     }
 
     .message-reply-button,
-    .message-reaction,
     .message-reaction-trigger {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 30px;
+        height: 30px;
+        min-height: 30px;
+        padding: 0;
+        background: transparent;
+        border: 1px solid #e5e7eb;
+        border-radius: 999px;
+        color: #6b7280;
+        cursor: pointer;
+        font-size: 11px;
+        line-height: 1;
+        transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+
+    .message-reaction {
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -685,7 +791,17 @@
         cursor: pointer;
         font-size: 11px;
         line-height: 1;
+        white-space: nowrap;
         transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+
+    .message-reactions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        width: fit-content;
+        max-width: 100%;
+        margin-top: 0;
     }
 
     .message-reply-button:hover,
@@ -748,10 +864,18 @@
         margin: 0 2px;
         padding: 6px 8px;
         background: #f8fafc;
-        border-left: 3px solid #6366f1;
+        border-left: none;
         border-radius: 8px;
         color: #4b5563;
         font-size: 11px;
+        cursor: pointer;
+        transition: background 0.15s ease;
+    }
+
+    .reply-composer-preview:hover,
+    .reply-composer-preview:focus-visible {
+        background: #eef2ff;
+        outline: none;
     }
 
     .reply-composer-preview-content {
@@ -794,7 +918,7 @@
     }
 
     .revision-card {
-        width: min(286px, 100%);
+        width: 100%;
         overflow: hidden;
         background: #ffffff;
         border: 1px solid #e5e7eb;
@@ -1391,10 +1515,15 @@
         color: #f3f4f6;
     }
 
+    .dark .message-interactions {
+        background: #1f2937;
+        border-color: #374151;
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+    }
+
     .dark .message-reply-context,
     .dark .reply-composer-preview {
         background: #1f2937;
-        border-left-color: #818cf8;
         color: #d1d5db;
     }
 
@@ -1887,6 +2016,27 @@
                         this.imagePreview = null
                         this.imagePreviewName = ''
                     },
+                    scrollToMessage(messageId) {
+                        const target = Array.from(
+                            this.$refs.threadBody?.querySelectorAll('[data-message-id]') ?? []
+                        ).find((element) => element.dataset.messageId === String(messageId))
+
+                        if (! target) {
+                            return
+                        }
+
+                        target.scrollIntoView({
+                            behavior: 'smooth',
+                            block: 'center',
+                        })
+                        target.classList.remove('message-targeted')
+                        void target.offsetWidth
+                        target.classList.add('message-targeted')
+
+                        window.setTimeout(() => {
+                            target.classList.remove('message-targeted')
+                        }, 1800)
+                    },
                     init() {
                         this.$nextTick(() => this.scrollToBottom(false, false))
                     },
@@ -1982,6 +2132,7 @@
                 x-on:keydown.escape.window="closeImage()"
                 x-on:new-messages-available.window="handleNewMessages($event)"
                 x-on:message-sent.window="handleMessageSent()"
+                x-on:jump-to-message.window="scrollToMessage($event.detail.messageId)"
                 x-on:conversation-opened.window="
                     scrollToBottom(false, false)
                 "
@@ -1998,6 +2149,18 @@
 
                     @php
                         $sender = $message->sender;
+
+                        $previousMessage = $messages->get($loop->index - 1);
+                        $nextMessage = $messages->get($loop->index + 1);
+
+                        $isSameSenderAsPrevious = $previousMessage
+                            && (int) $previousMessage->sender_id === (int) $message->sender_id;
+
+                        $isSameSenderAsNext = $nextMessage
+                            && (int) $nextMessage->sender_id === (int) $message->sender_id;
+
+                        $showSenderName = ! $isSameSenderAsPrevious;
+                        $showSenderProfile = ! $isSameSenderAsNext;
 
                         $senderName = $sender?->name ?? 'Unknown User';
 
@@ -2032,13 +2195,18 @@
                         class="
                             t-msg-row
                             {{ $isStaffMessage ? 'staff-message' : 'client-message' }}
+                            {{ $isSameSenderAsPrevious ? 'message-continuation' : '' }}
                         "
+                        data-message-id="{{ $message->id }}"
                         wire:key="message-{{ $message->id }}"
                     >
 
-                        <div class="t-msg-avatar">
+                        <div
+                            class="t-msg-avatar {{ $showSenderProfile ? '' : 't-msg-avatar-placeholder' }}"
+                            @if (! $showSenderProfile) aria-hidden="true" @endif
+                        >
 
-                            @if ($senderPhoto)
+                            @if ($showSenderProfile && $senderPhoto)
 
                                 <img
                                     src="{{ $senderPhoto }}"
@@ -2047,7 +2215,7 @@
                                     referrerpolicy="no-referrer"
                                 >
 
-                            @else
+                            @elseif ($showSenderProfile)
 
                                 <span>
                                     {{ $senderInitials ?: '?' }}
@@ -2059,9 +2227,11 @@
 
                         <div class="t-message-content">
 
-                            <div class="t-sender-name">
-                                {{ $senderName }}
-                            </div>
+                            @if ($showSenderName)
+                                <div class="t-sender-name">
+                                    {{ $senderName }}
+                                </div>
+                            @endif
 
                             @php
                                 $isRevisionRequest =
@@ -2084,14 +2254,20 @@
                                     }
                                 @endphp
 
-                                <div class="message-reply-context">
+                                <button
+                                    type="button"
+                                    class="message-reply-context"
+                                    @click="scrollToMessage({{ $message->replyTo->id }})"
+                                    aria-label="Go to replied message"
+                                    title="Go to replied message"
+                                >
                                     <span class="message-reply-context-label">
-                                        Replying to {{ $replySenderName }}
+                                        {{ $replySenderName }}
                                     </span>
                                     <span class="message-reply-context-text">
                                         {{ \Illuminate\Support\Str::limit((string) $replyPreview, 72) }}
                                     </span>
-                                </div>
+                                </button>
                             @endif
 
                             @if ($isRevisionRequest)
@@ -2207,27 +2383,32 @@
                                 </div>
                             @endforeach
 
+                            @if ($message->reactions->isNotEmpty())
+                                <div class="message-reactions" aria-label="Message reactions">
+                                    @foreach ($message->reactions->groupBy('reaction') as $reaction => $reactionUsers)
+                                        <button
+                                            type="button"
+                                            class="message-reaction {{ $reactionUsers->contains('user_id', auth()->id()) ? 'is-reacted' : '' }}"
+                                            wire:click="reactToMessage({{ $message->id }}, '{{ $reaction }}')"
+                                            aria-label="Toggle {{ $reaction }} reaction"
+                                            title="Toggle {{ $reaction }} reaction"
+                                        >
+                                            {{ $reaction }} {{ $reactionUsers->count() }}
+                                        </button>
+                                    @endforeach
+                                </div>
+                            @endif
+
                             <div class="message-interactions">
                                 <button
                                     type="button"
                                     class="message-reply-button"
                                     wire:click="startReply({{ $message->id }})"
+                                    aria-label="Reply to message"
                                     title="Reply to message"
                                 >
-                                    <x-heroicon-o-arrow-uturn-left class="mr-1 h-3.5 w-3.5" />
-                                    Reply
+                                    <x-heroicon-o-arrow-uturn-left class="h-4 w-4" />
                                 </button>
-
-                                @foreach ($message->reactions->groupBy('reaction') as $reaction => $reactionUsers)
-                                    <button
-                                        type="button"
-                                        class="message-reaction {{ $reactionUsers->contains('user_id', auth()->id()) ? 'is-reacted' : '' }}"
-                                        wire:click="reactToMessage({{ $message->id }}, '{{ $reaction }}')"
-                                        title="Toggle {{ $reaction }} reaction"
-                                    >
-                                        {{ $reaction }} {{ $reactionUsers->count() }}
-                                    </button>
-                                @endforeach
 
                                 <div
                                     class="message-reaction-picker"
@@ -2406,9 +2587,22 @@
                                     }
                                 @endphp
 
-                                <div class="reply-composer-preview">
+                                @php
+                                    $replyingToName = $replyingToMessage->sender?->name ?? 'Message';
+                                @endphp
+
+                                <div
+                                    role="button"
+                                    tabindex="0"
+                                    class="reply-composer-preview"
+                                    @click="window.dispatchEvent(new CustomEvent('jump-to-message', { detail: { messageId: {{ $replyingToMessage->id }} } }))"
+                                    @keydown.enter.prevent="window.dispatchEvent(new CustomEvent('jump-to-message', { detail: { messageId: {{ $replyingToMessage->id }} } }))"
+                                    @keydown.space.prevent="window.dispatchEvent(new CustomEvent('jump-to-message', { detail: { messageId: {{ $replyingToMessage->id }} } }))"
+                                    aria-label="Go to selected message"
+                                    title="Go to selected message"
+                                >
                                     <div class="reply-composer-preview-content">
-                                        <span class="reply-composer-preview-label">Replying to message</span>
+                                        <span class="reply-composer-preview-label">{{ $replyingToName }}</span>
                                         <span class="reply-composer-preview-text">
                                             {{ \Illuminate\Support\Str::limit((string) $replyingToPreview, 72) }}
                                         </span>
@@ -2418,6 +2612,7 @@
                                         type="button"
                                         class="reply-composer-cancel"
                                         wire:click="cancelReply"
+                                        @click.stop
                                         aria-label="Cancel reply"
                                         title="Cancel reply"
                                     >
