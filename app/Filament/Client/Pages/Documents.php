@@ -342,7 +342,7 @@ class Documents extends Page implements HasTable
                     ->tooltip(
                         fn (Document $record): string =>
                             ! $record->isAvailableForMessaging()
-                                ? 'Messaging is available after the document is accepted'
+                                ? 'Messaging unavailable for rejected documents.'
                                 : 'Message'
                     )
                     ->disabled(

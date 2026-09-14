@@ -319,7 +319,17 @@
        THREAD BODY
     ========================== */
 
+    .thread-body-shell {
+        position: relative;
+
+        display: flex;
+        flex: 1;
+        min-height: 0;
+    }
+
     .thread-body {
+        position: relative;
+
         flex: 1;
         min-height: 0;
         overflow-y: auto;
@@ -332,6 +342,43 @@
         gap: 12px;
 
         background: #f9fafb;
+    }
+
+    .new-messages-jump {
+        position: absolute;
+        z-index: 5;
+        bottom: 14px;
+        left: 50%;
+
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+
+        min-height: 34px;
+        padding: 7px 12px;
+
+        transform: translateX(-50%);
+
+        background: #6366f1;
+        border: 1px solid #4f46e5;
+        border-radius: 999px;
+        box-shadow: 0 8px 18px rgba(79, 70, 229, 0.28);
+
+        color: #ffffff;
+        cursor: pointer;
+
+        font-size: 12px;
+        font-weight: 700;
+        white-space: nowrap;
+    }
+
+    .new-messages-jump:hover {
+        background: #4f46e5;
+    }
+
+    .new-messages-jump:focus-visible {
+        outline: 3px solid rgba(129, 140, 248, 0.5);
+        outline-offset: 2px;
     }
 
 
@@ -418,12 +465,107 @@
         min-width: 0;
     }
 
-    .t-msg-row.client-message .t-message-content {
-        align-items: flex-start;
+    /* Single message image: show the whole photo */
+    .attachment-image-grid.single {
+        display: flex;
+        width: fit-content;
+        max-width: min(420px, 100%);
     }
 
-    .t-msg-row.staff-message .t-message-content {
-        align-items: flex-end;
+    .attachment-image-grid.single .attachment-image-link {
+        display: block;
+        width: auto;
+        max-width: 100%;
+        height: auto;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        cursor: pointer;
+    }
+
+    .attachment-image-grid.single .t-attachment-image {
+        display: block;
+        width: auto;
+        max-width: 100%;
+        height: auto;
+        max-height: 420px;
+
+        /* Important: don't crop a single image */
+        object-fit: contain;
+
+        border-radius: 14px;
+    }
+
+    [x-cloak] {
+        display: none !important;
+    }
+
+    .message-image-preview {
+        position: fixed;
+        inset: 0;
+        z-index: 99999;
+
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        padding: 32px;
+
+        background: rgba(15, 23, 42, 0.88);
+        backdrop-filter: blur(4px);
+    }
+
+    .message-image-preview-content {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        width: 100%;
+        height: 100%;
+    }
+
+    .message-image-preview-img {
+        display: block;
+
+        max-width: 92vw;
+        max-height: 90vh;
+
+        width: auto;
+        height: auto;
+
+        object-fit: contain;
+
+        border-radius: 12px;
+    }
+
+    .message-image-preview-close {
+        position: fixed;
+        top: 20px;
+        right: 24px;
+
+        z-index: 100000;
+
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        width: 44px;
+        height: 44px;
+
+        border: 0;
+        border-radius: 9999px;
+
+        background: rgba(255, 255, 255, 0.15);
+        color: white;
+
+        font-size: 32px;
+        line-height: 1;
+
+        cursor: pointer;
+    }
+
+    .message-image-preview-close:hover {
+        background: rgba(255, 255, 255, 0.25);
     }
 
 
@@ -773,7 +915,10 @@
     }
 
     .attachment-image-bubble {
-        padding: 8px;
+        padding: 0 !important;
+        background: transparent !important;
+        border: none !important;
+        border-radius: 0;
     }
 
     .attachment-image-grid {
@@ -787,6 +932,12 @@
     .attachment-image-link {
         display: block;
         min-width: 0;
+        padding: 0;
+        background: transparent;
+        border: none;
+        border-radius: 10px;
+        cursor: pointer;
+        overflow: hidden;
     }
 
     .attachment-image-grid .t-attachment-image {
@@ -1205,6 +1356,16 @@
 
     .dark .thread-body {
         background: #0f172a;
+    }
+
+    .dark .new-messages-jump {
+        background: #818cf8;
+        border-color: #a5b4fc;
+        color: #111827;
+    }
+
+    .dark .new-messages-jump:hover {
+        background: #a5b4fc;
     }
 
     .dark .t-avatar {
@@ -1708,26 +1869,130 @@
                 MESSAGE BODY
             ====================================================== --}}
             <div
-                class="thread-body"
-                id="threadBody"
+                class="thread-body-shell"
 
-                x-data
+                x-data="{
+                    imagePreview: null,
+                    imagePreviewName: '',
+                    isNearBottom: true,
+                    showNewMessages: false,
+                    newMessageCount: 0,
+                    readRequestPending: false,
+                    scrollThreshold: 96,
+                    openImage(url, name) {
+                        this.imagePreview = url
+                        this.imagePreviewName = name
+                    },
+                    closeImage() {
+                        this.imagePreview = null
+                        this.imagePreviewName = ''
+                    },
+                    init() {
+                        this.$nextTick(() => this.scrollToBottom(false, false))
+                    },
+                    updateScrollState() {
+                        const threadBody = this.$refs.threadBody ?? this.$el
+                        const distanceFromBottom = threadBody.scrollHeight
+                            - threadBody.scrollTop
+                            - threadBody.clientHeight
+                        const wasNearBottom = this.isNearBottom
 
-                x-on:message-sent.window="
-                    $nextTick(() => {
-                        $el.scrollTo({
-                            top: $el.scrollHeight,
-                            behavior: 'smooth'
+                        this.isNearBottom = distanceFromBottom <= this.scrollThreshold
+
+                        if (this.isNearBottom) {
+                            this.showNewMessages = false
+                            this.newMessageCount = 0
+
+                            if (! wasNearBottom) {
+                                this.markActiveMessagesRead()
+                            }
+                        }
+                    },
+                    markActiveMessagesRead() {
+                        if (this.readRequestPending || ! this.$wire) {
+                            return null
+                        }
+
+                        this.readRequestPending = true
+                        const request = this.$wire.markMessagesAsRead()
+
+                        if (request && typeof request.finally === 'function') {
+                            request.finally(() => {
+                                this.readRequestPending = false
+                            })
+                        } else {
+                            this.readRequestPending = false
+                        }
+
+                        return request
+                    },
+                    scrollToBottom(smooth = true, markRead = false) {
+                        this.showNewMessages = false
+                        this.newMessageCount = 0
+
+                        this.$nextTick(() => {
+                            const scroll = () => {
+                                const threadBody = this.$refs.threadBody
+                                    ?? this.$root
+                                    ?? this.$el
+
+                                threadBody.scrollTop = threadBody.scrollHeight
+                                threadBody.scrollTo({
+                                    top: threadBody.scrollHeight,
+                                    behavior: smooth ? 'smooth' : 'auto'
+                                })
+                            }
+
+                            scroll()
+
+                            this.isNearBottom = true
+
+                            if (markRead) {
+                                const request = this.markActiveMessagesRead()
+
+                                if (request && typeof request.finally === 'function') {
+                                    request.finally(() => {
+                                        this.$nextTick(() => scroll())
+                                    })
+                                }
+                            }
                         })
-                    })
-                "
+                    },
+                    handleNewMessages(event) {
+                        const detail = event.detail ?? event
+                        const incomingCount = Number(detail.incomingCount ?? 0)
+                        const outgoingCount = Number(detail.outgoingCount ?? 0)
 
+                        if (incomingCount <= 0 && outgoingCount <= 0) {
+                            return
+                        }
+
+                        if (outgoingCount > 0 || this.isNearBottom) {
+                            this.scrollToBottom(true, incomingCount > 0)
+                            return
+                        }
+
+                        this.newMessageCount += incomingCount
+                        this.showNewMessages = this.newMessageCount > 0
+                    },
+                    handleMessageSent() {
+                        this.scrollToBottom(true, false)
+                    }
+                }"
+                x-on:keydown.escape.window="closeImage()"
+                x-on:new-messages-available.window="handleNewMessages($event)"
+                x-on:message-sent.window="handleMessageSent()"
                 x-on:conversation-opened.window="
-                    $nextTick(() => {
-                        $el.scrollTop = $el.scrollHeight
-                    })
+                    scrollToBottom(false, false)
                 "
             >
+
+                <div
+                    class="thread-body"
+                    id="threadBody"
+                    x-ref="threadBody"
+                    x-on:scroll.passive="updateScrollState()"
+                >
 
                 @forelse ($messages as $message)
 
@@ -1887,6 +2152,7 @@
                                     wire:key="message-{{ $message->id }}-image-grid"
                                 >
                                     <div class="attachment-image-grid {{ $imageAttachments->count() === 1 ? 'single' : '' }}">
+
                                         @foreach ($imageAttachments as $attachment)
                                             @php
                                                 $attachmentUrl = route('messages.attachment', [
@@ -1895,22 +2161,26 @@
                                                 ]);
                                             @endphp
 
-                                            <a
-                                                href="{{ $attachmentUrl }}"
-                                                target="_blank"
-                                                rel="noopener noreferrer"
+                                            <button
+                                                type="button"
                                                 class="attachment-image-link"
+                                                @click="openImage(
+                                                    @js($attachmentUrl),
+                                                    @js($attachment->original_name ?: 'Attached image')
+                                                )"
                                             >
                                                 <img
                                                     src="{{ $attachmentUrl }}"
                                                     alt="{{ $attachment->original_name ?: 'Attached image' }}"
                                                     class="t-attachment-image"
                                                 >
-                                            </a>
+                                            </button>
                                         @endforeach
+
                                     </div>
                                 </div>
                             @endif
+
 
                             @foreach ($fileAttachments as $attachment)
                                 @php
@@ -1931,6 +2201,7 @@
                                         class="t-attachment"
                                     >
                                         <x-heroicon-o-paper-clip class="h-4 w-4" />
+
                                         {{ $attachment->original_name ?: 'Attached document' }}
                                     </a>
                                 </div>
@@ -2016,6 +2287,47 @@
                     </div>
 
                 @endforelse
+
+                <template x-teleport="body">
+                    <div
+                        x-cloak
+                        x-show="imagePreview"
+                        x-transition.opacity
+                        class="message-image-preview"
+                        @click.self="closeImage()"
+                    >
+                        <button
+                            type="button"
+                            class="message-image-preview-close"
+                            @click="closeImage()"
+                            aria-label="Close image preview"
+                        >
+                            &times;
+                        </button>
+
+                        <div class="message-image-preview-content">
+                            <img
+                                :src="imagePreview"
+                                :alt="imagePreviewName"
+                                class="message-image-preview-img"
+                            >
+                        </div>
+                    </div>
+                </template>
+
+            </div>
+
+            <button
+                type="button"
+                class="new-messages-jump"
+                x-cloak
+                x-show="showNewMessages"
+                @click="scrollToBottom(true, true)"
+                :aria-label="newMessageCount === 1 ? 'Jump to 1 new message' : 'Jump to ' + newMessageCount + ' new messages'"
+            >
+                <x-heroicon-o-arrow-down class="h-4 w-4" />
+                <span x-text="newMessageCount === 1 ? '1 new message' : newMessageCount + ' new messages'"></span>
+            </button>
 
             </div>
 
@@ -2306,7 +2618,7 @@
 
 <script>
     document.addEventListener('livewire:init', () => {
-        Livewire.on('messages-read', (event) => {
+        const updateMessagesBadge = (event) => {
             const count = Number(event.count ?? 0);
 
             const messagesLink = document.querySelector(
@@ -2330,7 +2642,10 @@
             if (badge) {
                 badge.textContent = count;
             }
-        });
+        };
+
+        Livewire.on('messages-read', updateMessagesBadge);
+        Livewire.on('messages-unread', updateMessagesBadge);
     });
 </script>
 

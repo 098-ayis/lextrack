@@ -34,6 +34,13 @@ class Messages extends Page
     public $messages = [];
 
     /**
+     * Used to identify messages added by a polling refresh.
+     */
+    public ?int $lastLoadedConversationId = null;
+
+    public int $lastLoadedMessageId = 0;
+
+    /**
      * Conversations visible to the logged-in client.
      */
     public function getViewData(): array
@@ -205,11 +212,6 @@ class Messages extends Page
 
         $this->markMessagesAsRead();
 
-        $this->dispatch(
-            'messages-read',
-            count: $this->getUnreadMessagesCount()
-        );
-
         $this->dispatch('conversation-opened');
     }
 
@@ -250,10 +252,12 @@ class Messages extends Page
     /**
      * Retrieve messages for currently selected conversation.
      */
-    public function loadMessages(): void
+    public function loadMessages(bool $announceNewMessages = false): void
     {
         if (! $this->selectedConversation) {
             $this->messages = [];
+            $this->lastLoadedConversationId = null;
+            $this->lastLoadedMessageId = 0;
 
             return;
         }
@@ -263,6 +267,13 @@ class Messages extends Page
         );
 
         Gate::authorize('view', $conversation);
+
+        $sameConversationWasLoaded =
+            $this->lastLoadedConversationId === $conversation->id;
+
+        $previousLastMessageId = $sameConversationWasLoaded
+            ? $this->lastLoadedMessageId
+            : 0;
 
         $this->messages = $conversation
             ->messages()
@@ -276,6 +287,40 @@ class Messages extends Page
             ->oldest('created_at')
             ->oldest('id')
             ->get();
+
+        $newMessages = $announceNewMessages && $sameConversationWasLoaded
+            ? $this->messages->filter(
+                fn (Message $message): bool => $message->id > $previousLastMessageId
+            )
+            : collect();
+
+        $this->lastLoadedConversationId = $conversation->id;
+        $this->lastLoadedMessageId = (int) ($this->messages->last()?->id ?? 0);
+
+        if ($newMessages->isEmpty()) {
+            return;
+        }
+
+        $incomingCount = $newMessages
+            ->where('sender_id', '!=', auth()->id())
+            ->count();
+
+        $outgoingCount = $newMessages
+            ->where('sender_id', auth()->id())
+            ->count();
+
+        $this->dispatch(
+            'new-messages-available',
+            incomingCount: $incomingCount,
+            outgoingCount: $outgoingCount,
+        );
+
+        if ($incomingCount > 0) {
+            $this->dispatch(
+                'messages-unread',
+                count: $this->getUnreadMessagesCount()
+            );
+        }
     }
 
     public function refreshConversation(): void
@@ -284,9 +329,7 @@ class Messages extends Page
             return;
         }
 
-        $this->loadMessages();
-
-        $this->markMessagesAsRead();
+        $this->loadMessages(announceNewMessages: true);
     }
 
     /**
@@ -494,6 +537,11 @@ class Messages extends Page
                 ]
             );
         }
+
+        $this->dispatch(
+            'messages-read',
+            count: $this->getUnreadMessagesCount()
+        );
     }
 
     public static function getNavigationBadge(): ?string
