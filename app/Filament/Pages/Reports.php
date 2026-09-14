@@ -15,9 +15,11 @@ class Reports extends Page
 
     protected static ?int $navigationSort = 3;
 
-    protected static string|UnitEnum|null $navigationGroup = 'OPERATIONS';
+    protected static string|UnitEnum|null $navigationGroup = 'MANAGEMENT';
 
     protected string $view = 'filament.pages.reports';
+
+    protected \Filament\Support\Enums\Width|string|null $maxContentWidth = \Filament\Support\Enums\Width::Full;
 
     public string $from = '';
 

@@ -1,3 +1,7 @@
+@php
+    $paperSize = $paperSize ?? 'a4';
+    $paper = config('report-paper.'.$paperSize);
+@endphp
 <!doctype html>
 <html lang="en">
 <head>
@@ -26,7 +30,7 @@
         .save-options[hidden] { display: none; }
         .save-options button,.save-options a { display: block; width: 100%; padding: 10px 12px; border: 0; background: white; color: #111; text-align: left; text-decoration: none; font: inherit; border-radius: 4px; }
         .save-options button:hover,.save-options a:hover,.save-options button:focus-visible,.save-options a:focus-visible { background: #f3e8ff; }
-        .sheet { position: relative; width: 210mm; min-height: 297mm; margin: 20px auto; background: white; padding: 58mm 12mm 35mm; }
+        .sheet { position: relative; width: {{ $paper['width'] }}; min-height: {{ $paper['height'] }}; margin: 20px auto; background: white; padding: 58mm 12mm 35mm; }
         .content { position: relative; }
         .default-header { position: absolute; top: 12mm; left: 17mm; right: 17mm; border-bottom: 2px solid #111; padding-bottom: 6mm; display: flex; gap: 12px; align-items: center; }
         .default-header img { width: 20mm; }
@@ -53,7 +57,7 @@
         .sdg-box { width: 32mm; min-height: 15mm; border: 3px double #0099ff; padding: 2mm; color: #007ac2; font: 6pt Arial, sans-serif; }
         .sdg-box strong { display: block; margin-top: 3mm; font-size: 9pt; }
         tr { break-inside: avoid; }
-        @page { size: A4; margin: 0; }
+        @page { size: {{ $paper['width'] }} {{ $paper['height'] }}; margin: 0; }
         @media print {
             body { background: white; }
             .toolbar { display: none; }
@@ -65,8 +69,16 @@
 </head>
 <body>
     <div class="toolbar">
-        <strong>Monthly accomplishment report · {{ $month }}</strong><br>
+        <strong>Monthly Accomplishment Report · {{ $month }}</strong><br>
         <div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:16px;align-items:center">
+            <form method="GET" action="{{ route('admin.reports.monthly') }}">
+                <input type="hidden" name="month" value="{{ $reportMonth }}">
+                <select name="paper" aria-label="Paper size" class="report-action" onchange="this.form.submit()">
+                    @foreach (config('report-paper') as $key => $option)
+                        <option value="{{ $key }}" @selected($paperSize === $key)>{{ $option['label'] }}</option>
+                    @endforeach
+                </select>
+            </form>
             <button type="button" id="print" class="report-action">
                 <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v7H6zM18 12h.01"/></svg>
                 Print
@@ -78,12 +90,12 @@
                     <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m7 10 5 5 5-5"/></svg>
                 </button>
                 <div class="save-options" id="save-options" hidden>
-                    <a href="{{ route('admin.reports.monthly', ['month' => $reportMonth, 'format' => 'pdf']) }}">PDF (.pdf)</a>
-                    <a href="{{ route('admin.reports.monthly', ['month' => $reportMonth, 'format' => 'docx']) }}">Word (.docx)</a>
+                    <a href="{{ route('admin.reports.monthly', ['month' => $reportMonth, 'format' => 'pdf', 'paper' => $paperSize]) }}">PDF (.pdf)</a>
+                    <a href="{{ route('admin.reports.monthly', ['month' => $reportMonth, 'format' => 'docx', 'paper' => $paperSize]) }}">Word (.docx)</a>
                 </div>
             </div>
         </div>
-        <p>Uses the official client template. Save downloads the selected PDF or Word file. When printing, use A4, 100% scale, and disable browser headers and footers.</p>
+
     </div>
     @php
         $pages = $activities->chunk(5);

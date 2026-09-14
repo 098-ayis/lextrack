@@ -14,11 +14,68 @@
             outline: 2px solid #818cf8;
             outline-offset: 2px;
         }
+        .cabinet-search:focus {
+            outline: none;
+            border-color: #d1d5db;
+            box-shadow: 0 2px 8px rgb(15 23 42 / 12%);
+        }
+
+        .dark .cabinet-search:focus {
+            border-color: #4b5563;
+            box-shadow: 0 2px 8px rgb(0 0 0 / 25%);
+        }
+        .cabinet-toolbar-control {
+            height: 40px;
+            border: 0;
+            background-color: #f3f4f6;
+            box-shadow: 0 1px 2px rgb(15 23 42 / 5%);
+        }
+        .cabinet-toolbar-control:hover { background-color: #e5e7eb; }
+        .cabinet-toolbar-control:focus-visible {
+            outline: none;
+            box-shadow: 0 0 0 3px rgb(99 102 241 / 20%);
+        }
+        .dark .cabinet-toolbar-control { background-color: #1f2937; }
+        .dark .cabinet-toolbar-control:hover { background-color: #374151; }
+        .cabinet-explorer-toolbar .cabinet-toolbar-control { background: transparent; box-shadow: none; }
+        .cabinet-explorer-toolbar .cabinet-toolbar-control:hover { background: #f3f4f6; }
+        .cabinet-icon-action { display: inline-flex; align-items: center; justify-content: center; width: 40px; padding: 8px; color: #64748b; }
+        .cabinet-icon-action:disabled { opacity: .35; cursor: default; }
+        .cabinet-toolbar-divider { width: 1px; height: 32px; background: #e5e7eb; margin: 0 4px; }
+        .dark .cabinet-explorer-toolbar .cabinet-toolbar-control:hover { background: #374151; }
     </style>
+
+    <div x-data="{ open: false, item: {}, x: 0, y: 0 }"
+         @cabinet-context.window="item = $event.detail; x = Math.max(8, Math.min(item.x, window.innerWidth - 210)); y = Math.max(8, Math.min(item.y, window.innerHeight - 310)); open = true"
+         @click.outside="open = false" @keydown.escape.window="open = false" @scroll.window="open = false">
+        <div x-show="open" x-cloak :style="{ position: 'fixed', left: x + 'px', top: y + 'px', zIndex: 100, width: '200px' }" class="rounded-lg bg-white p-2 shadow-xl dark:bg-gray-800" aria-label="Document actions">
+            <a :href="item.url" target="_blank" rel="noopener" @click="open = false" class="block rounded-lg px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700">Open</a>
+            <a :href="item.url" download @click="open = false" class="block rounded-lg px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700">Download</a>
+            <button type="button" @click="$wire.copyToClipboard(item.id, 'copy'); open = false" class="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700">Copy</button>
+            <button type="button" @click="$wire.mountAction('renameDocument'); open = false" class="block w-full rounded-lg px-3 py-2 text-left text-sm">Rename</button>
+            @if ($currentType === 'Recycle Bin')
+                <button type="button" @click="$wire.restoreCabinetDocument(); open = false" class="block w-full rounded-lg px-3 py-2 text-left text-sm">Restore</button>
+            @else
+                <button type="button" @click="$wire.mountAction('archiveCabinetDocument'); open = false" class="block w-full rounded-lg px-3 py-2 text-left text-sm">Archive</button>
+                <button type="button" @click="$wire.mountAction('deleteCabinetDocument'); open = false" class="block w-full rounded-lg px-3 py-2 text-left text-sm">Delete</button>
+            @endif
+            @if ($clipboardDocumentId)
+                <button type="button" @click="$wire.pasteDocument(); open = false" class="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700">Paste</button>
+            @endif
+        </div>
+    </div>
 
     @php
 
+        $filterOptions = collect($this->cabinet)
+            ->flatMap(fn ($folders) => array_keys($folders))->unique()->sort()->values();
         $cabinet = $this->cabinet;
+        if (!$this instanceof \App\Filament\Pages\RecycleBin) { unset($cabinet['Recycle Bin']); }
+        if ($sourceFilter !== 'all') {
+            $cabinet = collect($cabinet)->map(fn ($folders) =>
+                array_filter($folders, fn ($office) => $office === $sourceFilter, ARRAY_FILTER_USE_KEY)
+            )->filter(fn ($folders) => count($folders) > 0)->all();
+        }
 
         $normalizedSearch = strtolower(trim($search));
 
@@ -161,7 +218,9 @@
 
         @if(! $isRoot)
 
-            <div class="flex items-center gap-1.5 text-sm">
+            <div class="flex flex-wrap items-center gap-2 text-sm">
+
+
 
                 <button
                     type="button"
@@ -238,7 +297,7 @@
                         type="text"
                         wire:model.live.debounce.300ms="search"
                         placeholder="Search documents, folders, or offices..."
-                        class="w-full rounded-lg border border-gray-300 bg-white py-2.5 pl-10 pr-10 text-sm shadow-sm transition-colors hover:border-gray-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white dark:hover:border-gray-500"
+                        class="cabinet-search w-full rounded-lg border border-gray-300 bg-white py-2.5 pl-10 pr-10 text-sm shadow-sm transition-colors hover:border-gray-400 dark:border-gray-600 dark:bg-gray-800 dark:text-white dark:hover:border-gray-500"
                     />
 
                     @if($search)
@@ -263,7 +322,23 @@
             {{-- ACTIONS --}}
             {{-- ========================================================= --}}
 
-            <div class="flex flex-wrap items-center gap-2">
+            <div class="cabinet-explorer-toolbar flex flex-wrap items-center gap-2">
+
+
+                <span class="cabinet-toolbar-divider" aria-hidden="true"></span>
+                <button type="button" wire:click="copyToClipboard({{ $selectedDocumentId ?? 0 }})" @disabled(!$selectedDocumentId || $currentType === 'Recycle Bin') class="cabinet-toolbar-control cabinet-icon-action" aria-label="Copy" title="Copy"><x-heroicon-o-square-2-stack class="h-5 w-5" /></button>
+                <button type="button" wire:click="pasteDocument" @disabled(!$clipboardDocumentId || $currentType === 'Recycle Bin') class="cabinet-toolbar-control cabinet-icon-action" aria-label="Paste" title="Paste"><x-heroicon-o-clipboard class="h-5 w-5" /></button>
+                <button type="button" wire:click="mountAction('archiveCabinetDocument')" @disabled(!$selectedDocumentId || $currentType === 'Recycle Bin') class="cabinet-toolbar-control cabinet-icon-action" aria-label="Archive" title="Archive"><x-heroicon-o-archive-box class="h-5 w-5" /></button>
+                <button type="button" wire:click="mountAction('deleteCabinetDocument')" @disabled(!$selectedDocumentId || $currentType === 'Recycle Bin') class="cabinet-toolbar-control cabinet-icon-action" aria-label="Delete" title="Delete"><x-heroicon-o-trash class="h-5 w-5" /></button>
+                <span class="cabinet-toolbar-divider" aria-hidden="true"></span>
+
+
+                <select wire:model.live="sourceFilter" aria-label="Filter by office or source" class="cabinet-toolbar-control rounded-lg px-3 py-2.5 text-sm font-medium text-gray-800 dark:text-gray-100">
+                    <option value="all">All sources</option>
+                    @foreach ($filterOptions as $office)
+                        <option value="{{ $office }}">{{ $office }}</option>
+                    @endforeach
+                </select>
 
                 {{-- SORT --}}
                 <div
@@ -274,10 +349,10 @@
                     <button
                         type="button"
                         @click="open = !open"
-                        class="inline-flex items-center gap-1.5 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-800"
+                        class="cabinet-toolbar-control inline-flex items-center gap-1.5 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-800 transition dark:text-gray-100"
                     >
 
-                        Sort
+                        <x-heroicon-o-arrows-up-down class="h-5 w-5" /> Sort
 
                         <x-heroicon-m-chevron-down
                             class="h-4 w-4 text-gray-400"
@@ -351,7 +426,7 @@
                     <button
                         type="button"
                         @click="open = !open"
-                        class="inline-flex items-center gap-2 rounded-lg bg-gray-100 px-3 py-2.5 text-sm font-medium text-gray-800 transition hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-gray-700"
+                        class="cabinet-toolbar-control inline-flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-800 transition dark:text-gray-100"
                     >
 
                         <x-heroicon-o-squares-2x2 class="h-5 w-5" />
@@ -547,19 +622,19 @@
                 </div>
 
 
-                {{-- ADD DOCUMENT --}}
-                <button
-                    type="button"
-                    wire:click="mountAction('addDocument')"
-                    class="inline-flex items-center gap-2 rounded-lg bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500"
-                >
 
-                    <x-heroicon-o-document-plus class="h-5 w-5" />
 
-                    Add Document
-
-                </button>
-
+                @if (!$this instanceof \App\Filament\Pages\RecycleBin)
+                <div x-data="{ open: false }" class="relative" @click.outside="open = false" @keydown.escape.window="open = false">
+                    <button type="button" @click="open = !open" :aria-expanded="open" class="inline-flex items-center gap-2 rounded-lg bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-600">
+                        <x-heroicon-o-plus-circle class="h-5 w-5" /> New <x-heroicon-m-chevron-down class="h-4 w-4" />
+                    </button>
+                    <div x-show="open" x-cloak class="absolute right-0 z-50 mt-2 rounded-lg bg-white p-2 shadow-xl dark:bg-gray-800" style="min-width:180px">
+                        <button type="button" @click="open = false" wire:click="mountAction('addFolder')" class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm"><x-heroicon-o-folder-plus class="h-5 w-5" /> Folder</button>
+                        <button type="button" @click="open = false" wire:click="mountAction('addDocument')" class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm"><x-heroicon-o-document-plus class="h-5 w-5" /> Document</button>
+                    </div>
+                </div>
+                @endif
             </div>
 
         </div>
@@ -592,7 +667,7 @@
                                         class="group rounded-xl border border-gray-200 bg-white p-5 text-left transition hover:border-indigo-300 hover:bg-indigo-50/40 hover:shadow-sm dark:border-gray-700 dark:bg-gray-900 dark:hover:border-indigo-500 dark:hover:bg-indigo-500/5"
                                     >
 
-                                        <x-heroicon-o-folder
+                                        <x-dynamic-component :component="$type === 'Recycle Bin' ? 'heroicon-o-trash' : 'heroicon-o-folder'"
                                             class="h-14 w-14 text-indigo-500"
                                         />
 
@@ -630,7 +705,7 @@
                                         class="flex w-full items-center gap-4 border-b border-gray-100 px-5 py-4 text-left transition hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800"
                                     >
 
-                                        <x-heroicon-o-folder
+                                        <x-dynamic-component :component="$type === 'Recycle Bin' ? 'heroicon-o-trash' : 'heroicon-o-folder'"
                                             class="h-9 w-9 shrink-0 text-indigo-500"
                                         />
 
@@ -769,12 +844,10 @@
                                         'document' => $document['id'],
                                         'filename' => $fileName,
                                     ]) }}"
-                                    @if($previewPane || $detailsPane)
-                                        wire:click.prevent="selectItem(@js($displayName), {{ $document['id'] }})"
-                                    @else
-                                        target="_blank"
-                                    @endif
-                                    wire:key="document-tile-{{ $document['id'] }}"
+                                    wire:click.prevent="selectItem(@js($displayName), {{ $document['id'] }}, {{ isset($document['copy_key']) ? (int) substr($document['copy_key'], 5) : 'null' }})"
+                                    @dblclick.prevent="window.open($el.href, '_blank', 'noopener')"
+                                    wire:key="document-tile-{{ $document['copy_key'] ?? $document['id'] }}"
+                                    @contextmenu.prevent="$dispatch('cabinet-context', { id: {{ $document['id'] }}, name: @js($displayName), url: $el.href, x: $event.clientX, y: $event.clientY }); $wire.selectItem(@js($displayName), {{ $document['id'] }}, {{ isset($document['copy_key']) ? (int) substr($document['copy_key'], 5) : 'null' }})"
                                     rel="noopener noreferrer"
                                     class="group rounded-xl border border-gray-200 bg-white p-5 text-left transition hover:border-indigo-300 hover:bg-indigo-50/40 hover:shadow-sm dark:border-gray-700 dark:bg-gray-900 dark:hover:border-indigo-500 dark:hover:bg-indigo-500/5"
                                 >
@@ -848,12 +921,10 @@
                                         'document' => $document['id'],
                                         'filename' => $fileName,
                                     ]) }}"
-                                    @if($previewPane || $detailsPane)
-                                        wire:click.prevent="selectItem(@js($displayName), {{ $document['id'] }})"
-                                    @else
-                                        target="_blank"
-                                    @endif
-                                    wire:key="document-row-{{ $document['id'] }}"
+                                    wire:click.prevent="selectItem(@js($displayName), {{ $document['id'] }}, {{ isset($document['copy_key']) ? (int) substr($document['copy_key'], 5) : 'null' }})"
+                                    @dblclick.prevent="window.open($el.href, '_blank', 'noopener')"
+                                    wire:key="document-row-{{ $document['copy_key'] ?? $document['id'] }}"
+                                    @contextmenu.prevent="$dispatch('cabinet-context', { id: {{ $document['id'] }}, name: @js($displayName), url: $el.href, x: $event.clientX, y: $event.clientY }); $wire.selectItem(@js($displayName), {{ $document['id'] }}, {{ isset($document['copy_key']) ? (int) substr($document['copy_key'], 5) : 'null' }})"
                                     rel="noopener noreferrer"
                                     class="grid w-full cursor-pointer grid-cols-[minmax(0,1fr)_120px_160px_60px] items-center border-b border-gray-100 px-5 py-4 text-left transition hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800"
                                 >

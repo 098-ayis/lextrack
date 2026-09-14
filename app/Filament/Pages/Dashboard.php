@@ -54,7 +54,7 @@ class Dashboard extends Page
 
     public function getProcessingTrend(): array
     {
-        $start = today()->subDays(13);
+        $start = today()->subDays(27);
         $daily = \App\Models\ActivityLog::query()
             ->where('created_at', '>=', $start)
             ->where('created_at', '<', today()->addDay())
@@ -64,18 +64,18 @@ class Dashboard extends Page
             ->groupByRaw('DATE(created_at)')->pluck('total', 'day');
 
         $days = [];
-        for ($i = 0; $i < 14; $i++) {
+        for ($i = 0; $i < 28; $i++) {
             $date = $start->copy()->addDays($i);
             $days[] = ['date' => $date->format('M d'), 'count' => (int) ($daily[$date->toDateString()] ?? 0)];
         }
 
-        $current = array_sum(array_column(array_slice($days, 7), 'count'));
-        $previous = array_sum(array_column(array_slice($days, 0, 7), 'count'));
+        $current = array_sum(array_column(array_slice($days, 14), 'count'));
+        $previous = array_sum(array_column(array_slice($days, 0, 14), 'count'));
 
-        $days = array_slice($days, 7);
+        $days = array_slice($days, 14);
 
-        return ['today' => $days[6]['count'], 'yesterday' => $days[5]['count'],
-            'average' => round($current / 7, 1),
+        return ['today' => $days[13]['count'], 'yesterday' => $days[12]['count'],
+            'average' => round($current / 14, 1),
             'days' => $days, 'total' => $current, 'change' => $current - $previous,
             'maximum' => max(1, max(array_column($days, 'count')))];
     }

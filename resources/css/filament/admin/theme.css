@@ -657,7 +657,7 @@ Edit-Button
     height: 36px !important;
     padding: 0 0.75rem !important;
 
-    background-color: #6366F1 !important;
+    background-color: #2563EB !important;
     color: #ffffff !important;
     border: none !important;
     border-radius: 0.375rem !important;
@@ -667,7 +667,7 @@ Edit-Button
 }
 
 .outgoing-document-button:hover {
-    background-color: #4F46E5 !important;
+    background-color: #1D4ED8 !important;
     color: #ffffff !important;
 }
 
@@ -2172,15 +2172,6 @@ Edit-Button
     }
 }
 
-/* Violet surfaces and readable lavender table headings. */
-html:not(.dark) .fi-ta-table thead :is(tr, .fi-ta-header-cell, .fi-ta-actions-header-cell, .fi-ta-header-cell button) {
-    background-color: #ede9fe !important;
-    color: #5b21b6 !important;
-}
-.dark .fi-ta-table thead :is(tr, .fi-ta-header-cell, .fi-ta-actions-header-cell, .fi-ta-header-cell button) {
-    background-color: #2e2245 !important;
-    color: #ddd6fe !important;
-}
 /* Compact seven-day processing sparkline. */
 .processing-trend { max-width:none; padding:16px 18px; border:1px solid #ddd6fe; border-radius:12px; background:linear-gradient(120deg,#fff,#f5f3ff); color:#2e1065; }
 .processing-trend-heading { display:flex; flex-wrap:wrap; justify-content:space-between; gap:12px; }
@@ -2292,3 +2283,12 @@ html:not(.dark) .fi-ta-table thead :is(tr, .fi-ta-header-cell, .fi-ta-actions-he
 .dark .office-calendar-list-item p,.dark .office-calendar-list-owner,.dark .office-calendar-legend { color:#b9aec7; }
 @media(max-width:1100px) { .office-calendar-layout { grid-template-columns:minmax(0,1fr); } }
 @media(max-width:640px) { .office-calendar-toolbar { padding:12px; } .office-calendar-month { font-size:13px; padding:0 10px; } }
+
+/* Align the Documents action heading with its row controls. */
+.admin-documents-filament-table .fi-ta-table thead th:last-child.fi-align-end { text-align:center; }
+
+/* Keep document text inset and the final controls close to the deadline. */
+.admin-documents-filament-table .fi-ta-table thead th:first-child,
+.admin-documents-filament-table .fi-ta-table tbody td:first-child { padding-inline-start:28px; }
+.admin-documents-filament-table .fi-ta-table thead th:last-child,
+.admin-documents-filament-table .fi-ta-table tbody td:last-child:not([colspan]) { width:13rem; padding-inline-end:32px; }

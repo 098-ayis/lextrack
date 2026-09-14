@@ -438,7 +438,7 @@ class Document extends Page implements HasTable
             ->columns($this->getDocumentTableColumns())
             ->recordActions($this->getDocumentTableActions())
             ->recordActionsColumnLabel('ACTION')
-            ->recordActionsAlignment('start')
+            ->recordActionsAlignment('fi-align-center')
             ->recordUrl(fn (DocumentModel $record): string => ViewDocument::getUrl([
                 'document' => $record->document_id,
             ]))
@@ -582,6 +582,7 @@ class Document extends Page implements HasTable
             $columns[] = ViewColumn::make('deadline_details')
                 ->label('DEADLINE')
                 ->view('filament.tables.columns.deadline')
+                ->width('13rem')
                 ->alignCenter();
         }
 

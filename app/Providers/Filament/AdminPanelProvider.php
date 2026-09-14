@@ -45,7 +45,10 @@ class AdminPanelProvider extends PanelProvider
 
                 abort_unless($disk->exists($filePath), 404);
 
-                $fileName = basename($filePath);
+                $fileName = $document->document_name ?: basename($filePath);
+                $copy = \Illuminate\Support\Facades\DB::table('cabinet_copies')
+                    ->where('document_id', $document->document_id)->where('display_name', $filename)->first();
+                if ($copy) { $fileName = $copy->display_name; }
                 $mimeType = $disk->mimeType($filePath)
                     ?: 'application/octet-stream';
 
@@ -54,6 +57,27 @@ class AdminPanelProvider extends PanelProvider
                         'document' => $document,
                         'filename' => $fileName,
                     ]);
+                }
+
+                if ($mimeType === 'application/pdf') {
+                    try {
+                        $pdf = new \setasign\Fpdi\Fpdi;
+                        $count = $pdf->setSourceFile($disk->path($filePath));
+                        $pdf->SetTitle($fileName, true);
+                        for ($page = 1; $page <= $count; $page++) {
+                            $template = $pdf->importPage($page);
+                            $size = $pdf->getTemplateSize($template);
+                            $pdf->AddPage($size['orientation'], [$size['width'], $size['height']]);
+                            $pdf->useTemplate($template);
+                        }
+                        return response($pdf->Output('S'), 200, [
+                            'Content-Type' => 'application/pdf',
+                            'Content-Disposition' => \Symfony\Component\HttpFoundation\HeaderUtils::makeDisposition('inline', $fileName, \Illuminate\Support\Str::ascii($fileName)),
+                            'Cache-Control' => 'private, no-store',
+                        ]);
+                    } catch (\setasign\Fpdi\PdfParser\PdfParserException $exception) {
+                        // PDFs unsupported by the importer remain available in their original form.
+                    }
                 }
 
                 return $disk->response(
@@ -72,6 +96,7 @@ class AdminPanelProvider extends PanelProvider
             ->default()
             ->id('admin')
             ->path('admin')
+            ->maxContentWidth(\Filament\Support\Enums\Width::Full)
             ->sidebarWidth('15rem')
             ->sidebarCollapsibleOnDesktop()
             ->collapsedSidebarWidth('4rem')
@@ -92,7 +117,7 @@ class AdminPanelProvider extends PanelProvider
 
             ->viteTheme('resources/css/filament/admin/theme.css')
             ->colors([
-                'primary' => Color::Violet,
+                'primary' => Color::Indigo,
             ])
             ->navigationGroups([
                 'MANAGEMENT',

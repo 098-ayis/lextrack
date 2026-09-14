@@ -13,9 +13,10 @@ class MonthlyReportController extends Controller
 {
     public function __invoke(Request $request, MonthlyReportService $reports): View|Response
     {
-        $validated = $request->validate(['month' => ['required', 'date_format:Y-m'], 'format' => ['nullable', 'in:docx,pdf']]);
+        $validated = $request->validate(['month' => ['required', 'date_format:Y-m'], 'format' => ['nullable', 'in:docx,pdf'], 'paper' => ['nullable', 'in:a4,letter,long']]);
 
         $report = $reports->generate($validated['month']);
+        $report['paperSize'] = $validated['paper'] ?? 'a4';
         $format = $validated['format'] ?? null;
         if (in_array($format, ['docx', 'pdf'], true)) {
             $service = $format === 'pdf' ? MonthlyReportPdfService::class : MonthlyReportWordService::class;

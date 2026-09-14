@@ -8,19 +8,20 @@
         $currentMonthLabel = $this->getCurrentMonthLabel();
         $upcomingDeadlines = $this->getUpcomingDeadlines();
         $upcomingEvents = $this->getUpcomingEvents();
+        $reminders = $upcomingDeadlines->map(fn ($document) => [
+            'title' => $document->particulars ?: 'Untitled Document',
+            'date' => $document->deadline,
+            'detail' => 'Deadline',
+            'sort' => $document->deadline->format('Y-m-d').' 23:59:59',
+        ])->concat($upcomingEvents->map(fn ($event) => [
+            'title' => $event->event,
+            'date' => $event->date,
+            'detail' => $event->time ? $event->time->format('g:i A') : null,
+            'sort' => $event->date->format('Y-m-d').' '.($event->time?->format('H:i:s') ?? '00:00:00'),
+        ]))->sortBy('sort')->values();
     @endphp
 
     <div class="office-dashboard space-y-6" wire:poll.60s>
-
-        <div class="dashboard-productivity">
-            <section class="dashboard-today" aria-labelledby="today-progress-title">
-                <div class="dashboard-today-top"><h2 id="today-progress-title">Processed today</h2><span>{{ now()->format('M d, Y') }}</span></div>
-                <div class="dashboard-today-number">{{ number_format($trend['today']) }}</div>
-                <p class="dashboard-today-change">{{ $trend['today'] > $trend['yesterday'] ? '↑' : ($trend['today'] < $trend['yesterday'] ? '↓' : '↔') }} {{ abs($trend['today'] - $trend['yesterday']) }} {{ $trend['today'] > $trend['yesterday'] ? 'more than yesterday' : ($trend['today'] < $trend['yesterday'] ? 'fewer than yesterday' : 'change from yesterday') }}</p>
-                <div class="dashboard-today-footer"><div><strong>{{ $trend['yesterday'] }}</strong><span>Yesterday</span></div><div><strong>{{ $trend['average'] }}</strong><span>7-day average</span></div></div>
-            </section>
-            @include('filament.pages.partials.processing-trend', ['trend' => $trend])
-        </div>
 
         {{-- ========================================================= --}}
         {{-- STATS --}}
@@ -182,6 +183,35 @@
         </div>
 
 
+        <div class="grid grid-cols-1 gap-6 xl:grid-cols-3">
+            <div class="min-w-0 xl:col-span-2">
+                @include('filament.pages.partials.processing-trend', ['trend' => $trend])
+            </div>
+            <section class="dashboard-work-panel min-w-0 rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900" aria-labelledby="dashboard-reminders-title">
+                <div class="border-b border-gray-200 px-5 py-4 dark:border-gray-700">
+                    <h2 id="dashboard-reminders-title" class="text-base font-semibold text-violet-800 dark:text-violet-300">Reminders</h2>
+                </div>
+                <div class="space-y-2 p-5">
+                    @forelse ($reminders as $reminder)
+                        <div class="flex min-w-0 items-center gap-4 rounded-lg px-3 py-3 transition hover:bg-gray-50 dark:hover:bg-gray-800">
+                            <div class="flex h-11 w-11 shrink-0 flex-col items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-800">
+                                <span class="text-[10px] font-semibold uppercase text-gray-500">{{ $reminder['date']->format('M') }}</span>
+                                <span class="text-sm font-bold text-gray-950 dark:text-white">{{ $reminder['date']->format('d') }}</span>
+                            </div>
+                            <div class="min-w-0">
+                                <p class="truncate text-sm font-medium text-gray-950 dark:text-white" title="{{ $reminder['title'] }}">{{ $reminder['title'] }}</p>
+                                @if ($reminder['detail'])
+                                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ $reminder['detail'] }}</p>
+                                @endif
+                            </div>
+                        </div>
+                    @empty
+                        <p class="py-8 text-center text-sm text-gray-500">No upcoming reminders.</p>
+                    @endforelse
+                </div>
+            </section>
+        </div>
+
         {{-- ========================================================= --}}
         {{-- SEARCH / FILTER --}}
         {{-- ========================================================= --}}
@@ -265,7 +295,7 @@
 
                 @if ($documents->isNotEmpty())
 
-                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
 
                         @foreach ($documents as $document)
 
@@ -430,17 +460,17 @@
 
 
                 <div
-                    class="dashboard-work-panel overflow-hidden rounded-xl border border-gray-200 bg-white p-5 shadow-sm
+                    class="dashboard-work-panel overflow-hidden rounded-xl border border-gray-200 bg-white p-4 shadow-sm
                            dark:border-gray-700 dark:bg-gray-900"
                 >
 
                     {{-- MONTH HEADER --}}
-                    <div class="mb-5 flex items-center justify-between gap-3">
+                    <div class="mb-3 flex items-center justify-between gap-3">
 
                         <button
                             wire:click="previousMonth"
                             type="button"
-                            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg
+                            class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg
                                    text-gray-500 transition hover:bg-gray-100 hover:text-gray-950
                                    dark:hover:bg-gray-800 dark:hover:text-white"
                             title="Previous month"
@@ -469,7 +499,7 @@
                         <button
                             wire:click="nextMonth"
                             type="button"
-                            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg
+                            class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg
                                    text-gray-500 transition hover:bg-gray-100 hover:text-gray-950
                                    dark:hover:bg-gray-800 dark:hover:text-white"
                             title="Next month"
@@ -522,7 +552,7 @@
                                      * Fixed height prevents cells
                                      * from overlapping one another.
                                      */
-                                    'relative flex h-10 min-w-0 items-center justify-center rounded-lg text-sm transition',
+                                    'relative flex h-8 min-w-0 items-center justify-center rounded-lg text-sm transition',
 
                                     /*
                                      * TODAY
@@ -567,7 +597,7 @@
 
 
                     {{-- SIMPLE LEGEND --}}
-                    <div class="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-gray-100 pt-4 dark:border-gray-800">
+                    <div class="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-gray-100 pt-3 dark:border-gray-800">
 
                         <div class="flex items-center gap-2">
                             <span class="h-2.5 w-2.5 rounded bg-violet-500"></span>
@@ -595,158 +625,6 @@
         </div>
 
 
-        {{-- ========================================================= --}}
-        {{-- DEADLINES + REMINDERS --}}
-        {{-- ========================================================= --}}
-
-        <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
-
-            {{-- UPCOMING DEADLINES --}}
-            <div class="dashboard-work-panel rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
-
-                <div class="border-b border-gray-200 px-5 py-4 dark:border-gray-700">
-                    <h2 class="text-base font-semibold text-violet-800 dark:text-violet-300">
-                        Upcoming Deadlines
-                    </h2>
-
-                </div>
-
-
-                <div class="p-5">
-
-                    <div class="space-y-2">
-
-                        @forelse ($upcomingDeadlines as $document)
-
-                            <div
-                                class="flex min-w-0 items-center justify-between gap-4
-                                       rounded-lg px-3 py-3 transition hover:bg-gray-50
-                                       dark:hover:bg-gray-800"
-                            >
-
-                                <div class="min-w-0">
-
-                                    <p class="truncate text-sm font-medium text-gray-950 dark:text-white">
-                                        {{ $document->particulars ?: 'Untitled Document' }}
-                                    </p>
-
-                                    <p class="mt-1 truncate text-xs text-gray-500 dark:text-gray-400">
-                                        {{ $document->office_unit ?: 'No office specified' }}
-                                    </p>
-
-                                </div>
-
-
-                                <div class="shrink-0 text-right">
-
-                                    <p class="text-sm font-semibold text-gray-800 dark:text-gray-200">
-                                        {{ $document->deadline->format('M d') }}
-                                    </p>
-
-                                    <p class="mt-1 text-xs text-gray-500">
-                                        {{ $document->deadline->diffForHumans() }}
-                                    </p>
-
-                                </div>
-
-                            </div>
-
-                        @empty
-
-                            <div class="py-8 text-center">
-
-                                <p class="text-sm text-gray-500">
-                                    No upcoming document deadlines.
-                                </p>
-
-                            </div>
-
-                        @endforelse
-
-                    </div>
-
-                </div>
-
-            </div>
-
-
-            {{-- UPCOMING REMINDERS --}}
-            <div class="dashboard-work-panel rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
-
-                <div class="border-b border-gray-200 px-5 py-4 dark:border-gray-700">
-                    <h2 class="text-base font-semibold text-violet-800 dark:text-violet-300">
-                        Upcoming Reminders
-                    </h2>
-
-                </div>
-
-
-                <div class="p-5">
-
-                    <div class="space-y-2">
-
-                        @forelse ($upcomingEvents as $event)
-
-                            <div
-                                class="flex min-w-0 items-center gap-4
-                                       rounded-lg px-3 py-3 transition hover:bg-gray-50
-                                       dark:hover:bg-gray-800"
-                            >
-
-                                {{-- DATE --}}
-                                <div
-                                    class="flex h-11 w-11 shrink-0 flex-col items-center justify-center
-                                           rounded-lg bg-gray-100 dark:bg-gray-800"
-                                >
-                                    <span class="text-[10px] font-semibold uppercase text-gray-500">
-                                        {{ $event->date->format('M') }}
-                                    </span>
-
-                                    <span class="text-sm font-bold text-gray-950 dark:text-white">
-                                        {{ $event->date->format('d') }}
-                                    </span>
-                                </div>
-
-
-                                {{-- DETAILS --}}
-                                <div class="min-w-0">
-
-                                    <p class="truncate text-sm font-medium text-gray-950 dark:text-white">
-                                        {{ $event->event }}
-                                    </p>
-
-
-                                    @if ($event->time)
-
-                                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                                            {{ $event->time->format('g:i A') }}
-                                        </p>
-
-                                    @endif
-
-                                </div>
-
-                            </div>
-
-                        @empty
-
-                            <div class="py-8 text-center">
-
-                                <p class="text-sm text-gray-500">
-                                    No upcoming reminders.
-                                </p>
-
-                            </div>
-
-                        @endforelse
-
-                    </div>
-
-                </div>
-
-            </div>
-
-        </div>
 
     </div>
 

@@ -27,7 +27,7 @@ class Cabinet extends Page
 
     protected static ?int $navigationSort = 3;
 
-    protected static string|UnitEnum|null $navigationGroup = 'MANAGEMENT';
+    protected static string|UnitEnum|null $navigationGroup = 'OPERATIONS';
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-archive-box';
 
@@ -40,6 +40,11 @@ class Cabinet extends Page
     public array $cabinet = [];
 
     public string $search = '';
+
+    public string $sourceFilter = 'all';
+
+    public ?int $clipboardDocumentId = null;
+
 
     public string $sortBy = 'name';
 
@@ -54,6 +59,8 @@ class Cabinet extends Page
     public ?string $selectedItem = null;
 
     public ?int $selectedDocumentId = null;
+
+    public ?int $selectedCopyId = null;
 
     public string $currentType = '';
 
@@ -70,8 +77,13 @@ class Cabinet extends Page
             ->mapWithKeys(fn (string $name) => [strtolower(trim($name)) => trim($name)])
             ->all();
 
+        $recycled = DB::table('cabinet_recycle_bin')->pluck('document_id')->all();
+        $locations = DB::table('cabinet_document_locations')->get()->keyBy('document_id');
+        $folders = DB::table('cabinet_folders')->pluck('name', 'id');
+
         $documents = Document::query()
             ->with(['latestVersion'])
+            ->where('status', '!=', 'archived')
             ->whereNotNull('document_type')
             ->whereNotNull('office_unit')
             ->get();
@@ -83,11 +95,20 @@ class Cabinet extends Page
             )
             ->groupBy(
                 fn (Document $document) =>
-                    $knownTypes[strtolower(trim($document->document_type))] ?? 'Others'
+                    in_array($document->document_id, $recycled) ? 'Recycle Bin' : (isset($locations[$document->document_id])
+                        ? ($locations[$document->document_id]->cabinet_type ?? $folders[$locations[$document->document_id]->folder_id])
+                        : ($knownTypes[strtolower(trim($document->document_type))] ?? 'Others'))
             )
-            ->map(function ($documentsByType, string $type) {
+            ->map(function ($documentsByType, string $type) use ($folders, $locations, $recycled) {
                 return $documentsByType
-                    ->groupBy(function (Document $document) use ($type) {
+                    ->groupBy(function (Document $document) use ($type, $folders, $locations, $recycled) {
+                        if (in_array($document->document_id, $recycled)) { return 'Documents'; }
+                        if (isset($locations[$document->document_id]) && $locations[$document->document_id]->cabinet_office !== null) {
+                            return $locations[$document->document_id]->cabinet_office;
+                        }
+                        if ($folders->contains($type)) {
+                            return 'Documents';
+                        }
                         if (strcasecmp($type, 'Others') === 0) {
                             return trim($document->document_type);
                         }
@@ -104,9 +125,9 @@ class Cabinet extends Page
                                 $version = $document->latestVersion;
                                 $filePath = $version?->file_path;
 
-                                $fileName = $filePath
+                                $fileName = $document->document_name ?: ($filePath
                                     ? basename($filePath)
-                                    : ($document->particulars ?: 'Untitled Document');
+                                    : ($document->particulars ?: 'Untitled Document'));
 
                                 $fileSize = '—';
 
@@ -149,6 +170,195 @@ class Cabinet extends Page
                     ->toArray();
             })
             ->toArray();
+        // Folder visibility is independent of whether its documents are archived or recycled.
+        foreach (Document::query()->whereNotNull('document_type')->whereNotNull('office_unit')->get(['document_type', 'office_unit']) as $document) {
+            $type = $knownTypes[strtolower(trim($document->document_type))] ?? 'Others';
+            $office = strcasecmp($type, 'Others') === 0
+                ? trim($document->document_type)
+                : (trim($document->office_unit) ?: 'Unspecified Office');
+            $this->cabinet[$type][$office] ??= [];
+        }
+        foreach (array_values($knownTypes) as $type) { $this->cabinet[$type] ??= []; }
+        foreach ($locations as $location) {
+            if ($location->cabinet_type !== null && $location->cabinet_office !== null) {
+                $this->cabinet[$location->cabinet_type][$location->cabinet_office] ??= [];
+            }
+        }
+        foreach ($folders as $name) {
+            $this->cabinet[$name] ??= ['Documents' => []];
+        }
+        $entries = collect($this->cabinet)->flatMap(fn ($groups) => collect($groups)->flatten(1))->keyBy('id');
+        foreach (DB::table('cabinet_copies')->get() as $copy) {
+            if (!in_array($copy->document_id, $recycled) && isset($entries[$copy->document_id]) && ($copy->cabinet_type !== null || isset($folders[$copy->folder_id]))) {
+                $entry = $entries[$copy->document_id];
+                $entry['copy_key'] = 'copy-'.$copy->id;
+                $entry['name'] = $copy->display_name ?? $entry['name'];
+                $this->cabinet[$copy->cabinet_type ?? $folders[$copy->folder_id]][$copy->cabinet_office ?? 'Documents'][] = $entry;
+            }
+        }
+    }
+
+    public function destinationOptions(): array
+    {
+        $options = ['original' => 'Original type / office folder'];
+        foreach ($this->cabinet as $type => $offices) {
+            if ($type === 'Recycle Bin') { continue; }
+            foreach ($offices as $office => $documents) {
+                $options['path:'.base64_encode(json_encode([$type, $office]))] = $type.' / '.$office;
+            }
+        }
+        foreach (DB::table('cabinet_folders')->orderBy('name')->pluck('name', 'id') as $id => $name) {
+            $options[(string) $id] = $name;
+        }
+        return $options;
+    }
+
+    protected function destinationData(string $destination): array
+    {
+        abort_unless(array_key_exists($destination, $this->destinationOptions()), 422);
+        if (str_starts_with($destination, 'path:')) {
+            [$type, $office] = json_decode(base64_decode(substr($destination, 5)), true);
+            return ['folder_id' => null, 'cabinet_type' => $type, 'cabinet_office' => $office];
+        }
+        return ['folder_id' => $destination, 'cabinet_type' => null, 'cabinet_office' => null];
+    }
+
+    public function copyToClipboard(int $documentId, string $mode = 'copy'): void
+    {
+        abort_unless(auth()->user()?->canAccessPanel(\Filament\Facades\Filament::getPanel('admin')), 403);
+        abort_unless($mode === 'copy', 422);
+        Document::findOrFail($documentId);
+        abort_if(DB::table('cabinet_recycle_bin')->where('document_id', $documentId)->exists(), 422);
+        $this->clipboardDocumentId = $documentId;
+        \Filament\Notifications\Notification::make()->title('Copied to clipboard')->success()->send();
+    }
+
+    public function pasteDocument(?string $requestedName = null): void
+    {
+        abort_unless(auth()->user()?->canAccessPanel(\Filament\Facades\Filament::getPanel('admin')), 403);
+        if ($this->currentType === '' || $this->currentType === 'Recycle Bin') {
+            \Filament\Notifications\Notification::make()->title('Open a folder before pasting')->warning()->send();
+            return;
+        }
+        $folderId = DB::table('cabinet_folders')->where('name', $this->currentType)->value('id');
+        if ($this->currentOffice === '' && !$folderId) {
+            \Filament\Notifications\Notification::make()->title('Open a source folder before pasting')->warning()->send();
+            return;
+        }
+        Document::findOrFail($this->clipboardDocumentId);
+        abort_if(DB::table('cabinet_recycle_bin')->where('document_id', $this->clipboardDocumentId)->exists(), 422);
+        $destination = $folderId
+            ? $this->destinationData((string) $folderId)
+            : $this->destinationData('path:'.base64_encode(json_encode([$this->currentType, $this->currentOffice])));
+        $source = collect($this->cabinet)->flatMap(fn ($groups) => collect($groups)->flatten(1))
+            ->first(fn ($entry) => $entry['id'] === $this->clipboardDocumentId && !isset($entry['copy_key']));
+        abort_unless($source, 422);
+        $office = $this->currentOffice ?: 'Documents';
+        $existing = collect($this->cabinet[$this->currentType][$office] ?? [])
+            ->pluck('name')->map(fn ($name) => mb_strtolower($name));
+        $name = trim($requestedName ?? $source['name']);
+        if ($existing->contains(mb_strtolower($name))) {
+            if ($requestedName !== null) {
+                throw \Illuminate\Validation\ValidationException::withMessages(['name' => 'This filename already exists in this folder.']);
+            }
+            $this->mountAction('pasteRename');
+            return;
+        }
+        validator(['name' => $name], ['name' => ['required', 'string', 'max:255', 'not_regex:/[\\\\\/]/']])->validate();
+        DB::table('cabinet_copies')->insert([
+            ...$destination, 'display_name' => $name, 'document_id' => $this->clipboardDocumentId,
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $this->loadCabinet();
+        if ($folderId && $this->currentOffice === '') { $this->currentOffice = 'Documents'; }
+        \Filament\Notifications\Notification::make()->title('Document pasted')->success()->send();
+    }
+
+    public function pasteRenameAction(): Action
+    {
+        return Action::make('pasteRename')->modalHeading('Rename before pasting')
+            ->modalWidth(\Filament\Support\Enums\Width::Medium)
+            ->modalSubmitActionLabel('Rename and Paste')->schema([
+                TextInput::make('name')->label('New filename')->required()->maxLength(255),
+            ])->action(fn (array $data) => $this->pasteDocument($data['name']));
+    }
+
+    public function renameDocumentAction(): Action
+    {
+        return Action::make('renameDocument')->label('Rename')->modalHeading('Rename Document')
+            ->modalWidth(\Filament\Support\Enums\Width::Medium)->schema([
+            TextInput::make('name')->label('Filename')->required()->maxLength(255)
+                ->default(fn () => $this->selectedItem),
+        ])->action(function (array $data): void {
+            abort_unless(auth()->user()?->canAccessPanel(\Filament\Facades\Filament::getPanel('admin')), 403);
+            $name = trim($data['name']);
+            validator(['name' => $name], ['name' => ['required', 'string', 'max:255', 'not_regex:/[\\\\\/]/']])->validate();
+            $entries = collect($this->cabinet[$this->currentType][$this->currentOffice] ?? []);
+            $conflict = $entries->contains(function ($entry) use ($name) {
+                $copyId = isset($entry['copy_key']) ? (int) substr($entry['copy_key'], 5) : null;
+                $same = $entry['id'] === $this->selectedDocumentId && $copyId === $this->selectedCopyId;
+                return !$same && mb_strtolower($entry['name']) === mb_strtolower($name);
+            });
+            if ($conflict) {
+                throw \Illuminate\Validation\ValidationException::withMessages(['name' => 'This filename already exists in this folder.']);
+            }
+            if ($this->selectedCopyId) {
+                DB::table('cabinet_copies')->where('id', $this->selectedCopyId)->where('document_id', $this->selectedDocumentId)->update(['display_name' => $name]);
+            } else {
+                Document::findOrFail($this->selectedDocumentId)->update(['document_name' => $name]);
+            }
+            $this->selectedItem = $name;
+            $this->loadCabinet();
+        });
+    }
+
+    public function addFolderAction(): Action
+    {
+        return Action::make('addFolder')->label('Add Folder')->icon('heroicon-o-folder-plus')
+            ->modalHeading('Add Folder')->schema([
+                TextInput::make('name')->label('Folder name')->required()->maxLength(255),
+            ])->action(function (array $data): void {
+                abort_unless(auth()->user()?->canAccessPanel(\Filament\Facades\Filament::getPanel('admin')), 403);
+                $name = trim($data['name']);
+                $reserved = array_merge(array_keys($this->cabinet), DocumentType::pluck('type_name')->all(), ['Others', 'Recycle Bin']);
+                if ($name === '' || collect($reserved)->contains(fn ($value) => strcasecmp($value, $name) === 0)) {
+                    throw \Illuminate\Validation\ValidationException::withMessages(['name' => 'Choose a unique folder name.']);
+                }
+                DB::table('cabinet_folders')->insert(['name' => $name, 'created_at' => now(), 'updated_at' => now()]);
+                $this->loadCabinet();
+            });
+    }
+
+    public function deleteCabinetDocumentAction(): Action
+    {
+        return Action::make('deleteCabinetDocument')->label('Delete')->requiresConfirmation()
+            ->modalHeading('Send document to Recycle Bin?')
+            ->action(function (): void {
+                abort_unless(auth()->user()?->canAccessPanel(\Filament\Facades\Filament::getPanel('admin')), 403);
+                Document::findOrFail($this->selectedDocumentId);
+                DB::table('cabinet_recycle_bin')->updateOrInsert(['document_id' => $this->selectedDocumentId], ['created_at' => now(), 'updated_at' => now()]);
+                $this->loadCabinet();
+                $this->goToRoot();
+            });
+    }
+
+    public function archiveCabinetDocumentAction(): Action
+    {
+        return Action::make('archiveCabinetDocument')->label('Archive')->requiresConfirmation()
+            ->action(function (): void {
+                abort_unless(auth()->user()?->canAccessPanel(\Filament\Facades\Filament::getPanel('admin')), 403);
+                (new \App\Filament\Pages\Document)->archiveDocument($this->selectedDocumentId);
+                $this->loadCabinet();
+                $this->goToRoot();
+            });
+    }
+
+    public function restoreCabinetDocument(): void
+    {
+        abort_unless(auth()->user()?->canAccessPanel(\Filament\Facades\Filament::getPanel('admin')), 403);
+        DB::table('cabinet_recycle_bin')->where('document_id', $this->selectedDocumentId)->delete();
+        $this->loadCabinet();
+        $this->goToRoot();
     }
 
     public function addDocumentAction(): Action
@@ -273,6 +483,7 @@ class Cabinet extends Page
 
         $this->currentType = $type;
         $this->currentOffice = '';
+        $this->sourceFilter = 'all';
 
         $this->selectedItem = $type;
         $this->selectedDocumentId = null;
@@ -297,6 +508,7 @@ class Cabinet extends Page
     {
         $this->currentType = '';
         $this->currentOffice = '';
+        $this->sourceFilter = 'all';
 
         $this->selectedItem = null;
         $this->selectedDocumentId = null;
@@ -305,6 +517,7 @@ class Cabinet extends Page
     public function goToType(): void
     {
         $this->currentOffice = '';
+        $this->sourceFilter = 'all';
 
         $this->selectedItem = $this->currentType;
         $this->selectedDocumentId = null;
@@ -359,11 +572,13 @@ class Cabinet extends Page
 
     public function selectItem(
         string $item,
-        ?int $documentId = null
+        ?int $documentId = null,
+        ?int $copyId = null
     ): void {
         $this->selectedItem = $item;
 
         $this->selectedDocumentId = $documentId;
+        $this->selectedCopyId = $copyId;
     }
 
     protected function formatFileSize(int $bytes): string

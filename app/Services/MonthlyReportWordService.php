@@ -28,6 +28,10 @@ class MonthlyReportWordService
                 $document = new DOMDocument;
                 $document->loadXML(trim(view('reports.monthly-word', $report + ['preparedBy' => $preparedBy])->render()));
                 $xpath = new DOMXPath($document);
+                $size = config('report-paper.'.($report['paperSize'] ?? 'a4').'.twips');
+                $pageSize = $xpath->query('//w:pgSz')->item(0);
+                $pageSize->setAttributeNS('http://schemas.openxmlformats.org/wordprocessingml/2006/main', 'w:w', (string) $size[0]);
+                $pageSize->setAttributeNS('http://schemas.openxmlformats.org/wordprocessingml/2006/main', 'w:h', (string) $size[1]);
                 $wordNamespace = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
                 $relationshipNamespace = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
                 $xpath->registerNamespace('w', $wordNamespace);

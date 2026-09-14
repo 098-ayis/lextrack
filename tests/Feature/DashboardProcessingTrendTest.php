@@ -33,13 +33,13 @@ class DashboardProcessingTrendTest extends TestCase
             DB::table('activity_logs')->insert(['document_id' => $id, 'action_type' => $action, 'created_at' => $date]);
         }
         $trend = (new Dashboard)->getProcessingTrend();
-        $this->assertCount(7, $trend['days']);
-        $this->assertSame('Sep 08', $trend['days'][0]['date']);
+        $this->assertCount(14, $trend['days']);
+        $this->assertSame('Sep 01', $trend['days'][0]['date']);
         $this->assertSame(0, $trend['days'][0]['count']);
         $this->assertSame(2, $trend['today']);
         $this->assertSame(1, $trend['yesterday']);
-        $this->assertSame(3, $trend['total']);
-        $this->assertSame(2, $trend['change']);
-        $this->assertEquals(0.4, $trend['average']);
+        $this->assertSame(4, $trend['total']);
+        $this->assertSame(4, $trend['change']);
+        $this->assertEquals(0.3, $trend['average']);
     }
 }
