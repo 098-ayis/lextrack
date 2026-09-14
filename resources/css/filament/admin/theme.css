@@ -2292,3 +2292,42 @@ html:not(.dark) .fi-ta-table thead :is(tr, .fi-ta-header-cell, .fi-ta-actions-he
 .dark .office-calendar-list-item p,.dark .office-calendar-list-owner,.dark .office-calendar-legend { color:#b9aec7; }
 @media(max-width:1100px) { .office-calendar-layout { grid-template-columns:minmax(0,1fr); } }
 @media(max-width:640px) { .office-calendar-toolbar { padding:12px; } .office-calendar-month { font-size:13px; padding:0 10px; } }
+
+/* Keep the client panel as a top-navigation layout without admin-sidebar spacing. */
+.fi-panel-client .fi-main-sidebar,
+.fi-panel-client .fi-sidebar,
+.fi-panel-client .fi-sidebar-header {
+    display: none !important;
+}
+
+.fi-panel-client .fi-topbar,
+.fi-panel-client .fi-topbar-ctn {
+    background-color: #0f172a !important;
+}
+
+.fi-panel-client .fi-topbar-ctn,
+.fi-panel-client .fi-main-ctn {
+    margin-inline-start: 0 !important;
+}
+
+.fi-panel-client .fi-topbar-start {
+    display: flex !important;
+}
+
+.fi-panel-client .fi-topbar-open-sidebar-btn,
+.fi-panel-client .fi-topbar-close-sidebar-btn {
+    display: none !important;
+}
+
+/* Keep client header text white while preserving the blue B and orange U accents. */
+.fi-panel-client .fi-topbar .lextrack-brand-text,
+.fi-panel-client .fi-topbar .lextrack-brand-title,
+.fi-panel-client .fi-topbar .lextrack-brand-office,
+.fi-panel-client .fi-topbar .fi-topbar-item-label,
+.fi-panel-client .fi-topbar .fi-topbar-item:hover .fi-topbar-item-label,
+.fi-panel-client .fi-topbar .fi-topbar-item.fi-active .fi-topbar-item-label,
+.fi-panel-client .fi-topbar .fi-topbar-group-toggle-icon,
+.fi-panel-client .fi-topbar .fi-topbar-item:hover .fi-topbar-group-toggle-icon,
+.fi-panel-client .fi-topbar .fi-topbar-item.fi-active .fi-topbar-group-toggle-icon {
+    color: #ffffff !important;
+}
