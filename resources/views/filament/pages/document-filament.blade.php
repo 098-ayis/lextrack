@@ -3,12 +3,11 @@
         @php
             $activeSection = $this->activeSection;
             $statusCounts = $this->getStatusCounts();
-            $newStatusSections = $this->getNewStatusSections();
         @endphp
 
         {{-- STATUS HEADER --}}
         <div class="mb-0 w-full overflow-x-auto border border-gray-300 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
-            <nav class="flex w-full min-w-[720px] items-stretch px-3" aria-label="Document status">
+            <nav class="flex w-full min-w-[720px] items-stretch justify-start gap-2 px-3 py-2" aria-label="Document status">
                 @foreach ([
                     'pending' => ['label' => 'Pending', 'icon' => 'heroicon-o-document-text'],
                     'incoming' => ['label' => 'Incoming', 'icon' => 'heroicon-o-inbox-arrow-down'],
@@ -19,17 +18,17 @@
                 ] as $section => $item)
                     <a
                         href="{{ request()->fullUrlWithQuery(['section' => $section]) }}"
-                        class="group relative flex h-12 flex-1 items-center justify-center gap-2 border-b-2 border-transparent px-3 text-sm font-medium whitespace-nowrap transition-colors
+                        class="group relative flex h-10 flex-none items-center justify-start gap-2 border-b-2 border-transparent px-3 text-sm font-medium whitespace-nowrap transition-colors
                             {{ $activeSection === $section
-                                ? 'border-violet-600 text-violet-600 dark:border-violet-400 dark:text-violet-400'
+                                ? 'rounded-md bg-[#0F172A] text-white'
                                 : 'text-gray-500 hover:border-gray-200 hover:text-gray-800 dark:text-gray-400 dark:hover:border-gray-700 dark:hover:text-gray-200' }}"
                     >
                         <x-filament::icon :icon="$item['icon']" class="h-5 w-5 shrink-0" />
                         <span>{{ $item['label'] }}</span>
                         <span
-                            class="{{ in_array($section, $newStatusSections, true)
-                                ? 'ml-0.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white shadow-sm'
-                                : 'ml-0.5 text-[10px] font-semibold' }}"
+                            class="ml-0.5 text-xs font-semibold {{ $activeSection === $section
+                                ? 'text-white'
+                                : 'text-gray-500 dark:text-gray-400' }}"
                         >
                             {{ $statusCounts[$section] ?? 0 }}
                         </span>
@@ -243,15 +242,57 @@
         @endif
 
         @if ($qrCodeSvg)
-            <div wire:click.self="closeQrCode" class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/50 p-4" role="dialog" aria-modal="true" aria-labelledby="qr-code-title">
+            <div wire:click.self="closeQrCode" x-data class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/50 p-4" role="dialog" aria-modal="true" aria-labelledby="qr-code-title">
                 <div class="w-full max-w-md rounded-2xl bg-white p-6 text-center shadow-2xl dark:bg-gray-900">
                     <div class="flex items-center justify-between">
                         <h2 id="qr-code-title" class="text-lg font-bold text-gray-900 dark:text-white">Document QR Code</h2>
                         <button type="button" wire:click="closeQrCode" class="rounded-md p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-800 dark:text-gray-300 dark:hover:bg-white/10 dark:hover:text-white" aria-label="Close QR code"><span class="text-xl leading-none">&times;</span></button>
                     </div>
-                    <div class="mx-auto mt-5 flex h-64 w-64 items-center justify-center overflow-hidden rounded-lg border border-gray-200 bg-white p-2 dark:border-gray-600">{!! $qrCodeSvg !!}</div>
+                    <div x-ref="qrCode" class="mx-auto mt-5 flex h-64 w-64 items-center justify-center overflow-hidden rounded-lg border border-gray-200 bg-white p-2 dark:border-gray-600">{!! $qrCodeSvg !!}</div>
                     <p class="mt-4 text-sm text-gray-600 dark:text-gray-300">Scan this code on the public Track page to view the document status and details.</p>
-                    <button type="button" wire:click="closeQrCode" class="mt-5 w-full rounded-lg bg-[#0F172A] px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-700">Close</button>
+                    <button
+                        type="button"
+                        x-on:click="
+                            const svg = $refs.qrCode.querySelector('svg');
+                            if (!svg) return;
+                            const svgSource = new XMLSerializer().serializeToString(svg);
+                            const svgBlob = new Blob([svgSource], { type: 'image/svg+xml;charset=utf-8' });
+                            const svgUrl = URL.createObjectURL(svgBlob);
+                            const image = new Image();
+                            image.onload = () => {
+                                const viewBox = svg.getAttribute('viewBox')?.split(/\s+/).map(Number) ?? [];
+                                const width = Number.isFinite(viewBox[2]) && viewBox[2] > 0 ? viewBox[2] : 1024;
+                                const height = Number.isFinite(viewBox[3]) && viewBox[3] > 0 ? viewBox[3] : width;
+                                const canvas = document.createElement('canvas');
+                                canvas.width = width;
+                                canvas.height = height;
+                                const context = canvas.getContext('2d');
+                                context.fillStyle = '#ffffff';
+                                context.fillRect(0, 0, width, height);
+                                context.drawImage(image, 0, 0, width, height);
+                                URL.revokeObjectURL(svgUrl);
+                                canvas.toBlob((jpegBlob) => {
+                                    if (!jpegBlob) return;
+                                    const downloadUrl = URL.createObjectURL(jpegBlob);
+                                    const link = document.createElement('a');
+                                    link.href = downloadUrl;
+                                    link.download = 'document-qr-code-{{ $qrCodeDocumentId }}.jpg';
+                                    document.body.appendChild(link);
+                                    link.click();
+                                    link.remove();
+                                    URL.revokeObjectURL(downloadUrl);
+                                }, 'image/jpeg', 0.95);
+                            };
+                            image.onerror = () => URL.revokeObjectURL(svgUrl);
+                            image.src = svgUrl;
+                        "
+                        class="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-[#0F172A] px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-700"
+                    >
+                        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v12m0 0 4-4m-4 4-4-4M5 18v3h14v-3" />
+                        </svg>
+                        Download QR Code
+                    </button>
                 </div>
             </div>
         @endif

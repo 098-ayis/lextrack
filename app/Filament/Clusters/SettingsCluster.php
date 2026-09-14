@@ -15,7 +15,7 @@ class SettingsCluster extends Cluster
 
     protected static ?string $slug = 'settings';
 
-    protected static string|UnitEnum|null $navigationGroup = 'Settings';
+    protected static string|UnitEnum|null $navigationGroup = 'ADMINISTRATION';
 
-    protected static ?int $navigationSort = 2;
+    protected static ?int $navigationSort = 3;
 }

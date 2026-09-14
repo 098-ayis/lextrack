@@ -16,13 +16,18 @@ use Filament\Schemas\Components\Utilities\Set;
 use Filament\Pages\Page;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Http\UploadedFile;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
+use UnitEnum;
 // use BezhanSalleh\FilamentShield\Traits\HasPageShield;
 
 class Cabinet extends Page
 {
     // use HasPageShield;
 
-    protected static ?int $navigationSort = 6;
+    protected static ?int $navigationSort = 3;
+
+    protected static string|UnitEnum|null $navigationGroup = 'MANAGEMENT';
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-archive-box';
 
@@ -157,7 +162,7 @@ class Cabinet extends Page
             ->form([
                 TextInput::make('lao_number')
                     ->label('LAO Number')
-                    ->default(fn (): string => Document::generateLaoNumber())
+                    ->default(fn (): string => Document::generateLaoNumber(now()))
                     ->readOnly()
                     ->helperText('Automatically assigned from the current LAO sequence.'),
 
@@ -215,7 +220,7 @@ class Cabinet extends Page
                     ->required()
                     ->live()
                     ->afterStateUpdated(function ($state, Set $set): void {
-                        $set('document_name', filled($state) ? basename((string) $state) : null);
+                        $set('document_name', $this->uploadedDocumentName($state));
                     }),
             ])
             ->action(function (array $data): void {
@@ -231,12 +236,12 @@ class Cabinet extends Page
                             $data['office_unit'],
 
                         'document_name' =>
-                            basename((string) $filePath),
+                            $this->uploadedDocumentName($filePath),
 
                         // Generate at save time so an old form value cannot
                         // reuse a LAO number assigned by another upload.
                         'lao_number' =>
-                            Document::generateLaoNumber(),
+                            Document::generateLaoNumber(now()),
 
                         'particulars' =>
                             $data['particulars'] ?? null,
@@ -385,5 +390,18 @@ class Cabinet extends Page
         }
 
         return $bytes . ' B';
+    }
+
+    protected function uploadedDocumentName(mixed $file): ?string
+    {
+        if ($file instanceof TemporaryUploadedFile || $file instanceof UploadedFile) {
+            $originalName = basename($file->getClientOriginalName());
+
+            return $originalName !== '' ? $originalName : null;
+        }
+
+        return is_string($file) && filled($file)
+            ? basename($file)
+            : null;
     }
 }

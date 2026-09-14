@@ -7,7 +7,7 @@
     <div class="admin-document-requests-page">
         {{-- STATUS HEADER --}}
         <div class="mb-0 w-full overflow-x-auto border border-gray-300 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
-            <nav class="flex w-full min-w-[720px] items-stretch px-3 py-2" aria-label="Document request status">
+            <nav class="flex w-full min-w-[720px] items-stretch justify-start gap-1 px-3 py-2" aria-label="Document request status">
                 @foreach ([
                     'pending' => ['label' => 'Pending', 'icon' => 'heroicon-o-document-text'],
                     'accepted' => ['label' => 'Accepted', 'icon' => 'heroicon-o-check-circle'],
@@ -15,7 +15,7 @@
                 ] as $section => $item)
                     <a
                         href="{{ request()->fullUrlWithQuery(['section' => $section]) }}"
-                        class="group relative flex h-10 flex-1 items-center justify-center gap-2 border-b-2 border-transparent px-3 text-sm font-medium whitespace-nowrap transition-colors
+                        class="group relative flex h-10 flex-none items-center justify-start gap-2 border-b-2 border-transparent px-3 text-sm font-medium whitespace-nowrap transition-colors
                             {{ $activeSection === $section
                                 ? 'rounded-md bg-[#0F172A] text-white'
                                 : 'text-gray-500 hover:border-gray-200 hover:text-gray-800 dark:text-gray-400 dark:hover:border-gray-700 dark:hover:text-gray-200' }}"

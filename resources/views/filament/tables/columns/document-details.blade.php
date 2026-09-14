@@ -19,7 +19,7 @@
     <div class="min-w-0 space-y-1">
         <div>
             <span class="font-semibold text-gray-900 dark:text-gray-100">
-                {{ $record->lao_number ?: 'Not assigned' }}
+                {{ $record->lao_number ?: 'LAO # not yet assigned' }}
             </span>
         </div>
 
@@ -31,5 +31,18 @@
                 {{ $displayDocumentName }}
             </span>
         </div>
+
+        @if ($record->status === 'pending')
+            <div
+                class="max-w-[32ch] truncate"
+                title="{{ $record->description ?: 'No description provided' }}"
+            >
+                <span class="font-semibold text-gray-500 dark:text-gray-400">Description:</span>
+                <span class="text-gray-700 dark:text-gray-300">
+                    {{ $record->description ? \Illuminate\Support\Str::limit($record->description, 55) : 'No description provided' }}
+                </span>
+            </div>
+
+        @endif
     </div>
 </div>

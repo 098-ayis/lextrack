@@ -35,7 +35,11 @@ class DocumentTypeResource extends Resource
             TextInput::make('type_name')
                 ->label('Document type')
                 ->required()
-                ->maxLength(255),
+                ->maxLength(255)
+                ->unique(ignoreRecord: true)
+                ->validationMessages([
+                    'unique' => 'This document type already exists. Please enter a new unique document type.',
+                ]),
             Textarea::make('type_desc')
                 ->label('Description')
                 ->required()
@@ -81,11 +85,16 @@ class DocumentTypeResource extends Resource
                     ->sortable(),
             ])
             ->recordActions([
-                \Filament\Actions\EditAction::make(),
+                \Filament\Actions\EditAction::make()
+                    ->successNotificationTitle('Document type updated successfully')
+                    ->successRedirectUrl(fn (): string => DocumentTypeResource::getUrl('index')),
                 \Filament\Actions\DeleteAction::make(),
             ])
             ->toolbarActions([
-                \Filament\Actions\CreateAction::make(),
+                \Filament\Actions\CreateAction::make()
+                    ->createAnother(false)
+                    ->successNotificationTitle('Document type created successfully')
+                    ->successRedirectUrl(fn (): string => DocumentTypeResource::getUrl('index')),
                 \Filament\Actions\BulkActionGroup::make([
                     \Filament\Actions\DeleteBulkAction::make(),
                 ]),

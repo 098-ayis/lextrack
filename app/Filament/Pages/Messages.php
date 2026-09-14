@@ -12,12 +12,15 @@ use Filament\Support\Enums\Width;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Livewire\WithFileUploads;
+use UnitEnum;
 
 class Messages extends Page
 {
     use WithFileUploads;
 
-    protected static ?int $navigationSort = 5;
+    protected static ?int $navigationSort = 1;
+
+    protected static string|UnitEnum|null $navigationGroup = 'OPERATIONS';
 
     protected static string|\BackedEnum|null $navigationIcon =
         'heroicon-o-chat-bubble-left-right';

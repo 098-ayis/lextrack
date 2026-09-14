@@ -15,6 +15,7 @@ class DocumentVersion extends Model
         'document_id',
         'version_number',
         'file_path',
+        'file_hash',
     ];
 
     public function document(): BelongsTo

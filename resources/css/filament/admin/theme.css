@@ -294,11 +294,13 @@
         .fi-sidebar-item-badge-ctn {
         display: inline-flex !important;
         position: absolute;
-        inset-inline-end: 0.35rem;
-        top: 0.15rem;
+        inset-inline-start: calc(50% + 0.30rem);
+        inset-inline-end: auto;
+        top: calc(50% + 0.35rem);
         z-index: 10;
         margin: 0;
         pointer-events: none;
+        transform: none;
     }
 
     .fi-body-has-sidebar-collapsible-on-desktop
@@ -1241,4 +1243,931 @@ Edit-Button
 .fi-ta-table thead .fi-ta-actions-header-cell,
 .fi-ta-table thead .fi-ta-header-cell button {
     background-color: #F8F8FA !important;
+}
+
+/* ================================
+   FULL-HEIGHT ADMIN SIDEBAR
+================================ */
+
+.sidebar-collapse-floating {
+    display: none;
+}
+
+@media (min-width: 64rem) {
+    .fi-body-has-topbar .fi-main-sidebar {
+        position: fixed !important;
+        inset-block: 0 !important;
+        z-index: 40 !important;
+        height: 100dvh !important;
+        background-color: #ffffff !important;
+        box-shadow: 0 1px 3px rgb(15 23 42 / 0.08);
+    }
+
+    .dark .fi-body-has-topbar .fi-main-sidebar {
+        background-color: #111827 !important;
+    }
+
+    .fi-body-has-topbar .fi-sidebar-header {
+        display: flex !important;
+        height: 5.5rem !important;
+        justify-content: flex-start !important;
+        padding: 1rem 1.25rem !important;
+        background-color: #ffffff !important;
+        border-bottom: 1px solid rgb(229 231 235 / 0.9);
+    }
+
+    .dark .fi-body-has-topbar .fi-sidebar-header {
+        background-color: #111827 !important;
+        border-bottom-color: rgb(55 65 81 / 0.85);
+    }
+
+    .fi-body-has-topbar .fi-sidebar-header-logo-ctn {
+        min-width: 0;
+    }
+
+    .fi-body-has-topbar .fi-main-sidebar .bu-brand {
+        display: flex !important;
+        align-items: center !important;
+        gap: 0.65rem !important;
+        width: 100% !important;
+    }
+
+    .fi-body-has-topbar .fi-main-sidebar .bu-brand-logo {
+        width: 2.5rem !important;
+        height: 2.5rem !important;
+        max-width: 2.5rem !important;
+        object-fit: contain !important;
+        flex-shrink: 0 !important;
+    }
+
+    .fi-body-has-topbar .fi-main-sidebar .bu-brand-text {
+        display: flex !important;
+        min-width: 0;
+        flex-direction: column !important;
+        justify-content: center !important;
+        line-height: 1 !important;
+    }
+
+    .fi-body-has-topbar .fi-main-sidebar .bu-brand-name {
+        display: flex !important;
+        align-items: center !important;
+        gap: 0.25rem !important;
+        font-size: 0.75rem !important;
+        font-weight: 700 !important;
+    }
+
+    .fi-body-has-topbar .fi-main-sidebar .bu-bicol {
+        color: #4da3d9 !important;
+    }
+
+    .fi-body-has-topbar .fi-main-sidebar .bu-university {
+        color: #f59e0b !important;
+    }
+
+    .fi-body-has-topbar .fi-main-sidebar .bu-office {
+        margin-top: 0.3rem !important;
+        color: #111827 !important;
+        font-size: 1rem !important;
+        font-weight: 700 !important;
+        line-height: 1.05 !important;
+    }
+
+    .dark .fi-body-has-topbar .fi-main-sidebar .bu-office {
+        color: #f9fafb !important;
+    }
+
+    .fi-body-has-topbar .fi-main-sidebar .fi-sidebar-nav {
+        padding-top: 1.5rem;
+    }
+
+    .fi-body-has-topbar .fi-main-sidebar .fi-sidebar-group-label {
+        font-size: 0.68rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+    }
+
+    .fi-body-has-topbar .fi-topbar-ctn,
+    .fi-body-has-topbar .fi-main-ctn {
+        margin-inline-start: var(--collapsed-sidebar-width);
+        transition: margin-inline-start 180ms ease;
+    }
+
+    .fi-body-has-topbar:has(#fi-main-sidebar.fi-sidebar-open) .fi-topbar-ctn,
+    .fi-body-has-topbar:has(#fi-main-sidebar.fi-sidebar-open) .fi-main-ctn {
+        margin-inline-start: var(--sidebar-width);
+    }
+
+    .fi-body-has-topbar .fi-topbar-start,
+    .fi-body-has-topbar .fi-topbar-open-sidebar-btn,
+    .fi-body-has-topbar .fi-topbar-close-sidebar-btn {
+        display: none !important;
+    }
+
+    .sidebar-collapse-floating {
+        position: fixed;
+        z-index: 50;
+        top: 1rem;
+        inset-inline-start: calc(var(--collapsed-sidebar-width) - 1rem);
+        display: inline-flex;
+        width: 2rem;
+        height: 2rem;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid rgb(209 213 219 / 0.95);
+        border-radius: 9999px;
+        background-color: #ffffff;
+        color: #4b5563;
+        box-shadow: 0 2px 8px rgb(15 23 42 / 0.14);
+        transition: background-color 150ms ease, color 150ms ease, box-shadow 150ms ease;
+    }
+
+    .sidebar-collapse-floating:hover,
+    .sidebar-collapse-floating:focus-visible {
+        background-color: #eef2ff;
+        color: #4f46e5;
+        outline: none;
+        box-shadow: 0 3px 10px rgb(79 70 229 / 0.22);
+    }
+
+    .sidebar-collapse-floating svg {
+        width: 1rem;
+        height: 1rem;
+    }
+
+    .dark .sidebar-collapse-floating {
+        border-color: rgb(75 85 99 / 0.95);
+        background-color: #1f2937;
+        color: #d1d5db;
+    }
+
+    .dark .sidebar-collapse-floating:hover,
+    .dark .sidebar-collapse-floating:focus-visible {
+        background-color: #312e81;
+        color: #e0e7ff;
+    }
+
+    .fi-body-has-topbar:has(#fi-main-sidebar.fi-sidebar-open) .sidebar-collapse-floating {
+        inset-inline-start: calc(var(--sidebar-width) - 1rem);
+    }
+
+    /* Keep the full navigation compact while retaining keyboard/mouse scrolling. */
+    .fi-body-has-topbar .fi-main-sidebar .fi-sidebar-nav {
+        gap: 1rem;
+        padding-inline: 1rem;
+        padding-block: 1.25rem;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+    }
+
+    .fi-body-has-topbar .fi-main-sidebar .fi-sidebar-nav::-webkit-scrollbar {
+        display: none;
+        width: 0;
+        height: 0;
+    }
+
+    .fi-body-has-topbar .fi-main-sidebar .fi-sidebar-nav-groups {
+        gap: 1.15rem;
+        margin-inline: 0;
+    }
+
+    .fi-body-has-topbar .fi-main-sidebar .fi-sidebar-group {
+        gap: 0.35rem;
+    }
+
+    .fi-body-has-topbar .fi-main-sidebar .fi-sidebar-group-btn {
+        min-height: 1.5rem;
+        gap: 0.5rem;
+        padding: 0.25rem 0.5rem;
+    }
+
+    .fi-body-has-topbar .fi-main-sidebar .fi-sidebar-group-label {
+        font-size: 0.6rem;
+        line-height: 1rem;
+        letter-spacing: 0.065em;
+    }
+
+    .fi-body-has-topbar .fi-main-sidebar .fi-sidebar-group-items,
+    .fi-body-has-topbar .fi-main-sidebar .fi-sidebar-sub-group-items {
+        gap: 0.2rem;
+    }
+
+    .fi-body-has-topbar .fi-main-sidebar .fi-sidebar-item-btn {
+        min-height: 2rem;
+        gap: 0.6rem;
+        padding: 0.35rem 0.6rem;
+    }
+
+    .fi-body-has-topbar .fi-main-sidebar .fi-sidebar-item-btn > .fi-icon,
+    .fi-body-has-topbar .fi-main-sidebar .fi-sidebar-item-btn > svg {
+        width: 1.05rem;
+        height: 1.05rem;
+        flex-shrink: 0;
+    }
+
+    .fi-body-has-topbar .fi-main-sidebar .fi-sidebar-item-label,
+    .fi-body-has-topbar .fi-main-sidebar .fi-sidebar-item-badge-ctn {
+        font-size: 0.75rem;
+        line-height: 1.1rem;
+    }
+
+    .fi-body-has-topbar .fi-main-sidebar .fi-sidebar-item-badge-ctn .fi-badge {
+        min-width: 1rem !important;
+        height: 1rem !important;
+        padding-inline: 0.2rem !important;
+        font-size: 0.55rem !important;
+        line-height: 1rem !important;
+    }
+
+    .fi-body-has-topbar .fi-main-sidebar .bu-brand-logo {
+        width: 2.15rem !important;
+        height: 2.15rem !important;
+        max-width: 2.15rem !important;
+    }
+
+    .fi-body-has-topbar .fi-main-sidebar .bu-brand-name,
+    .fi-body-has-topbar .fi-main-sidebar .bu-brand-name .bu-bicol,
+    .fi-body-has-topbar .fi-main-sidebar .bu-brand-name .bu-university {
+        font-size: 0.66rem !important;
+    }
+
+    .fi-body-has-topbar .fi-main-sidebar .bu-office {
+        margin-top: 0.2rem !important;
+        font-size: 0.86rem !important;
+    }
+
+    .fi-body-has-topbar
+        .fi-main-sidebar:not(.fi-sidebar-open)
+        .fi-sidebar-item-btn > .fi-icon,
+    .fi-body-has-topbar
+        .fi-main-sidebar:not(.fi-sidebar-open)
+        .fi-sidebar-item-btn > svg,
+    .fi-body-has-topbar
+        .fi-main-sidebar:not(.fi-sidebar-open)
+        .fi-sidebar-group-dropdown-trigger-btn .fi-icon {
+        width: 1.25rem;
+        height: 1.25rem;
+    }
+
+    /* Compact navigation treatment for the collapsed sidebar. */
+    .sidebar-collapsed-brand {
+        position: fixed;
+        z-index: 45;
+        top: 1.1rem;
+        inset-inline-start: 0;
+        display: inline-flex;
+        width: var(--collapsed-sidebar-width);
+        align-items: center;
+        justify-content: center;
+        pointer-events: none;
+    }
+
+    .sidebar-collapsed-brand img {
+        width: 2rem;
+        height: 2rem;
+        object-fit: contain;
+    }
+
+    .fi-body-has-topbar
+        .fi-main-sidebar:not(.fi-sidebar-open)
+        .fi-sidebar-nav {
+        padding-inline: 0.45rem;
+        padding-block-start: 1rem;
+        padding-block-end: 1rem;
+    }
+
+    .fi-body-has-topbar
+        .fi-main-sidebar:not(.fi-sidebar-open)
+        .fi-sidebar-nav-groups {
+        gap: 0.85rem;
+        margin-inline: 0;
+    }
+
+    .fi-body-has-topbar
+        .fi-main-sidebar:not(.fi-sidebar-open)
+        .fi-sidebar-group {
+        gap: 0.15rem;
+    }
+
+    /* Keep compact section captions visible while the sidebar is closed. */
+    .fi-body-has-topbar
+        .fi-main-sidebar:not(.fi-sidebar-open)
+        .fi-sidebar-group-btn {
+        display: flex !important;
+        min-height: 1rem;
+        justify-content: center;
+        padding: 0.1rem 0;
+        pointer-events: none;
+    }
+
+    .fi-body-has-topbar
+        .fi-main-sidebar:not(.fi-sidebar-open)
+        .fi-sidebar-group-label {
+        overflow: hidden;
+        width: 100%;
+        color: #b6bdc9;
+        font-size: 0.48rem;
+        font-weight: 700;
+        letter-spacing: 0.045em;
+        line-height: 0.75rem;
+        opacity: 0.8;
+        text-align: center;
+        text-overflow: ellipsis;
+        text-transform: uppercase;
+        white-space: nowrap;
+    }
+
+    .fi-body-has-topbar
+        .fi-main-sidebar:not(.fi-sidebar-open)
+        .fi-sidebar-group-collapse-btn {
+        display: none !important;
+    }
+
+    .fi-body-has-topbar
+        .fi-main-sidebar:not(.fi-sidebar-open)
+        .fi-sidebar-group-items {
+        gap: 0.25rem;
+    }
+
+    .fi-body-has-topbar
+        .fi-main-sidebar:not(.fi-sidebar-open)
+        .fi-sidebar-item-btn {
+        inset-inline-start: 0;
+        width: 100%;
+        min-height: 2.15rem;
+        justify-content: center;
+        gap: 0;
+        padding: 0.35rem;
+    }
+
+    .fi-body-has-topbar
+        .fi-main-sidebar:not(.fi-sidebar-open)
+        .fi-sidebar-item-btn > .fi-sidebar-item-icon,
+    .fi-body-has-topbar
+        .fi-main-sidebar:not(.fi-sidebar-open)
+        .fi-sidebar-item-btn > .fi-icon,
+    .fi-body-has-topbar
+        .fi-main-sidebar:not(.fi-sidebar-open)
+        .fi-sidebar-item-btn > svg {
+        width: 1.4rem;
+        height: 1.4rem;
+        flex-shrink: 0;
+    }
+
+    .fi-body-has-topbar
+        .fi-main-sidebar:not(.fi-sidebar-open)
+        .fi-sidebar-item-grouped-border {
+        display: none;
+    }
+
+    /* Pending counts become small red notification badges over the icon. */
+    .fi-body-has-topbar
+        .fi-main-sidebar:not(.fi-sidebar-open)
+        .fi-sidebar-item-badge-ctn {
+        inset-inline-start: calc(50% + 0.35rem);
+        top: calc(50% - 0.8rem);
+        display: inline-flex !important;
+        width: 0.8rem;
+        min-width: 0.8rem;
+        height: 0.8rem;
+        align-items: center;
+        justify-content: center;
+        transform: none;
+    }
+
+    .fi-body-has-topbar
+        .fi-main-sidebar:not(.fi-sidebar-open)
+        .fi-sidebar-item-badge-ctn
+        .fi-badge {
+        width: 0.8rem !important;
+        min-width: 0.8rem !important;
+        height: 0.8rem !important;
+        padding: 0 !important;
+        border: 2px solid #ffffff !important;
+        color: transparent !important;
+        font-size: 0 !important;
+        line-height: 0.55rem !important;
+    }
+
+    .dark .fi-body-has-topbar
+        .fi-main-sidebar:not(.fi-sidebar-open)
+        .fi-sidebar-item-badge-ctn
+        .fi-badge {
+        border-color: #111827 !important;
+    }
+
+    /* Match the same compact row scale when the sidebar is expanded. */
+    .fi-body-has-topbar .fi-main-sidebar.fi-sidebar-open .fi-sidebar-nav {
+        gap: 0.75rem;
+        padding-inline: 0.9rem;
+        padding-block: 1rem;
+    }
+
+    .fi-body-has-topbar
+        .fi-main-sidebar.fi-sidebar-open
+        .fi-sidebar-nav-groups {
+        gap: 0.8rem;
+    }
+
+    .fi-body-has-topbar
+        .fi-main-sidebar.fi-sidebar-open
+        .fi-sidebar-group {
+        gap: 0.2rem;
+    }
+
+    .fi-body-has-topbar
+        .fi-main-sidebar.fi-sidebar-open
+        .fi-sidebar-group-btn {
+        min-height: 1.25rem;
+        gap: 0.45rem;
+        padding: 0.15rem 0.45rem;
+    }
+
+    .fi-body-has-topbar
+        .fi-main-sidebar.fi-sidebar-open
+        .fi-sidebar-group-label {
+        color: #9ca3af;
+        font-size: 0.6rem;
+        line-height: 0.85rem;
+        letter-spacing: 0.06em;
+        opacity: 0.8;
+    }
+
+    .fi-body-has-topbar
+        .fi-main-sidebar.fi-sidebar-open
+        .fi-sidebar-group-items,
+    .fi-body-has-topbar
+        .fi-main-sidebar.fi-sidebar-open
+        .fi-sidebar-sub-group-items {
+        gap: 0.2rem;
+    }
+
+    .fi-body-has-topbar
+        .fi-main-sidebar.fi-sidebar-open
+        .fi-sidebar-item-btn {
+        min-height: 1.95rem;
+        gap: 0.55rem;
+        padding: 0.3rem 0.55rem;
+    }
+
+    .fi-body-has-topbar
+        .fi-main-sidebar.fi-sidebar-open
+        .fi-sidebar-item-btn > .fi-sidebar-item-icon,
+    .fi-body-has-topbar
+        .fi-main-sidebar.fi-sidebar-open
+        .fi-sidebar-item-btn > .fi-icon,
+    .fi-body-has-topbar
+        .fi-main-sidebar.fi-sidebar-open
+        .fi-sidebar-item-btn > svg {
+        width: 1.25rem;
+        height: 1.25rem;
+        flex-shrink: 0;
+    }
+
+    .fi-body-has-topbar
+        .fi-main-sidebar.fi-sidebar-open
+        .fi-sidebar-item-label {
+        font-size: 0.84rem;
+        line-height: 1.1rem;
+    }
+
+    /* Add vertical separation between labeled navigation sections. */
+    .fi-body-has-topbar
+        .fi-main-sidebar
+        .fi-sidebar-nav-groups
+        > .fi-sidebar-group[data-group-label]:not([data-group-label='']) {
+        padding-top: 0.7rem;
+    }
+
+    .fi-body-has-topbar
+        .fi-main-sidebar:not(.fi-sidebar-open)
+        .fi-sidebar-nav-groups
+        > .fi-sidebar-group[data-group-label]:not([data-group-label='']) {
+        padding-top: 0.5rem;
+    }
+
+    /* Hide section titles in the collapsed sidebar while retaining the spacing. */
+    .fi-body-has-topbar
+        .fi-main-sidebar:not(.fi-sidebar-open)
+        .fi-sidebar-group-btn {
+        display: none !important;
+    }
+}
+
+/* ================================
+   RESPONSIVE SIDEBAR SCALE
+================================ */
+
+@media (max-width: 63.99rem) {
+    .fi-main-sidebar .fi-sidebar-nav {
+        gap: 0.75rem;
+        padding-inline: 0.9rem;
+        padding-block: 1rem;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+    }
+
+    .fi-main-sidebar .fi-sidebar-nav::-webkit-scrollbar {
+        display: none;
+        width: 0;
+        height: 0;
+    }
+
+    .fi-main-sidebar .fi-sidebar-nav-groups {
+        gap: 0.8rem;
+    }
+
+    .fi-main-sidebar .fi-sidebar-group {
+        gap: 0.2rem;
+    }
+
+    .fi-main-sidebar .fi-sidebar-group-btn {
+        min-height: 1.25rem;
+        gap: 0.45rem;
+        padding: 0.15rem 0.45rem;
+    }
+
+    .fi-main-sidebar .fi-sidebar-group-label {
+        color: #9ca3af;
+        font-size: 0.6rem;
+        line-height: 0.85rem;
+        letter-spacing: 0.06em;
+        opacity: 0.8;
+    }
+
+    .fi-main-sidebar .fi-sidebar-group-items,
+    .fi-main-sidebar .fi-sidebar-sub-group-items {
+        gap: 0.2rem;
+    }
+
+    .fi-main-sidebar .fi-sidebar-item-btn {
+        min-height: 1.95rem;
+        gap: 0.55rem;
+        padding: 0.3rem 0.55rem;
+    }
+
+    .fi-main-sidebar .fi-sidebar-item-btn > .fi-sidebar-item-icon,
+    .fi-main-sidebar .fi-sidebar-item-btn > .fi-icon,
+    .fi-main-sidebar .fi-sidebar-item-btn > svg {
+        width: 1.25rem;
+        height: 1.25rem;
+        flex-shrink: 0;
+    }
+
+    .fi-main-sidebar .fi-sidebar-item-label {
+        font-size: 0.84rem;
+        line-height: 1.1rem;
+    }
+}
+
+/* ================================
+   LIGHT TOPBAR / DARK SIDEBAR
+================================ */
+
+.fi-body-has-topbar .fi-topbar {
+    background-color: #ffffff !important;
+    color: #111827 !important;
+    border-bottom: 1px solid rgb(229 231 235 / 0.9);
+}
+
+.fi-body-has-topbar .fi-topbar .fi-topbar-item-label,
+.fi-body-has-topbar .fi-topbar .fi-topbar-item-btn {
+    color: #374151 !important;
+}
+
+.fi-body-has-topbar .fi-topbar .fi-topbar-item-btn > .fi-icon,
+.fi-body-has-topbar .fi-topbar .fi-topbar-database-notifications-btn > .fi-icon {
+    color: #6b7280 !important;
+}
+
+.fi-body-has-topbar .fi-topbar .bu-office {
+    color: #111827 !important;
+}
+
+.dark .fi-body-has-topbar .fi-topbar {
+    background-color: #111827 !important;
+    color: #f9fafb !important;
+    border-bottom-color: rgb(55 65 81 / 0.9);
+}
+
+.dark .fi-body-has-topbar .fi-topbar .fi-topbar-item-label,
+.dark .fi-body-has-topbar .fi-topbar .fi-topbar-item-btn {
+    color: #d1d5db !important;
+}
+
+.dark .fi-body-has-topbar .fi-topbar .fi-topbar-item:hover .fi-topbar-item-label,
+.dark .fi-body-has-topbar .fi-topbar .fi-topbar-item.fi-active .fi-topbar-item-label,
+.dark .fi-body-has-topbar .fi-topbar .fi-topbar-item:hover .fi-topbar-group-toggle-icon,
+.dark .fi-body-has-topbar .fi-topbar .fi-topbar-item.fi-active .fi-topbar-group-toggle-icon {
+    color: #a5b4fc !important;
+}
+
+.dark .fi-body-has-topbar .fi-topbar .fi-topbar-item-btn > .fi-icon,
+.dark .fi-body-has-topbar .fi-topbar .fi-topbar-database-notifications-btn > .fi-icon {
+    color: #9ca3af !important;
+}
+
+.dark .fi-body-has-topbar .fi-topbar .bu-office,
+.dark .fi-topbar .lextrack-brand-text,
+.dark .fi-topbar .lextrack-brand-office {
+    color: #f9fafb !important;
+}
+
+.fi-body-has-topbar .fi-main-sidebar {
+    background-color: #0f172a !important;
+    border-inline-end-color: rgb(51 65 85 / 0.85) !important;
+}
+
+.fi-body-has-topbar .fi-main-sidebar .fi-sidebar-header {
+    background-color: #0f172a !important;
+    border-bottom-color: rgb(51 65 85 / 0.85) !important;
+}
+
+.fi-body-has-topbar .fi-main-sidebar .fi-sidebar-item-label {
+    color: #f8fafc !important;
+}
+
+.fi-body-has-topbar .fi-main-sidebar .fi-sidebar-group-label {
+    color: #cbd5e1 !important;
+}
+
+.fi-body-has-topbar .fi-main-sidebar .fi-sidebar-item-btn > .fi-icon,
+.fi-body-has-topbar .fi-main-sidebar .fi-sidebar-group-btn > .fi-icon,
+.fi-body-has-topbar .fi-main-sidebar .fi-sidebar-group-dropdown-trigger-btn > .fi-icon {
+    color: #cbd5e1 !important;
+}
+
+.fi-body-has-topbar .fi-main-sidebar .fi-sidebar-item-has-url > .fi-sidebar-item-btn:hover,
+.fi-body-has-topbar .fi-main-sidebar .fi-sidebar-item-has-url > .fi-sidebar-item-btn:focus-visible {
+    background-color: rgb(255 255 255 / 0.08) !important;
+}
+
+.fi-body-has-topbar .fi-main-sidebar .fi-sidebar-item.fi-active > .fi-sidebar-item-btn,
+.fi-body-has-topbar .fi-main-sidebar .fi-sidebar-item-has-active-child-items > .fi-sidebar-item-btn {
+    background-color: rgb(255 255 255 / 0.14) !important;
+}
+
+.fi-body-has-topbar .fi-main-sidebar .fi-sidebar-item.fi-active > .fi-sidebar-item-btn > .fi-sidebar-item-label,
+.fi-body-has-topbar .fi-main-sidebar .fi-sidebar-item.fi-active > .fi-sidebar-item-btn > .fi-icon {
+    color: #ffffff !important;
+}
+
+.fi-body-has-topbar .fi-main-sidebar .fi-sidebar-group-dropdown-trigger-btn:hover,
+.fi-body-has-topbar .fi-main-sidebar .fi-sidebar-group-dropdown-trigger-btn:focus-visible {
+    background-color: rgb(255 255 255 / 0.08) !important;
+}
+
+.fi-body-has-topbar .fi-main-sidebar .fi-sidebar-footer,
+.fi-body-has-topbar .fi-main-sidebar .fi-sidebar-database-notifications-btn {
+    color: #f8fafc;
+}
+
+.fi-body-has-topbar .fi-main-sidebar .fi-sidebar-database-notifications-btn:hover,
+.fi-body-has-topbar .fi-main-sidebar .fi-sidebar-database-notifications-btn:focus-visible {
+    background-color: rgb(255 255 255 / 0.08) !important;
+}
+
+.fi-body-has-topbar .fi-main-sidebar .fi-sidebar-database-notifications-btn > .fi-icon,
+.fi-body-has-topbar .fi-main-sidebar .fi-sidebar-database-notifications-btn-label {
+    color: #cbd5e1 !important;
+}
+
+/* LexTrack shield logo used by the sidebar brand. */
+.fi-body-has-topbar .fi-main-sidebar .lextrack-brand {
+    display: flex !important;
+    width: 100%;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 0.55rem;
+}
+
+.fi-body-has-topbar .fi-main-sidebar .lextrack-brand-logo {
+    width: 3.75rem !important;
+    height: 3.75rem !important;
+    max-width: none !important;
+    object-fit: contain !important;
+}
+
+.fi-body-has-topbar .fi-main-sidebar .lextrack-brand-text {
+    min-width: 0;
+    color: #ffffff;
+    line-height: 1;
+}
+
+.fi-body-has-topbar .fi-main-sidebar .lextrack-brand-title {
+    color: #ffffff;
+    font-size: 1.1rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+}
+
+.fi-body-has-topbar .fi-main-sidebar .lextrack-brand-subtitle {
+    display: flex;
+    align-items: baseline;
+    margin-top: 0.2rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.fi-body-has-topbar .fi-main-sidebar .lextrack-brand-b {
+    color: #7dd3fc;
+}
+
+.fi-body-has-topbar .fi-main-sidebar .lextrack-brand-u {
+    color: #f97316;
+}
+
+.fi-body-has-topbar .fi-main-sidebar .lextrack-brand-office {
+    margin-left: 0.25rem;
+    color: #ffffff;
+}
+
+.fi-topbar .lextrack-brand {
+    display: flex !important;
+    align-items: center;
+}
+
+.fi-topbar .lextrack-brand-logo {
+    width: 2.5rem !important;
+    height: 2.5rem !important;
+    object-fit: contain !important;
+}
+
+.fi-topbar .lextrack-brand-text {
+    color: #111827;
+    line-height: 1;
+}
+
+.fi-topbar .lextrack-brand-title {
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+.fi-topbar .lextrack-brand-subtitle {
+    display: flex;
+    align-items: baseline;
+    margin-top: 0.15rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.fi-topbar .lextrack-brand-b {
+    color: #36a9e1;
+}
+
+.fi-topbar .lextrack-brand-u {
+    color: #f97316;
+}
+
+.fi-topbar .lextrack-brand-office {
+    margin-left: 0.2rem;
+    color: #111827;
+}
+
+/* Fixed footer action for the sidebar. */
+.fi-body-has-topbar .fi-main-sidebar .sidebar-logout-form {
+    flex-shrink: 0;
+    margin-top: auto;
+    padding: 0.75rem 1rem 1rem;
+    border-top: 1px solid rgb(51 65 85 / 0.85);
+    background-color: #0f172a;
+}
+
+.fi-body-has-topbar .fi-main-sidebar .sidebar-logout-button {
+    display: flex;
+    width: 100%;
+    min-height: 2.25rem;
+    align-items: center;
+    gap: 0.6rem;
+    border-radius: 0.5rem;
+    padding: 0.45rem 0.6rem;
+    color: #cbd5e1;
+    font-size: 0.84rem;
+    font-weight: 600;
+    text-align: start;
+    transition: background-color 150ms ease, color 150ms ease;
+}
+
+.fi-body-has-topbar .fi-main-sidebar .sidebar-logout-button:hover,
+.fi-body-has-topbar .fi-main-sidebar .sidebar-logout-button:focus-visible {
+    background-color: rgb(255 255 255 / 0.08);
+    color: #f8fafc;
+    outline: none;
+}
+
+.fi-body-has-topbar .fi-main-sidebar .sidebar-logout-icon {
+    width: 1.25rem;
+    height: 1.25rem;
+    flex-shrink: 0;
+}
+
+.fi-body-has-topbar
+    .fi-main-sidebar:not(.fi-sidebar-open)
+    .sidebar-logout-form {
+    padding-inline: 0.45rem;
+}
+
+.fi-body-has-topbar
+    .fi-main-sidebar:not(.fi-sidebar-open)
+    .sidebar-logout-button {
+    justify-content: center;
+    gap: 0;
+    padding-inline: 0.35rem;
+}
+
+.fi-body-has-topbar
+    .fi-main-sidebar:not(.fi-sidebar-open)
+    .sidebar-logout-label {
+    display: none;
+}
+
+/* ================================
+   ADMIN DOCUMENTS TABLE DARK MODE
+================================ */
+
+.dark .admin-documents-page .fi-ta-ctn,
+.dark .admin-documents-page .fi-ta-header,
+.dark .admin-documents-page .fi-ta-content,
+.dark .admin-documents-page .fi-ta-footer {
+    background-color: #111827 !important;
+    border-color: #374151 !important;
+    color: #e5e7eb !important;
+}
+
+.dark .admin-documents-page .fi-ta-table thead tr,
+.dark .admin-documents-page .fi-ta-table thead .fi-ta-header-cell,
+.dark .admin-documents-page .fi-ta-table thead .fi-ta-actions-header-cell,
+.dark .admin-documents-page .fi-ta-table thead .fi-ta-header-cell button {
+    background-color: #1f2937 !important;
+    border-color: #374151 !important;
+    color: #f3f4f6 !important;
+}
+
+.dark .admin-documents-page .fi-ta-table tbody tr {
+    background-color: #111827 !important;
+    border-color: #374151 !important;
+}
+
+.dark .admin-documents-page .fi-ta-table tbody tr:nth-child(even) {
+    background-color: #172033 !important;
+}
+
+.dark .admin-documents-page .fi-ta-table tbody .fi-ta-cell,
+.dark .admin-documents-page .fi-ta-footer,
+.dark .admin-documents-page .fi-ta-footer * {
+    border-color: #374151 !important;
+    color: #d1d5db !important;
+}
+
+/* Keep the existing brand styling and move only the logo to the left of the text on reduced screens. */
+@media (max-width: 63.99rem) {
+    .fi-body-has-topbar .fi-main-sidebar .lextrack-brand,
+    .fi-body-has-topbar .fi-sidebar .lextrack-brand,
+    .fi-body-has-topbar .fi-sidebar-header .lextrack-brand,
+    .fi-body-has-topbar .fi-topbar .lextrack-brand,
+    .lextrack-brand {
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        justify-content: flex-start !important;
+    }
+
+    .fi-body-has-topbar .fi-main-sidebar .lextrack-brand-logo,
+    .fi-body-has-topbar .fi-sidebar .lextrack-brand-logo,
+    .fi-body-has-topbar .fi-sidebar-header .lextrack-brand-logo,
+    .fi-body-has-topbar .fi-topbar .lextrack-brand-logo,
+    img.lextrack-brand-logo {
+        display: block !important;
+        order: -1 !important;
+        flex-shrink: 0 !important;
+        align-self: center !important;
+        width: 2.5rem !important;
+        height: 2.5rem !important;
+        max-width: 2.5rem !important;
+        object-fit: contain !important;
+    }
+
+    .fi-body-has-topbar .fi-main-sidebar .lextrack-brand-logo,
+    .fi-body-has-topbar .fi-sidebar .lextrack-brand-logo,
+    .fi-body-has-topbar .fi-sidebar-header .lextrack-brand-logo,
+    .fi-body-has-topbar .fi-topbar .lextrack-brand-logo,
+    img.lextrack-brand-logo {
+        margin-inline-end: 0.5rem !important;
+    }
+}
+
+/* On small screens, hide only the logo while the sidebar is closed. */
+@media (max-width: 63.99rem) {
+    .fi-body-has-topbar .fi-main-sidebar:not(.fi-sidebar-open) .lextrack-brand-logo,
+    .fi-body-has-topbar .fi-sidebar:not(.fi-sidebar-open) .lextrack-brand-logo,
+    .fi-sidebar:not(.fi-sidebar-open) .lextrack-brand-logo {
+        display: none !important;
+    }
+
+    body:has(#fi-main-sidebar:not(.fi-sidebar-open)) img.lextrack-brand-logo,
+    body:has(#fi-main-sidebar:not(.fi-sidebar-open)) img[src*='lextrack-logo'] {
+        display: none !important;
+    }
 }

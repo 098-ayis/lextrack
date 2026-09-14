@@ -34,7 +34,11 @@ class ActionTypeResource extends Resource
             TextInput::make('action_name')
                 ->label('Action name')
                 ->required()
-                ->maxLength(255),
+                ->maxLength(255)
+                ->unique(ignoreRecord: true)
+                ->validationMessages([
+                    'unique' => 'This action type already exists. Please enter a new unique action type.',
+                ]),
             ColorPicker::make('color')
                 ->label('Color')
                 ->required()
@@ -61,11 +65,16 @@ class ActionTypeResource extends Resource
                     ->sortable(),
             ])
             ->recordActions([
-                \Filament\Actions\EditAction::make(),
+                \Filament\Actions\EditAction::make()
+                    ->successNotificationTitle('Action type updated successfully')
+                    ->successRedirectUrl(fn (): string => ActionTypeResource::getUrl('index')),
                 \Filament\Actions\DeleteAction::make(),
             ])
             ->toolbarActions([
-                \Filament\Actions\CreateAction::make(),
+                \Filament\Actions\CreateAction::make()
+                    ->createAnother(false)
+                    ->successNotificationTitle('Action type created successfully')
+                    ->successRedirectUrl(fn (): string => ActionTypeResource::getUrl('index')),
                 \Filament\Actions\BulkActionGroup::make([
                     \Filament\Actions\DeleteBulkAction::make(),
                 ]),

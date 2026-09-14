@@ -7,12 +7,10 @@ use App\Filament\Resources\OfficeUnits\Pages\CreateOfficeUnit;
 use App\Filament\Resources\OfficeUnits\Pages\EditOfficeUnit;
 use App\Filament\Resources\OfficeUnits\Pages\ListOfficeUnits;
 use App\Models\OfficeUnit;
-use Filament\Forms\Components\ColorPicker;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
-use Filament\Tables\Columns\ColorColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 
@@ -34,10 +32,11 @@ class OfficeUnitResource extends Resource
             TextInput::make('name')
                 ->label('Office / Unit')
                 ->required()
-                ->maxLength(255),
-            ColorPicker::make('color')
-                ->label('Color')
-                ->nullable(),
+                ->maxLength(255)
+                ->unique(ignoreRecord: true)
+                ->validationMessages([
+                    'unique' => 'This office/unit already exists. Please enter a new unique office/unit name.',
+                ]),
         ]);
     }
 
@@ -49,9 +48,6 @@ class OfficeUnitResource extends Resource
                     ->label('Office / Unit')
                     ->searchable()
                     ->sortable(),
-                ColorColumn::make('color')
-                    ->label('Color')
-                    ->copyable(),
                 TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable(),
@@ -60,11 +56,16 @@ class OfficeUnitResource extends Resource
                     ->sortable(),
             ])
             ->recordActions([
-                \Filament\Actions\EditAction::make(),
+                \Filament\Actions\EditAction::make()
+                    ->successNotificationTitle('Office/unit updated successfully')
+                    ->successRedirectUrl(fn (): string => OfficeUnitResource::getUrl('index')),
                 \Filament\Actions\DeleteAction::make(),
             ])
             ->toolbarActions([
-                \Filament\Actions\CreateAction::make(),
+                \Filament\Actions\CreateAction::make()
+                    ->createAnother(false)
+                    ->successNotificationTitle('Office/unit created successfully')
+                    ->successRedirectUrl(fn (): string => OfficeUnitResource::getUrl('index')),
                 \Filament\Actions\BulkActionGroup::make([
                     \Filament\Actions\DeleteBulkAction::make(),
                 ]),

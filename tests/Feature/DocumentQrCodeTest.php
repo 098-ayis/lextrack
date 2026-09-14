@@ -6,6 +6,9 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\URL;
+use RyanChandler\LaravelCloudflareTurnstile\Facades\Turnstile;
+use App\Models\Document;
+use App\Services\DocumentQrToken;
 use Tests\TestCase;
 
 class DocumentQrCodeTest extends TestCase
@@ -26,5 +29,70 @@ class DocumentQrCodeTest extends TestCase
         $this->assertStringStartsWith("\x89PNG\r\n\x1a\n", $response->getContent());
         $this->assertNotFalse(getimagesizefromstring($response->getContent()));
         $this->get(URL::signedRoute('documents.qr', ['document' => 999]))->assertNotFound();
+    }
+
+    public function test_qr_image_upload_without_turnstile_token_is_rejected(): void
+    {
+        Turnstile::fake();
+
+        $this->postJson(route('public.track.qr'), [
+            'qr_source' => 'image',
+            'qr_token' => 'LEXTRACK-QR-1.invalid-token',
+        ])->assertUnprocessable()
+            ->assertJsonValidationErrors('cf-turnstile-response');
+    }
+
+    public function test_qr_image_upload_with_invalid_turnstile_token_is_rejected(): void
+    {
+        Turnstile::fake()->fail();
+
+        $this->postJson(route('public.track.qr'), [
+            'qr_source' => 'image',
+            'qr_token' => 'LEXTRACK-QR-1.invalid-token',
+            'cf-turnstile-response' => 'invalid-turnstile-token',
+        ])->assertUnprocessable()
+            ->assertJsonValidationErrors('cf-turnstile-response');
+    }
+
+    public function test_valid_turnstile_token_and_valid_qr_image_payload_are_accepted(): void
+    {
+        config(['database.default' => 'sqlite', 'database.connections.sqlite.database' => ':memory:']);
+        DB::purge('sqlite');
+        Schema::create('documents', function (Blueprint $table) {
+            $table->id('document_id');
+            $table->string('lao_number')->nullable();
+            $table->string('document_type')->nullable();
+            $table->text('particulars')->nullable();
+            $table->string('status')->nullable();
+            $table->timestamps();
+        });
+
+        $document = Document::query()->create([
+            'lao_number' => 'LAO-26-001',
+            'document_type' => 'Legal Document',
+            'particulars' => 'Test document',
+            'status' => 'pending',
+        ]);
+
+        Turnstile::fake();
+
+        $this->postJson(route('public.track.qr'), [
+            'qr_source' => 'image',
+            'qr_token' => DocumentQrToken::encode($document),
+            'cf-turnstile-response' => Turnstile::dummy(),
+        ])->assertOk()
+            ->assertJsonPath('document.tracking_number', 'LAO-26-001');
+    }
+
+    public function test_valid_turnstile_token_and_invalid_qr_image_payload_use_existing_validation(): void
+    {
+        Turnstile::fake();
+
+        $this->postJson(route('public.track.qr'), [
+            'qr_source' => 'image',
+            'qr_token' => 'not-a-lextrack-qr-token',
+            'cf-turnstile-response' => Turnstile::dummy(),
+        ])->assertUnprocessable()
+            ->assertJsonValidationErrors('qr_token');
     }
 }

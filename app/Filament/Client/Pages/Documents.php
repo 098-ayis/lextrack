@@ -256,7 +256,8 @@ class Documents extends Page implements HasTable
                     ->label('TYPE'),
 
                 TextColumn::make('particulars')
-                    ->label('PARTICULARS'),
+                    ->label('PARTICULARS')
+                    ->state(fn (Document $record): string => (string) ($record->particulars ?: $record->description ?: '')),
 
                 TextColumn::make('source')
                     ->label('SOURCE')

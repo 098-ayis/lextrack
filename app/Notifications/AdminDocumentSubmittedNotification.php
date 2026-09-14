@@ -35,7 +35,7 @@ class AdminDocumentSubmittedNotification extends Notification
                 $submitterName . ' has submitted ' .
                 $this->documentCount . ' ' . $documentLabel . ' for review.'
             )
-            ->line('Latest submission: ' . ($this->document->particulars ?: 'Untitled document'))
+            ->line('Latest submission: ' . ($this->document->description ?: $this->document->particulars ?: 'Untitled document'))
             ->line('Status: Pending review')
             ->action(
                 'Review Submissions',

@@ -69,7 +69,6 @@
     @php
         $activeSection = $this->activeSection;
         $statusCounts = $this->getStatusCounts();
-        $newStatusSections = $this->getNewStatusSections();
         $documents = $this->getDocuments($activeSection);
     @endphp
 
@@ -93,9 +92,7 @@
                 >
                     {{ $label }}
                     <span
-                        class="{{ in_array($section, $newStatusSections, true)
-                            ? 'ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 py-0.5 text-xs font-semibold text-white shadow-sm'
-                            : 'ml-2 text-xs font-semibold' }}"
+                        class="ml-2 text-xs font-semibold"
                     >
                         {{ $statusCounts[$section] ?? 0 }}
                     </span>

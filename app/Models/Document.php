@@ -15,8 +15,9 @@ class Document extends Model
     
     protected $fillable = [
         'user_id',
-        'file_hash',
         'document_type',
+        'transmittal',
+        'description',
         'action_type',
         'lao_number',
         'document_name',
@@ -36,6 +37,9 @@ class Document extends Model
 
     protected $casts = [
         'deadline' => 'date',
+        'sent_date' => 'date',
+        'outgoing_date' => 'date',
+        'date_returned' => 'date',
         'archived_at' => 'datetime',
     ];
 
@@ -61,10 +65,15 @@ class Document extends Model
             ->toDateString();
     }
 
+    /**
+     * Generate the next LAO number for the year represented by the document's
+     * upload date. Existing LAO numbers are used as the source of truth for
+     * the next sequence value.
+     */
     public static function generateLaoNumber(
-        ?CarbonInterface $generatedAt = null,
+        ?CarbonInterface $documentDate = null,
     ): string {
-        $year = ($generatedAt ?? now())->format('y');
+        $year = ($documentDate ?? now())->format('y');
 
         $highestNumber = static::query()
             ->whereNotNull('lao_number')

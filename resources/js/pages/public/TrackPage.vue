@@ -4,6 +4,43 @@
         @paste="handlePaste"
     >
         <div
+            v-if="qrCaptchaOpen"
+            class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="qr-captcha-title"
+        >
+            <div class="relative w-full max-w-md rounded-2xl bg-white p-6 text-center shadow-2xl">
+                <button
+                    type="button"
+                    class="absolute right-4 top-4 rounded-full p-1 text-2xl leading-none text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
+                    aria-label="Close CAPTCHA"
+                    @click="cancelQrPhotoUpload"
+                >
+                    <span aria-hidden="true">&times;</span>
+                </button>
+
+                <h2 id="qr-captcha-title" class="text-lg font-bold text-[#174f78]">
+                    Verify before uploading
+                </h2>
+
+                <p class="mt-2 text-sm text-gray-500">
+                    Complete the CAPTCHA and your file picker will open automatically.
+                </p>
+
+                <div ref="turnstileContainer" class="mt-5 flex justify-center"></div>
+
+                <p
+                    v-if="turnstileError"
+                    class="mt-4 text-sm font-semibold text-red-700"
+                >
+                    {{ turnstileError }}
+                </p>
+
+            </div>
+        </div>
+
+        <div
             class="mb-6 w-full max-w-6xl overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-[0_10px_40px_rgba(0,0,0,0.08)]"
         >
             <div class="bg-[#121722] px-6 py-5 md:px-8 md:py-6">
@@ -120,9 +157,9 @@
                                 </button>
 
                                 <label
-                                    for="public-qr-photo"
                                     class="flex h-10 cursor-pointer items-center justify-center rounded-xl border px-4 text-sm font-semibold transition"
                                     :class="qrActionColorClasses"
+                                    @click.prevent="openQrPhotoUpload"
                                 >
                                     Upload QR photo
                                 </label>
@@ -267,12 +304,156 @@ const qrMessage = ref('')
 const scannerError = ref('')
 const videoElement = ref(null)
 const qrFileInput = ref(null)
+const turnstileContainer = ref(null)
+const turnstileResponse = ref('')
+const qrCaptchaOpen = ref(false)
+const turnstileError = ref('')
 
 let qrReader = null
 let qrControls = null
 let qrDecoderPromise = null
 let qrRequestController = null
 let qrRequestToken = 0
+let turnstileWidgetId = null
+let turnstileLoadPromise = null
+
+
+const ensureTurnstile = async () => {
+    if (window.turnstile?.render) {
+        return
+    }
+
+    if (!turnstileLoadPromise) {
+        turnstileLoadPromise = new Promise((resolve, reject) => {
+            const existingScript = window.document.querySelector(
+                'script[data-lextrack-turnstile]'
+            )
+
+            if (existingScript) {
+                existingScript.addEventListener('load', resolve, { once: true })
+                existingScript.addEventListener('error', reject, { once: true })
+                return
+            }
+
+            const script = window.document.createElement('script')
+
+            script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit'
+            script.async = true
+            script.defer = true
+            script.dataset.lextrackTurnstile = 'true'
+            script.onload = resolve
+            script.onerror = reject
+
+            window.document.head.appendChild(script)
+        })
+    }
+
+    await turnstileLoadPromise
+
+    if (!window.turnstile?.render) {
+        throw new Error('The CAPTCHA could not be loaded.')
+    }
+}
+
+
+const renderTurnstile = async () => {
+    if (!window.LexTrack?.turnstileSiteKey || !qrCaptchaOpen.value || !turnstileContainer.value) {
+        return
+    }
+
+    try {
+        await ensureTurnstile()
+
+        await nextTick()
+
+        if (!turnstileContainer.value) {
+            return
+        }
+
+        turnstileWidgetId = window.turnstile.render(turnstileContainer.value, {
+            sitekey: window.LexTrack.turnstileSiteKey,
+            callback: (token) => {
+                turnstileResponse.value = token
+                turnstileError.value = ''
+                nextTick(openQrPhotoPicker)
+            },
+            'expired-callback': () => {
+                turnstileResponse.value = ''
+                turnstileError.value = 'The CAPTCHA expired. Please complete it again.'
+            },
+            'timeout-callback': () => {
+                turnstileResponse.value = ''
+                turnstileError.value = 'The CAPTCHA timed out. Please complete it again.'
+            },
+            'error-callback': () => {
+                turnstileResponse.value = ''
+                turnstileError.value = 'The CAPTCHA could not be verified. Please try again.'
+            },
+        })
+    } catch (error) {
+        console.error('Turnstile error:', error)
+        turnstileError.value = 'The CAPTCHA could not be loaded. Please try again.'
+    }
+}
+
+
+const openQrPhotoUpload = () => {
+    if (turnstileResponse.value) {
+        resetTurnstile()
+    }
+
+    qrMessage.value = ''
+    turnstileError.value = ''
+    qrCaptchaOpen.value = true
+
+    nextTick(renderTurnstile)
+}
+
+
+const openQrPhotoPicker = () => {
+    if (!turnstileResponse.value || !qrFileInput.value) {
+        turnstileError.value = 'Please complete the CAPTCHA verification before choosing a QR photo.'
+
+        return
+    }
+
+    const fileInput = qrFileInput.value
+
+    // Keep the verified token for the upload request, but close the modal
+    // before opening the native file picker.
+    qrCaptchaOpen.value = false
+    turnstileWidgetId = null
+
+    try {
+        if (typeof fileInput.showPicker === 'function') {
+            fileInput.showPicker()
+        } else {
+            fileInput.click()
+        }
+    } catch (error) {
+        console.error('QR photo picker error:', error)
+        qrCaptchaOpen.value = true
+        turnstileError.value = 'CAPTCHA verified, but the file picker could not be opened. Please close this message and try again.'
+    }
+}
+
+
+const cancelQrPhotoUpload = () => {
+    resetTurnstile()
+}
+
+
+const resetTurnstile = () => {
+    turnstileResponse.value = ''
+    turnstileError.value = ''
+
+    if (turnstileWidgetId !== null && window.turnstile?.reset) {
+        window.turnstile.reset(turnstileWidgetId)
+    }
+
+    turnstileWidgetId = null
+    qrCaptchaOpen.value = false
+}
 
 
 const ensureQrDecoder = async () => {
@@ -375,6 +556,7 @@ const clearQrTracking = () => {
     document.value = null
     hasSearched.value = false
     clearQrState()
+    resetTurnstile()
 
     if (qrFileInput.value) {
         qrFileInput.value.value = ''
@@ -388,7 +570,7 @@ const qrTokenPattern = /^LEXTRACK-QR-1\.[A-Za-z0-9_-]+$/
 const isRecognizedQrPayload = (payload) => qrTokenPattern.test(payload)
 
 
-const resolveQrValue = async (value) => {
+const resolveQrValue = async (value, fromImage = false) => {
     const qrToken = value?.trim()
 
     clearQrState()
@@ -403,6 +585,14 @@ const resolveQrValue = async (value) => {
 
     if (!isRecognizedQrPayload(qrToken)) {
         qrMessage.value = 'Invalid QR code. Please scan a LexTrack document QR code.'
+        hasSearched.value = true
+        document.value = null
+
+        return
+    }
+
+    if (fromImage && !turnstileResponse.value) {
+        qrMessage.value = 'Please complete the CAPTCHA verification before uploading the QR code.'
         hasSearched.value = true
         document.value = null
 
@@ -429,6 +619,12 @@ const resolveQrValue = async (value) => {
             signal: controller.signal,
             body: JSON.stringify({
                 qr_token: qrToken,
+                ...(fromImage ? {
+                    qr_source: 'image',
+                    'cf-turnstile-response': turnstileResponse.value,
+                } : {
+                    qr_source: 'camera',
+                }),
                 ...honeypotPayload(),
             }),
         })
@@ -443,6 +639,16 @@ const resolveQrValue = async (value) => {
             qrMessage.value = 'Too many scan attempts. Please wait a moment and try again.'
 
             return
+        }
+
+        if (fromImage && response.status === 422) {
+            const data = await response.json().catch(() => ({}))
+
+            if (data.errors?.['cf-turnstile-response']) {
+                qrMessage.value = 'Please complete the CAPTCHA verification before uploading the QR code.'
+
+                return
+            }
         }
 
         if (!response.ok) {
@@ -519,7 +725,7 @@ const decodeQrImage = async (file) => {
 
         const result = await reader.decodeFromImageElement(image)
 
-        await resolveQrValue(result.getText())
+        await resolveQrValue(result.getText(), true)
     } catch (error) {
         scannerError.value = error?.message === 'The QR decoder could not be loaded.'
             ? 'The QR decoder could not be loaded. Refresh the page and try again.'
@@ -528,6 +734,8 @@ const decodeQrImage = async (file) => {
         if (objectUrl) {
             URL.revokeObjectURL(objectUrl)
         }
+
+        resetTurnstile()
     }
 }
 
@@ -623,7 +831,9 @@ const loadHoneypot = async () => {
 }
 
 
-onMounted(loadHoneypot)
+onMounted(() => {
+    loadHoneypot()
+})
 onBeforeUnmount(stopScanner)
 
 

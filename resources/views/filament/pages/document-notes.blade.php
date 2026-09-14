@@ -2,9 +2,9 @@
     class="flex items-center justify-between gap-3 border-b border-gray-200
            px-4 py-3"
 >
-    <h2 class="text-sm font-bold text-gray-950">
+    <p class="text-[10px] font-semibold uppercase tracking-[0.12em] text-gray-500">
         Notes
-    </h2>
+    </p>
 
     {{ ($this->addNoteAction)([
         'document' => $documentRecord->document_id,

@@ -10,6 +10,16 @@ class EditDocumentType extends EditRecord
 {
     protected static string $resource = DocumentTypeResource::class;
 
+    protected function getRedirectUrl(): string
+    {
+        return DocumentTypeResource::getUrl('index');
+    }
+
+    protected function getSavedNotificationTitle(): ?string
+    {
+        return 'Document type updated successfully';
+    }
+
     protected function getHeaderActions(): array
     {
         return [DeleteAction::make()];

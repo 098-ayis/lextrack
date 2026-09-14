@@ -9,11 +9,12 @@
 
 @section('maincontent')
 
-    <div id="app"></div>
+    <div id="public-app"></div>
 
     <script>
         window.LexTrack = {
             flashStatus: @json(session('status')),
+            turnstileSiteKey: @json(config('services.turnstile.key')),
         };
     </script>
 

@@ -265,7 +265,7 @@
                         />
                     </svg>
 
-                    Upload
+                    Submit
                 </a>
 
             </div>
@@ -378,7 +378,7 @@
                         {{-- DETAILS --}}
                         <div class="flex flex-1 flex-col p-3">
                             <h3 class="line-clamp-2 text-sm font-bold text-gray-900 dark:text-gray-100">
-                                {{ $document->particulars ?: 'Untitled document' }}
+                                {{ $document->particulars ?: $document->description ?: 'Untitled document' }}
                             </h3>
 
                             <p class="mt-2 text-xs font-medium text-gray-500 dark:text-gray-400">

@@ -5,6 +5,7 @@ namespace App\Filament\Pages;
 use App\Models\Document;
 use Filament\Pages\Page;
 use Livewire\WithPagination;
+use UnitEnum;
 
 class Reports extends Page
 {
@@ -12,7 +13,9 @@ class Reports extends Page
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-chart-bar';
 
-    protected static ?int $navigationSort = 5;
+    protected static ?int $navigationSort = 3;
+
+    protected static string|UnitEnum|null $navigationGroup = 'OPERATIONS';
 
     protected string $view = 'filament.pages.reports';
 

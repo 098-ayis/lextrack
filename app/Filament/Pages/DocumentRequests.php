@@ -21,6 +21,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
+use UnitEnum;
 // use BezhanSalleh\FilamentShield\Traits\HasPageShield;
 
 class DocumentRequests extends Page implements HasTable
@@ -28,7 +29,9 @@ class DocumentRequests extends Page implements HasTable
     use InteractsWithTable;
    // use HasPageShield;
 
-    protected static ?int $navigationSort = 3;
+    protected static ?int $navigationSort = 2;
+
+    protected static string|UnitEnum|null $navigationGroup = 'MANAGEMENT';
 
     protected static string|\BackedEnum|null $navigationIcon =
         'heroicon-o-document-plus';
@@ -296,7 +299,7 @@ class DocumentRequests extends Page implements HasTable
              * doesn't already have one.
              */
             if (!$document->lao_number) {
-                $document->lao_number = Document::generateLaoNumber();
+                $document->lao_number = Document::generateLaoNumber($document->created_at);
             }
 
             $document->status = 'in_progress';

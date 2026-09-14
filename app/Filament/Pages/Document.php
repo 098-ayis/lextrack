@@ -19,16 +19,22 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
+use Filament\Forms\Components\Hidden;
+use Filament\Forms\Components\Placeholder;
 use App\Models\ActionType;
 use App\Models\DocumentType;
 use App\Models\ActivityLog;
 use App\Models\OfficeUnit;
 use Filament\Support\Enums\Alignment;
 use Filament\Support\Enums\Width;
+use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Http\UploadedFile;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
 use chillerlan\QRCode\QRCode;
+use UnitEnum;
 use chillerlan\QRCode\QROptions;
 use chillerlan\QRCode\Output\QROutputInterface;
 use App\Models\Conversation;
@@ -51,12 +57,22 @@ use Illuminate\Support\Facades\URL;
 
 class Document extends Page implements HasTable
 {
+    private const string OTHER_DOCUMENT_TYPE = '__other_document_type__';
+
+    private const string OTHER_OFFICE_UNIT = '__other_office_unit__';
+
+    private const string OTHER_ACTION_TYPE = '__other_action_type__';
+
+    private const string OTHER_SENT_TO = '__other_sent_to__';
+
     use InteractsWithTable;
     // use HasPageShield;
 
     protected static ?string $slug = 'incoming';
 
-    protected static ?int $navigationSort = 2;
+    protected static ?int $navigationSort = 1;
+
+    protected static string|UnitEnum|null $navigationGroup = 'MANAGEMENT';
 
     protected static ?string $navigationLabel = 'Documents';
 
@@ -215,9 +231,9 @@ class Document extends Page implements HasTable
         ];
     }
 
-    public function acceptDocument(int $documentId): void
+    public function acceptDocument(int $documentId, ?string $particulars = null): void
     {
-        $result = DB::transaction(function () use ($documentId): array {
+        $result = DB::transaction(function () use ($documentId, $particulars): array {
 
             $document = DocumentModel::with('user')
                 ->lockForUpdate()
@@ -246,9 +262,12 @@ class Document extends Page implements HasTable
                 // A revised document is the same request, so never replace an
                 // LAO number that was already assigned to it.
                 'lao_number' => $document->lao_number
-                    ?: DocumentModel::generateLaoNumber(),
+                    ?: DocumentModel::generateLaoNumber($document->created_at),
                 'status' => 'in_progress',
                 'deadline' => DocumentModel::deadlineForType($document->document_type),
+                'particulars' => $particulars !== null
+                    ? trim($particulars)
+                    : $document->particulars,
             ]);
 
             $this->recordDocumentActivity(
@@ -480,6 +499,25 @@ class Document extends Page implements HasTable
                 ->extraHeaderAttributes(['class' => 'min-w-[140px]']);
 
         if ($this->activeSection === 'pending') {
+            $columns[] = TextColumn::make('description')
+                ->label('DESCRIPTION')
+                ->placeholder('No description')
+                ->limit(25)
+                ->tooltip(fn (DocumentModel $record): ?string => filled($record->description)
+                    ? $record->description
+                    : null)
+                ->wrap()
+                ->extraHeaderAttributes(['class' => 'min-w-[180px]'])
+                ->extraCellAttributes(['class' => 'align-middle']);
+
+            $columns[] = ViewColumn::make('transmittal')
+                ->label('TRANSMITTAL')
+                ->view('filament.tables.columns.transmittal')
+                ->alignCenter()
+                ->width('8rem')
+                ->extraHeaderAttributes(['class' => 'min-w-[180px]'])
+                ->extraCellAttributes(['class' => 'align-middle']);
+
             $columns[] = ViewColumn::make('uploaded_by')
                 ->label('UPLOADED BY')
                 ->view('filament.tables.columns.uploaded-by')
@@ -691,8 +729,20 @@ class Document extends Page implements HasTable
             ->schema([
                 TextInput::make('lao_number')
                     ->label('LAO Number')
-                    ->default(fn (): string => DocumentModel::generateLaoNumber())
+                    ->default(fn (): string => DocumentModel::generateLaoNumber(now()))
                     ->readOnly(),
+
+                Hidden::make('document_type_mode')
+                    ->default('select')
+                    ->dehydrated(false),
+
+                Hidden::make('action_type_mode')
+                    ->default('select')
+                    ->dehydrated(false),
+
+                Hidden::make('office_unit_mode')
+                    ->default('select')
+                    ->dehydrated(false),
 
                 Grid::make(2)
                     ->schema([
@@ -701,16 +751,46 @@ class Document extends Page implements HasTable
                             ->placeholder('Select document type')
                             ->options(fn () => DocumentType::query()
                                 ->orderBy('type_name')
-                                ->pluck('type_name', 'type_name'))
+                                ->pluck('type_name', 'type_name')
+                                ->prepend('Others', self::OTHER_DOCUMENT_TYPE)
+                                ->toArray())
                             ->searchable()
                             ->preload()
                             ->live()
+                            ->visible(fn (Get $get): bool => $get('document_type_mode') !== self::OTHER_DOCUMENT_TYPE)
+                            ->dehydrated(fn (Get $get): bool => $get('document_type_mode') !== self::OTHER_DOCUMENT_TYPE)
                             ->afterStateUpdated(function ($state, Set $set): void {
+                                if ($state === self::OTHER_DOCUMENT_TYPE) {
+                                    $set('document_type_mode', self::OTHER_DOCUMENT_TYPE);
+                                    $set('document_type', null);
+                                    $set('deadline', null);
+
+                                    return;
+                                }
+
+                                $set('document_type_mode', 'select');
                                 $set('deadline', DocumentModel::deadlineForType(
                                     filled($state) ? (string) $state : null,
                                 ));
                             })
                             ->required(),
+
+                        TextInput::make('document_type')
+                            ->label('Document Type')
+                            ->placeholder('Enter the document type')
+                            ->maxLength(255)
+                            ->suffixAction(
+                                Action::make('chooseListedDocumentType')
+                                    ->icon(Heroicon::ChevronDown)
+                                    ->tooltip('Choose from listed document types')
+                                    ->action(function (Set $set): void {
+                                        $set('document_type_mode', 'select');
+                                        $set('document_type', null);
+                                    }),
+                            )
+                            ->visible(fn (Get $get): bool => $get('document_type_mode') === self::OTHER_DOCUMENT_TYPE)
+                            ->dehydrated(fn (Get $get): bool => $get('document_type_mode') === self::OTHER_DOCUMENT_TYPE)
+                            ->required(fn (Get $get): bool => $get('document_type_mode') === self::OTHER_DOCUMENT_TYPE),
 
                         DatePicker::make('deadline')
                             ->label('Deadline'),
@@ -722,19 +802,83 @@ class Document extends Page implements HasTable
                             ->label('Action Taken')
                             ->options(fn () => ActionType::query()
                                 ->orderBy('action_name')
-                                ->pluck('action_name', 'action_name'))
+                                ->pluck('action_name', 'action_name')
+                                ->prepend('Others', self::OTHER_ACTION_TYPE)
+                                ->toArray())
                             ->searchable()
                             ->preload()
+                            ->live()
+                            ->visible(fn (Get $get): bool => $get('action_type_mode') !== self::OTHER_ACTION_TYPE)
+                            ->dehydrated(fn (Get $get): bool => $get('action_type_mode') !== self::OTHER_ACTION_TYPE)
+                            ->afterStateUpdated(function (Set $set, ?string $state): void {
+                                if ($state === self::OTHER_ACTION_TYPE) {
+                                    $set('action_type_mode', self::OTHER_ACTION_TYPE);
+                                    $set('action_type', null);
+
+                                    return;
+                                }
+
+                                $set('action_type_mode', 'select');
+                            })
                             ->nullable(),
+
+                        TextInput::make('action_type')
+                            ->label('Action Taken')
+                            ->placeholder('Enter the action taken')
+                            ->maxLength(255)
+                            ->suffixAction(
+                                Action::make('chooseListedActionType')
+                                    ->icon(Heroicon::ChevronDown)
+                                    ->tooltip('Choose from listed actions')
+                                    ->action(function (Set $set): void {
+                                        $set('action_type_mode', 'select');
+                                        $set('action_type', null);
+                                    }),
+                            )
+                            ->visible(fn (Get $get): bool => $get('action_type_mode') === self::OTHER_ACTION_TYPE)
+                            ->dehydrated(fn (Get $get): bool => $get('action_type_mode') === self::OTHER_ACTION_TYPE)
+                            ->required(fn (Get $get): bool => $get('action_type_mode') === self::OTHER_ACTION_TYPE),
                     
                         Select::make('office_unit')
                             ->label('Office / Unit')
                             ->options(fn () => OfficeUnit::query()
                                 ->orderBy('name')
-                                ->pluck('name', 'name'))
+                                ->pluck('name', 'name')
+                                ->prepend('Others', self::OTHER_OFFICE_UNIT)
+                                ->toArray())
                             ->searchable()
                             ->preload()
+                            ->live()
+                            ->visible(fn (Get $get): bool => $get('office_unit_mode') !== self::OTHER_OFFICE_UNIT)
+                            ->dehydrated(fn (Get $get): bool => $get('office_unit_mode') !== self::OTHER_OFFICE_UNIT)
+                            ->afterStateUpdated(function (Set $set, ?string $state): void {
+                                if ($state === self::OTHER_OFFICE_UNIT) {
+                                    $set('office_unit_mode', self::OTHER_OFFICE_UNIT);
+                                    $set('office_unit', null);
+
+                                    return;
+                                }
+
+                                $set('office_unit_mode', 'select');
+                            })
                             ->required(),
+
+                        TextInput::make('office_unit')
+                            ->label('Office / Unit')
+                            ->placeholder('Enter the office/unit name')
+                            ->maxLength(255)
+                            ->suffixAction(
+                                Action::make('chooseListedOfficeUnit')
+                                    ->icon(Heroicon::ChevronDown)
+                                    ->tooltip('Choose from listed offices/units')
+                                    ->action(function (Set $set): void {
+                                        $set('office_unit_mode', 'select');
+                                        $set('office_unit', null);
+                                    }),
+                            )
+                            ->visible(fn (Get $get): bool => $get('office_unit_mode') === self::OTHER_OFFICE_UNIT)
+                            ->dehydrated(fn (Get $get): bool => $get('office_unit_mode') === self::OTHER_OFFICE_UNIT)
+                            ->required(fn (Get $get): bool => $get('office_unit_mode') === self::OTHER_OFFICE_UNIT),
                     ]),
 
                 Textarea::make('particulars')
@@ -755,7 +899,7 @@ class Document extends Page implements HasTable
                     ->preserveFilenames()
                     ->live()
                     ->afterStateUpdated(function ($state, Set $set): void {
-                        $set('document_name', filled($state) ? basename((string) $state) : null);
+                        $set('document_name', $this->uploadedDocumentName($state));
                     }),
             ])
             ->action(function (array $data) {
@@ -764,14 +908,13 @@ class Document extends Page implements HasTable
 
                 $data['user_id'] = auth()->id();
                 $data['deadline'] ??= DocumentModel::deadlineForType($data['document_type'] ?? null);
-                $data['document_name'] = filled($filePath)
-                    ? basename((string) $filePath)
-                    : ($data['document_name'] ?? null);
+                $data['document_name'] = $this->uploadedDocumentName($filePath)
+                    ?? ($data['document_name'] ?? null);
 
                 $document = DB::transaction(function () use ($data, $filePath): DocumentModel {
                     // Generate again at save time so the number is always the
                     // latest available one, even if the form stayed open.
-                    $data['lao_number'] = DocumentModel::generateLaoNumber();
+                    $data['lao_number'] = DocumentModel::generateLaoNumber(now());
                     // Documents added by staff are already in processing;
                     // pending is reserved for client submissions awaiting acceptance.
                     $data['status'] = 'in_progress';
@@ -823,6 +966,10 @@ class Document extends Page implements HasTable
 
                 if ($document?->status === 'outgoing') {
                     return [
+                        Hidden::make('sent_to_mode')
+                            ->default('select')
+                            ->dehydrated(false),
+
                         TextInput::make('document_name')
                             ->label('Document Name')
                             ->maxLength(255),
@@ -859,9 +1006,46 @@ class Document extends Page implements HasTable
                             ->label('Outgoing Date')
                             ->default(now()->toDateString()),
 
+                        Select::make('sent_to')
+                            ->label('Sent To')
+                            ->options(fn () => OfficeUnit::query()
+                                ->orderBy('name')
+                                ->pluck('name', 'name')
+                                ->prepend('Others', self::OTHER_SENT_TO)
+                                ->toArray())
+                            ->searchable()
+                            ->preload()
+                            ->live()
+                            ->visible(fn (Get $get): bool => $get('sent_to_mode') !== self::OTHER_SENT_TO)
+                            ->dehydrated(fn (Get $get): bool => $get('sent_to_mode') !== self::OTHER_SENT_TO)
+                            ->afterStateUpdated(function (Set $set, ?string $state): void {
+                                if ($state === self::OTHER_SENT_TO) {
+                                    $set('sent_to_mode', self::OTHER_SENT_TO);
+                                    $set('sent_to', null);
+
+                                    return;
+                                }
+
+                                $set('sent_to_mode', 'select');
+                            })
+                            ->required(),
+
                         TextInput::make('sent_to')
                             ->label('Sent To')
-                            ->maxLength(255),
+                            ->placeholder('Enter the destination')
+                            ->maxLength(255)
+                            ->suffixAction(
+                                Action::make('chooseListedSentTo')
+                                    ->icon(Heroicon::ChevronDown)
+                                    ->tooltip('Choose from listed offices/units')
+                                    ->action(function (Set $set): void {
+                                        $set('sent_to_mode', 'select');
+                                        $set('sent_to', null);
+                                    }),
+                            )
+                            ->visible(fn (Get $get): bool => $get('sent_to_mode') === self::OTHER_SENT_TO)
+                            ->dehydrated(fn (Get $get): bool => $get('sent_to_mode') === self::OTHER_SENT_TO)
+                            ->required(fn (Get $get): bool => $get('sent_to_mode') === self::OTHER_SENT_TO),
 
                         DatePicker::make('sent_date')
                             ->label('Sent Date')
@@ -878,75 +1062,80 @@ class Document extends Page implements HasTable
                 }
 
                 return [
-                TextInput::make('lao_number')
-                    ->label('LAO Number')
-                    ->required(),
+                    Grid::make(2)
+                        ->schema([
+                            TextInput::make('lao_number')
+                                ->label('LAO Number')
+                                ->required(),
 
-                TextInput::make('document_name')
-                    ->label('Document Name')
-                    ->maxLength(255),
+                            TextInput::make('document_name')
+                                ->label('Document Name')
+                                ->maxLength(255),
 
-                Select::make('document_type')
-                    ->label('Document Type')
-                    ->placeholder('Select document type')
-                    ->options(fn () => DocumentType::query()
-                        ->orderBy('type_name')
-                        ->pluck('type_name', 'type_name'))
-                    ->searchable()
-                    ->preload()
-                    ->live()
-                    ->afterStateUpdated(function ($state, Set $set): void {
-                        $deadline = DocumentModel::deadlineForType($state);
+                            Select::make('document_type')
+                                ->label('Document Type')
+                                ->placeholder('Select document type')
+                                ->options(fn () => DocumentType::query()
+                                    ->orderBy('type_name')
+                                    ->pluck('type_name', 'type_name'))
+                                ->searchable()
+                                ->preload()
+                                ->live()
+                                ->afterStateUpdated(function ($state, Set $set): void {
+                                    $deadline = DocumentModel::deadlineForType($state);
 
-                        if (filled($deadline)) {
-                            $set('deadline', $deadline);
-                        }
-                    })
-                    ->required(),
+                                    if (filled($deadline)) {
+                                        $set('deadline', $deadline);
+                                    }
+                                })
+                                ->required(),
 
-                Select::make('action_type')
-                    ->label('Action Taken')
-                    ->placeholder('Select action')
-                    ->options(fn () => ActionType::query()
-                        ->orderBy('action_name')
-                        ->pluck('action_name', 'action_name'))
-                    ->searchable()
-                    ->preload()
-                    ->nullable(),
+                            Select::make('action_type')
+                                ->label('Action Taken')
+                                ->placeholder('Select action')
+                                ->options(fn () => ActionType::query()
+                                    ->orderBy('action_name')
+                                    ->pluck('action_name', 'action_name'))
+                                ->searchable()
+                                ->preload()
+                                ->nullable(),
 
-                Select::make('office_unit')
-                    ->label('Office / Unit')
-                    ->options(fn () => OfficeUnit::query()
-                        ->orderBy('name')
-                        ->pluck('name', 'name'))
-                    ->searchable()
-                    ->preload()
-                    ->required(),
+                            Select::make('office_unit')
+                                ->label('Office / Unit')
+                                ->options(fn () => OfficeUnit::query()
+                                    ->orderBy('name')
+                                    ->pluck('name', 'name'))
+                                ->searchable()
+                                ->preload()
+                                ->required(),
 
-                Textarea::make('particulars')
-                    ->label('Particulars')
-                    ->required(),
+                            Select::make('status')
+                                ->label('Status')
+                                ->options([
+                                    'pending' => 'Pending',
+                                    'in_progress' => 'In Progress',
+                                    'completed' => 'Completed',
+                                    'returned' => 'Returned',
+                                    'outgoing' => 'Outgoing',
+                                ])
+                                ->required(),
 
-                DatePicker::make('deadline')
-                    ->label('Deadline')
-                    ->default(now()->toDateString())
-                    ->helperText('Preselected to today; calculated from the document type when configured.'),
+                            DatePicker::make('deadline')
+                                ->label('Deadline')
+                                ->default(now()->toDateString())
+                                ->helperText('Preselected to today; calculated from the document type when configured.'),
 
-                Select::make('status')
-                    ->options([
-                        'pending' => 'Pending',
-                        'in_progress' => 'In Progress',
-                        'completed' => 'Completed',
-                        'returned' => 'Returned',
-                        'outgoing' => 'Outgoing',
-                    ])
-                    ->required(),
+                            Textarea::make('particulars')
+                                ->label('Particulars')
+                                ->required(),
+                        ]),
 
-                FileUpload::make('file_path')
-                    ->label('Upload New Document Version')
-                    ->disk('local')
-                    ->directory('documents/versions')
-                    ->preserveFilenames(),
+                    FileUpload::make('file_path')
+                        ->label('Upload New Document Version')
+                        ->disk('local')
+                        ->directory('documents/versions')
+                        ->preserveFilenames()
+                        ->columnSpanFull(),
                 ];
             })
             ->fillForm(function (array $arguments, ?DocumentModel $record = null): array {
@@ -959,6 +1148,12 @@ class Document extends Page implements HasTable
                             ? basename($document->latestVersion->file_path)
                             : null),
                     'document_type' => $document->document_type,
+
+                    'sent_to_mode' => filled($document->sent_to) && ! OfficeUnit::query()
+                        ->where('name', $document->sent_to)
+                        ->exists()
+                        ? self::OTHER_SENT_TO
+                        : 'select',
 
                     // Important: preload current Action Taken
                     'action_type' => $document->action_type,
@@ -1092,10 +1287,42 @@ class Document extends Page implements HasTable
                 $document = $record ?? DocumentModel::with('user')->find($arguments['document'] ?? null);
                 $uploader = $document?->user?->name ?? 'Unknown user';
 
-                return "Are you sure you want to accept this document uploaded by {$uploader}? It will be moved to the Incoming table.";
+                return "Uploaded by {$uploader} will be moved to the Incoming table.";
             })
-            ->modalContent(fn (DocumentModel $record) => view(
-                'filament.actions.review-document',
+            ->schema(function (array $arguments, ?DocumentModel $record = null): array {
+                $document = $record ?? DocumentModel::find($arguments['document'] ?? null);
+
+                return [
+                    Grid::make(2)
+                        ->schema([
+                            Placeholder::make('document_description')
+                                ->label('Document Description')
+                                ->content($document?->description ?: 'No description provided')
+                                ->extraAttributes([
+                                    'class' => 'h-full min-h-[6.75rem] rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-800',
+                                ]),
+
+                            Textarea::make('particulars')
+                                ->label('Particulars')
+                                ->rows(4)
+                                ->autosize()
+                                ->maxLength(65535)
+                                ->required(),
+                        ]),
+                ];
+            })
+            ->modalContent(function (DocumentModel $record) {
+                return view(
+                    'filament.actions.review-document',
+                    [
+                        'document' => $record,
+                        'assignedLaoNumber' => $record->lao_number
+                            ?: DocumentModel::generateLaoNumber($record->created_at),
+                    ]
+                );
+            })
+            ->modalContentFooter(fn (DocumentModel $record) => view(
+                'filament.actions.transmittal-preview',
                 ['document' => $record]
             ))
             ->modalIcon('heroicon-o-check-circle')
@@ -1107,20 +1334,25 @@ class Document extends Page implements HasTable
             ->extraAttributes([
                 'class' => 'inline-flex h-9 items-center justify-center rounded-md bg-green-600 px-3 text-xs font-semibold text-white transition hover:bg-green-700',
             ])
-            ->action(function (array $arguments, ?DocumentModel $record = null): void {
+            ->action(function (array $arguments, array $data, ?DocumentModel $record = null): void {
                 $document = $this->resolveDocumentActionRecord($arguments, $record);
 
-                $this->acceptDocument($document->document_id);
+                $this->acceptDocument(
+                    $document->document_id,
+                    (string) $data['particulars'],
+                );
             });
     }
 
     public function markAsOutgoing(int $documentId, string $sentDate, string $sentTo): void
     {
         $document = DocumentModel::findOrFail($documentId);
+        $sentDate = Carbon::parse($sentDate)->toDateString();
 
         $document->update([
             'status' => 'outgoing',
             'sent_date' => $sentDate,
+            'outgoing_date' => $sentDate,
             'sent_to' => $sentTo,
         ]);
 
@@ -1154,10 +1386,50 @@ class Document extends Page implements HasTable
                 'class' => 'outgoing-document-button',
             ])
             ->schema([
+                Hidden::make('sent_to_mode')
+                    ->default('select')
+                    ->dehydrated(false),
+
+                Select::make('sent_to')
+                    ->label('Sent To')
+                    ->options(fn () => OfficeUnit::query()
+                        ->orderBy('name')
+                        ->pluck('name', 'name')
+                        ->prepend('Others', self::OTHER_SENT_TO)
+                        ->toArray())
+                    ->searchable()
+                    ->preload()
+                    ->live()
+                    ->visible(fn (Get $get): bool => $get('sent_to_mode') !== self::OTHER_SENT_TO)
+                    ->dehydrated(fn (Get $get): bool => $get('sent_to_mode') !== self::OTHER_SENT_TO)
+                    ->afterStateUpdated(function (Set $set, ?string $state): void {
+                        if ($state === self::OTHER_SENT_TO) {
+                            $set('sent_to_mode', self::OTHER_SENT_TO);
+                            $set('sent_to', null);
+
+                            return;
+                        }
+
+                        $set('sent_to_mode', 'select');
+                    })
+                    ->required(),
+
                 TextInput::make('sent_to')
                     ->label('Sent To')
-                    ->required()
-                    ->maxLength(255),
+                    ->placeholder('Enter the destination')
+                    ->maxLength(255)
+                    ->suffixAction(
+                        Action::make('chooseListedSentTo')
+                            ->icon(Heroicon::ChevronDown)
+                            ->tooltip('Choose from listed offices/units')
+                            ->action(function (Set $set): void {
+                                $set('sent_to_mode', 'select');
+                                $set('sent_to', null);
+                            }),
+                    )
+                    ->visible(fn (Get $get): bool => $get('sent_to_mode') === self::OTHER_SENT_TO)
+                    ->dehydrated(fn (Get $get): bool => $get('sent_to_mode') === self::OTHER_SENT_TO)
+                    ->required(fn (Get $get): bool => $get('sent_to_mode') === self::OTHER_SENT_TO),
 
                 DatePicker::make('sent_date')
                     ->label('Sent Date')
@@ -1379,6 +1651,7 @@ class Document extends Page implements HasTable
             ->tooltip('Complete')
             ->modalHeading('Complete Document')
             ->modalDescription('Are you sure you want to mark this document as completed? It will be moved to the Completed table.')
+            ->modalWidth(Width::Small)
             ->modalIcon('heroicon-o-check-circle')
             ->modalIconColor('gray')
             ->modalAlignment(Alignment::Center)
@@ -1521,6 +1794,19 @@ class Document extends Page implements HasTable
             'old_value' => $oldValue,
             'new_value' => $newValue,
         ]);
+    }
+
+    protected function uploadedDocumentName(mixed $file): ?string
+    {
+        if ($file instanceof TemporaryUploadedFile || $file instanceof UploadedFile) {
+            $originalName = basename($file->getClientOriginalName());
+
+            return $originalName !== '' ? $originalName : null;
+        }
+
+        return is_string($file) && filled($file)
+            ? basename($file)
+            : null;
     }
     
     

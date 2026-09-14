@@ -1,18 +1,16 @@
-<div class="bu-brand">
+<div class="lextrack-brand">
     <img
-        src="{{ asset('images/bu-logo.png') }}"
-        alt="Bicol University"
-        class="bu-brand-logo"
+        src="{{ asset('images/lextrack-logo.png.png') }}"
+        alt="LexTrack Bicol University Legal Office"
+        class="lextrack-brand-logo"
     >
 
-    <div class="bu-brand-text">
-        <div class="bu-brand-name">
-            <span class="bu-bicol">Bicol</span>
-            <span class="bu-university">University</span>
-        </div>
+    <div class="lextrack-brand-text">
+        <div class="lextrack-brand-title">LexTrack</div>
 
-        <div class="bu-office">
-            Legal Office
+        <div class="lextrack-brand-subtitle">
+            <span class="lextrack-brand-b">B</span><span class="lextrack-brand-u">U</span>
+            <span class="lextrack-brand-office">Legal Office</span>
         </div>
     </div>
 </div>

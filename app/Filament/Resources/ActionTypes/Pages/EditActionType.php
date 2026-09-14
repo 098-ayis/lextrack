@@ -10,6 +10,16 @@ class EditActionType extends EditRecord
 {
     protected static string $resource = ActionTypeResource::class;
 
+    protected function getRedirectUrl(): string
+    {
+        return ActionTypeResource::getUrl('index');
+    }
+
+    protected function getSavedNotificationTitle(): ?string
+    {
+        return 'Action type updated successfully';
+    }
+
     protected function getHeaderActions(): array
     {
         return [DeleteAction::make()];

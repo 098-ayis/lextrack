@@ -52,6 +52,8 @@ class ViewDocument extends Page
 
     public ?int $selectedVersionId = null;
 
+    public bool $isTransmittalSelected = false;
+
     public function getMaxContentWidth(): Width
     {
         return Width::Full;
@@ -93,7 +95,7 @@ class ViewDocument extends Page
             ->label('Add Notes')
             ->icon('heroicon-o-plus')
             ->size('sm')
-            ->color('gray')
+            ->color('white')
             ->extraAttributes([
                 'class' => 'add-note-button !h-8 !min-h-8 !rounded-full !border-0
                             !bg-[#5B5CE2] !px-3 !py-1 !text-[11px]
@@ -149,9 +151,11 @@ class ViewDocument extends Page
             ->iconButton()
             ->color('gray')
             ->disabled($isLocked)
-            ->tooltip($isLocked
-                ? 'Editing is disabled for pending or rejected documents'
-                : 'Edit document details')
+            ->tooltip($status === 'pending'
+                ? 'Accept the document first'
+                : ($status === 'rejected'
+                    ? 'Editing is disabled for rejected documents'
+                    : 'Edit document details'))
             ->extraAttributes([
                 'class' => 'h-7 w-7 rounded-md p-1 text-gray-700 ' .
                     ($isLocked
@@ -396,6 +400,20 @@ class ViewDocument extends Page
             });
     }
 
+    /**
+     * Reuse the existing document-review action from the Documents page so
+     * the View Document page does not duplicate its review process.
+     */
+    public function acceptDocumentAction(): Action
+    {
+        return app(\App\Filament\Pages\Document::class)->acceptDocumentAction();
+    }
+
+    public function rejectDocumentAction(): Action
+    {
+        return app(\App\Filament\Pages\Document::class)->rejectDocumentAction();
+    }
+
     public function addVersionAction(): Action
     {
         $isLocked = in_array(
@@ -491,6 +509,7 @@ class ViewDocument extends Page
             ->firstOrFail();
 
         $this->selectedVersionId = $version->version_id;
+        $this->isTransmittalSelected = false;
         $this->previewUrl = route('admin.document.version.preview', [
             'document' => $this->documentRecord->document_id,
             'version' => $version->version_id,
@@ -842,6 +861,7 @@ class ViewDocument extends Page
     public function selectCurrentDocument(): void
     {
         $this->selectedVersionId = null;
+        $this->isTransmittalSelected = false;
         $this->previewUrl = $this->generatePreview();
 
         $latestFilePath = $this->documentRecord->latestVersion?->file_path;
@@ -851,6 +871,24 @@ class ViewDocument extends Page
             $latestFilePath
                 ? 'Viewed ' . basename($latestFilePath) . '.'
                 : 'Viewed the current document without an attachment.'
+        );
+    }
+
+    public function selectTransmittal(): void
+    {
+        $filePath = (string) $this->documentRecord->transmittal;
+
+        abort_unless(filled($filePath), 404, 'No transmittal is available.');
+
+        $this->selectedVersionId = null;
+        $this->isTransmittalSelected = true;
+        $this->previewUrl = route('admin.documents.transmittal.preview', [
+            'document' => $this->documentRecord->document_id,
+        ]);
+
+        $this->logDocumentActivity(
+            'Transmittal viewed',
+            'Viewed ' . basename($filePath) . '.'
         );
     }
 

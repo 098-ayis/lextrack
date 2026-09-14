@@ -10,6 +10,16 @@ class EditOfficeUnit extends EditRecord
 {
     protected static string $resource = OfficeUnitResource::class;
 
+    protected function getRedirectUrl(): string
+    {
+        return OfficeUnitResource::getUrl('index');
+    }
+
+    protected function getSavedNotificationTitle(): ?string
+    {
+        return 'Office/unit updated successfully';
+    }
+
     protected function getHeaderActions(): array
     {
         return [DeleteAction::make()];

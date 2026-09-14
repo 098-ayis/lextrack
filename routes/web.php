@@ -5,6 +5,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 use App\Models\Document;
 use App\Models\DocumentVersion;
 use App\Models\Message;
@@ -18,6 +19,7 @@ use App\Services\DocumentDownloadService;
 use App\Services\DocumentQrToken;
 use Spatie\Honeypot\Honeypot;
 use Spatie\Honeypot\ProtectAgainstSpam;
+use RyanChandler\LaravelCloudflareTurnstile\Rules\Turnstile;
 
 
 Route::view('/ai-test', 'ai-test');
@@ -275,6 +277,48 @@ Route::get('/admin/documents/{document}/preview', function (int $document) {
     ->middleware('auth')
     ->name('admin.documents.preview');
 
+Route::get('/admin/documents/{document}/transmittal-preview', function (int $document) {
+    $documentRecord = Document::findOrFail($document);
+    $filePath = $documentRecord->transmittal;
+
+    $disk = Storage::disk('local');
+
+    if ($filePath && ! $disk->exists($filePath)) {
+        $disk = Storage::disk('public');
+    }
+
+    abort_unless(
+        $filePath && $disk->exists($filePath),
+        404
+    );
+
+    return app(\App\Services\DocumentPreviewService::class)->preview(
+        $disk->path($filePath)
+    );
+})
+    ->middleware(['auth', AdminMiddleware::class])
+    ->name('admin.documents.transmittal.preview');
+
+Route::get('/admin/documents/{document}/transmittal-download', function (int $document) {
+    $documentRecord = Document::findOrFail($document);
+    $filePath = $documentRecord->transmittal;
+
+    $disk = Storage::disk('local');
+
+    if ($filePath && ! $disk->exists($filePath)) {
+        $disk = Storage::disk('public');
+    }
+
+    abort_unless(
+        $filePath && $disk->exists($filePath),
+        404
+    );
+
+    return $disk->download($filePath, basename($filePath));
+})
+    ->middleware(['auth', AdminMiddleware::class])
+    ->name('admin.documents.transmittal.download');
+
 Route::get('/admin/documents/{document}/download', function (int $document) {
     $documentRecord = Document::findOrFail($document);
 
@@ -323,6 +367,26 @@ Route::get('/admin/documents/{document}/versions/{version}/preview', function (
     ->middleware('auth')
     ->name('admin.document.version.preview');
 
+Route::get('/admin/documents/{document}/versions/{version}/download', function (
+    int $document,
+    int $version
+) {
+    $documentRecord = Document::findOrFail($document);
+    $versionRecord = DocumentVersion::query()
+        ->where('document_id', $documentRecord->document_id)
+        ->findOrFail($version);
+
+    abort_unless(
+        $versionRecord->file_path &&
+        $versionRecord->storageDisk()->exists($versionRecord->file_path),
+        404
+    );
+
+    return app(DocumentDownloadService::class)->download($documentRecord, $versionRecord);
+})
+    ->middleware(['auth', AdminMiddleware::class])
+    ->name('admin.document.version.download');
+
 Route::get('/admin/document-temp-preview/{file}', function (string $file) {
     abort_unless(
         preg_match('/^[a-f0-9]{32}\.pdf$/', $file) === 1,
@@ -354,6 +418,16 @@ Route::post('/api/track/qr', function (Request $request) {
             'string',
             'max:512',
             'regex:/^LEXTRACK-QR-1\.[A-Za-z0-9_-]+$/',
+        ],
+        'qr_source' => [
+            'sometimes',
+            'string',
+            Rule::in(['camera', 'image']),
+        ],
+        'cf-turnstile-response' => [
+            'exclude_unless:qr_source,image',
+            'required',
+            new Turnstile(),
         ],
     ]);
 

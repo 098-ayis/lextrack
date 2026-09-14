@@ -72,11 +72,16 @@ class AdminPanelProvider extends PanelProvider
             ->default()
             ->id('admin')
             ->path('admin')
+            ->sidebarWidth('15rem')
             ->sidebarCollapsibleOnDesktop()
             ->collapsedSidebarWidth('4rem')
             ->renderHook(
                 PanelsRenderHook::BODY_START,
                 fn () => view('filament.admin.sidebar-default-state'),
+            )
+            ->renderHook(
+                PanelsRenderHook::SIDEBAR_FOOTER,
+                fn () => view('filament.admin.sidebar-logout'),
             )
             ->globalSearch(false)
             ->databaseNotifications(true, DatabaseNotifications::class)
@@ -90,8 +95,9 @@ class AdminPanelProvider extends PanelProvider
                 'primary' => Color::Indigo,
             ])
             ->navigationGroups([
-                'Access Control',
-                'Settings',
+                'MANAGEMENT',
+                'OPERATIONS',
+                'ADMINISTRATION',
             ])
             ->discoverResources(
                 in: app_path('Filament/Resources'),
@@ -131,7 +137,7 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->plugins([
                 FilamentShieldPlugin::make()
-                    ->navigationGroup('Access Control'),
+                    ->navigationGroup('ADMINISTRATION'),
             ])
             ->authMiddleware([
                 FilamentAuthenticate::class,
