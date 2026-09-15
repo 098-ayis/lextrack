@@ -907,6 +907,41 @@ class Document extends Page implements HasTable
             ])
             ->action(function (array $data) {
                 $filePath = $data['file_path'] ?? null;
+                $fileHash = filled($filePath)
+                    ? DocumentVersion::hashForUpload($filePath)
+                    : null;
+
+                if (filled($filePath) && $fileHash === null) {
+                    DocumentVersion::removeUnreferencedUpload($filePath);
+
+                    Notification::make()
+                        ->danger()
+                        ->title('Upload could not be verified')
+                        ->body('The uploaded file could not be read. Please select the file again and try again.')
+                        ->send();
+
+                    return;
+                }
+
+                if (
+                    filled($filePath)
+                    && DocumentVersion::existsForDocumentOrUserHash(
+                        0,
+                        $fileHash,
+                        auth()->id(),
+                    )
+                ) {
+                    DocumentVersion::removeUnreferencedUpload($filePath);
+
+                    Notification::make()
+                        ->danger()
+                        ->title('Duplicate document detected')
+                        ->body('This exact file has already been uploaded. Please select a different file.')
+                        ->send();
+
+                    return;
+                }
+
                 unset($data['file_path']);
 
                 $data['user_id'] = auth()->id();
@@ -914,7 +949,7 @@ class Document extends Page implements HasTable
                 $data['document_name'] = $this->uploadedDocumentName($filePath)
                     ?? ($data['document_name'] ?? null);
 
-                $document = DB::transaction(function () use ($data, $filePath): DocumentModel {
+                $document = DB::transaction(function () use ($data, $filePath, $fileHash): DocumentModel {
                     // Generate again at save time so the number is always the
                     // latest available one, even if the form stayed open.
                     $data['lao_number'] = DocumentModel::generateLaoNumber(now());
@@ -929,6 +964,7 @@ class Document extends Page implements HasTable
                             'user_id' => auth()->id(),
                             'version_number' => '1',
                             'file_path' => $filePath,
+                            'file_hash' => $fileHash,
                         ]);
                     }
 
