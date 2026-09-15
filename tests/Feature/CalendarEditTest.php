@@ -35,7 +35,7 @@ class CalendarEditTest extends TestCase
             $table->text('details');
             $table->timestamp('reminder_3_days_sent_at')->nullable();
             $table->timestamp('reminder_1_day_sent_at')->nullable();
-            $table->timestamp('reminder_10_minutes_sent_at')->nullable();
+            $table->timestamp('reminder_1_hour_sent_at')->nullable();
             $table->timestamps();
         });
         $original = ['user_id' => 1, 'date' => '2026-09-08', 'time' => '09:00', 'event' => 'Meeting', 'details' => 'Office'];

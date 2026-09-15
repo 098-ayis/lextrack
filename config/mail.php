@@ -101,6 +101,22 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Markdown Mail Components
+    |--------------------------------------------------------------------------
+    |
+    | Application mail components take precedence over Laravel's defaults.
+    | This keeps notification emails branded and independent of framework
+    | template changes.
+    |
+    */
+
+    'markdown' => [
+        'theme' => 'default',
+        'paths' => [resource_path('views/vendor/mail')],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Global "From" Address
     |--------------------------------------------------------------------------
     |
@@ -112,7 +128,7 @@ return [
 
     'from' => [
         'address' => env('MAIL_FROM_ADDRESS', 'hello@example.com'),
-        'name' => env('MAIL_FROM_NAME', env('APP_NAME', 'Laravel')),
+        'name' => env('MAIL_FROM_NAME', env('APP_NAME', 'LexTrack Legal Office')),
     ],
 
 ];

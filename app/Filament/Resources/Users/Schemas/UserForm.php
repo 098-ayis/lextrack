@@ -39,7 +39,6 @@ class UserForm
                     ->options(Role::query()->pluck('name', 'id'))
                     ->label('Role')
                     ->searchable(),
-                TextInput::make('avatar'),
                 DateTimePicker::make('email_verified_at'),
                 TextInput::make('password')
                     ->password(),

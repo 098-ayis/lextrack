@@ -32,7 +32,7 @@ return [
     |
     */
 
-    'lifetime' => (int) env('SESSION_LIFETIME', 120),
+    'lifetime' => (int) env('SESSION_LIFETIME', 60),
 
     'inactivity_timeout' => (int) env('INACTIVITY_TIMEOUT', 60),
 

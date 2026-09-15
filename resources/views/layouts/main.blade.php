@@ -5,6 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LexTrack</title>
 
+    <link
+        rel="icon"
+        type="image/png"
+        href="{{ asset('images/lextrack-logo.png.png') }}"
+    >
+
     <meta name="csrf-token" content="{{ csrf_token() }}">
     
     @vite('resources/js/public.js')

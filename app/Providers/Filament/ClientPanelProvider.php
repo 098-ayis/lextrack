@@ -34,6 +34,7 @@ class ClientPanelProvider extends PanelProvider
 
             ->brandLogo(fn () => view('filament.components.brand'))
             ->brandLogoHeight('3rem')
+            ->favicon(asset('images/lextrack-logo.png.png'))
 
             ->viteTheme('resources/css/filament/admin/theme.css')
             ->colors([

@@ -21,7 +21,10 @@ class DocumentCompletedNotification extends Notification
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
-            ->subject($this->document->notificationLabel())
+            ->subject(
+                'Document completed: ' .
+                $this->document->notificationLabel()
+            )
             ->greeting('Hello, ' . $notifiable->name . '!')
             ->line('Your document has been completed by the Legal Office.')
             ->line('Document: ' . $this->document->notificationLabel())
