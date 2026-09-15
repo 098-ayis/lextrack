@@ -25,7 +25,10 @@ class DocumentAcceptedNotification extends Notification
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
-            ->subject($this->document->notificationLabel())
+            ->subject(
+                'Document accepted: ' .
+                $this->document->notificationLabel()
+            )
             ->greeting('Hello, ' . $notifiable->name . '!')
             ->line('Your submitted document has been accepted by the Legal Office.')
             ->line('Document: ' . $this->document->notificationLabel())

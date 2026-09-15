@@ -26,7 +26,10 @@ class DocumentRejectedNotification extends Notification
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
-            ->subject($this->document->notificationLabel())
+            ->subject(
+                'Document rejected: ' .
+                $this->document->notificationLabel()
+            )
             ->greeting('Hello, ' . $notifiable->name . '!')
             ->line(
                 'Your submitted document has been rejected by the Legal Office.'

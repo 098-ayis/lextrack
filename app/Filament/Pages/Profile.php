@@ -38,7 +38,7 @@ class Profile extends Page
 
         $this->name = $user->name ?? '';
         $this->email = $user->email ?? '';
-        $this->currentPhoto = $user->profile_photo_url;
+        $this->currentPhoto = $user->getProfilePhotoUrl();
     }
 
     public function save(): void

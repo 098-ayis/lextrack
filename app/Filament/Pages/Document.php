@@ -672,6 +672,29 @@ class Document extends Page implements HasTable
         return $actions;
     }
 
+    public function updateSection(string $section): void
+    {
+        if (! in_array($section, [
+            'pending',
+            'incoming',
+            'outgoing',
+            'completed',
+            'rejected',
+            'archived',
+        ], true)) {
+            return;
+        }
+
+        if ($this->activeSection === $section) {
+            return;
+        }
+
+        $this->activeSection = $section;
+        $this->highlightedDocumentId = null;
+        $this->resetTable();
+        $this->markDocumentSectionAsViewed($section);
+    }
+
     public function updatedSearch(): void
     {
         $this->resetPage();

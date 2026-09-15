@@ -114,6 +114,7 @@ class AdminPanelProvider extends PanelProvider
 
             ->brandLogo(fn () => view('filament.components.brand'))
             ->brandLogoHeight('3rem')
+            ->favicon(asset('images/bu-lao.png'))
 
             ->viteTheme('resources/css/filament/admin/theme.css')
             ->colors([

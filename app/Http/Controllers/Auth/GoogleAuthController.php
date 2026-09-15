@@ -82,7 +82,7 @@ class GoogleAuthController extends Controller
             | Google Profile Picture
             |--------------------------------------------------------------------------
             */
-            $avatar = $googleUser->getAvatar()
+            $profilePhotoUrl = $googleUser->getAvatar()
                 ?? ($googleUser->user['picture'] ?? null);
 
             /*
@@ -108,7 +108,7 @@ class GoogleAuthController extends Controller
                     'email' => $email,
                     'google_id' => $googleUser->getId(),
                     'provider' => 'google',
-                    'profile_photo_url' => $avatar,
+                    'profile_photo_url' => $profilePhotoUrl,
                     'password' => bcrypt(Str::random(24)),
                     'status' => 'Active',
                     'join_date' => now(),
@@ -128,7 +128,7 @@ class GoogleAuthController extends Controller
                     'name' => $googleUser->getName(),
                     'google_id' => $googleUser->getId(),
                     'provider' => 'google',
-                    'profile_photo_url' => $avatar,
+                    'profile_photo_url' => $profilePhotoUrl,
                 ]);
 
                 /*

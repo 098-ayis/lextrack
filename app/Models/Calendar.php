@@ -24,7 +24,7 @@ class Calendar extends Model
 
         'reminder_3_days_sent_at' => 'datetime',
         'reminder_1_day_sent_at' => 'datetime',
-        'reminder_10_minutes_sent_at' => 'datetime',
+        'reminder_1_hour_sent_at' => 'datetime',
     ];
 
     public function getIsCompletedAttribute(): bool

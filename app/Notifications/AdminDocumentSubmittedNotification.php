@@ -27,7 +27,10 @@ class AdminDocumentSubmittedNotification extends Notification
             : 'documents';
 
         return (new MailMessage)
-            ->subject($this->document->notificationLabel())
+            ->subject(
+                'New document submission: ' .
+                $this->document->notificationLabel()
+            )
             ->greeting('Hello, ' . $notifiable->name . '!')
             ->line(
                 $submitterName . ' has submitted ' .

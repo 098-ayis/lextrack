@@ -16,12 +16,17 @@
                     'rejected' => ['label' => 'Rejected', 'icon' => 'heroicon-o-x-circle'],
                     'archived' => ['label' => 'Archived', 'icon' => 'heroicon-o-archive-box'],
                 ] as $section => $item)
-                    <a
-                        href="{{ \App\Filament\Pages\Document::getUrl(['section' => $section]) }}"
+                    <button
+                        type="button"
+                        wire:click="updateSection('{{ $section }}')"
+                        wire:loading.attr="disabled"
+                        x-on:click="window.history.replaceState({}, '', $el.dataset.sectionUrl)"
+                        data-section-url="{{ \App\Filament\Pages\Document::getUrl(['section' => $section]) }}"
                         class="group relative flex h-10 flex-none items-center justify-start gap-2 border-b-2 border-transparent px-3 text-sm font-medium whitespace-nowrap transition-colors
                             {{ $activeSection === $section
                                 ? 'rounded-md bg-[#0F172A] text-white'
                                 : 'text-gray-500 hover:border-gray-200 hover:text-gray-800 dark:text-gray-400 dark:hover:border-gray-700 dark:hover:text-gray-200' }}"
+                        aria-current="{{ $activeSection === $section ? 'page' : 'false' }}"
                     >
                         <x-filament::icon :icon="$item['icon']" class="h-5 w-5 shrink-0" />
                         <span>{{ $item['label'] }}</span>
@@ -32,7 +37,7 @@
                         >
                             {{ $statusCounts[$section] ?? 0 }}
                         </span>
-                    </a>
+                    </button>
                 @endforeach
             </nav>
         </div>

@@ -47,7 +47,7 @@ class CalendarEventReminder extends Notification
 
     public function toDatabase(object $notifiable): array
     {
-        $title = $this->reminderType === '10_minutes'
+        $title = $this->reminderType === '1_hour'
             ? 'Upcoming Calendar Event'
             : 'Calendar Reminder';
 
@@ -74,8 +74,8 @@ class CalendarEventReminder extends Notification
             '1_day' =>
                 'Reminder: This event is scheduled tomorrow.',
 
-            '10_minutes' =>
-                'Reminder: This event will start in 10 minutes.',
+            '1_hour' =>
+                'Reminder: This event will start in 1 hour.',
 
             default =>
                 'You have an upcoming calendar event.',
