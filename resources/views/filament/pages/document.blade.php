@@ -298,7 +298,7 @@
                         @endif
 
                         <tr
-                            data-view-url="{{ \App\Filament\Pages\ViewDocument::getUrl(['document' => $document->document_id]) }}"
+                            data-view-url="{{ \App\Filament\Pages\ViewDocument::getUrl(['document' => $document->public_id]) }}"
                             onclick="if (!event.target.closest('button, a, input, select, textarea, summary, details')) window.location.href = this.dataset.viewUrl"
                             class="border-b border-gray-300
                                    {{ $loop->odd ? 'bg-[#F2F2F2]' : 'bg-white' }} cursor-pointer hover:bg-blue-50"
@@ -447,7 +447,7 @@
 
                                         <div class="absolute bottom-full right-0 z-50 mb-2 w-32 rounded-md border border-gray-200 bg-white p-1 text-left shadow-lg">
                                             <a
-                                                href="{{ \App\Filament\Pages\ViewDocument::getUrl(['document' => $document->document_id]) }}"
+                                                href="{{ \App\Filament\Pages\ViewDocument::getUrl(['document' => $document->public_id]) }}"
                                                 class="flex items-center gap-2 rounded px-3 py-2 text-xs text-gray-700 hover:bg-gray-100"
                                             >
                                                 <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
@@ -458,7 +458,7 @@
 
                                             @if ($document->latestVersion?->file_path)
                                                 <a
-                                                    href="{{ route('admin.documents.download', ['document' => $document->document_id]) }}"
+                                                    href="{{ route('admin.documents.download', ['document' => $document->public_id]) }}"
                                                     download
                                                     class="flex items-center gap-2 rounded px-3 py-2 text-xs text-gray-700 hover:bg-gray-100"
                                                 >
@@ -581,7 +581,7 @@
                         @endif
 
                         <tr
-                            data-view-url="{{ \App\Filament\Pages\ViewDocument::getUrl(['document' => $document->document_id]) }}"
+                            data-view-url="{{ \App\Filament\Pages\ViewDocument::getUrl(['document' => $document->public_id]) }}"
                             onclick="if (!event.target.closest('button, a, input, select, textarea, summary, details')) window.location.href = this.dataset.viewUrl"
                             class="border-b border-gray-300
                                    {{ $loop->odd ? 'bg-[#F2F2F2]' : 'bg-white' }} cursor-pointer hover:bg-blue-50"
@@ -733,7 +733,7 @@
 
                                         <div class="absolute bottom-full right-0 z-50 mb-2 w-32 rounded-md border border-gray-200 bg-white p-1 text-left shadow-lg">
                                             <a
-                                                href="{{ \App\Filament\Pages\ViewDocument::getUrl(['document' => $document->document_id]) }}"
+                                                href="{{ \App\Filament\Pages\ViewDocument::getUrl(['document' => $document->public_id]) }}"
                                                 class="flex items-center gap-2 rounded px-3 py-2 text-xs text-gray-700 hover:bg-gray-100"
                                             >
                                                 <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
@@ -744,7 +744,7 @@
 
                                             @if ($document->latestVersion?->file_path)
                                                 <a
-                                                    href="{{ route('admin.documents.download', ['document' => $document->document_id]) }}"
+                                                    href="{{ route('admin.documents.download', ['document' => $document->public_id]) }}"
                                                     download
                                                     class="flex items-center gap-2 rounded px-3 py-2 text-xs text-gray-700 hover:bg-gray-100"
                                                 >
@@ -907,7 +907,7 @@
                         @endif
 
                     <tr 
-                            data-view-url="{{ \App\Filament\Pages\ViewDocument::getUrl(['document' => $document->document_id]) }}"
+                            data-view-url="{{ \App\Filament\Pages\ViewDocument::getUrl(['document' => $document->public_id]) }}"
                             onclick="if (!event.target.closest('button, a, input, select, textarea, summary, details')) window.location.href = this.dataset.viewUrl"
                             class="border-b border-gray-300 
                                 {{ $loop->odd ? 'bg-[#F2F2F2]' : 'bg-white' }} cursor-pointer hover:bg-blue-50"
@@ -1115,7 +1115,7 @@
 
                                         <div class="absolute bottom-full right-0 z-50 mb-2 w-32 rounded-md border border-gray-200 bg-white p-1 text-left shadow-lg">
                                             <a
-                                                href="{{ \App\Filament\Pages\ViewDocument::getUrl(['document' => $document->document_id]) }}"
+                                                href="{{ \App\Filament\Pages\ViewDocument::getUrl(['document' => $document->public_id]) }}"
                                                 class="flex items-center gap-2 rounded px-3 py-2 text-xs text-gray-700 hover:bg-gray-100"
                                             >
                                                 <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
@@ -1127,7 +1127,7 @@
                                             @if ($document->latestVersion?->file_path)
                                                 <a
                                                     href="{{ route('admin.documents.download', [
-                                                        'document' => $document->document_id,
+                                                        'document' => $document->public_id,
                                                     ]) }}"
                                                     download
                                                     class="flex items-center gap-2 rounded px-3 py-2 text-xs text-gray-700 hover:bg-gray-100"

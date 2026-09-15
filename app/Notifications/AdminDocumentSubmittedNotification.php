@@ -63,7 +63,7 @@ class AdminDocumentSubmittedNotification extends Notification
             'document_count' => $this->documentCount,
             'redirect_url' => \App\Filament\Pages\Document::getUrl([
                 'section' => 'pending',
-                'document' => $this->document->document_id,
+                'document' => $this->document->public_id,
             ], true, 'admin'),
         ];
     }

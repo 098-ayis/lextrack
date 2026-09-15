@@ -216,11 +216,10 @@
                                             {{ $transmittalExtension }}
                                         </span>
                                     </span>
-                                    <span class="shrink-0 text-xs font-semibold text-gray-700">Transmittal</span>
                                         <span class="min-w-0 flex-1 truncate text-xs text-gray-900">{{ $transmittalFileName }}</span>
                                     </button>
                                     <a
-                                        href="{{ route('admin.documents.transmittal.download', ['document' => $documentRecord->document_id]) }}"
+                                        href="{{ route('admin.documents.transmittal.download', ['document' => $documentRecord->public_id]) }}"
                                         class="mr-4 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-gray-600 transition hover:bg-gray-100 hover:text-blue-600"
                                         title="Download transmittal"
                                         aria-label="Download transmittal"
@@ -241,9 +240,11 @@
 
                         <section>
                             <div class="flex items-center justify-between gap-3 border-b border-gray-200 px-4 py-3">
-                                <p class="text-[10px] font-semibold uppercase tracking-[0.12em] text-gray-500">Document Versions</p>
                                 <div class="flex items-center gap-2">
-                                    <span class="text-[10px] text-gray-400">{{ $attachmentCount }}</span>
+                                    <p class="text-[10px] font-semibold uppercase tracking-[0.12em] text-gray-500">Document Versions</p>
+                                    <span class="text-[10px] text-gray-400">({{ $attachmentCount }})</span>
+                                </div>
+                                <div class="flex items-center gap-2">
                                     {{ ($this->addVersionAction)(['document' => $documentRecord->document_id]) }}
                                 </div>
                             </div>
@@ -267,7 +268,7 @@
                                 <div class="flex shrink-0 items-center gap-1 transition-opacity {{ $isPendingRevisionVersion ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100' }}">
                                     @if ($isPendingRevisionVersion)
                                         <a
-                                            href="{{ route('admin.document.version.download', ['document' => $documentRecord->document_id, 'version' => $version->version_id]) }}"
+                                            href="{{ route('admin.document.version.download', ['document' => $documentRecord->public_id, 'version' => $version->version_id]) }}"
                                             class="inline-flex h-7 w-7 items-center justify-center rounded-md text-gray-600 hover:bg-white hover:text-blue-600"
                                             title="Download version"
                                             aria-label="Download version"
@@ -281,7 +282,7 @@
                                             <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" /><circle cx="12" cy="12" r="2.75" /></svg>
                                         </button>
                                         <a
-                                            href="{{ route('admin.document.version.download', ['document' => $documentRecord->document_id, 'version' => $version->version_id]) }}"
+                                            href="{{ route('admin.document.version.download', ['document' => $documentRecord->public_id, 'version' => $version->version_id]) }}"
                                             class="inline-flex h-7 w-7 items-center justify-center rounded-md text-gray-600 hover:bg-white hover:text-blue-600"
                                             title="Download version"
                                             aria-label="Download version"
@@ -358,18 +359,13 @@
             </aside>
         </div>
 
-        @if ($documentRecord->status === 'pending' || ($hasPendingRevision && $pendingRevisionVersionId !== null))
+        @if ($documentRecord->status === 'pending')
             <div
-                class="document-review-actions {{ $documentRecord->status === 'pending' ? 'document-review-actions-document' : 'document-review-actions-revision' }}"
+                class="document-review-actions document-review-actions-document"
                 aria-label="Document review actions"
             >
-                @if ($documentRecord->status === 'pending')
-                    {{ ($this->acceptDocumentAction)(['document' => $documentRecord->document_id]) }}
-                    {{ ($this->rejectDocumentAction)(['document' => $documentRecord->document_id]) }}
-                @else
-                    {{ ($this->acceptRevisionAction)(['version' => $pendingRevisionVersionId]) }}
-                    {{ ($this->rejectRevisionAction)(['version' => $pendingRevisionVersionId]) }}
-                @endif
+                {{ ($this->acceptDocumentAction)(['document' => $documentRecord->document_id]) }}
+                {{ ($this->rejectDocumentAction)(['document' => $documentRecord->document_id]) }}
             </div>
         @endif
     </div>

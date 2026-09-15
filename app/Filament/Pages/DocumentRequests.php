@@ -153,7 +153,7 @@ class DocumentRequests extends Page implements HasTable
             ->recordActionsColumnLabel('ACTION')
             ->recordActionsAlignment('end')
             ->recordUrl(fn (DocumentRequest $record): string => ViewDocument::getUrl([
-                'document' => $record->document_id,
+                'document' => $record->document->public_id,
             ]))
             ->groups([
                 Group::make('date_of_request')
@@ -371,7 +371,7 @@ class DocumentRequests extends Page implements HasTable
                         ->label('View document')
                         ->url(
                             \App\Filament\Client\Pages\ViewDocument::getUrl([
-                                'document' => $document->document_id,
+                                'document' => $document->public_id,
                                 'from' => 'documents',
                                 'tab' => 'requested',
                             ])

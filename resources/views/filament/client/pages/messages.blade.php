@@ -1963,11 +1963,27 @@
             {{-- THREAD HEADER --}}
                 <div class="thread-header">
 
-                    <div class="t-avatar">
-                        <div class="m-avatar-icon">
-                               <x-heroicon-o-document-text />
+                    @if ($activeConversation?->document?->public_id)
+                        <a
+                            href="{{ \App\Filament\Client\Pages\Documents::getUrl([
+                                'tab' => 'all',
+                                'document' => $activeConversation->document->public_id,
+                            ]) }}"
+                            class="t-avatar transition-opacity hover:opacity-80"
+                            aria-label="View document in Documents"
+                            title="View document in Documents"
+                        >
+                            <div class="m-avatar-icon">
+                                <x-heroicon-o-document-text />
+                            </div>
+                        </a>
+                    @else
+                        <div class="t-avatar">
+                            <div class="m-avatar-icon">
+                                <x-heroicon-o-document-text />
+                            </div>
                         </div>
-                    </div>
+                    @endif
 
                     <div style="flex: 1;">
 

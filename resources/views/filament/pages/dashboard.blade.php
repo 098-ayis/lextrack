@@ -311,7 +311,7 @@
 
 
                             <a
-                                href="{{ url('/admin/documents/' . $document->document_id) }}"
+                                href="{{ url('/admin/documents/' . $document->public_id) }}"
                                 class="group min-w-0 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm
                                        transition hover:border-gray-300 hover:shadow-md
                                        dark:border-gray-700 dark:bg-gray-900"
@@ -326,7 +326,7 @@
                                     )
 
                                         <iframe
-                                            src="{{ route('admin.documents.preview', ['document' => $document->document_id]) }}#toolbar=0"
+                                            src="{{ route('admin.documents.preview', ['document' => $document->public_id]) }}#toolbar=0"
                                             class="pointer-events-none h-full w-full border-0"
                                             title="Document preview"
                                         ></iframe>

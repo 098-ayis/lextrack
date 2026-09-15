@@ -45,7 +45,7 @@ class ViewDocument extends Page
         ], true) ? $tab : 'all';
 
         $this->documentRecord = Document::query()
-            ->where('document_id', $id)
+            ->where('public_id', $id)
             ->where(function ($query): void {
                 $query
                     ->where('user_id', auth()->id())
@@ -83,11 +83,11 @@ class ViewDocument extends Page
             $this->documentRecord->latestVersion?->file_path
         ) {
             $this->previewUrl = route('client.document.preview', [
-                'document' => $this->documentRecord->document_id,
+                'document' => $this->documentRecord->public_id,
             ]);
 
             $this->downloadUrl = route('client.document.download', [
-                'document' => $this->documentRecord->document_id,
+                'document' => $this->documentRecord->public_id,
             ]);
         }
     }

@@ -245,7 +245,7 @@ class Messages extends Page
         abort_unless($isRevisionRequest, 404);
 
         return redirect()->to(ReviseDocument::getUrl([
-            'document' => $document->document_id,
+            'document' => $document->public_id,
         ], false, 'client'));
     }
 
@@ -574,14 +574,14 @@ class Messages extends Page
 
     public function mount(): void
     {
-        $documentId = request()->query('document');
+        $documentPublicId = request()->query('document');
 
-        if (! $documentId) {
+        if (! $documentPublicId) {
             return;
         }
 
         $document = \App\Models\Document::query()
-            ->where('document_id', $documentId)
+            ->where('public_id', $documentPublicId)
             ->where('user_id', auth()->id())
             ->firstOrFail();
 

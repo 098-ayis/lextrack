@@ -29,7 +29,7 @@ class AdminPanelProvider extends PanelProvider
 {
     public function boot(): void
     {
-        Route::middleware(['web', 'auth'])
+        Route::middleware(['web', 'auth', 'admin'])
             ->get('/admin/documents/{document}/file/{filename}', function (
                 Document $document,
                 string $filename,

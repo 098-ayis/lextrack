@@ -41,6 +41,7 @@ class AdminNotificationsTest extends TestCase
         });
         Schema::create('documents', function (Blueprint $table) {
             $table->increments('document_id');
+            $table->string('public_id', 26)->unique();
             $table->unsignedBigInteger('user_id');
             $table->string('status');
             $table->date('deadline')->nullable();
@@ -84,16 +85,16 @@ class AdminNotificationsTest extends TestCase
         $mail->shouldReceive('send')->times(6)->andThrow(new TransportException('SMTP unavailable'));
         $this->app->instance(MailChannel::class, $mail);
         $service = app(AdminDocumentNotificationService::class);
-        $first = Document::withoutEvents(fn () => Document::create(['user_id' => $client->id, 'status' => 'pending']));
+        $first = Document::create(['user_id' => $client->id, 'status' => 'pending']);
         $service->notifyDocumentSubmitted($first);
-        $second = Document::withoutEvents(fn () => Document::create(['user_id' => $client->id, 'status' => 'pending']));
+        $second = Document::create(['user_id' => $client->id, 'status' => 'pending']);
         $service->notifyDocumentSubmitted($second);
         foreach ($admins as $admin) {
             $this->assertSame(1, $admin->notifications()->count());
             $alert = $admin->notifications()->first();
             $this->assertSame(AdminDocumentSubmittedNotification::class, $alert->type);
             $this->assertSame(2, $alert->data['document_count']);
-            $this->assertStringContainsString('document='.$second->document_id, $alert->data['redirect_url']);
+            $this->assertStringContainsString('document='.$second->public_id, $alert->data['redirect_url']);
             $alert->markAsRead();
         }
         $service->notifyDocumentSubmitted($second);
@@ -131,10 +132,10 @@ class AdminNotificationsTest extends TestCase
         $mail->shouldReceive('send')->times(3)->andThrow(new TransportException('SMTP unavailable'));
         $this->app->instance(MailChannel::class, $mail);
         foreach ([0, 1, 3, 2, -1] as $days) {
-            Document::withoutEvents(fn () => Document::create(['user_id' => $admin->id, 'status' => 'pending', 'deadline' => today()->addDays($days)]));
+            Document::create(['user_id' => $admin->id, 'status' => 'pending', 'deadline' => today()->addDays($days)]);
         }
         foreach (['completed', 'rejected', 'archived'] as $status) {
-            Document::withoutEvents(fn () => Document::create(['user_id' => $admin->id, 'status' => $status, 'deadline' => today()]));
+            Document::create(['user_id' => $admin->id, 'status' => $status, 'deadline' => today()]);
         }
         $this->artisan('calendar:send-reminders')->assertSuccessful();
         $this->artisan('calendar:send-reminders')->assertSuccessful();

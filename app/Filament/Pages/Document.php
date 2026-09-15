@@ -128,8 +128,10 @@ class Document extends Page implements HasTable
             'archived',
         ], true) ? $section : 'incoming';
 
-        $this->highlightedDocumentId = is_numeric($document) && (int) $document > 0
-            ? (int) $document
+        $this->highlightedDocumentId = filled($document)
+            ? DocumentModel::query()
+                ->where('public_id', $document)
+                ->value('document_id')
             : null;
 
         $this->initializeDocumentNavigationViewState();
@@ -440,7 +442,7 @@ class Document extends Page implements HasTable
             ->recordActionsColumnLabel('ACTION')
             ->recordActionsAlignment('fi-align-center')
             ->recordUrl(fn (DocumentModel $record): string => ViewDocument::getUrl([
-                'document' => $record->document_id,
+                'document' => $record->public_id,
             ]))
             ->recordClasses(
                 fn (DocumentModel $record): string => $this->highlightedDocumentId !== null &&
@@ -596,13 +598,13 @@ class Document extends Page implements HasTable
                 ->label('View')
                 ->icon('heroicon-o-eye')
                 ->url(fn (DocumentModel $record): string => ViewDocument::getUrl([
-                    'document' => $record->document_id,
+                    'document' => $record->public_id,
                 ])),
             Action::make('downloadDocument')
                 ->label('Download')
                 ->icon('heroicon-o-arrow-down-tray')
                 ->url(fn (DocumentModel $record): string => route('admin.documents.download', [
-                    'document' => $record->document_id,
+                    'document' => $record->public_id,
                 ]))
                 ->disabled(fn (DocumentModel $record): bool => blank($record->latestVersion?->file_path))
                 ->tooltip(fn (DocumentModel $record): string =>
@@ -1773,7 +1775,7 @@ class Document extends Page implements HasTable
 
         $this->redirect(
             route('filament.admin.pages.messages', [
-                'document' => $document->document_id,
+                'document' => $document->public_id,
             ])
         );
     }

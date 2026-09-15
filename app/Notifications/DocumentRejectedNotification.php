@@ -44,7 +44,7 @@ class DocumentRejectedNotification extends Notification
                 'View Document',
                 url(
                     '/client/documents/' .
-                    $this->document->document_id
+                    $this->document->public_id
                 )
             )
             ->line(
@@ -67,7 +67,7 @@ class DocumentRejectedNotification extends Notification
             'document_id' => $this->document->document_id,
             'redirect_url' => url(
                 '/client/documents?tab=rejected&document=' .
-                $this->document->document_id
+                $this->document->public_id
             ),
         ];
     }

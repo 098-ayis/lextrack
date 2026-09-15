@@ -139,6 +139,7 @@ class Cabinet extends Page
 
                                 return [
                                     'id' => $document->document_id,
+                                    'public_id' => $document->public_id,
 
                                     'name' => $fileName,
 

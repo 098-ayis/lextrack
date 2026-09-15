@@ -63,8 +63,19 @@ class Documents extends Page implements HasTable
             'requested',
         ], true) ? $tab : 'all';
 
-        $this->highlightedDocumentId = is_numeric($document) && (int) $document > 0
-            ? (int) $document
+        $this->highlightedDocumentId = filled($document)
+            ? Document::query()
+                ->where('public_id', $document)
+                ->where(function (Builder $query): void {
+                    $query
+                        ->where('user_id', auth()->id())
+                        ->orWhereHas(
+                            'documentRequests',
+                            fn (Builder $requestQuery) => $requestQuery
+                                ->where('user_id', auth()->id())
+                        );
+                })
+                ->value('document_id')
             : null;
     }
 
@@ -235,7 +246,7 @@ class Documents extends Page implements HasTable
             )
             ->recordUrl(
                 fn (Document $record): string => ViewDocument::getUrl([
-                    'document' => $record->document_id,
+                    'document' => $record->public_id,
                     'from' => 'documents',
                     'tab' => $this->activeTab,
                 ])
@@ -352,7 +363,7 @@ class Documents extends Page implements HasTable
                         fn (Document $record): ?string =>
                             $record->isAvailableForMessaging()
                                 ? ClientMessages::getUrl([
-                                    'document' => $record->document_id,
+                                    'document' => $record->public_id,
                                 ])
                                 : null
                     ),
@@ -367,7 +378,7 @@ class Documents extends Page implements HasTable
                     ->url(
                         fn (Document $record): string => route(
                             'client.document.download',
-                            ['document' => $record->document_id]
+                            ['document' => $record->public_id]
                         )
                     )
                     ->visible(fn (Document $record): bool =>
@@ -385,7 +396,7 @@ class Documents extends Page implements HasTable
                     ->url(
                         fn (Document $record): string => route(
                             'client.document.preview',
-                            ['document' => $record->document_id]
+                            ['document' => $record->public_id]
                         )
                     )
                     ->visible(fn (Document $record): bool =>
