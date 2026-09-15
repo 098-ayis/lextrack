@@ -26,6 +26,6 @@ class RecycleBin extends Cabinet
     {
         parent::mount();
         $this->currentType = 'Recycle Bin';
-        $this->currentOffice = 'Documents';
+        $this->currentOffice = '';
     }
 }

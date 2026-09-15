@@ -38,6 +38,16 @@
         .dark .cabinet-toolbar-control { background-color: #1f2937; }
         .dark .cabinet-toolbar-control:hover { background-color: #374151; }
         .cabinet-explorer-toolbar .cabinet-toolbar-control { background: transparent; box-shadow: none; }
+        .cabinet-explorer-toolbar .cabinet-source-filter {
+            width: 132px;
+            border: 1px solid #d1d5db;
+            background: #fff;
+            box-shadow: 0 1px 2px rgb(15 23 42 / 6%);
+        }
+        .dark .cabinet-explorer-toolbar .cabinet-source-filter {
+            border-color: #4b5563;
+            background: #1f2937;
+        }
         .cabinet-explorer-toolbar .cabinet-toolbar-control:hover { background: #f3f4f6; }
         .cabinet-icon-action { display: inline-flex; align-items: center; justify-content: center; width: 40px; padding: 8px; color: #64748b; }
         .cabinet-icon-action:disabled { opacity: .35; cursor: default; }
@@ -72,10 +82,15 @@
         </div>
     </div>
 
-    <div x-data="{ open: false, folder: {}, x: 0, y: 0 }" @cabinet-folder-context.window="folder = $event.detail; x = $event.clientX; y = $event.clientY; open = true" @click.outside="open = false" @keydown.escape.window="open = false">
+    <div x-data="{ open: false, folder: {}, x: 0, y: 0 }" @cabinet-folder-context.window="folder = $event.detail; x = Math.max(8, Math.min(folder.x, window.innerWidth - 190)); y = Math.max(8, Math.min(folder.y, window.innerHeight - 180)); open = true" @click.outside="open = false" @keydown.escape.window="open = false">
         <div x-show="open" x-cloak :style="{ position: 'fixed', left: x + 'px', top: y + 'px', zIndex: 101, width: '180px' }" class="rounded-lg bg-white p-2 shadow-xl dark:bg-gray-800">
-            <button type="button" @click="$wire.selectFolder(folder.type, folder.office); $wire.copyFolderToClipboard(folder.type, folder.office); open = false" class="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700">Copy</button>
-            <button type="button" @click="$wire.selectFolder(folder.type, folder.office); $wire.mountAction('deleteFolder'); open = false" class="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700">Delete</button>
+            @if ($currentType === 'Recycle Bin')
+                <button type="button" @click="$wire.selectFolder(folder.type, folder.office); $wire.restoreFolder(); open = false" class="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700">Restore</button>
+            @else
+                <button type="button" @click="$wire.selectFolder(folder.type, folder.office); $wire.copyFolderToClipboard(folder.type, folder.office); open = false" class="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700">Copy</button>
+                <button type="button" @click="$wire.selectFolder(folder.type, folder.office); $wire.mountAction('renameFolder'); open = false" class="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700">Rename</button>
+                <button type="button" @click="$wire.selectFolder(folder.type, folder.office); $wire.mountAction('deleteFolder'); open = false" class="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700">Delete</button>
+            @endif
             @if ($clipboardDocumentId || $clipboardFolderType)
                 <button type="button" @click="folderPaste = @js((bool) $clipboardFolderType); folderPaste ? $wire.mountAction('pasteFolder') : $wire.pasteDocument(); open = false" class="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700">Paste</button>
             @endif
@@ -88,6 +103,9 @@
             ->flatMap(fn ($folders) => array_keys($folders))->unique()->sort()->values();
         $cabinet = $this->cabinet;
         if (!$this instanceof \App\Filament\Pages\RecycleBin) { unset($cabinet['Recycle Bin']); }
+        $nestedFolderNames = \Illuminate\Support\Facades\DB::table('cabinet_folders')
+            ->whereNotNull('parent_type')
+            ->pluck('name');
         if ($sourceFilter !== 'all') {
             $cabinet = collect($cabinet)->map(fn ($folders) =>
                 array_filter($folders, fn ($office) => $office === $sourceFilter, ARRAY_FILTER_USE_KEY)
@@ -132,6 +150,7 @@
             ->flatMap(fn (array $documents) => $documents);
 
         $documentTypes = collect(array_keys($cabinet))
+            ->reject(fn (string $type) => $nestedFolderNames->contains($type))
             ->filter(function (string $type) use ($normalizedSearch, $documentsForType, $documentMatchesSearch): bool {
                 return $normalizedSearch === ''
                     || str_contains(strtolower($type), $normalizedSearch)
@@ -217,6 +236,10 @@
         $currentDocuments = $currentDocuments->values();
 
         $selectedDocument = $currentDocuments->firstWhere('id', $selectedDocumentId);
+        $customFolder = $currentType !== '' ? \Illuminate\Support\Facades\DB::table('cabinet_folders')->where('name', $currentType)->first() : null;
+        $folderBreadcrumbs = collect($this->folderBreadcrumbs());
+
+        $childFolders = $currentType !== '' ? \Illuminate\Support\Facades\DB::table('cabinet_folders')->where('parent_type', $currentType)->where(function ($query) use ($currentOffice) { $currentOffice !== '' ? $query->where('parent_office', $currentOffice) : $query->whereNull('parent_office'); })->orderBy('name')->get() : collect();
 
     @endphp
 
@@ -247,34 +270,24 @@
                     Cabinet
                 </button>
 
-                <x-heroicon-m-chevron-right
-                    class="h-4 w-4 text-gray-400"
-                />
-
-                @if($currentOffice)
-
-                    <button
-                        type="button"
-                        wire:click="goToType"
-                        class="text-gray-500 transition hover:text-indigo-600 dark:text-gray-400"
-                    >
-                        {{ $currentType }}
-                    </button>
-
-                    <x-heroicon-m-chevron-right
-                        class="h-4 w-4 text-gray-400"
-                    />
-
-                    <span class="font-semibold text-gray-950 dark:text-white">
-                        {{ $currentOffice }}
-                    </span>
-
+                @if ($customFolder)
+                    @foreach ($folderBreadcrumbs as $folderName)
+                        <x-heroicon-m-chevron-right class="h-4 w-4 text-gray-400" />
+                        @if (! $loop->last)
+                            <button type="button" wire:click="openType(@js($folderName))" class="text-gray-500 transition hover:text-indigo-600 dark:text-gray-400">{{ $folderName }}</button>
+                        @else
+                            <span class="font-semibold text-gray-950 dark:text-white">{{ $folderName }}</span>
+                        @endif
+                    @endforeach
                 @else
-
-                    <span class="font-semibold text-gray-950 dark:text-white">
-                        {{ $currentType }}
-                    </span>
-
+                    <x-heroicon-m-chevron-right class="h-4 w-4 text-gray-400" />
+                    @if($currentOffice)
+                        <button type="button" wire:click="goToType" class="text-gray-500 transition hover:text-indigo-600 dark:text-gray-400">{{ $currentType }}</button>
+                        <x-heroicon-m-chevron-right class="h-4 w-4 text-gray-400" />
+                        <span class="font-semibold text-gray-950 dark:text-white">{{ $currentOffice }}</span>
+                    @else
+                        <span class="font-semibold text-gray-950 dark:text-white">{{ $currentType }}</span>
+                    @endif
                 @endif
 
             </div>
@@ -294,7 +307,7 @@
 
                     <h2 class="text-2xl font-bold tracking-tight text-gray-950 dark:text-white">
 
-                        @if($isTypeView)
+                        @if ($customFolder || $isTypeView)
                             {{ $currentType }}
                         @else
                             {{ $currentOffice }}
@@ -350,7 +363,7 @@
                 <span class="cabinet-toolbar-divider" aria-hidden="true"></span>
 
 
-                <select wire:model.live="sourceFilter" aria-label="Filter by office or source" class="cabinet-toolbar-control rounded-lg px-3 py-2.5 text-sm font-medium text-gray-800 dark:text-gray-100">
+                <select wire:model.live="sourceFilter" aria-label="Filter by office or source" class="cabinet-source-filter cabinet-toolbar-control rounded-lg px-3 py-2.5 text-sm font-medium text-gray-800 dark:text-gray-100">
                     <option value="all">All sources</option>
                     @foreach ($filterOptions as $office)
                         <option value="{{ $office }}">{{ $office }}</option>
@@ -647,8 +660,8 @@
                         <x-heroicon-o-plus-circle class="h-5 w-5" /> New <x-heroicon-m-chevron-down class="h-4 w-4" />
                     </button>
                     <div x-show="open" x-cloak class="absolute right-0 z-50 mt-2 rounded-lg bg-white p-2 shadow-xl dark:bg-gray-800" style="min-width:180px">
-                        <button type="button" @click="open = false" wire:click="mountAction('addFolder')" class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm"><x-heroicon-o-folder-plus class="h-5 w-5" /> Folder</button>
-                        <button type="button" @click="open = false" wire:click="mountAction('addDocument')" class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm"><x-heroicon-o-document-plus class="h-5 w-5" /> Document</button>
+                        <button type="button" @click="open = false" wire:click="prepareAddFolder" class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm"><x-heroicon-o-folder-plus class="h-5 w-5" /> Folder</button>
+                        <button type="button" @click="open = false" wire:click="prepareAddDocument" class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm"><x-heroicon-o-document-plus class="h-5 w-5" /> Document</button>
                     </div>
                 </div>
                 @endif
@@ -682,7 +695,7 @@
                                         x-data="{ clickTimer: null }"
                                         @click="clearTimeout(clickTimer); clickTimer = setTimeout(() => $wire.selectFolder(@js($type)), 220)"
                                         @dblclick="clearTimeout(clickTimer); $wire.openType(@js($type))"
-                                        wire:key="root-type-tile-{{ $type }}" @contextmenu.prevent="$dispatch('cabinet-folder-context', { type: @js($type), office: null, x: $event.clientX, y: $event.clientY })"
+                                        wire:key="root-type-tile-{{ $type }}" @contextmenu.prevent="$dispatch('cabinet-folder-context', { type: @js($type), office: null, x: $event.currentTarget.getBoundingClientRect().right + 8, y: $event.currentTarget.getBoundingClientRect().top })"
                                         class="group rounded-xl border bg-white p-5 text-left transition {{ $selectedFolderType === $type && $selectedFolderOffice === null ? 'border-violet-500 ring-2 ring-violet-500/30' : 'border-gray-200' }} hover:border-indigo-300 hover:bg-indigo-50/40 hover:shadow-sm dark:border-gray-700 dark:bg-gray-900 dark:hover:border-indigo-500 dark:hover:bg-indigo-500/5"
                                     >
 
@@ -693,6 +706,7 @@
                                         <p class="mt-4 truncate text-sm font-semibold text-gray-900 dark:text-white">
                                             {{ $type }}
                                         </p>
+                                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ $this->folderFileCount($type) }} {{ Str::plural('file', $this->folderFileCount($type)) }}</p>
 
                                     </button>
 
@@ -713,7 +727,7 @@
                                         x-data="{ clickTimer: null }"
                                         @click="clearTimeout(clickTimer); clickTimer = setTimeout(() => $wire.selectFolder(@js($type)), 220)"
                                         @dblclick="clearTimeout(clickTimer); $wire.openType(@js($type))"
-                                        wire:key="root-type-content-{{ $type }}" @contextmenu.prevent="$dispatch('cabinet-folder-context', { type: @js($type), office: null, x: $event.clientX, y: $event.clientY })"
+                                        wire:key="root-type-content-{{ $type }}" @contextmenu.prevent="$dispatch('cabinet-folder-context', { type: @js($type), office: null, x: $event.currentTarget.getBoundingClientRect().right + 8, y: $event.currentTarget.getBoundingClientRect().top })"
                                         class="flex w-full items-center gap-4 border-b {{ $selectedFolderType === $type && $selectedFolderOffice === null ? 'ring-2 ring-inset ring-violet-500' : '' }} border-gray-100 px-5 py-4 text-left transition hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800"
                                     >
 
@@ -726,6 +740,7 @@
                                             <p class="truncate text-sm font-semibold text-gray-900 dark:text-white">
                                                 {{ $type }}
                                             </p>
+                                            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ $this->folderFileCount($type) }} {{ Str::plural('file', $this->folderFileCount($type)) }}</p>
 
                                         </div>
 
@@ -754,7 +769,7 @@
                                         x-data="{ clickTimer: null }"
                                         @click="clearTimeout(clickTimer); clickTimer = setTimeout(() => $wire.selectFolder(@js($currentType), @js($office)), 220)"
                                         @dblclick="clearTimeout(clickTimer); $wire.openOffice(@js($office))"
-                                        wire:key="office-tile-{{ $office }}" @contextmenu.prevent="$dispatch('cabinet-folder-context', { type: @js($currentType), office: @js($office), x: $event.clientX, y: $event.clientY })"
+                                        wire:key="office-tile-{{ $office }}" @contextmenu.prevent="$dispatch('cabinet-folder-context', { type: @js($currentType), office: @js($office), x: $event.currentTarget.getBoundingClientRect().right + 8, y: $event.currentTarget.getBoundingClientRect().top })"
                                         class="group rounded-xl border border-gray-200 bg-white p-5 text-left transition hover:border-indigo-300 hover:bg-indigo-50/40 hover:shadow-sm dark:border-gray-700 dark:bg-gray-900 dark:hover:border-indigo-500 dark:hover:bg-indigo-500/5 {{ $selectedFolderType === $currentType && $selectedFolderOffice === $office ? 'border-violet-500 ring-2 ring-violet-500/30' : 'border-gray-200' }}"
                                     >
 
@@ -765,6 +780,7 @@
                                         <p class="mt-4 line-clamp-2 text-sm font-semibold text-gray-900 dark:text-white">
                                             {{ $office }}
                                         </p>
+                                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ count($documents) }} {{ Str::plural('file', count($documents)) }}</p>
 
                                     </button>
 
@@ -785,7 +801,7 @@
                                         x-data="{ clickTimer: null }"
                                         @click="clearTimeout(clickTimer); clickTimer = setTimeout(() => $wire.selectFolder(@js($currentType), @js($office)), 220)"
                                         @dblclick="clearTimeout(clickTimer); $wire.openOffice(@js($office))"
-                                        wire:key="office-content-{{ $office }}" @contextmenu.prevent="$dispatch('cabinet-folder-context', { type: @js($currentType), office: @js($office), x: $event.clientX, y: $event.clientY })"
+                                        wire:key="office-content-{{ $office }}" @contextmenu.prevent="$dispatch('cabinet-folder-context', { type: @js($currentType), office: @js($office), x: $event.currentTarget.getBoundingClientRect().right + 8, y: $event.currentTarget.getBoundingClientRect().top })"
                                         class="flex w-full items-center gap-4 border-b {{ $selectedFolderType === $currentType && $selectedFolderOffice === $office ? 'ring-2 ring-inset ring-violet-500' : '' }} border-gray-100 px-5 py-4 text-left transition hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800"
                                     >
 
@@ -798,6 +814,7 @@
                                             <p class="truncate text-sm font-semibold text-gray-900 dark:text-white">
                                                 {{ $office }}
                                             </p>
+                                            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ count($documents) }} {{ Str::plural('file', count($documents)) }}</p>
 
                                         </div>
 
@@ -815,6 +832,17 @@
                 {{-- ===================================================== --}}
 
                 @else
+
+                    @if ($childFolders->isNotEmpty())
+                        <div class="mb-4 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                            @foreach ($childFolders as $folder)
+                                <button x-data="{ clickTimer: null }" @click="clearTimeout(clickTimer); clickTimer = setTimeout(() => $wire.selectFolder(@js($folder->name)), 220)" @dblclick="clearTimeout(clickTimer); $wire.openType(@js($folder->name))" @contextmenu.prevent="$dispatch('cabinet-folder-context', { type: @js($folder->name), office: null, x: $event.currentTarget.getBoundingClientRect().right + 8, y: $event.currentTarget.getBoundingClientRect().top })" class="rounded-xl border bg-white p-5 text-left transition {{ $selectedFolderType === $folder->name ? 'border-violet-500 ring-2 ring-violet-500/30' : 'border-gray-200' }}">
+                                    <x-heroicon-o-folder class="h-14 w-14 text-indigo-500" /><p class="mt-4 truncate text-sm font-semibold">{{ $folder->name }}</p>
+                                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ $this->folderFileCount($folder->name) }} {{ Str::plural('file', $this->folderFileCount($folder->name)) }}</p>
+                                </button>
+                            @endforeach
+                        </div>
+                    @endif
 
                     @if($viewMode === 'tiles')
 
@@ -837,7 +865,7 @@
                                     wire:click.prevent="selectItem(@js($displayName), {{ $document['id'] }}, {{ isset($document['copy_key']) ? (int) substr($document['copy_key'], 5) : 'null' }})"
                                     @dblclick.prevent="window.open($el.href, '_blank', 'noopener')"
                                     wire:key="document-tile-{{ $document['copy_key'] ?? $document['id'] }}"
-                                    @contextmenu.prevent="$dispatch('cabinet-context', { id: {{ $document['id'] }}, name: @js($displayName), url: $el.href, x: $event.clientX, y: $event.clientY }); $wire.selectItem(@js($displayName), {{ $document['id'] }}, {{ isset($document['copy_key']) ? (int) substr($document['copy_key'], 5) : 'null' }})"
+                                    @contextmenu.prevent="$dispatch('cabinet-context', { id: {{ $document['id'] }}, name: @js($displayName), url: $el.href, x: $event.currentTarget.getBoundingClientRect().right + 8, y: $event.currentTarget.getBoundingClientRect().top }); $wire.selectItem(@js($displayName), {{ $document['id'] }}, {{ isset($document['copy_key']) ? (int) substr($document['copy_key'], 5) : 'null' }})"
                                     rel="noopener noreferrer"
                                     class="group rounded-xl border bg-white p-5 text-left transition hover:border-violet-300 hover:bg-violet-50/40 hover:shadow-sm dark:bg-gray-900 dark:hover:border-violet-500 dark:hover:bg-violet-500/5 {{ $selectedDocumentId === $document['id'] && $selectedCopyId === (isset($document['copy_key']) ? (int) substr($document['copy_key'], 5) : null) ? 'border-violet-500 bg-violet-50 ring-2 ring-violet-500/25 dark:bg-violet-500/10' : 'border-gray-200 dark:border-gray-700' }}"
                                 >
@@ -914,7 +942,7 @@
                                     wire:click.prevent="selectItem(@js($displayName), {{ $document['id'] }}, {{ isset($document['copy_key']) ? (int) substr($document['copy_key'], 5) : 'null' }})"
                                     @dblclick.prevent="window.open($el.href, '_blank', 'noopener')"
                                     wire:key="document-row-{{ $document['copy_key'] ?? $document['id'] }}"
-                                    @contextmenu.prevent="$dispatch('cabinet-context', { id: {{ $document['id'] }}, name: @js($displayName), url: $el.href, x: $event.clientX, y: $event.clientY }); $wire.selectItem(@js($displayName), {{ $document['id'] }}, {{ isset($document['copy_key']) ? (int) substr($document['copy_key'], 5) : 'null' }})"
+                                    @contextmenu.prevent="$dispatch('cabinet-context', { id: {{ $document['id'] }}, name: @js($displayName), url: $el.href, x: $event.currentTarget.getBoundingClientRect().right + 8, y: $event.currentTarget.getBoundingClientRect().top }); $wire.selectItem(@js($displayName), {{ $document['id'] }}, {{ isset($document['copy_key']) ? (int) substr($document['copy_key'], 5) : 'null' }})"
                                     rel="noopener noreferrer"
                                     class="grid w-full cursor-pointer grid-cols-[minmax(0,1fr)_120px_160px_60px] items-center border-b px-5 py-4 text-left transition {{ $selectedDocumentId === $document['id'] && $selectedCopyId === (isset($document['copy_key']) ? (int) substr($document['copy_key'], 5) : null) ? 'border-violet-300 bg-violet-100 ring-1 ring-inset ring-violet-500 dark:bg-violet-500/20' : 'border-gray-100 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800' }}"
                                 >
