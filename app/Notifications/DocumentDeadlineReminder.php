@@ -22,7 +22,10 @@ class DocumentDeadlineReminder extends Notification
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
-            ->subject($this->document->notificationLabel())
+            ->subject(
+                'Document deadline reminder: ' .
+                $this->document->notificationLabel()
+            )
             ->greeting('Hello, ' . $notifiable->name . '!')
             ->line($this->getReminderMessage())
             ->line('Document: ' . $this->document->notificationLabel())

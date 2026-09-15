@@ -54,7 +54,7 @@ class AdminNotificationsTest extends TestCase
             $table->string('event')->nullable();
             $table->timestamp('reminder_3_days_sent_at')->nullable();
             $table->timestamp('reminder_1_day_sent_at')->nullable();
-            $table->timestamp('reminder_10_minutes_sent_at')->nullable();
+            $table->timestamp('reminder_1_hour_sent_at')->nullable();
             $table->timestamps();
         });
         Schema::create('notifications', function (Blueprint $table) {
@@ -111,14 +111,14 @@ class AdminNotificationsTest extends TestCase
         $mail = Mockery::mock(MailChannel::class);
         $mail->shouldReceive('send')->times(3)->andThrow(new TransportException('SMTP unavailable'));
         $this->app->instance(MailChannel::class, $mail);
-        foreach ([4320, 1440, 10] as $minutes) {
+        foreach ([4320, 1440, 60] as $minutes) {
             $scheduled = now()->addMinutes($minutes);
             Calendar::create(['user_id' => $admin->id, 'event' => 'Test event', 'date' => $scheduled->toDateString(), 'time' => $scheduled->format('H:i:s')]);
         }
         $this->artisan('calendar:send-reminders')->assertSuccessful();
         $this->artisan('calendar:send-reminders')->assertSuccessful();
         $this->assertSame(3, $admin->notifications()->count());
-        foreach (['3_days', '1_day', '10_minutes'] as $type) {
+        foreach (['3_days', '1_day', '1_hour'] as $type) {
             $this->assertSame(1, Calendar::whereNotNull('reminder_'.$type.'_sent_at')->count());
         }
     }

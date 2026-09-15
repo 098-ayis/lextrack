@@ -61,19 +61,40 @@ class User extends Authenticatable implements HasAvatar, FilamentUser
 
     public function getProfilePhotoUrl(): ?string
     {
-        if (! $this->profile_photo_url) {
+        $photoUrl = null;
+
+        $photoUrl = trim(
+            stripslashes((string) $this->profile_photo_url),
+            " \t\n\r\0\x0B\"'"
+        );
+        $photoUrl = str_replace('\\/', '/', $photoUrl);
+
+        if (! $photoUrl) {
             return null;
         }
 
-        if (
-            str_starts_with($this->profile_photo_url, 'http://') ||
-            str_starts_with($this->profile_photo_url, 'https://')
-        ) {
-            return $this->profile_photo_url;
+        if (str_starts_with($photoUrl, '//')) {
+            return 'https:' . $photoUrl;
+        }
+
+        $photoHost = parse_url($photoUrl, PHP_URL_HOST);
+        $photoScheme = strtolower((string) parse_url($photoUrl, PHP_URL_SCHEME));
+
+        if (in_array($photoScheme, ['http', 'https'], true)) {
+            $isGooglePhoto = $photoHost === 'google.com'
+                || $photoHost === 'googleusercontent.com'
+                || ($photoHost && str_ends_with($photoHost, '.google.com'))
+                || ($photoHost && str_ends_with($photoHost, '.googleusercontent.com'));
+
+            if ($isGooglePhoto && $photoScheme === 'http') {
+                return 'https://' . substr($photoUrl, 7);
+            }
+
+            return $photoUrl;
         }
 
         return Storage::disk('public')->url(
-            $this->profile_photo_url
+            ltrim($photoUrl, '/')
         );
     }
 

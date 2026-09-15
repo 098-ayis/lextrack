@@ -95,24 +95,27 @@ class SendCalendarReminders extends Command
             }
 
             /*
-             * 10 MINUTES BEFORE
+             * 1 HOUR BEFORE
+             *
+             * Keep the one-minute scheduler window so this reminder is
+             * sent once when the event is one hour away.
              */
             if (
-                $minutesUntilEvent <= 10 &&
-                $minutesUntilEvent > 9 &&
-                ! $event->reminder_10_minutes_sent_at
+                $minutesUntilEvent <= 60 &&
+                $minutesUntilEvent > 59 &&
+                ! $event->reminder_1_hour_sent_at
             ) {
                 app(InAppNotificationService::class)->send(
                     $event->user,
-                    new CalendarEventReminder($event, '10_minutes')
+                    new CalendarEventReminder($event, '1_hour')
                 );
 
                 $event->forceFill([
-                    'reminder_10_minutes_sent_at' => now(),
+                    'reminder_1_hour_sent_at' => now(),
                 ])->save();
 
                 $this->info(
-                    "10-minute reminder sent for: {$event->event}"
+                    "1-hour reminder sent for: {$event->event}"
                 );
             }
         }

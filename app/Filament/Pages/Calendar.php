@@ -737,7 +737,7 @@ class Calendar extends Page
                             'reminder_1_day_sent_at'
                                 => null,
 
-                            'reminder_10_minutes_sent_at'
+                            'reminder_1_hour_sent_at'
                                 => null,
 
                         ])->save();
