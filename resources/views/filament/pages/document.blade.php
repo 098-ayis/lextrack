@@ -84,7 +84,7 @@
                 'rejected' => 'Rejected',
             ] as $section => $label)
                 <a
-                    href="{{ request()->fullUrlWithQuery(['section' => $section]) }}"
+                    href="{{ \App\Filament\Pages\Document::getUrl(['section' => $section]) }}"
                     class="rounded-md px-4 py-2 text-base font-semibold transition-colors
                         {{ $activeSection === $section
                             ? 'bg-[#0F172A] text-white'
