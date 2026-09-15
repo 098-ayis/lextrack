@@ -66,6 +66,10 @@ class Cabinet extends Page
 
     public ?int $selectedCopyId = null;
 
+    public ?string $selectedFolderType = null;
+
+    public ?string $selectedFolderOffice = null;
+
     public string $currentType = '';
 
     public string $currentOffice = '';
@@ -225,6 +229,29 @@ class Cabinet extends Page
             return ['folder_id' => null, 'cabinet_type' => $type, 'cabinet_office' => $office];
         }
         return ['folder_id' => $destination, 'cabinet_type' => null, 'cabinet_office' => null];
+    }
+
+    public function selectFolder(string $type, ?string $office = null): void
+    {
+        abort_unless(isset($this->cabinet[$type]) && ($office === null || isset($this->cabinet[$type][$office])), 404);
+        $this->selectedFolderType = $type;
+        $this->selectedFolderOffice = $office;
+        $this->selectedDocumentId = null;
+    }
+
+    public function deleteFolderAction(): Action
+    {
+        return Action::make('deleteFolder')->label('Delete')->requiresConfirmation()
+            ->modalHeading('Send folder contents to Recycle Bin?')
+            ->action(function (): void {
+                abort_unless(auth()->user()?->canAccessPanel(\Filament\Facades\Filament::getPanel('admin')), 403);
+                $groups = $this->cabinet[$this->selectedFolderType] ?? [];
+                $documents = $this->selectedFolderOffice === null ? collect($groups)->flatten(1) : collect($groups[$this->selectedFolderOffice] ?? []);
+                foreach ($documents->unique('id') as $document) {
+                    DB::table('cabinet_recycle_bin')->updateOrInsert(['document_id' => $document['id']], ['created_at' => now(), 'updated_at' => now()]);
+                }
+                $this->loadCabinet();
+            });
     }
 
     public function copyFolderToClipboard(string $type, ?string $office = null): void
@@ -637,6 +664,8 @@ class Cabinet extends Page
         ?int $copyId = null
     ): void {
         $this->selectedItem = $item;
+        $this->selectedFolderType = null;
+        $this->selectedFolderOffice = null;
 
         $this->selectedDocumentId = $documentId;
         $this->selectedCopyId = $copyId;
