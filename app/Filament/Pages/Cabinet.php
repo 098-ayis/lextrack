@@ -45,6 +45,10 @@ class Cabinet extends Page
 
     public ?int $clipboardDocumentId = null;
 
+    public ?string $clipboardFolderType = null;
+
+    public ?string $clipboardFolderOffice = null;
+
 
     public string $sortBy = 'name';
 
@@ -223,6 +227,39 @@ class Cabinet extends Page
         return ['folder_id' => $destination, 'cabinet_type' => null, 'cabinet_office' => null];
     }
 
+    public function copyFolderToClipboard(string $type, ?string $office = null): void
+    {
+        abort_unless(auth()->user()?->canAccessPanel(\Filament\Facades\Filament::getPanel('admin')), 403);
+        abort_unless(isset($this->cabinet[$type]) && ($office === null || isset($this->cabinet[$type][$office])), 404);
+        $this->clipboardFolderType = $type;
+        $this->clipboardFolderOffice = $office;
+        $this->clipboardDocumentId = null;
+        \Filament\Notifications\Notification::make()->title('Folder copied')->success()->send();
+    }
+
+    public function pasteFolderAction(): Action
+    {
+        return Action::make('pasteFolder')->modalHeading('Paste Folder')->modalWidth(\Filament\Support\Enums\Width::Medium)
+            ->schema([
+                TextInput::make('name')->label('Folder name')->default(fn () => $this->clipboardFolderOffice ?? $this->clipboardFolderType)->required()->maxLength(255),
+            ])->action(function (array $data): void {
+                abort_unless(auth()->user()?->canAccessPanel(\Filament\Facades\Filament::getPanel('admin')), 403);
+                $name = trim($data['name']);
+                $reserved = array_merge(array_keys($this->cabinet), DocumentType::pluck('type_name')->all(), ['Others', 'Recycle Bin']);
+                if (collect($reserved)->contains(fn ($value) => strcasecmp($value, $name) === 0)) {
+                    throw \Illuminate\Validation\ValidationException::withMessages(['name' => 'Rename the folder before pasting.']);
+                }
+                $folderId = DB::table('cabinet_folders')->insertGetId(['name' => $name, 'created_at' => now(), 'updated_at' => now()]);
+                $groups = $this->cabinet[$this->clipboardFolderType] ?? [];
+                $documents = $this->clipboardFolderOffice === null ? collect($groups)->flatten(1) : collect($groups[$this->clipboardFolderOffice] ?? []);
+                foreach ($documents->unique('id') as $document) {
+                    DB::table('cabinet_copies')->insert(['document_id' => $document['id'], 'folder_id' => $folderId, 'display_name' => $document['name'], 'created_at' => now(), 'updated_at' => now()]);
+                }
+                $this->loadCabinet();
+                \Filament\Notifications\Notification::make()->title('Folder pasted')->success()->send();
+            });
+    }
+
     public function copyToClipboard(int $documentId, string $mode = 'copy'): void
     {
         abort_unless(auth()->user()?->canAccessPanel(\Filament\Facades\Filament::getPanel('admin')), 403);
@@ -274,12 +311,36 @@ class Cabinet extends Page
         \Filament\Notifications\Notification::make()->title('Document pasted')->success()->send();
     }
 
+    protected function clipboardSourceName(): string
+    {
+        if (! $this->clipboardDocumentId) {
+            return '';
+        }
+
+        $document = Document::with('latestVersion')->find($this->clipboardDocumentId);
+
+        return $document?->document_name
+            ?: ($document?->latestVersion?->file_path ? basename($document->latestVersion->file_path) : '')
+            ?: ($document?->particulars ?: 'Untitled Document');
+    }
+
     public function pasteRenameAction(): Action
     {
         return Action::make('pasteRename')->modalHeading('Rename before pasting')
             ->modalWidth(\Filament\Support\Enums\Width::Medium)
             ->modalSubmitActionLabel('Rename and Paste')->schema([
-                TextInput::make('name')->label('New filename')->required()->maxLength(255),
+                TextInput::make('name')
+                    ->label('New filename')
+                    ->default(fn (): string => $this->clipboardSourceName())
+                    ->required()
+                    ->maxLength(255)
+                    ->rules([
+                        fn (): \Closure => function (string $attribute, mixed $value, \Closure $fail): void {
+                            if (mb_strtolower(trim((string) $value)) === mb_strtolower($this->clipboardSourceName())) {
+                                $fail('Rename the file before pasting.');
+                            }
+                        },
+                    ]),
             ])->action(fn (array $data) => $this->pasteDocument($data['name']));
     }
 

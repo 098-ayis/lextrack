@@ -65,6 +65,12 @@
         </div>
     </div>
 
+    <div x-data="{ open: false, folder: {}, x: 0, y: 0 }" @cabinet-folder-context.window="folder = $event.detail; x = $event.clientX; y = $event.clientY; open = true" @click.outside="open = false" @keydown.escape.window="open = false">
+        <div x-show="open" x-cloak :style="{ position: 'fixed', left: x + 'px', top: y + 'px', zIndex: 101, width: '180px' }" class="rounded-lg bg-white p-2 shadow-xl dark:bg-gray-800">
+            <button type="button" @click="$wire.copyFolderToClipboard(folder.type, folder.office); open = false" class="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700">Copy folder</button>
+        </div>
+    </div>
+
     @php
 
         $filterOptions = collect($this->cabinet)
@@ -327,7 +333,7 @@
 
                 <span class="cabinet-toolbar-divider" aria-hidden="true"></span>
                 <button type="button" wire:click="copyToClipboard({{ $selectedDocumentId ?? 0 }})" @disabled(!$selectedDocumentId || $currentType === 'Recycle Bin') class="cabinet-toolbar-control cabinet-icon-action" aria-label="Copy" title="Copy"><x-heroicon-o-square-2-stack class="h-5 w-5" /></button>
-                <button type="button" wire:click="pasteDocument" @disabled(!$clipboardDocumentId || $currentType === 'Recycle Bin') class="cabinet-toolbar-control cabinet-icon-action" aria-label="Paste" title="Paste"><x-heroicon-o-clipboard class="h-5 w-5" /></button>
+                <button type="button" wire:click="{{ $clipboardFolderType ? "mountAction('pasteFolder')" : "pasteDocument" }}" @disabled(!$clipboardDocumentId && !$clipboardFolderType || $currentType === 'Recycle Bin') class="cabinet-toolbar-control cabinet-icon-action" aria-label="Paste" title="Paste"><x-heroicon-o-clipboard class="h-5 w-5" /></button>
                 <button type="button" wire:click="mountAction('archiveCabinetDocument')" @disabled(!$selectedDocumentId || $currentType === 'Recycle Bin') class="cabinet-toolbar-control cabinet-icon-action" aria-label="Archive" title="Archive"><x-heroicon-o-archive-box class="h-5 w-5" /></button>
                 <button type="button" wire:click="mountAction('deleteCabinetDocument')" @disabled(!$selectedDocumentId || $currentType === 'Recycle Bin') class="cabinet-toolbar-control cabinet-icon-action" aria-label="Delete" title="Delete"><x-heroicon-o-trash class="h-5 w-5" /></button>
                 <span class="cabinet-toolbar-divider" aria-hidden="true"></span>
@@ -663,7 +669,7 @@
 
                                     <button
                                         wire:click="openType(@js($type))"
-                                        wire:key="root-type-tile-{{ $type }}"
+                                        wire:key="root-type-tile-{{ $type }}" @contextmenu.prevent="$dispatch('cabinet-folder-context', { type: @js($type), office: null, x: $event.clientX, y: $event.clientY })"
                                         class="group rounded-xl border border-gray-200 bg-white p-5 text-left transition hover:border-indigo-300 hover:bg-indigo-50/40 hover:shadow-sm dark:border-gray-700 dark:bg-gray-900 dark:hover:border-indigo-500 dark:hover:bg-indigo-500/5"
                                     >
 
@@ -701,7 +707,7 @@
 
                                     <button
                                         wire:click="openType(@js($type))"
-                                        wire:key="root-type-content-{{ $type }}"
+                                        wire:key="root-type-content-{{ $type }}" @contextmenu.prevent="$dispatch('cabinet-folder-context', { type: @js($type), office: null, x: $event.clientX, y: $event.clientY })"
                                         class="flex w-full items-center gap-4 border-b border-gray-100 px-5 py-4 text-left transition hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800"
                                     >
 
@@ -753,7 +759,7 @@
 
                                     <button
                                         wire:click="openOffice(@js($office))"
-                                        wire:key="office-tile-{{ $office }}"
+                                        wire:key="office-tile-{{ $office }}" @contextmenu.prevent="$dispatch('cabinet-folder-context', { type: @js($currentType), office: @js($office), x: $event.clientX, y: $event.clientY })"
                                         class="group rounded-xl border border-gray-200 bg-white p-5 text-left transition hover:border-indigo-300 hover:bg-indigo-50/40 hover:shadow-sm dark:border-gray-700 dark:bg-gray-900 dark:hover:border-indigo-500 dark:hover:bg-indigo-500/5"
                                     >
 
@@ -787,7 +793,7 @@
 
                                     <button
                                         wire:click="openOffice(@js($office))"
-                                        wire:key="office-content-{{ $office }}"
+                                        wire:key="office-content-{{ $office }}" @contextmenu.prevent="$dispatch('cabinet-folder-context', { type: @js($currentType), office: @js($office), x: $event.clientX, y: $event.clientY })"
                                         class="flex w-full items-center gap-4 border-b border-gray-100 px-5 py-4 text-left transition hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800"
                                     >
 
