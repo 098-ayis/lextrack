@@ -18,9 +18,6 @@
             <span class="truncate text-xs font-semibold text-gray-900 dark:text-gray-100">
                 {{ $record->user->name }}
             </span>
-            <span class="truncate text-xs text-gray-500 dark:text-gray-400">
-                {{ $record->user->email }}
-            </span>
         </div>
     </div>
 @else

@@ -65,6 +65,8 @@ class Document extends Page implements HasTable
 
     private const string OTHER_SENT_TO = '__other_sent_to__';
 
+    private const string OTHER_RETURNED_FROM = '__other_returned_from__';
+
     use InteractsWithTable;
     // use HasPageShield;
 
@@ -1032,6 +1034,10 @@ class Document extends Page implements HasTable
                             ->default('select')
                             ->dehydrated(false),
 
+                        Hidden::make('returned_from_mode')
+                            ->default('select')
+                            ->dehydrated(false),
+
                         TextInput::make('document_name')
                             ->label('Document Name')
                             ->maxLength(255),
@@ -1068,58 +1074,100 @@ class Document extends Page implements HasTable
                             ->label('Outgoing Date')
                             ->default(now()->toDateString()),
 
-                        Select::make('sent_to')
-                            ->label('Sent To')
-                            ->options(fn () => OfficeUnit::query()
-                                ->orderBy('name')
-                                ->pluck('name', 'name')
-                                ->prepend('Others', self::OTHER_SENT_TO)
-                                ->toArray())
-                            ->searchable()
-                            ->preload()
-                            ->live()
-                            ->visible(fn (Get $get): bool => $get('sent_to_mode') !== self::OTHER_SENT_TO)
-                            ->dehydrated(fn (Get $get): bool => $get('sent_to_mode') !== self::OTHER_SENT_TO)
-                            ->afterStateUpdated(function (Set $set, ?string $state): void {
-                                if ($state === self::OTHER_SENT_TO) {
-                                    $set('sent_to_mode', self::OTHER_SENT_TO);
-                                    $set('sent_to', null);
+                        Grid::make(2)
+                            ->schema([
+                                Select::make('sent_to')
+                                    ->label('Sent To')
+                                    ->options(fn () => OfficeUnit::query()
+                                        ->orderBy('name')
+                                        ->pluck('name', 'name')
+                                        ->prepend('Others', self::OTHER_SENT_TO)
+                                        ->toArray())
+                                    ->searchable()
+                                    ->preload()
+                                    ->live()
+                                    ->visible(fn (Get $get): bool => $get('sent_to_mode') !== self::OTHER_SENT_TO)
+                                    ->dehydrated(fn (Get $get): bool => $get('sent_to_mode') !== self::OTHER_SENT_TO)
+                                    ->afterStateUpdated(function (Set $set, ?string $state): void {
+                                        if ($state === self::OTHER_SENT_TO) {
+                                            $set('sent_to_mode', self::OTHER_SENT_TO);
+                                            $set('sent_to', null);
 
-                                    return;
-                                }
+                                            return;
+                                        }
 
-                                $set('sent_to_mode', 'select');
-                            })
-                            ->required(),
-
-                        TextInput::make('sent_to')
-                            ->label('Sent To')
-                            ->placeholder('Enter the destination')
-                            ->maxLength(255)
-                            ->suffixAction(
-                                Action::make('chooseListedSentTo')
-                                    ->icon(Heroicon::ChevronDown)
-                                    ->tooltip('Choose from listed offices/units')
-                                    ->action(function (Set $set): void {
                                         $set('sent_to_mode', 'select');
-                                        $set('sent_to', null);
-                                    }),
-                            )
-                            ->visible(fn (Get $get): bool => $get('sent_to_mode') === self::OTHER_SENT_TO)
-                            ->dehydrated(fn (Get $get): bool => $get('sent_to_mode') === self::OTHER_SENT_TO)
-                            ->required(fn (Get $get): bool => $get('sent_to_mode') === self::OTHER_SENT_TO),
+                                    })
+                                    ->required(),
 
-                        DatePicker::make('sent_date')
-                            ->label('Sent Date')
-                            ->default(now()->toDateString()),
+                                TextInput::make('sent_to')
+                                    ->label('Sent To')
+                                    ->placeholder('Enter the destination')
+                                    ->maxLength(255)
+                                    ->suffixAction(
+                                        Action::make('chooseListedSentTo')
+                                            ->icon(Heroicon::ChevronDown)
+                                            ->tooltip('Choose from listed offices/units')
+                                            ->action(function (Set $set): void {
+                                                $set('sent_to_mode', 'select');
+                                                $set('sent_to', null);
+                                            }),
+                                    )
+                                    ->visible(fn (Get $get): bool => $get('sent_to_mode') === self::OTHER_SENT_TO)
+                                    ->dehydrated(fn (Get $get): bool => $get('sent_to_mode') === self::OTHER_SENT_TO)
+                                    ->required(fn (Get $get): bool => $get('sent_to_mode') === self::OTHER_SENT_TO),
 
-                        TextInput::make('returned_from')
-                            ->label('Returned From')
-                            ->maxLength(255),
+                                DatePicker::make('sent_date')
+                                    ->label('Sent Date')
+                                    ->default(now()->toDateString()),
+                            ]),
 
-                        DatePicker::make('date_returned')
-                            ->label('Returned Date')
-                            ->default(now()->toDateString()),
+                        Grid::make(2)
+                            ->schema([
+                                Select::make('returned_from')
+                                    ->label('Returned From')
+                                    ->options(fn () => OfficeUnit::query()
+                                        ->orderBy('name')
+                                        ->pluck('name', 'name')
+                                        ->prepend('Others', self::OTHER_RETURNED_FROM)
+                                        ->toArray())
+                                    ->searchable()
+                                    ->preload()
+                                    ->live()
+                                    ->visible(fn (Get $get): bool => $get('returned_from_mode') !== self::OTHER_RETURNED_FROM)
+                                    ->dehydrated(fn (Get $get): bool => $get('returned_from_mode') !== self::OTHER_RETURNED_FROM)
+                                    ->afterStateUpdated(function (Set $set, ?string $state): void {
+                                        if ($state === self::OTHER_RETURNED_FROM) {
+                                            $set('returned_from_mode', self::OTHER_RETURNED_FROM);
+                                            $set('returned_from', null);
+
+                                            return;
+                                        }
+
+                                        $set('returned_from_mode', 'select');
+                                    })
+                                    ->required(),
+
+                                TextInput::make('returned_from')
+                                    ->label('Returned From')
+                                    ->placeholder('Enter the originating office/unit')
+                                    ->maxLength(255)
+                                    ->suffixAction(
+                                        Action::make('chooseListedReturnedFrom')
+                                            ->icon(Heroicon::ChevronDown)
+                                            ->tooltip('Choose from listed offices/units')
+                                            ->action(function (Set $set): void {
+                                                $set('returned_from_mode', 'select');
+                                                $set('returned_from', null);
+                                            }),
+                                    )
+                                    ->visible(fn (Get $get): bool => $get('returned_from_mode') === self::OTHER_RETURNED_FROM)
+                                    ->dehydrated(fn (Get $get): bool => $get('returned_from_mode') === self::OTHER_RETURNED_FROM)
+                                    ->required(fn (Get $get): bool => $get('returned_from_mode') === self::OTHER_RETURNED_FROM),
+
+                                DatePicker::make('date_returned')
+                                    ->label('Returned Date'),
+                            ]),
                     ];
                 }
 
@@ -1215,6 +1263,12 @@ class Document extends Page implements HasTable
                         ->where('name', $document->sent_to)
                         ->exists()
                         ? self::OTHER_SENT_TO
+                        : 'select',
+
+                    'returned_from_mode' => filled($document->returned_from) && ! OfficeUnit::query()
+                        ->where('name', $document->returned_from)
+                        ->exists()
+                        ? self::OTHER_RETURNED_FROM
                         : 'select',
 
                     // Important: preload current Action Taken
