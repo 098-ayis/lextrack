@@ -93,6 +93,16 @@ class DocumentQrCodeTest extends TestCase
             'updated_at' => now(),
         ]);
 
+        DB::table('activity_logs')->insert([
+            'document_id' => $document->document_id,
+            'action_type' => 'Document updated',
+            'action_details' => 'Returned From changed',
+            'old_value' => json_encode(['returned_from' => null]),
+            'new_value' => json_encode(['returned_from' => 'Office of the President']),
+            'created_at' => now()->addMinute(),
+            'updated_at' => now()->addMinute(),
+        ]);
+
         Turnstile::fake();
 
         $this->postJson(route('public.track.qr'), [
@@ -103,7 +113,9 @@ class DocumentQrCodeTest extends TestCase
             ->assertJsonPath('document.tracking_number', 'LAO-26-001')
             ->assertJsonPath('document.timeline.0.title', 'Pending')
             ->assertJsonPath('document.timeline.1.title', 'Sent to Office of the President')
-            ->assertJsonPath('document.timeline.1.description', 'Your document was sent to Office of the President.');
+            ->assertJsonPath('document.timeline.1.description', 'Your document was sent to Office of the President.')
+            ->assertJsonPath('document.timeline.2.title', 'Returned from Office of the President')
+            ->assertJsonPath('document.timeline.2.description', 'Your document was returned from Office of the President.');
     }
 
     public function test_valid_turnstile_token_and_invalid_qr_image_payload_use_existing_validation(): void
