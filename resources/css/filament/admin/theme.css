@@ -2284,11 +2284,13 @@ Edit-Button
 @media(max-width:1100px) { .office-calendar-layout { grid-template-columns:minmax(0,1fr); } }
 @media(max-width:640px) { .office-calendar-toolbar { padding:12px; } .office-calendar-month { font-size:13px; padding:0 10px; } }
 
-/* Keep the client panel as a top-navigation layout without admin-sidebar spacing. */
-.fi-panel-client .fi-main-sidebar,
-.fi-panel-client .fi-sidebar,
-.fi-panel-client .fi-sidebar-header {
-    display: none !important;
+/* Client navigation uses the topbar on desktop and Filament's drawer on mobile. */
+@media (min-width: 64rem) {
+    .fi-panel-client .fi-main-sidebar,
+    .fi-panel-client .fi-sidebar,
+    .fi-panel-client .fi-sidebar-header {
+        display: none !important;
+    }
 }
 
 .fi-panel-client .fi-topbar,
@@ -2305,9 +2307,11 @@ Edit-Button
     display: flex !important;
 }
 
-.fi-panel-client .fi-topbar-open-sidebar-btn,
-.fi-panel-client .fi-topbar-close-sidebar-btn {
-    display: none !important;
+@media (min-width: 64rem) {
+    .fi-panel-client .fi-topbar-open-sidebar-btn,
+    .fi-panel-client .fi-topbar-close-sidebar-btn {
+        display: none !important;
+    }
 }
 
 /* Keep client header text white while preserving the blue B and orange U accents. */
@@ -2331,3 +2335,59 @@ Edit-Button
 .admin-documents-filament-table .fi-ta-table tbody td:first-child { padding-inline-start:28px; }
 .admin-documents-filament-table .fi-ta-table thead th:last-child,
 .admin-documents-filament-table .fi-ta-table tbody td:last-child:not([colspan]) { width:13rem; padding-inline-end:32px; }
+
+
+/* Let wide tables scroll within their panel instead of widening the page. */
+.fi-main, .fi-page, .fi-page-content, .fi-ta, .fi-ta-ctn {
+    min-width: 0;
+    max-width: 100%;
+}
+
+@media (max-width: 63.99rem) {
+    .fi-topbar .fi-topbar-start {
+        min-width: 0;
+        flex-shrink: 1;
+    }
+
+    .fi-topbar .lextrack-brand-text {
+        min-width: 0;
+    }
+
+    .fi-topbar .lextrack-brand-subtitle {
+        flex-wrap: wrap;
+    }
+
+    .fi-panel-client .fi-topbar-open-sidebar-btn,
+    .fi-panel-client .fi-topbar-close-sidebar-btn {
+        color: #ffffff;
+    }
+}
+
+@media (max-width: 40rem) {
+    .fi-topbar {
+        gap: 0.5rem;
+        padding-inline: 0.75rem;
+    }
+
+    .fi-topbar .fi-topbar-end {
+        gap: 0.5rem !important;
+    }
+
+    .office-calendar-toolbar {
+        flex-wrap: wrap;
+    }
+
+    .office-calendar-navigation {
+        min-width: 0;
+        gap: 4px;
+    }
+
+    .office-calendar-navigation > button {
+        flex-shrink: 0;
+    }
+
+    .dashboard-today-footer {
+        flex-wrap: wrap;
+        gap: 16px;
+    }
+}
