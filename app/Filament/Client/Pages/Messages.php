@@ -475,15 +475,19 @@ class Messages extends Page
 
         $message = $conversation->messages()->findOrFail($messageId);
 
-        $existingReaction = MessageReaction::query()
+        $userReactions = MessageReaction::query()
             ->where('message_id', $message->id)
             ->where('user_id', auth()->id())
-            ->where('reaction', $reaction)
-            ->first();
+            ->get();
 
-        if ($existingReaction) {
-            $existingReaction->delete();
-        } else {
+        $isTogglingOff = $userReactions->contains('reaction', $reaction);
+
+        MessageReaction::query()
+            ->where('message_id', $message->id)
+            ->where('user_id', auth()->id())
+            ->delete();
+
+        if (! $isTogglingOff) {
             MessageReaction::create([
                 'message_id' => $message->id,
                 'user_id' => auth()->id(),

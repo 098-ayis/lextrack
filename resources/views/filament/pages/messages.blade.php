@@ -778,6 +778,21 @@
         transition: background 0.15s, border-color 0.15s, color 0.15s;
     }
 
+    .message-reaction-trigger {
+        font-size: 25px;
+        align-items: center;
+        justify-content: center;
+        display: inline-flex;
+        line-height: 1;
+        text-align: center;
+    }
+
+    .message-reaction-trigger-icon {
+        display: block;
+        width: 20px;
+        height: 20px;
+    }
+
     .message-reaction {
         display: inline-flex;
         align-items: center;
@@ -847,7 +862,7 @@
         border: none;
         border-radius: 6px;
         cursor: pointer;
-        font-size: 15px;
+        font-size: 18px;
     }
 
     .message-reaction-menu button:hover {
@@ -2437,7 +2452,7 @@
                                         aria-label="Add reaction"
                                         title="Add reaction"
                                     >
-                                        ☺
+                                        <x-heroicon-o-face-smile class="message-reaction-trigger-icon" aria-hidden="true" />
                                     </button>
 
                                     <div
