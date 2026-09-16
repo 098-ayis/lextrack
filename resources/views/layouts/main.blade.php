@@ -8,7 +8,7 @@
     <link
         rel="icon"
         type="image/png"
-        href="{{ asset('images/bu-lao.png') }}"
+        href="{{ asset('images/lextrack-logo.png.png') }}"
     >
 
     <meta name="csrf-token" content="{{ csrf_token() }}">

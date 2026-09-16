@@ -13,6 +13,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
 use Filament\Schemas\Components\Utilities\Set;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Pages\Page;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
@@ -70,6 +71,14 @@ class Cabinet extends Page
 
     public ?string $selectedFolderOffice = null;
 
+    public ?string $newFolderParentType = null;
+
+    public ?string $newFolderParentOffice = null;
+
+    public ?string $newDocumentType = null;
+
+    public ?string $newDocumentOffice = null;
+
     public string $currentType = '';
 
     public string $currentOffice = '';
@@ -87,7 +96,8 @@ class Cabinet extends Page
 
         $recycled = DB::table('cabinet_recycle_bin')->pluck('document_id')->all();
         $locations = DB::table('cabinet_document_locations')->get()->keyBy('document_id');
-        $folders = DB::table('cabinet_folders')->pluck('name', 'id');
+        $folderRecords = DB::table('cabinet_folders')->get();
+        $folders = $folderRecords->whereNull('recycled_at')->pluck('name', 'id');
 
         $documents = Document::query()
             ->with(['latestVersion'])
@@ -103,20 +113,14 @@ class Cabinet extends Page
             )
             ->groupBy(
                 fn (Document $document) =>
-                    in_array($document->document_id, $recycled) ? 'Recycle Bin' : (isset($locations[$document->document_id])
-                        ? ($locations[$document->document_id]->cabinet_type ?? $folders[$locations[$document->document_id]->folder_id])
-                        : ($knownTypes[strtolower(trim($document->document_type))] ?? 'Others'))
+                    in_array($document->document_id, $recycled)
+                        ? 'Recycle Bin'
+                        : ($knownTypes[strtolower(trim($document->document_type))] ?? 'Others')
             )
-            ->map(function ($documentsByType, string $type) use ($folders, $locations, $recycled) {
+            ->map(function ($documentsByType, string $type) use ($recycled) {
                 return $documentsByType
-                    ->groupBy(function (Document $document) use ($type, $folders, $locations, $recycled) {
+                    ->groupBy(function (Document $document) use ($type, $recycled) {
                         if (in_array($document->document_id, $recycled)) { return 'Documents'; }
-                        if (isset($locations[$document->document_id]) && $locations[$document->document_id]->cabinet_office !== null) {
-                            return $locations[$document->document_id]->cabinet_office;
-                        }
-                        if ($folders->contains($type)) {
-                            return 'Documents';
-                        }
                         if (strcasecmp($type, 'Others') === 0) {
                             return trim($document->document_type);
                         }
@@ -193,10 +197,30 @@ class Cabinet extends Page
                 $this->cabinet[$location->cabinet_type][$location->cabinet_office] ??= [];
             }
         }
-        foreach ($folders as $name) {
-            $this->cabinet[$name] ??= ['Documents' => []];
+        foreach ($folderRecords->whereNotNull('recycled_at') as $folder) {
+            $this->cabinet['Recycle Bin'][$folder->name] ??= [];
+        }
+        foreach ($folderRecords->whereNull('recycled_at') as $folder) {
+            $this->cabinet[$folder->name] ??= ['Documents' => []];
         }
         $entries = collect($this->cabinet)->flatMap(fn ($groups) => collect($groups)->flatten(1))->keyBy('id');
+        foreach ($locations as $documentId => $location) {
+            if (in_array($documentId, $recycled) || ! isset($entries[$documentId])) {
+                continue;
+            }
+
+            $destinationType = $location->cabinet_type ?? ($folders[$location->folder_id] ?? null);
+            $destinationOffice = $location->cabinet_office ?? 'Documents';
+
+            if (! $destinationType) {
+                continue;
+            }
+
+            $destination = $this->cabinet[$destinationType][$destinationOffice] ?? [];
+            if (! collect($destination)->contains(fn (array $entry) => $entry['id'] === (int) $documentId)) {
+                $this->cabinet[$destinationType][$destinationOffice][] = $entries[$documentId];
+            }
+        }
         foreach (DB::table('cabinet_copies')->get() as $copy) {
             if (!in_array($copy->document_id, $recycled) && isset($entries[$copy->document_id]) && ($copy->cabinet_type !== null || isset($folders[$copy->folder_id]))) {
                 $entry = $entries[$copy->document_id];
@@ -240,19 +264,65 @@ class Cabinet extends Page
         $this->selectedDocumentId = null;
     }
 
+    public function renameFolderAction(): Action
+    {
+        return Action::make('renameFolder')->label('Rename')->modalHeading('Rename Folder')
+            ->modalWidth(\Filament\Support\Enums\Width::Medium)
+            ->schema([
+                TextInput::make('name')->label('Folder name')->default(fn () => $this->selectedFolderOffice ?? $this->selectedFolderType)->required()->maxLength(255),
+            ])->action(function (array $data): void {
+                abort_unless(auth()->user()?->canAccessPanel(\Filament\Facades\Filament::getPanel('admin')), 403);
+                $folder = DB::table('cabinet_folders')->where('name', $this->selectedFolderType)->first();
+                if (! $folder || $this->selectedFolderOffice !== null) {
+                    throw \Illuminate\Validation\ValidationException::withMessages(['name' => 'Only folders created by staff can be renamed.']);
+                }
+                $name = trim($data['name']);
+                $reserved = array_merge(array_keys($this->cabinet), DocumentType::pluck('type_name')->all(), ['Others', 'Recycle Bin']);
+                $duplicate = collect($reserved)->contains(fn ($value) => strcasecmp($value, $name) === 0 && strcasecmp($value, $folder->name) !== 0);
+                if ($name === '' || $duplicate) {
+                    throw \Illuminate\Validation\ValidationException::withMessages(['name' => 'Choose a unique folder name.']);
+                }
+                DB::table('cabinet_folders')->where('id', $folder->id)->update(['name' => $name, 'updated_at' => now()]);
+                $this->selectedFolderType = $name;
+                $this->loadCabinet();
+            });
+    }
+
     public function deleteFolderAction(): Action
     {
         return Action::make('deleteFolder')->label('Delete')->requiresConfirmation()
             ->modalHeading('Send folder contents to Recycle Bin?')
             ->action(function (): void {
                 abort_unless(auth()->user()?->canAccessPanel(\Filament\Facades\Filament::getPanel('admin')), 403);
-                $groups = $this->cabinet[$this->selectedFolderType] ?? [];
-                $documents = $this->selectedFolderOffice === null ? collect($groups)->flatten(1) : collect($groups[$this->selectedFolderOffice] ?? []);
-                foreach ($documents->unique('id') as $document) {
-                    DB::table('cabinet_recycle_bin')->updateOrInsert(['document_id' => $document['id']], ['created_at' => now(), 'updated_at' => now()]);
+                $folder = DB::table('cabinet_folders')->where('name', $this->selectedFolderType)->whereNull('recycled_at')->first();
+                if (! $folder || $this->selectedFolderOffice !== null) {
+                    throw \Illuminate\Validation\ValidationException::withMessages(['folder' => 'Only folders created by staff can be deleted.']);
                 }
+                $documentIds = DB::table('cabinet_document_locations')->where('folder_id', $folder->id)->pluck('document_id')
+                    ->concat(DB::table('cabinet_copies')->where('folder_id', $folder->id)->pluck('document_id'))->unique();
+                DB::transaction(function () use ($folder, $documentIds): void {
+                    DB::table('cabinet_folders')->where('id', $folder->id)->update(['recycled_at' => now(), 'updated_at' => now()]);
+                    foreach ($documentIds as $documentId) {
+                        DB::table('cabinet_recycle_bin')->updateOrInsert(['document_id' => $documentId], ['created_at' => now(), 'updated_at' => now()]);
+                    }
+                });
                 $this->loadCabinet();
             });
+    }
+
+    public function restoreFolder(): void
+    {
+        abort_unless(auth()->user()?->canAccessPanel(\Filament\Facades\Filament::getPanel('admin')), 403);
+        $folder = DB::table('cabinet_folders')->where('name', $this->selectedFolderOffice)->whereNotNull('recycled_at')->first();
+        abort_unless($folder, 404);
+        $documentIds = DB::table('cabinet_document_locations')->where('folder_id', $folder->id)->pluck('document_id')
+            ->concat(DB::table('cabinet_copies')->where('folder_id', $folder->id)->pluck('document_id'))->unique();
+        DB::transaction(function () use ($folder, $documentIds): void {
+            DB::table('cabinet_folders')->where('id', $folder->id)->update(['recycled_at' => null, 'updated_at' => now()]);
+            DB::table('cabinet_recycle_bin')->whereIn('document_id', $documentIds)->delete();
+        });
+        $this->loadCabinet();
+        $this->selectedFolderType = $this->selectedFolderOffice = null;
     }
 
     public function copyFolderToClipboard(string $type, ?string $office = null): void
@@ -305,7 +375,7 @@ class Cabinet extends Page
             \Filament\Notifications\Notification::make()->title('Open a folder before pasting')->warning()->send();
             return;
         }
-        $folderId = DB::table('cabinet_folders')->where('name', $this->currentType)->value('id');
+        $folderId = DB::table('cabinet_folders')->where('name', $this->currentType)->whereNull('recycled_at')->value('id');
         if ($this->currentOffice === '' && !$folderId) {
             \Filament\Notifications\Notification::make()->title('Open a source folder before pasting')->warning()->send();
             return;
@@ -401,6 +471,13 @@ class Cabinet extends Page
         });
     }
 
+    public function prepareAddFolder(): void
+    {
+        $this->newFolderParentType = $this->currentType !== '' ? $this->currentType : null;
+        $this->newFolderParentOffice = $this->currentType !== '' ? ($this->currentOffice ?: null) : null;
+        $this->mountAction('addFolder');
+    }
+
     public function addFolderAction(): Action
     {
         return Action::make('addFolder')->label('Add Folder')->icon('heroicon-o-folder-plus')
@@ -413,7 +490,12 @@ class Cabinet extends Page
                 if ($name === '' || collect($reserved)->contains(fn ($value) => strcasecmp($value, $name) === 0)) {
                     throw \Illuminate\Validation\ValidationException::withMessages(['name' => 'Choose a unique folder name.']);
                 }
-                DB::table('cabinet_folders')->insert(['name' => $name, 'created_at' => now(), 'updated_at' => now()]);
+                DB::table('cabinet_folders')->insert([
+                    'name' => $name,
+                    'parent_type' => $this->newFolderParentType,
+                    'parent_office' => $this->newFolderParentOffice,
+                    'created_at' => now(), 'updated_at' => now(),
+                ]);
                 $this->loadCabinet();
             });
     }
@@ -450,6 +532,40 @@ class Cabinet extends Page
         $this->goToRoot();
     }
 
+    protected function currentDocumentDefaults(): array
+    {
+        if ($this->currentType === '' || $this->currentType === 'Recycle Bin') {
+            return [null, null];
+        }
+
+        $type = $this->currentType;
+        $office = $this->currentOffice;
+        $seen = [];
+
+        while ($folder = DB::table('cabinet_folders')->where('name', $type)->whereNull('recycled_at')->first()) {
+            if (in_array($folder->id, $seen, true) || $folder->parent_type === null) {
+                return [null, null];
+            }
+            $seen[] = $folder->id;
+            $type = $folder->parent_type;
+            $office = $folder->parent_office;
+        }
+
+        if (strcasecmp($type, 'Others') === 0) {
+            return [$office && $office !== 'Documents' ? $office : null, null];
+        }
+
+        $knownType = DocumentType::query()->whereRaw('LOWER(type_name) = ?', [mb_strtolower($type)])->value('type_name');
+
+        return [$knownType, $office && $office !== 'Documents' ? $office : null];
+    }
+
+    public function prepareAddDocument(): void
+    {
+        [$this->newDocumentType, $this->newDocumentOffice] = $this->currentDocumentDefaults();
+        $this->mountAction('addDocument');
+    }
+
     public function addDocumentAction(): Action
     {
         return Action::make('addDocument')
@@ -462,17 +578,16 @@ class Cabinet extends Page
                 TextInput::make('lao_number')
                     ->label('LAO Number')
                     ->default(fn (): string => Document::generateLaoNumber(now()))
-                    ->readOnly()
-                    ->helperText('Automatically assigned from the current LAO sequence.'),
+                    ->readOnly(),
 
                 TextInput::make('document_name')
                     ->label('Document Name')
                     ->readOnly()
-                    ->helperText('Initialized from the uploaded file name. Rename it using Edit.')
                     ->maxLength(255),
 
                 Select::make('document_type')
                     ->label('Document Type')
+                    ->default(fn () => $this->newDocumentType)
                     ->options(fn () => DocumentType::query()
                         ->orderBy('type_name')
                         ->pluck('type_name', 'type_name'))
@@ -490,11 +605,11 @@ class Cabinet extends Page
 
                 DatePicker::make('deadline')
                     ->label('Deadline')
-                    ->default(now()->toDateString())
-                    ->helperText('Preselected to today; calculated from the document type when configured.'),
+                    ->default(fn () => Document::deadlineForType($this->newDocumentType) ?: now()->toDateString()),
 
                 Select::make('office_unit')
                     ->label('Office / Unit')
+                    ->default(fn () => $this->newDocumentOffice)
                     ->options(fn () => OfficeUnit::query()
                         ->orderBy('name')
                         ->pluck('name', 'name'))
@@ -509,7 +624,17 @@ class Cabinet extends Page
                 FileUpload::make('file_path')
                     ->label('Document File')
                     ->disk('local')
-                    ->directory('documents/versions')
+                    ->directory(function (Get $get): string {
+                        $type = $this->currentType ?: (string) $get('document_type');
+                        $office = $this->currentOffice ?: (string) $get('office_unit');
+                        $segments = collect([$type, $office])
+                            ->filter(fn (string $segment) => $segment !== '' && $segment !== 'Documents')
+                            ->map(fn (string $segment) => \Illuminate\Support\Str::slug($segment))
+                            ->filter()
+                            ->implode('/');
+
+                        return 'documents/versions/cabinet/'.($segments ?: 'root');
+                    })
                     ->preserveFilenames()
                     ->acceptedFileTypes([
                         'application/pdf',
@@ -525,7 +650,9 @@ class Cabinet extends Page
             ->action(function (array $data): void {
                 $filePath = $data['file_path'];
 
-                DB::transaction(function () use ($data, $filePath): void {
+                $destinationType = $this->currentType;
+                $destinationOffice = $this->currentOffice;
+                DB::transaction(function () use ($data, $filePath, $destinationType, $destinationOffice): void {
                     $document = Document::create([
                         'user_id' => auth()->id(),
 
@@ -558,6 +685,15 @@ class Cabinet extends Page
                         'version_number' => '1',
                         'file_path' => $filePath,
                     ]);
+                    if ($destinationType !== '' && $destinationType !== 'Recycle Bin') {
+                        $folderId = DB::table('cabinet_folders')->where('name', $destinationType)->value('id');
+                        DB::table('cabinet_document_locations')->updateOrInsert(
+                            ['document_id' => $document->document_id],
+                            $folderId
+                                ? ['folder_id' => $folderId, 'cabinet_type' => null, 'cabinet_office' => null]
+                                : ['folder_id' => null, 'cabinet_type' => $destinationType, 'cabinet_office' => $destinationOffice ?: $data['office_unit']]
+                        );
+                    }
                 });
 
                 $this->loadCabinet();
@@ -571,11 +707,81 @@ class Cabinet extends Page
         }
 
         $this->currentType = $type;
-        $this->currentOffice = '';
+        $this->currentOffice = DB::table('cabinet_folders')->where('name', $type)->whereNull('recycled_at')->exists()
+            ? 'Documents'
+            : '';
         $this->sourceFilter = 'all';
 
         $this->selectedItem = $type;
         $this->selectedDocumentId = null;
+    }
+
+    public function folderBreadcrumbs(): array
+    {
+        if ($this->currentType === '') {
+            return [];
+        }
+
+        $folder = DB::table('cabinet_folders')
+            ->where('name', $this->currentType)
+            ->whereNull('recycled_at')
+            ->first();
+
+        if (! $folder) {
+            return array_values(array_filter([$this->currentType, $this->currentOffice]));
+        }
+
+        $breadcrumbs = [];
+        $seen = [];
+
+        while ($folder && ! in_array($folder->id, $seen, true)) {
+            $seen[] = $folder->id;
+            array_unshift($breadcrumbs, $folder->name);
+
+            if (! $folder->parent_type) {
+                break;
+            }
+
+            $parent = DB::table('cabinet_folders')
+                ->where('name', $folder->parent_type)
+                ->whereNull('recycled_at')
+                ->first();
+
+            if ($parent) {
+                $folder = $parent;
+                continue;
+            }
+
+            if ($folder->parent_office && $folder->parent_office !== 'Documents') {
+                array_unshift($breadcrumbs, $folder->parent_office);
+            }
+
+            array_unshift($breadcrumbs, $folder->parent_type);
+            break;
+        }
+
+        return $breadcrumbs;
+    }
+
+    public function folderFileCount(string $folderName, array $seen = []): int
+    {
+        if (in_array($folderName, $seen, true)) {
+            return 0;
+        }
+
+        $seen[] = $folderName;
+        $count = collect($this->cabinet[$folderName] ?? [])->flatten(1)->count();
+
+        $children = DB::table('cabinet_folders')
+            ->where('parent_type', $folderName)
+            ->whereNull('recycled_at')
+            ->pluck('name');
+
+        foreach ($children as $child) {
+            $count += $this->folderFileCount($child, $seen);
+        }
+
+        return $count;
     }
 
     public function openOffice(string $office): void
