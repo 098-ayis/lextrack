@@ -1,7 +1,9 @@
 <x-filament-panels::page>
-    
+    <div class="client-documents-page">
+
     <!-- Custom Tabs Container (Tailwind Only) -->
-    <div class="inline-flex flex-wrap items-center gap-1 rounded-lg border border-gray-200 bg-white p-1.5 shadow-sm mb-4 dark:border-gray-700 dark:bg-gray-800">
+    <div class="mb-0 w-full overflow-x-auto border border-gray-300 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
+        <div class="flex min-w-max items-center gap-1 p-2">
 
         <!-- All Tab (Default) -->
         <button
@@ -69,10 +71,11 @@
             </span>
         </button>
         
+        </div>
     </div>
 
     <!-- Search and Filters -->
-    <div class="mb-4 flex w-full flex-col gap-3 sm:flex-row sm:items-center">
+    <div class="mb-0 flex w-full flex-col gap-3 border-x border-gray-300 bg-white px-3 py-7 shadow-sm dark:border-gray-700 dark:bg-gray-900 sm:flex-row sm:items-center">
 
         <!-- Search -->
         <div class="relative w-full sm:max-w-md sm:flex-1">
@@ -234,6 +237,55 @@
     </div>
 
     <style>
+        .client-documents-page .fi-ta {
+            border-radius: 0;
+            box-shadow: none;
+        }
+
+        .client-documents-page .fi-ta-ctn {
+            border-radius: 0;
+            border: 1px solid rgb(209 213 219);
+            border-color: rgb(209 213 219);
+            box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+        }
+
+        .client-documents-page .fi-ta-cell.fi-align-center > .fi-ta-col {
+            justify-content: center;
+        }
+
+        .client-documents-page .fi-ta-cell.fi-align-end > .fi-ta-col {
+            justify-content: flex-end;
+        }
+
+        .client-documents-page .fi-ta-cell.fi-align-start > .fi-ta-col,
+        .client-documents-page .fi-ta-cell.fi-align-left > .fi-ta-col {
+            justify-content: flex-start;
+        }
+
+        .client-documents-page .fi-ta-table tbody tr {
+            transition: background-color 150ms ease-in-out;
+        }
+
+        .client-documents-page .fi-ta-table tbody tr:hover {
+            background-color: rgb(239 246 255);
+        }
+
+        .dark .client-documents-page .fi-ta-ctn,
+        .dark .client-documents-page .fi-ta-header,
+        .dark .client-documents-page .fi-ta-content,
+        .dark .client-documents-page .fi-ta-footer {
+            border-color: rgb(75 85 99);
+            background-color: rgb(17 24 39);
+        }
+
+        .dark .client-documents-page .fi-ta-table tbody tr {
+            border-color: rgb(75 85 99);
+        }
+
+        .dark .client-documents-page .fi-ta-table tbody tr:hover {
+            background-color: rgb(255 255 255 / 0.05);
+        }
+
         .document-highlighted > td {
             background-color: rgb(243 244 246) !important;
         }
@@ -242,4 +294,6 @@
             background-color: rgb(55 65 81) !important;
         }
     </style>
+
+    </div>
 </x-filament-panels::page>
