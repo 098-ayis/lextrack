@@ -24,7 +24,7 @@
 
     .msg-wrap {
         display: grid;
-        grid-template-columns: 320px 1fr;
+        grid-template-columns: 320px minmax(0, 1fr);
         gap: 16px;
         height: calc(100vh - 180px);
         height: calc(100dvh - 180px);
@@ -1714,6 +1714,20 @@
         .thread-body {
             min-height: 0;
         }
+    }
+    .msg-list, .msg-thread { min-width: 0; }
+
+    @media (max-width: 640px) {
+        .thread-header, .thread-footer { padding: 12px; }
+        .thread-header { gap: 8px; }
+        .t-msg-row { max-width: 100%; }
+        .t-bubble { overflow-wrap: anywhere; }
+    }
+
+    /* Allow the page to scroll when a landscape viewport cannot fit the composer. */
+    @media (max-height: 600px) {
+        html:has(.msg-wrap), body:has(.msg-wrap) { overflow-y: auto; }
+        .msg-wrap { min-height: 360px; max-height: none; }
     }
 </style>
 

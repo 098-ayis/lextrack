@@ -8,7 +8,7 @@
     
     <div class="max-w-[1350px] mx-auto flex min-w-0 items-center justify-between gap-4 px-4 py-3 sm:px-6 sm:py-4 md:px-10 md:py-5">
 
-      <div class="flex min-w-0 items-center gap-4 md:gap-16">
+      <div class="flex min-w-0 items-center gap-4 lg:gap-16">
         <!-- Logo -->
         <RouterLink to="/" class="flex min-w-0 items-center gap-2 sm:gap-4">
           <img
@@ -29,7 +29,7 @@
         </RouterLink>
 
         <!-- Desktop Navigation -->
-        <nav class="hidden md:flex gap-10 font-bold text-[13px] tracking-wider">
+        <nav class="hidden lg:flex gap-10 font-bold text-[13px] tracking-wider">
           <RouterLink
             v-for="link in links"
             :key="link.path"
@@ -47,7 +47,7 @@
       <div class="flex shrink-0 items-center gap-3 sm:gap-5">
         <RouterLink
           to="/login"
-          class="hidden md:flex items-center justify-center bg-[#6b77ff] hover:bg-[#5a65e0] px-8 py-3 rounded-full font-bold text-[13px] tracking-wider transition"
+          class="hidden lg:flex items-center justify-center bg-[#6b77ff] hover:bg-[#5a65e0] px-8 py-3 rounded-full font-bold text-[13px] tracking-wider transition"
         >
           SIGN IN
         </RouterLink> 
@@ -56,7 +56,7 @@
           @click="menuOpen = !menuOpen"
           :aria-expanded="menuOpen"
           aria-label="Toggle navigation menu"
-          class="md:hidden flex h-10 w-10 items-center justify-center rounded-lg text-2xl leading-none text-gray-200 hover:bg-white/10"
+          class="lg:hidden flex h-10 w-10 items-center justify-center rounded-lg text-2xl leading-none text-gray-200 hover:bg-white/10"
         >
           <span aria-hidden="true">{{ menuOpen ? '×' : '☰' }}</span>
         </button>
@@ -66,7 +66,7 @@
     <!-- Mobile Menu -->
     <div
       v-if="menuOpen"
-      class="md:hidden border-t border-white/10 bg-[#1a2035]"
+      class="lg:hidden border-t border-white/10 bg-[#1a2035]"
     >
       <RouterLink
         v-for="link in links"

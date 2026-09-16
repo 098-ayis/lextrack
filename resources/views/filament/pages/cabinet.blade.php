@@ -57,8 +57,21 @@
         .fi-page-content:has(> .cabinet-page-content) {
             margin-top: -4rem;
         }
+        .cabinet-page-content { overflow-wrap: anywhere; }
+        .cabinet-explorer-toolbar { min-width: 0; }
         @media (max-width: 767px) {
-            .fi-page-content:has(> .cabinet-page-content) { margin-top: -2rem; }
+            .fi-page-content:has(> .cabinet-page-content) { margin-top: 0; }
+            .cabinet-toolbar-divider { display: none; }
+            .cabinet-explorer-toolbar .cabinet-toolbar-control { min-height: 44px; }
+            .cabinet-list-heading { display: none; }
+            .cabinet-list-row {
+                grid-template-columns: minmax(0, 1fr) auto;
+                gap: 8px 12px;
+                padding: 12px;
+            }
+            .cabinet-list-row > :first-child { grid-column: 1 / -1; }
+            .cabinet-list-row > :nth-child(3) { grid-column: 1; }
+            .cabinet-list-row > :last-child { grid-column: 2; grid-row: 2 / 4; }
         }
     </style>
 
@@ -249,7 +262,7 @@
     {{-- MAIN CABINET --}}
     {{-- ============================================================= --}}
 
-    <div class="cabinet-page-content space-y-4">
+    <div class="cabinet-page-content min-w-0 space-y-4">
 
 
         {{-- ============================================================= --}}
@@ -687,7 +700,7 @@
 
                     @if($viewMode === 'tiles')
 
-                        <div class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
 
                             @foreach($documentTypes as $type)
 
@@ -761,7 +774,7 @@
 
                     @if($viewMode === 'tiles')
 
-                        <div class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
 
                             @foreach($currentFolders as $office => $documents)
 
@@ -834,7 +847,7 @@
                 @else
 
                     @if ($childFolders->isNotEmpty())
-                        <div class="mb-4 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                        <div class="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
                             @foreach ($childFolders as $folder)
                                 <button x-data="{ clickTimer: null }" @click="clearTimeout(clickTimer); clickTimer = setTimeout(() => $wire.selectFolder(@js($folder->name)), 220)" @dblclick="clearTimeout(clickTimer); $wire.openType(@js($folder->name))" @contextmenu.prevent="$dispatch('cabinet-folder-context', { type: @js($folder->name), office: null, x: $event.currentTarget.getBoundingClientRect().right + 8, y: $event.currentTarget.getBoundingClientRect().top })" class="rounded-xl border bg-white p-5 text-left transition {{ $selectedFolderType === $folder->name ? 'border-violet-500 ring-2 ring-violet-500/30' : 'border-gray-200' }}">
                                     <x-heroicon-o-folder class="h-14 w-14 text-indigo-500" /><p class="mt-4 truncate text-sm font-semibold">{{ $folder->name }}</p>
@@ -846,7 +859,7 @@
 
                     @if($viewMode === 'tiles')
 
-                        <div class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
 
                             @forelse($currentDocuments as $document)
 
@@ -909,7 +922,7 @@
 
                         {{-- HEADER --}}
 
-                        <div class="grid grid-cols-[minmax(0,1fr)_120px_160px_60px] border-b border-gray-200 bg-gray-50 px-5 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
+                        <div class="cabinet-list-heading grid grid-cols-[minmax(0,1fr)_120px_160px_60px] border-b border-gray-200 bg-gray-50 px-5 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
 
                             <div>Name</div>
 
@@ -944,7 +957,7 @@
                                     wire:key="document-row-{{ $document['copy_key'] ?? $document['id'] }}"
                                     @contextmenu.prevent="$dispatch('cabinet-context', { id: {{ $document['id'] }}, name: @js($displayName), url: $el.href, x: $event.currentTarget.getBoundingClientRect().right + 8, y: $event.currentTarget.getBoundingClientRect().top }); $wire.selectItem(@js($displayName), {{ $document['id'] }}, {{ isset($document['copy_key']) ? (int) substr($document['copy_key'], 5) : 'null' }})"
                                     rel="noopener noreferrer"
-                                    class="grid w-full cursor-pointer grid-cols-[minmax(0,1fr)_120px_160px_60px] items-center border-b px-5 py-4 text-left transition {{ $selectedDocumentId === $document['id'] && $selectedCopyId === (isset($document['copy_key']) ? (int) substr($document['copy_key'], 5) : null) ? 'border-violet-300 bg-violet-100 ring-1 ring-inset ring-violet-500 dark:bg-violet-500/20' : 'border-gray-100 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800' }}"
+                                    class="cabinet-list-row grid w-full cursor-pointer grid-cols-[minmax(0,1fr)_120px_160px_60px] items-center border-b px-5 py-4 text-left transition {{ $selectedDocumentId === $document['id'] && $selectedCopyId === (isset($document['copy_key']) ? (int) substr($document['copy_key'], 5) : null) ? 'border-violet-300 bg-violet-100 ring-1 ring-inset ring-violet-500 dark:bg-violet-500/20' : 'border-gray-100 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800' }}"
                                 >
 
                                     {{-- DOCUMENT NAME --}}
