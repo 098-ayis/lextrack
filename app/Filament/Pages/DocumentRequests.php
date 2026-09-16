@@ -242,6 +242,24 @@ class DocumentRequests extends Page implements HasTable
         ];
     }
 
+    public function updateSection(string $section): void
+    {
+        if (! in_array($section, [
+            'pending',
+            'accepted',
+            'rejected',
+        ], true)) {
+            return;
+        }
+
+        if ($this->activeSection === $section) {
+            return;
+        }
+
+        $this->activeSection = $section;
+        $this->resetTable();
+    }
+
     public function acceptRequestAction(): Action
     {
         return Action::make('acceptRequest')

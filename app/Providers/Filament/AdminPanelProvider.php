@@ -96,6 +96,7 @@ class AdminPanelProvider extends PanelProvider
             ->default()
             ->id('admin')
             ->path('admin')
+            ->spa()
             ->maxContentWidth(\Filament\Support\Enums\Width::Full)
             ->sidebarWidth('15rem')
             ->sidebarCollapsibleOnDesktop()
