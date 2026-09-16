@@ -89,6 +89,14 @@ class DocumentStatusTimeline
         }
 
         if ($action === 'document returned') {
+            if (filled($document->returned_from)) {
+                return $this->returnedFromEntry(
+                    $document,
+                    $timestamp,
+                    (string) $document->returned_from,
+                );
+            }
+
             $destination = str_contains(strtolower($details), 'outgoing')
                 ? 'Outgoing'
                 : 'Incoming';
@@ -155,6 +163,17 @@ class DocumentStatusTimeline
             $new = is_array($new) ? $new : [];
 
             if (
+                filled($new['returned_from'] ?? null)
+                && ($new['returned_from'] ?? null) !== ($old['returned_from'] ?? null)
+            ) {
+                return $this->returnedFromEntry(
+                    $document,
+                    $timestamp,
+                    (string) $new['returned_from'],
+                );
+            }
+
+            if (
                 filled($new['sent_to'] ?? null)
                 && ($new['sent_to'] ?? null) !== ($old['sent_to'] ?? null)
             ) {
@@ -192,6 +211,14 @@ class DocumentStatusTimeline
         $status = (string) $document->status;
         $label = $this->statusLabelFor($status);
 
+        if (filled($document->returned_from)) {
+            return $this->returnedFromEntry(
+                $document,
+                $document->updated_at ?? $document->created_at,
+                (string) $document->returned_from,
+            );
+        }
+
         if ($status === 'outgoing' && filled($document->sent_to)) {
             return $this->timelineEntry(
                 'outgoing',
@@ -216,6 +243,23 @@ class DocumentStatusTimeline
             $label,
             $description,
             $document->updated_at ?? $document->created_at,
+        );
+    }
+
+    private function returnedFromEntry(
+        Document $document,
+        mixed $timestamp,
+        string $returnedFrom,
+    ): array {
+        $returnedFrom = trim($returnedFrom) ?: 'the receiving office';
+        $status = (string) $document->status;
+        $status = $status !== '' && $status !== 'pending' ? $status : 'in_progress';
+
+        return $this->timelineEntry(
+            $status,
+            'Returned from ' . $returnedFrom,
+            'Your document was returned from ' . $returnedFrom . '.',
+            $timestamp,
         );
     }
 
