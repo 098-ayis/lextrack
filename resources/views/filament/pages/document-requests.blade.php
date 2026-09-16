@@ -18,7 +18,7 @@
                         wire:click="updateSection('{{ $section }}')"
                         wire:loading.attr="disabled"
                         x-on:click="window.history.replaceState({}, '', $el.dataset.sectionUrl)"
-                        data-section-url="{{ request()->fullUrlWithQuery(['section' => $section]) }}"
+                        data-section-url="{{ \App\Filament\Pages\DocumentRequests::getUrl(['section' => $section]) }}"
                         class="group relative flex h-10 flex-none items-center justify-start gap-2 border-b-2 border-transparent px-3 text-sm font-medium whitespace-nowrap transition-colors
                             {{ $activeSection === $section
                                 ? 'rounded-md bg-[#0F172A] text-white'

@@ -340,8 +340,8 @@
                                 class="grid grid-cols-[1.1fr_0.9fr_1.3fr] items-center gap-2 border-b border-gray-100 px-4 py-3 text-[10px] text-gray-600"
                             >
                                 <div class="flex min-w-0 items-center gap-2">
-                                    @if ($log->user && $log->user->profile_photo_url)
-                                        <img src="{{ $log->user->profile_photo_url }}" alt="{{ $log->user->name ?? 'User' }}" class="h-5 w-5 shrink-0 rounded-full object-cover">
+                                    @if ($log->user && $log->user->getProfilePhotoUrl())
+                                        <img src="{{ $log->user->getProfilePhotoUrl() }}" alt="{{ $log->user->name ?? 'User' }}" referrerpolicy="no-referrer" class="h-5 w-5 shrink-0 rounded-full object-cover">
                                     @else
                                         <div class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gray-200 text-[8px] font-bold text-gray-600">{{ strtoupper(substr($log->user->name ?? 'U', 0, 1)) }}</div>
                                     @endif

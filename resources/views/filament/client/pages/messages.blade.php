@@ -2206,7 +2206,7 @@
                             : 'Legal Affairs Office';
 
                         $displayPhoto = $isOwn
-                            ? auth()->user()?->profile_photo_url
+                            ? auth()->user()?->getProfilePhotoUrl()
                             : asset('images/bu-lao.png');
 
                         $displayInitials = collect(
@@ -2235,6 +2235,7 @@
                                     src="{{ $displayPhoto }}"
                                     alt="{{ $displayName }}"
                                     class="t-msg-avatar-img"
+                                    referrerpolicy="no-referrer"
                                 >
 
                             @elseif ($showSenderProfile)

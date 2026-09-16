@@ -23,10 +23,11 @@
                        border-gray-200 px-3 py-2.5"
             >
                 <div class="flex min-w-0 items-center gap-3">
-                    @if ($note->user && $note->user->profile_photo_url)
+                    @if ($note->user && $note->user->getProfilePhotoUrl())
                         <img
-                            src="{{ $note->user->profile_photo_url }}"
+                            src="{{ $note->user->getProfilePhotoUrl() }}"
                             alt="{{ $note->user->name ?? 'User' }}"
+                            referrerpolicy="no-referrer"
                             class="h-8 w-8 shrink-0 rounded-full object-cover"
                         >
                     @else

@@ -2193,7 +2193,7 @@
 
                         $senderName = $sender?->name ?? 'Unknown User';
 
-                        $senderPhoto = $sender?->profile_photo_url;
+                        $senderPhoto = $sender?->getProfilePhotoUrl();
 
                         $clientUserId = $activeConversation->document?->user_id;
 

@@ -124,12 +124,19 @@ class GoogleAuthController extends Controller
             |--------------------------------------------------------------------------
             */
             else {
-                $user->update([
+                $userUpdateData = [
                     'name' => $googleUser->getName(),
                     'google_id' => $googleUser->getId(),
                     'provider' => 'google',
-                    'profile_photo_url' => $profilePhotoUrl,
-                ]);
+                ];
+
+                // Keep the existing avatar if Google does not return a
+                // picture on a later login.
+                if (filled($profilePhotoUrl)) {
+                    $userUpdateData['profile_photo_url'] = $profilePhotoUrl;
+                }
+
+                $user->update($userUpdateData);
 
                 /*
                  * If user somehow has no role,
