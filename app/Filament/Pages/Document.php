@@ -418,6 +418,10 @@ class Document extends Page implements HasTable
         return DocumentModel::query()
             ->with(['user', 'rejections', 'latestVersion'])
             ->where('status', $status)
+            // Requests are managed on the Document Requests page. Once a
+            // request is fulfilled it is linked through document_requests,
+            // so it must not also appear in the regular Documents tables.
+            ->whereDoesntHave('documentRequests')
             ->when(trim($this->search) !== '', function (Builder $query): void {
                 $search = '%' . trim($this->search) . '%';
 

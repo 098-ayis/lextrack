@@ -3,7 +3,9 @@
 namespace App\Services;
 
 use App\Models\Document;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\URL;
 use Throwable;
 
 final class DocumentQrToken
@@ -52,6 +54,41 @@ final class DocumentQrToken
         }
 
         if (! preg_match('/^document:([1-9][0-9]*)$/', $value, $matches)) {
+            return null;
+        }
+
+        return (int) $matches[1];
+    }
+
+    /**
+     * Support QR images generated before the token format was introduced.
+     * Those QR codes contain a signed /document-status/{id} URL instead.
+     */
+    public static function decodeSignedStatusUrl(string $value): ?int
+    {
+        $value = trim($value);
+
+        if (! filter_var($value, FILTER_VALIDATE_URL)) {
+            return null;
+        }
+
+        $path = parse_url($value, PHP_URL_PATH);
+
+        if (! is_string($path) || preg_match(
+            '#/document-status/([1-9][0-9]*)$#',
+            $path,
+            $matches,
+        ) !== 1) {
+            return null;
+        }
+
+        try {
+            $request = Request::create($value, 'GET');
+        } catch (Throwable) {
+            return null;
+        }
+
+        if (! URL::hasValidSignature($request)) {
             return null;
         }
 

@@ -18,6 +18,7 @@ use App\Http\Controllers\DocumentExportController;
 use App\Http\Middleware\AdminMiddleware;
 use App\Services\DocumentDownloadService;
 use App\Services\DocumentQrToken;
+use App\Services\DocumentStatusTimeline;
 use Spatie\Honeypot\Honeypot;
 use Spatie\Honeypot\ProtectAgainstSpam;
 use RyanChandler\LaravelCloudflareTurnstile\Rules\Turnstile;
@@ -424,8 +425,24 @@ Route::post('/api/track/qr', function (Request $request) {
         'qr_token' => [
             'required',
             'string',
-            'max:512',
-            'regex:/^LEXTRACK-QR-1\.[A-Za-z0-9_-]+$/',
+            'max:2048',
+            function (string $attribute, mixed $value, \Closure $fail): void {
+                $value = trim((string) $value);
+                $isEncryptedToken = preg_match(
+                    '/^LEXTRACK-QR-1\.[A-Za-z0-9_-]+$/',
+                    $value,
+                ) === 1;
+                $isSignedStatusUrl = filter_var($value, FILTER_VALIDATE_URL)
+                    && preg_match(
+                        '#/document-status/[1-9][0-9]*$#',
+                        (string) parse_url($value, PHP_URL_PATH),
+                    ) === 1
+                    && str_contains((string) parse_url($value, PHP_URL_QUERY), 'signature=');
+
+                if (! $isEncryptedToken && ! $isSignedStatusUrl) {
+                    $fail('The QR token format is invalid.');
+                }
+            },
         ],
         'qr_source' => [
             'sometimes',
@@ -439,7 +456,8 @@ Route::post('/api/track/qr', function (Request $request) {
         ],
     ]);
 
-    $documentId = DocumentQrToken::decode($validated['qr_token']);
+    $documentId = DocumentQrToken::decode($validated['qr_token'])
+        ?? DocumentQrToken::decodeSignedStatusUrl($validated['qr_token']);
 
     if ($documentId === null) {
         return response()
@@ -448,6 +466,11 @@ Route::post('/api/track/qr', function (Request $request) {
     }
 
     $document = Document::query()
+        ->with([
+            'activityLogs' => fn ($query) => $query
+                ->oldest('created_at')
+                ->oldest('log_id'),
+        ])
         ->whereKey($documentId)
         ->first();
 
@@ -466,6 +489,7 @@ Route::post('/api/track/qr', function (Request $request) {
                 'particulars' => $document->particulars,
                 'date_submitted' => $document->created_at?->format('F d, Y'),
                 'status' => $document->status,
+                'timeline' => app(DocumentStatusTimeline::class)->build($document),
             ],
         ])
         ->header('Cache-Control', 'no-store, private');

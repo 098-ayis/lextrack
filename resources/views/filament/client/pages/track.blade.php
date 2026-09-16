@@ -182,6 +182,55 @@
 
                 </div>
 
+                {{-- STATUS TIMELINE --}}
+                <div class="mt-6 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-[#17181c]">
+                    <div class="border-b border-gray-100 px-6 py-5 dark:border-gray-700">
+                        <h3 class="text-base font-bold text-gray-900 dark:text-gray-100">
+                            Status updates
+                        </h3>
+                        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                            Follow the latest updates from the Legal Affairs Office.
+                        </p>
+                    </div>
+
+                    <div class="px-5 py-6 md:px-8">
+                        <div class="space-y-0">
+                            @foreach ($statusTimeline as $update)
+                                <div class="relative flex gap-4 pb-8 last:pb-0">
+                                    @unless ($loop->last)
+                                        <span
+                                            class="absolute bottom-0 left-[5.5rem] top-7 w-px bg-gray-300 dark:bg-gray-600"
+                                            aria-hidden="true"
+                                        ></span>
+                                    @endunless
+
+                                    <time class="w-16 shrink-0 pt-1 text-right text-xs font-semibold leading-5 text-gray-700 dark:text-gray-300">
+                                        {{ $update['time'] }}
+                                        <span class="block text-[10px] font-medium text-gray-400 dark:text-gray-500">
+                                            {{ $update['date'] }}
+                                        </span>
+                                    </time>
+
+                                    <span class="relative z-10 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white shadow-sm ring-4 ring-white dark:ring-[#17181c]">
+                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="h-3.5 w-3.5" aria-hidden="true">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="m5 12 4 4L19 6" />
+                                        </svg>
+                                    </span>
+
+                                    <div class="min-w-0 flex-1 pt-0">
+                                        <h4 class="text-base font-bold text-gray-900 dark:text-gray-100">
+                                            {{ $update['title'] }}
+                                        </h4>
+                                        <p class="mt-1 text-sm leading-6 text-gray-500 dark:text-gray-400">
+                                            {{ $update['description'] }}
+                                        </p>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+                </div>
+
             </div>
 
         @elseif ($hasSearched)

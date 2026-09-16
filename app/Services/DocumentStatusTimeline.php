@@ -1,71 +1,17 @@
 <?php
 
-namespace App\Filament\Client\Pages;
+namespace App\Services;
 
 use App\Models\Document;
-use App\Services\DocumentStatusTimeline;
-use Filament\Notifications\Notification;
-use Filament\Pages\Page;
 
-class Track extends Page
+class DocumentStatusTimeline
 {
-    protected static bool $shouldRegisterNavigation = false;
-
-    protected string $view = 'filament.client.pages.track';
-
-    public function getHeading(): string
-    {
-        return '';
-    }
-
-    public string $trackingNumber = '';
-
-    public ?Document $document = null;
-
-    public bool $hasSearched = false;
-
     /**
-     * @var array<int, array{status: string, title: string, description: string, time: string, date: string}>
+     * Build the public-facing status history from the document's activity logs.
+     *
+     * @return array<int, array{status: string, title: string, description: string, time: string, date: string}>
      */
-    public array $statusTimeline = [];
-
-    public function trackDocument(): void
-    {
-        $this->validate([
-            'trackingNumber' => ['required', 'string'],
-        ]);
-
-        $this->hasSearched = true;
-        $this->statusTimeline = [];
-
-        $trackingNumber = strtoupper(
-            trim($this->trackingNumber)
-        );
-
-        $this->document = Document::query()
-            ->with([
-                'activityLogs' => fn ($query) => $query
-                    ->oldest('created_at')
-                    ->oldest('log_id'),
-            ])
-            ->where('lao_number', $trackingNumber)
-            ->where('user_id', auth()->id())
-            ->first();
-
-        if (!$this->document) {
-            Notification::make()
-                ->title('Document not found')
-                ->body('Please check your LAO number and try again.')
-                ->danger()
-                ->send();
-
-            return;
-        }
-
-        $this->statusTimeline = app(DocumentStatusTimeline::class)->build($this->document);
-    }
-
-    private function buildStatusTimeline(Document $document): array
+    public function build(Document $document): array
     {
         $timeline = [
             $this->timelineEntry(

@@ -230,35 +230,67 @@
                     </div>
 
                     <div v-else class="w-full max-w-[32rem]">
-                        <div class="grid grid-cols-1 gap-x-10 gap-y-6 sm:grid-cols-2">
-                            <div>
-                                <p class="text-sm font-bold uppercase tracking-wide text-gray-500">LAO Number</p>
-                                <p class="mt-1 text-sm font-medium text-gray-900">{{ document.tracking_number }}</p>
-                            </div>
+                        <div
+                            v-if="document.timeline?.length"
+                            class="pt-1"
+                        >
+                            <h3 class="text-base font-bold text-gray-900">
+                                Status timeline
+                            </h3>
 
-                            <div>
-                                <p class="text-sm font-bold uppercase tracking-wide text-gray-500">Document Type</p>
-                                <p class="mt-1 text-sm font-medium text-gray-900">{{ document.document_type }}</p>
-                            </div>
+                            <p class="mt-1 text-sm text-gray-500">
+                                Follow the latest updates from the Legal Affairs Office.
+                            </p>
 
-                            <div>
-                                <p class="text-sm font-bold uppercase tracking-wide text-gray-500">Particulars</p>
-                                <p class="mt-1 text-sm font-medium text-gray-900">{{ document.particulars || 'Not specified' }}</p>
-                            </div>
-
-                            <div>
-                                <p class="text-sm font-bold uppercase tracking-wide text-gray-500">Status</p>
-                                <span
-                                    :class="statusClass(document.status)"
-                                    class="mt-1 inline-flex rounded-full border px-3 py-1 text-sm font-bold"
+                            <div class="mt-6">
+                                <div
+                                    v-for="(update, index) in document.timeline"
+                                    :key="`${update.date}-${update.time}-${update.title}-${index}`"
+                                    class="relative flex gap-3 pb-7 last:pb-0"
                                 >
-                                    {{ formatStatus(document.status) }}
-                                </span>
-                            </div>
+                                    <div class="w-24 shrink-0 pt-0.5 text-right">
+                                        <time class="block whitespace-nowrap text-xs font-bold leading-5 text-gray-700">
+                                            {{ update.date }}
+                                        </time>
+                                        <span class="block text-[10px] font-medium leading-4 text-gray-400">
+                                            {{ update.time }}
+                                        </span>
+                                    </div>
 
-                            <div class="sm:col-span-2">
-                                <p class="text-sm font-bold uppercase tracking-wide text-gray-500">Date Submitted</p>
-                                <p class="mt-1 text-sm font-medium text-gray-900">{{ document.date_submitted }}</p>
+                                    <div class="relative flex w-6 shrink-0 justify-center">
+                                        <span
+                                            v-if="index < document.timeline.length - 1"
+                                            class="absolute left-1/2 top-6 h-full w-px -translate-x-1/2 bg-gray-300"
+                                            aria-hidden="true"
+                                        ></span>
+
+                                        <span
+                                            class="relative z-10 inline-flex h-6 w-6 items-center justify-center rounded-full shadow-sm ring-4 ring-white"
+                                            :class="timelineDotClass(update.status, index === document.timeline.length - 1)"
+                                        >
+                                            <svg
+                                                xmlns="http://www.w3.org/2000/svg"
+                                                viewBox="0 0 24 24"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                stroke-width="2.5"
+                                                class="h-3.5 w-3.5"
+                                                aria-hidden="true"
+                                            >
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="m5 12 4 4L19 6" />
+                                            </svg>
+                                        </span>
+                                    </div>
+
+                                    <div class="min-w-0 flex-1">
+                                        <h4 class="text-base font-bold leading-6 text-gray-900">
+                                            {{ update.title }}
+                                        </h4>
+                                        <p class="mt-1 text-sm leading-6 text-gray-500">
+                                            {{ update.description }}
+                                        </p>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -425,11 +457,7 @@ const openQrPhotoPicker = () => {
     turnstileWidgetId = null
 
     try {
-        if (typeof fileInput.showPicker === 'function') {
-            fileInput.showPicker()
-        } else {
-            fileInput.click()
-        }
+        fileInput.click()
     } catch (error) {
         console.error('QR photo picker error:', error)
         qrCaptchaOpen.value = true
@@ -567,7 +595,20 @@ const clearQrTracking = () => {
 const qrTokenPattern = /^LEXTRACK-QR-1\.[A-Za-z0-9_-]+$/
 
 
-const isRecognizedQrPayload = (payload) => qrTokenPattern.test(payload)
+const isRecognizedQrPayload = (payload) => {
+    if (qrTokenPattern.test(payload)) {
+        return true
+    }
+
+    try {
+        const url = new URL(payload)
+
+        return /^\/document-status\/[1-9][0-9]*$/.test(url.pathname)
+            && url.searchParams.has('signature')
+    } catch {
+        return false
+    }
+}
 
 
 const resolveQrValue = async (value, fromImage = false) => {
@@ -907,6 +948,12 @@ const statusClass = (status) => {
 
     return classes[status]
         ?? 'border-gray-300 bg-gray-100 text-gray-700'
+}
+
+const timelineDotClass = (status, isLatest = false) => {
+    return isLatest
+        ? 'bg-green-700 text-white'
+        : 'bg-emerald-100 text-emerald-600'
 }
 </script>
 
