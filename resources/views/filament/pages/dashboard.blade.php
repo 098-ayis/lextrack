@@ -183,13 +183,27 @@
         </div>
 
 
-        <div class="grid grid-cols-1 gap-6 xl:grid-cols-3">
-            <div class="min-w-0 xl:col-span-2">
+        <div class="dashboard-main-grid grid grid-cols-1 gap-6 xl:grid-cols-3">
+
+        <div class="dashboard-top-row grid grid-cols-1 items-stretch gap-6 xl:grid-cols-3">
+            <div class="dashboard-graph-panel min-w-0 xl:col-span-2">
+                <div class="dashboard-section-heading mb-4">
+                    <h2 class="text-lg font-semibold text-violet-800 dark:text-violet-300">
+                        Document Activity
+                    </h2>
+                </div>
                 @include('filament.pages.partials.processing-trend', ['trend' => $trend])
             </div>
-            <section class="dashboard-work-panel min-w-0 rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900" aria-labelledby="dashboard-reminders-title">
-                <div class="border-b border-gray-200 px-5 py-4 dark:border-gray-700">
+            <section class="dashboard-reminders-panel dashboard-work-panel min-w-0 rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900" aria-labelledby="dashboard-reminders-title">
+                <div class="flex items-center justify-between gap-3 border-b border-gray-200 px-5 py-4 dark:border-gray-700">
                     <h2 id="dashboard-reminders-title" class="text-base font-semibold text-violet-800 dark:text-violet-300">Reminders</h2>
+                    <a
+                        href="{{ \App\Filament\Pages\Calendar::getUrl(['date' => now()->toDateString()]) }}"
+                        wire:navigate
+                        class="shrink-0 text-xs font-semibold text-violet-700 transition hover:text-violet-900 hover:underline dark:text-violet-300 dark:hover:text-violet-200"
+                    >
+                        Show All
+                    </a>
                 </div>
                 <div class="space-y-2 p-5">
                     @forelse ($reminders as $reminder)
@@ -220,19 +234,25 @@
         {{-- RECENT DOCUMENTS + CALENDAR --}}
         {{-- ========================================================= --}}
 
-        <div class="grid grid-cols-1 gap-6 xl:grid-cols-3">
+        <div class="dashboard-bottom-row grid grid-cols-1 gap-6 xl:grid-cols-3">
 
             {{-- ===================================================== --}}
             {{-- RECENT DOCUMENTS --}}
             {{-- ===================================================== --}}
 
-            <div class="dashboard-work-panel min-w-0 xl:col-span-2">
+            <div class="dashboard-recent-panel dashboard-work-panel min-w-0 xl:col-span-2">
 
-                <div class="mb-4">
+                <div class="mb-4 flex items-center justify-between gap-3">
                     <h2 class="text-lg font-semibold text-violet-800 dark:text-violet-300">
                         Recent Documents
                     </h2>
-
+                    <a
+                        href="{{ \App\Filament\Pages\Document::getUrl() }}"
+                        wire:navigate
+                        class="shrink-0 text-xs font-semibold text-violet-700 transition hover:text-violet-900 hover:underline dark:text-violet-300 dark:hover:text-violet-200"
+                    >
+                        View All
+                    </a>
                 </div>
 
 
@@ -311,14 +331,15 @@
 
 
                             <a
-                                href="{{ url('/admin/documents/' . $document->document_id) }}"
+                                href="{{ \App\Filament\Pages\ViewDocument::getUrl(['document' => $document->document_id]) }}"
+                                wire:navigate
                                 class="group min-w-0 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm
                                        transition hover:border-gray-300 hover:shadow-md
                                        dark:border-gray-700 dark:bg-gray-900"
                             >
 
                                 {{-- DOCUMENT PREVIEW --}}
-                                <div class="flex h-32 items-center justify-center overflow-hidden bg-gray-50 dark:bg-gray-800">
+                                <div class="dashboard-document-preview flex h-32 items-start justify-start overflow-hidden bg-gray-50 dark:bg-gray-800">
 
                                     @if (
                                         $document->latestVersion?->file_path &&
@@ -327,7 +348,8 @@
 
                                         <iframe
                                             src="{{ route('admin.documents.preview', ['document' => $document->document_id]) }}#toolbar=0"
-                                            class="pointer-events-none h-full w-full border-0"
+                                            scrolling="no"
+                                            class="dashboard-document-preview-frame pointer-events-none shrink-0 border-0"
                                             title="Document preview"
                                         ></iframe>
 
@@ -449,18 +471,18 @@
             {{-- CALENDAR --}}
             {{-- ===================================================== --}}
 
-            <div class="min-w-0">
+            <div class="dashboard-calendar-panel min-w-0">
 
                 <div class="mb-4">
                     <h2 class="text-lg font-semibold text-violet-800 dark:text-violet-300">
-                        <a href="{{ \App\Filament\Pages\Calendar::getUrl(['date' => sprintf('%04d-%02d-01', $year, $month)]) }}" class="hover:underline">My Calendar</a>
+                        <a href="{{ \App\Filament\Pages\Calendar::getUrl(['date' => sprintf('%04d-%02d-01', $year, $month)]) }}" wire:navigate class="hover:underline">My Calendar</a>
                     </h2>
 
                 </div>
 
 
                 <div
-                    class="dashboard-work-panel overflow-hidden rounded-xl border border-gray-200 bg-white p-4 shadow-sm
+                    class="dashboard-work-panel dashboard-calendar-card overflow-hidden rounded-xl border border-gray-200 bg-white p-4 shadow-sm
                            dark:border-gray-700 dark:bg-gray-900"
                 >
 
@@ -621,6 +643,8 @@
                 </div>
 
             </div>
+
+        </div>
 
         </div>
 
