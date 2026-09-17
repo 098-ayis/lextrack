@@ -83,12 +83,17 @@
                 'completed' => 'Completed',
                 'rejected' => 'Rejected',
             ] as $section => $label)
-                <a
-                    href="{{ \App\Filament\Pages\Document::getUrl(['section' => $section]) }}"
+                <button
+                    type="button"
+                    wire:click="updateSection('{{ $section }}')"
+                    wire:loading.attr="disabled"
+                    x-on:click="window.history.replaceState({}, '', $el.dataset.sectionUrl)"
+                    data-section-url="{{ \App\Filament\Pages\Document::getUrl(['section' => $section]) }}"
                     class="rounded-md px-4 py-2 text-base font-semibold transition-colors
                         {{ $activeSection === $section
                             ? 'bg-[#0F172A] text-white'
                             : 'text-gray-600 hover:bg-gray-100' }}"
+                    aria-current="{{ $activeSection === $section ? 'page' : 'false' }}"
                 >
                     {{ $label }}
                     <span
@@ -96,7 +101,7 @@
                     >
                         {{ $statusCounts[$section] ?? 0 }}
                     </span>
-                </a>
+                </button>
             @endforeach
         </nav>
     </div>
@@ -379,9 +384,10 @@
                                     <div class="flex items-center gap-3">
 
                                         {{-- Profile Picture --}}
-                                        @if ($document->user->profile_photo_url)
+                                        @if ($document->user->getProfilePhotoUrl())
                                             <img
-                                                src="{{ $document->user->profile_photo_url }}"
+                                                src="{{ $document->user->getProfilePhotoUrl() }}"
+                                                referrerpolicy="no-referrer"
                                                 alt="{{ $document->user->name }}"
                                                 class="w-9 h-9 rounded-full object-cover
                                                     border border-gray-300

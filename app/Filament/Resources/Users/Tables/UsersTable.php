@@ -24,6 +24,7 @@ class UsersTable
             ->columns([
                 ImageColumn::make('profile_photo_url')
                     ->label('')
+                    ->getStateUsing(fn (User $record): ?string => $record->getProfilePhotoUrl())
                     ->imageSize(32)
                     ->circular()
                     ->extraAttributes(['class' => 'users-avatar-column']),
