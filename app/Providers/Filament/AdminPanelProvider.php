@@ -100,6 +100,7 @@ class AdminPanelProvider extends PanelProvider
             ->sidebarWidth('15rem')
             ->sidebarCollapsibleOnDesktop()
             ->collapsedSidebarWidth('4rem')
+            ->collapsibleNavigationGroups(false)
             ->renderHook(
                 PanelsRenderHook::BODY_START,
                 fn () => view('filament.admin.sidebar-default-state'),
@@ -107,6 +108,10 @@ class AdminPanelProvider extends PanelProvider
             ->renderHook(
                 PanelsRenderHook::SIDEBAR_FOOTER,
                 fn () => view('filament.admin.sidebar-logout'),
+            )
+            ->renderHook(
+                PanelsRenderHook::TOPBAR_START,
+                fn () => view('filament.admin.page-title'),
             )
             ->globalSearch(false)
             ->databaseNotifications(true, DatabaseNotifications::class)

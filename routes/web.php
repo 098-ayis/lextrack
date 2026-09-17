@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\ChatbotController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -23,6 +24,11 @@ use RyanChandler\LaravelCloudflareTurnstile\Rules\Turnstile;
 
 
 Route::view('/ai-test', 'ai-test');
+
+Route::post('/chatbot/message', [
+    ChatbotController::class,
+    'reply',
+])->middleware('throttle:10,1');
 
 Route::post('/ask-ai', [AIController::class, 'ask']);
 

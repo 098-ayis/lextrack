@@ -370,6 +370,55 @@
     margin-right: auto !important;
 }
 
+/* Keep the current admin page title in the navigation header. */
+.fi-panel-admin .fi-admin-page-title {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    max-width: 30vw;
+    overflow: hidden;
+    margin-block: 0;
+    margin-inline-start: 1.25rem;
+    padding-inline-start: 1.25rem;
+    color: #111827;
+    font-size: 1.375rem;
+    font-weight: 700;
+    line-height: 1.25;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.fi-panel-admin .fi-topbar .fi-admin-page-title {
+    flex-shrink: 1;
+}
+
+/* On compact screens, place the title immediately after the sidebar toggle. */
+@media (max-width: 63.99rem) {
+    .fi-panel-admin .fi-topbar > .fi-topbar-open-sidebar-btn,
+    .fi-panel-admin .fi-topbar > .fi-topbar-close-sidebar-btn {
+        order: 1;
+    }
+
+    .fi-panel-admin .fi-topbar > .fi-admin-page-title {
+        order: 2;
+        margin-inline-start: 0.75rem;
+        padding-inline-start: 0;
+    }
+
+    .fi-panel-admin .fi-topbar > .fi-topbar-end {
+        order: 3;
+    }
+}
+
+/* The title now lives in the topbar, so reclaim the page header's title space. */
+.fi-panel-admin .fi-page-header-main-ctn > .fi-header > :first-child {
+    display: none;
+}
+
+.fi-panel-admin .fi-page-header-main-ctn > .fi-header:not(:has(.fi-header-actions-ctn)) {
+    display: none;
+}
+
 
 /* ================================
    REMOVE FILAMENT BUTTON BG
@@ -1871,6 +1920,10 @@ Edit-Button
 .dark .fi-topbar .lextrack-brand-text,
 .dark .fi-topbar .lextrack-brand-office {
     color: #f9fafb !important;
+}
+
+.dark .fi-panel-admin .fi-admin-page-title {
+    color: #f9fafb;
 }
 
 .fi-body-has-topbar .fi-main-sidebar {
