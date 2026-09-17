@@ -1,15 +1,17 @@
 @if ($record->user)
     @php($userName = $record->user->name ?: 'Unknown')
+    @php($profilePhotoUrl = $record->user->getProfilePhotoUrl())
 
     <div
         class="flex items-center justify-center"
         title="{{ $userName }}"
         aria-label="Requested by {{ $userName }}"
     >
-        @if ($record->user->profile_photo_url)
+        @if ($profilePhotoUrl)
             <img
-                src="{{ $record->user->profile_photo_url }}"
+                src="{{ $profilePhotoUrl }}"
                 alt="{{ $userName }}"
+                referrerpolicy="no-referrer"
                 class="h-8 w-8 rounded-full border border-gray-300 object-cover dark:border-gray-600"
             >
         @else

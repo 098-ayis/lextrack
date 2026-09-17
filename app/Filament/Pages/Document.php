@@ -65,6 +65,8 @@ class Document extends Page implements HasTable
 
     private const string OTHER_SENT_TO = '__other_sent_to__';
 
+    private const string OTHER_RETURNED_FROM = '__other_returned_from__';
+
     use InteractsWithTable;
     // use HasPageShield;
 
@@ -128,8 +130,10 @@ class Document extends Page implements HasTable
             'archived',
         ], true) ? $section : 'incoming';
 
-        $this->highlightedDocumentId = is_numeric($document) && (int) $document > 0
-            ? (int) $document
+        $this->highlightedDocumentId = filled($document)
+            ? DocumentModel::query()
+                ->where('public_id', $document)
+                ->value('document_id')
             : null;
 
         $this->initializeDocumentNavigationViewState();
@@ -440,7 +444,7 @@ class Document extends Page implements HasTable
             ->recordActionsColumnLabel('ACTION')
             ->recordActionsAlignment('fi-align-center')
             ->recordUrl(fn (DocumentModel $record): string => ViewDocument::getUrl([
-                'document' => $record->document_id,
+                'document' => $record->public_id,
             ]))
             ->recordClasses(
                 fn (DocumentModel $record): string => $this->highlightedDocumentId !== null &&
@@ -596,13 +600,13 @@ class Document extends Page implements HasTable
                 ->label('View')
                 ->icon('heroicon-o-eye')
                 ->url(fn (DocumentModel $record): string => ViewDocument::getUrl([
-                    'document' => $record->document_id,
+                    'document' => $record->public_id,
                 ])),
             Action::make('downloadDocument')
                 ->label('Download')
                 ->icon('heroicon-o-arrow-down-tray')
                 ->url(fn (DocumentModel $record): string => route('admin.documents.download', [
-                    'document' => $record->document_id,
+                    'document' => $record->public_id,
                 ]))
                 ->disabled(fn (DocumentModel $record): bool => blank($record->latestVersion?->file_path))
                 ->tooltip(fn (DocumentModel $record): string =>
@@ -928,6 +932,41 @@ class Document extends Page implements HasTable
             ])
             ->action(function (array $data) {
                 $filePath = $data['file_path'] ?? null;
+                $fileHash = filled($filePath)
+                    ? DocumentVersion::hashForUpload($filePath)
+                    : null;
+
+                if (filled($filePath) && $fileHash === null) {
+                    DocumentVersion::removeUnreferencedUpload($filePath);
+
+                    Notification::make()
+                        ->danger()
+                        ->title('Upload could not be verified')
+                        ->body('The uploaded file could not be read. Please select the file again and try again.')
+                        ->send();
+
+                    return;
+                }
+
+                if (
+                    filled($filePath)
+                    && DocumentVersion::existsForDocumentOrUserHash(
+                        0,
+                        $fileHash,
+                        auth()->id(),
+                    )
+                ) {
+                    DocumentVersion::removeUnreferencedUpload($filePath);
+
+                    Notification::make()
+                        ->danger()
+                        ->title('Duplicate document detected')
+                        ->body('This exact file has already been uploaded. Please select a different file.')
+                        ->send();
+
+                    return;
+                }
+
                 unset($data['file_path']);
 
                 $data['user_id'] = auth()->id();
@@ -935,7 +974,7 @@ class Document extends Page implements HasTable
                 $data['document_name'] = $this->uploadedDocumentName($filePath)
                     ?? ($data['document_name'] ?? null);
 
-                $document = DB::transaction(function () use ($data, $filePath): DocumentModel {
+                $document = DB::transaction(function () use ($data, $filePath, $fileHash): DocumentModel {
                     // Generate again at save time so the number is always the
                     // latest available one, even if the form stayed open.
                     $data['lao_number'] = DocumentModel::generateLaoNumber(now());
@@ -950,6 +989,7 @@ class Document extends Page implements HasTable
                             'user_id' => auth()->id(),
                             'version_number' => '1',
                             'file_path' => $filePath,
+                            'file_hash' => $fileHash,
                         ]);
                     }
 
@@ -994,6 +1034,10 @@ class Document extends Page implements HasTable
                             ->default('select')
                             ->dehydrated(false),
 
+                        Hidden::make('returned_from_mode')
+                            ->default('select')
+                            ->dehydrated(false),
+
                         TextInput::make('document_name')
                             ->label('Document Name')
                             ->maxLength(255),
@@ -1030,58 +1074,100 @@ class Document extends Page implements HasTable
                             ->label('Outgoing Date')
                             ->default(now()->toDateString()),
 
-                        Select::make('sent_to')
-                            ->label('Sent To')
-                            ->options(fn () => OfficeUnit::query()
-                                ->orderBy('name')
-                                ->pluck('name', 'name')
-                                ->prepend('Others', self::OTHER_SENT_TO)
-                                ->toArray())
-                            ->searchable()
-                            ->preload()
-                            ->live()
-                            ->visible(fn (Get $get): bool => $get('sent_to_mode') !== self::OTHER_SENT_TO)
-                            ->dehydrated(fn (Get $get): bool => $get('sent_to_mode') !== self::OTHER_SENT_TO)
-                            ->afterStateUpdated(function (Set $set, ?string $state): void {
-                                if ($state === self::OTHER_SENT_TO) {
-                                    $set('sent_to_mode', self::OTHER_SENT_TO);
-                                    $set('sent_to', null);
+                        Grid::make(2)
+                            ->schema([
+                                Select::make('sent_to')
+                                    ->label('Sent To')
+                                    ->options(fn () => OfficeUnit::query()
+                                        ->orderBy('name')
+                                        ->pluck('name', 'name')
+                                        ->prepend('Others', self::OTHER_SENT_TO)
+                                        ->toArray())
+                                    ->searchable()
+                                    ->preload()
+                                    ->live()
+                                    ->visible(fn (Get $get): bool => $get('sent_to_mode') !== self::OTHER_SENT_TO)
+                                    ->dehydrated(fn (Get $get): bool => $get('sent_to_mode') !== self::OTHER_SENT_TO)
+                                    ->afterStateUpdated(function (Set $set, ?string $state): void {
+                                        if ($state === self::OTHER_SENT_TO) {
+                                            $set('sent_to_mode', self::OTHER_SENT_TO);
+                                            $set('sent_to', null);
 
-                                    return;
-                                }
+                                            return;
+                                        }
 
-                                $set('sent_to_mode', 'select');
-                            })
-                            ->required(),
-
-                        TextInput::make('sent_to')
-                            ->label('Sent To')
-                            ->placeholder('Enter the destination')
-                            ->maxLength(255)
-                            ->suffixAction(
-                                Action::make('chooseListedSentTo')
-                                    ->icon(Heroicon::ChevronDown)
-                                    ->tooltip('Choose from listed offices/units')
-                                    ->action(function (Set $set): void {
                                         $set('sent_to_mode', 'select');
-                                        $set('sent_to', null);
-                                    }),
-                            )
-                            ->visible(fn (Get $get): bool => $get('sent_to_mode') === self::OTHER_SENT_TO)
-                            ->dehydrated(fn (Get $get): bool => $get('sent_to_mode') === self::OTHER_SENT_TO)
-                            ->required(fn (Get $get): bool => $get('sent_to_mode') === self::OTHER_SENT_TO),
+                                    })
+                                    ->required(),
 
-                        DatePicker::make('sent_date')
-                            ->label('Sent Date')
-                            ->default(now()->toDateString()),
+                                TextInput::make('sent_to')
+                                    ->label('Sent To')
+                                    ->placeholder('Enter the destination')
+                                    ->maxLength(255)
+                                    ->suffixAction(
+                                        Action::make('chooseListedSentTo')
+                                            ->icon(Heroicon::ChevronDown)
+                                            ->tooltip('Choose from listed offices/units')
+                                            ->action(function (Set $set): void {
+                                                $set('sent_to_mode', 'select');
+                                                $set('sent_to', null);
+                                            }),
+                                    )
+                                    ->visible(fn (Get $get): bool => $get('sent_to_mode') === self::OTHER_SENT_TO)
+                                    ->dehydrated(fn (Get $get): bool => $get('sent_to_mode') === self::OTHER_SENT_TO)
+                                    ->required(fn (Get $get): bool => $get('sent_to_mode') === self::OTHER_SENT_TO),
 
-                        TextInput::make('returned_from')
-                            ->label('Returned From')
-                            ->maxLength(255),
+                                DatePicker::make('sent_date')
+                                    ->label('Sent Date')
+                                    ->default(now()->toDateString()),
+                            ]),
 
-                        DatePicker::make('date_returned')
-                            ->label('Returned Date')
-                            ->default(now()->toDateString()),
+                        Grid::make(2)
+                            ->schema([
+                                Select::make('returned_from')
+                                    ->label('Returned From')
+                                    ->options(fn () => OfficeUnit::query()
+                                        ->orderBy('name')
+                                        ->pluck('name', 'name')
+                                        ->prepend('Others', self::OTHER_RETURNED_FROM)
+                                        ->toArray())
+                                    ->searchable()
+                                    ->preload()
+                                    ->live()
+                                    ->visible(fn (Get $get): bool => $get('returned_from_mode') !== self::OTHER_RETURNED_FROM)
+                                    ->dehydrated(fn (Get $get): bool => $get('returned_from_mode') !== self::OTHER_RETURNED_FROM)
+                                    ->afterStateUpdated(function (Set $set, ?string $state): void {
+                                        if ($state === self::OTHER_RETURNED_FROM) {
+                                            $set('returned_from_mode', self::OTHER_RETURNED_FROM);
+                                            $set('returned_from', null);
+
+                                            return;
+                                        }
+
+                                        $set('returned_from_mode', 'select');
+                                    })
+                                    ->required(),
+
+                                TextInput::make('returned_from')
+                                    ->label('Returned From')
+                                    ->placeholder('Enter the originating office/unit')
+                                    ->maxLength(255)
+                                    ->suffixAction(
+                                        Action::make('chooseListedReturnedFrom')
+                                            ->icon(Heroicon::ChevronDown)
+                                            ->tooltip('Choose from listed offices/units')
+                                            ->action(function (Set $set): void {
+                                                $set('returned_from_mode', 'select');
+                                                $set('returned_from', null);
+                                            }),
+                                    )
+                                    ->visible(fn (Get $get): bool => $get('returned_from_mode') === self::OTHER_RETURNED_FROM)
+                                    ->dehydrated(fn (Get $get): bool => $get('returned_from_mode') === self::OTHER_RETURNED_FROM)
+                                    ->required(fn (Get $get): bool => $get('returned_from_mode') === self::OTHER_RETURNED_FROM),
+
+                                DatePicker::make('date_returned')
+                                    ->label('Returned Date'),
+                            ]),
                     ];
                 }
 
@@ -1177,6 +1263,12 @@ class Document extends Page implements HasTable
                         ->where('name', $document->sent_to)
                         ->exists()
                         ? self::OTHER_SENT_TO
+                        : 'select',
+
+                    'returned_from_mode' => filled($document->returned_from) && ! OfficeUnit::query()
+                        ->where('name', $document->returned_from)
+                        ->exists()
+                        ? self::OTHER_RETURNED_FROM
                         : 'select',
 
                     // Important: preload current Action Taken
@@ -1796,7 +1888,7 @@ class Document extends Page implements HasTable
 
         $this->redirect(
             route('filament.admin.pages.messages', [
-                'document' => $document->document_id,
+                'document' => $document->public_id,
             ])
         );
     }

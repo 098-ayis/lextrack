@@ -36,7 +36,7 @@ class DocumentAcceptedNotification extends Notification
             ->line('Status: In Progress')
             ->action(
                 'View Document',
-                url('/client/documents/' . $this->document->document_id)
+                url('/client/documents/' . $this->document->public_id)
             )
             ->line('You can use your LAO number to track the document in LexTrack.');
     }
@@ -54,7 +54,7 @@ class DocumentAcceptedNotification extends Notification
             'document_id' => $this->document->document_id,
             'redirect_url' => url(
                 '/client/documents?tab=' . $this->tab .
-                '&document=' . $this->document->document_id
+                '&document=' . $this->document->public_id
             ),
         ];
     }

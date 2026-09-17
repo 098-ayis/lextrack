@@ -43,7 +43,7 @@ class ReviseDocument extends Page implements HasForms
     public function mount(string|int $document): void
     {
         $this->documentRecord = Document::query()
-            ->where('document_id', $document)
+            ->where('public_id', $document)
             ->where('user_id', auth()->id())
             ->firstOrFail();
 
@@ -90,14 +90,55 @@ class ReviseDocument extends Page implements HasForms
             return;
         }
 
-        $versionNumber = null;
+        $fileHash = DocumentVersion::hashForUpload($filePath);
 
-        DB::transaction(function () use ($filePath, &$versionNumber): void {
+        if ($fileHash === null) {
+            DocumentVersion::removeUnreferencedUpload($filePath);
+
+            Notification::make()
+                ->danger()
+                ->title('Revision could not be verified')
+                ->body('The uploaded file could not be read. Please select the file again and try again.')
+                ->send();
+
+            return;
+        }
+
+        if (DocumentVersion::existsForDocumentOrUserHash(
+            $this->documentRecord->document_id,
+            $fileHash,
+            auth()->id(),
+        )) {
+            DocumentVersion::removeUnreferencedUpload($filePath);
+
+            Notification::make()
+                ->danger()
+                ->title('Duplicate document detected')
+                ->body('This exact file has already been uploaded for this document. Please select a different file.')
+                ->send();
+
+            return;
+        }
+
+        $versionNumber = null;
+        $duplicate = false;
+
+        DB::transaction(function () use ($filePath, $fileHash, &$versionNumber, &$duplicate): void {
             $document = Document::query()
                 ->where('document_id', $this->documentRecord->document_id)
                 ->where('user_id', auth()->id())
                 ->lockForUpdate()
                 ->firstOrFail();
+
+            if (DocumentVersion::existsForDocumentOrUserHash(
+                $document->document_id,
+                $fileHash,
+                auth()->id(),
+            )) {
+                $duplicate = true;
+
+                return;
+            }
 
             abort_unless(
                 $this->hasOpenRevisionRequest($document),
@@ -115,6 +156,7 @@ class ReviseDocument extends Page implements HasForms
                 'user_id' => auth()->id(),
                 'version_number' => (string) $versionNumber,
                 'file_path' => $filePath,
+                'file_hash' => $fileHash,
             ]);
 
             // A revision belongs to the existing document. Keep its LAO number
@@ -138,6 +180,18 @@ class ReviseDocument extends Page implements HasForms
                 $conversation->touch();
             }
         });
+
+        if ($duplicate) {
+            DocumentVersion::removeUnreferencedUpload($filePath);
+
+            Notification::make()
+                ->danger()
+                ->title('Duplicate document detected')
+                ->body('This exact file has already been uploaded for this document. Please select a different file.')
+                ->send();
+
+            return;
+        }
 
         Notification::make()
             ->success()

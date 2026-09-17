@@ -818,6 +818,18 @@
         transition: background 0.15s, border-color 0.15s, color 0.15s;
     }
 
+    .message-reaction-trigger {
+        font-size: 15px;
+        line-height: 1;
+        text-align: center;
+    }
+
+    .message-reaction-trigger-icon {
+        display: block;
+        width: 20px;
+        height: 20px;
+    }
+
     .message-reaction {
         display: inline-flex;
         align-items: center;
@@ -887,7 +899,7 @@
         border: none;
         border-radius: 6px;
         cursor: pointer;
-        font-size: 15px;
+        font-size: 18px;
     }
 
     .message-reaction-menu button:hover {
@@ -1977,11 +1989,27 @@
             {{-- THREAD HEADER --}}
                 <div class="thread-header">
 
-                    <div class="t-avatar">
-                        <div class="m-avatar-icon">
-                               <x-heroicon-o-document-text />
+                    @if ($activeConversation?->document?->public_id)
+                        <a
+                            href="{{ \App\Filament\Client\Pages\Documents::getUrl([
+                                'tab' => 'all',
+                                'document' => $activeConversation->document->public_id,
+                            ]) }}"
+                            class="t-avatar transition-opacity hover:opacity-80"
+                            aria-label="View document in Documents"
+                            title="View document in Documents"
+                        >
+                            <div class="m-avatar-icon">
+                                <x-heroicon-o-document-text />
+                            </div>
+                        </a>
+                    @else
+                        <div class="t-avatar">
+                            <div class="m-avatar-icon">
+                                <x-heroicon-o-document-text />
+                            </div>
                         </div>
-                    </div>
+                    @endif
 
                     <div style="flex: 1;">
 
@@ -2194,7 +2222,7 @@
                             : 'Legal Affairs Office';
 
                         $displayPhoto = $isOwn
-                            ? auth()->user()?->profile_photo_url
+                            ? auth()->user()?->getProfilePhotoUrl()
                             : asset('images/bu-lao.png');
 
                         $displayInitials = collect(
@@ -2223,6 +2251,7 @@
                                     src="{{ $displayPhoto }}"
                                     alt="{{ $displayName }}"
                                     class="t-msg-avatar-img"
+                                    referrerpolicy="no-referrer"
                                 >
 
                             @elseif ($showSenderProfile)
@@ -2443,7 +2472,7 @@
                                         aria-label="Add reaction"
                                         title="Add reaction"
                                     >
-                                        ☺
+                                        <x-heroicon-o-face-smile class="message-reaction-trigger-icon" aria-hidden="true" />
                                     </button>
 
                                     <div

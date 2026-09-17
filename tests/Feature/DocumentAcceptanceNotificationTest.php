@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Notifications\DocumentAcceptedNotification;
 use Filament\Notifications\DatabaseNotification;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Mockery;
 use Symfony\Component\Mailer\Exception\TransportException;
 use Tests\TestCase;
@@ -35,6 +36,7 @@ class DocumentAcceptanceNotificationTest extends TestCase
 
         $document = new Document;
         $document->document_id = 1;
+        $document->public_id = (string) Str::ulid();
         $document->lao_number = 'LAO-26-001';
         $document->setRelation('user', $client);
 
@@ -71,6 +73,7 @@ class DocumentAcceptanceNotificationTest extends TestCase
 
         $document = new Document;
         $document->document_id = 1;
+        $document->public_id = (string) Str::ulid();
         $document->setRelation('user', $client);
 
         DB::shouldReceive('transaction')->once()->andReturn([
@@ -105,6 +108,7 @@ class DocumentAcceptanceNotificationTest extends TestCase
 
         $document = new Document;
         $document->document_id = 1;
+        $document->public_id = (string) Str::ulid();
         $document->lao_number = 'LAO-26-001';
         $request = new DocumentRequest;
         $request->setRelation('user', $client);

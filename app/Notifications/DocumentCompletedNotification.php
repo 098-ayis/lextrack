@@ -31,7 +31,7 @@ class DocumentCompletedNotification extends Notification
             ->line('Status: Completed')
             ->action(
                 'View Document',
-                url('/client/documents/' . $this->document->document_id)
+                url('/client/documents/' . $this->document->public_id)
             )
             ->line(
                 'You can view the completed document and its latest status in LexTrack.'
@@ -51,7 +51,7 @@ class DocumentCompletedNotification extends Notification
             'document_id' => $this->document->document_id,
             'redirect_url' => url(
                 '/client/documents?tab=completed&document=' .
-                $this->document->document_id
+                $this->document->public_id
             ),
         ];
     }

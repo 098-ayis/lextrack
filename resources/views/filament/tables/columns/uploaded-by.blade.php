@@ -1,9 +1,12 @@
 @if ($record->user)
+    @php($profilePhotoUrl = $record->user->getProfilePhotoUrl())
+
     <div class="flex items-center gap-3 text-left">
-        @if ($record->user->profile_photo_url)
+        @if ($profilePhotoUrl)
             <img
-                src="{{ $record->user->profile_photo_url }}"
+                src="{{ $profilePhotoUrl }}"
                 alt="{{ $record->user->name }}"
+                referrerpolicy="no-referrer"
                 class="h-9 w-9 shrink-0 rounded-full border border-gray-300 object-cover dark:border-gray-600"
             >
         @else
@@ -17,9 +20,6 @@
         <div class="flex min-w-0 flex-col">
             <span class="truncate text-xs font-semibold text-gray-900 dark:text-gray-100">
                 {{ $record->user->name }}
-            </span>
-            <span class="truncate text-xs text-gray-500 dark:text-gray-400">
-                {{ $record->user->email }}
             </span>
         </div>
     </div>

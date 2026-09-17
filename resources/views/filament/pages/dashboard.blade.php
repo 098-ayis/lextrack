@@ -331,6 +331,7 @@
 
 
                             <a
+                                href="{{ url('/admin/documents/' . $document->public_id) }}"
                                 href="{{ \App\Filament\Pages\ViewDocument::getUrl(['document' => $document->document_id]) }}"
                                 wire:navigate
                                 class="group min-w-0 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm
@@ -347,9 +348,8 @@
                                     )
 
                                         <iframe
-                                            src="{{ route('admin.documents.preview', ['document' => $document->document_id]) }}#toolbar=0"
-                                            scrolling="no"
-                                            class="dashboard-document-preview-frame pointer-events-none shrink-0 border-0"
+                                            src="{{ route('admin.documents.preview', ['document' => $document->public_id]) }}#toolbar=0"
+                                            class="pointer-events-none h-full w-full border-0"
                                             title="Document preview"
                                         ></iframe>
 

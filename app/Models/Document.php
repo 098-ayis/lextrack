@@ -8,10 +8,29 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 
 class Document extends Model
 {
     protected $primaryKey = 'document_id';
+
+    protected static function booted(): void
+    {
+        static::creating(function (self $document): void {
+            if (
+                blank($document->public_id)
+                && Schema::hasColumn($document->getTable(), 'public_id')
+            ) {
+                $document->public_id = (string) Str::ulid();
+            }
+        });
+    }
+
+    public function getRouteKeyName(): string
+    {
+        return 'public_id';
+    }
     
     protected $fillable = [
         'user_id',
@@ -229,9 +248,11 @@ class Document extends Model
 
     public function messageDocument(int $documentId): void
     {
+        $document = static::findOrFail($documentId);
+
         $this->redirect(
             route('filament.admin.pages.messages', [
-                'document' => $documentId,
+                'document' => $document->public_id,
             ])
         );
     }

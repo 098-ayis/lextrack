@@ -29,7 +29,7 @@ class AdminPanelProvider extends PanelProvider
 {
     public function boot(): void
     {
-        Route::middleware(['web', 'auth'])
+        Route::middleware(['web', 'auth', 'admin'])
             ->get('/admin/documents/{document}/file/{filename}', function (
                 Document $document,
                 string $filename,
@@ -96,10 +96,12 @@ class AdminPanelProvider extends PanelProvider
             ->default()
             ->id('admin')
             ->path('admin')
+            ->spa()
             ->maxContentWidth(\Filament\Support\Enums\Width::Full)
             ->sidebarWidth('15rem')
             ->sidebarCollapsibleOnDesktop()
             ->collapsedSidebarWidth('4rem')
+            ->collapsibleNavigationGroups(false)
             ->renderHook(
                 PanelsRenderHook::BODY_START,
                 fn () => view('filament.admin.sidebar-default-state'),
@@ -107,6 +109,10 @@ class AdminPanelProvider extends PanelProvider
             ->renderHook(
                 PanelsRenderHook::SIDEBAR_FOOTER,
                 fn () => view('filament.admin.sidebar-logout'),
+            )
+            ->renderHook(
+                PanelsRenderHook::TOPBAR_START,
+                fn () => view('filament.admin.page-title'),
             )
             ->globalSearch(false)
             ->databaseNotifications(true, DatabaseNotifications::class)

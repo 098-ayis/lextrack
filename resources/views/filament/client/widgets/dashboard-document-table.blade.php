@@ -320,7 +320,7 @@
                         };
 
                         $previewUrl = $document->latestVersion?->file_path
-                            ? route('client.document.preview', ['document' => $document->document_id])
+                            ? route('client.document.preview', ['document' => $document->public_id])
                             : null;
 
                         $extension = strtolower(pathinfo(
@@ -331,7 +331,7 @@
 
                     <a
                         href="{{ \App\Filament\Client\Pages\ViewDocument::getUrl([
-                            'document' => $document->document_id,
+                            'document' => $document->public_id,
                             'from' => 'dashboard',
                         ]) }}"
                         class="group relative flex aspect-square min-h-0 flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition duration-200 hover:-translate-y-1 hover:border-[#6366F1] hover:shadow-lg dark:border-gray-700 dark:bg-[#17181c] dark:hover:border-indigo-400"

@@ -132,13 +132,9 @@
     <section class="faq-section">
       <div class="faq-container">
         
-        <!-- Left Side: Header & Chatbot Callout -->
+        <!-- Left Side: FAQ Header -->
         <div class="faq-left">
           <h2 class="faq-heading">Frequently Asked<br />Questions</h2>
-          <p class="faq-subtext">Still have questions?<br />Ask our chatbot for more help.</p>
-          <button class="chat-btn" @click="openChatbot">
-            Chat with Us
-          </button>
         </div>
 
         <!-- Right Side: Accordion Cards -->
@@ -166,10 +162,6 @@
       </div>
     </section>
 
-    <!-- Toast -->
-    <transition name="fade">
-      <div v-if="toast.visible" class="bu-toast show">{{ toast.message }}</div>
-    </transition>
   </div>
 </template>
 
@@ -298,20 +290,6 @@ onBeforeUnmount(() => {
   resetMissionTyping()
 })
 
-/* ---------- Toast helper ---------- */
-const toast = reactive({ visible: false, message: '' })
-let toastTimer = null
-
-function showToast(message, duration = 2600) {
-  toast.message = message
-  toast.visible = true
-  clearTimeout(toastTimer)
-  toastTimer = setTimeout(() => {
-    toast.visible = false
-  }, duration)
-}
-defineExpose({ showToast })
-
 /* ---------- Navigation helper (router with fallback) ---------- */
 function goTo(path) {
   if (router) {
@@ -397,9 +375,6 @@ function toggleFaq(index) {
   faqs[index].open = !faqs[index].open
 }
 
-function openChatbot() {
-  showToast('Chatbot feature coming soon!')
-}
 </script>
 
 <style scoped>
@@ -796,31 +771,6 @@ function openChatbot() {
   line-height: 1.2;
   margin-bottom: 20px;
   color: #ffffff;
-}
-
-.faq-subtext {
-  font-size: 16px;
-  color: #94a3b8;
-  line-height: 1.6;
-  margin-bottom: 35px;
-}
-
-.chat-btn {
-  background: #6b77ff;
-  color: #ffffff;
-  font-weight: 700;
-  font-size: 15px;
-  padding: 14px 32px;
-  border-radius: 12px;
-  border: none;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 8px 20px rgba(107, 119, 255, 0.3);
-}
-
-.chat-btn:hover {
-  background: #5763e0;
-  transform: translateY(-2px);
 }
 
 .faq-right {

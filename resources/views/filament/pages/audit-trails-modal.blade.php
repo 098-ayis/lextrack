@@ -2,10 +2,11 @@
     @forelse ($logs as $log)
         <div class="border-b border-gray-100 px-1 py-3 last:border-b-0">
             <div class="flex items-start gap-3">
-                @if ($log->user && $log->user->profile_photo_url)
+                @if ($log->user && $log->user->getProfilePhotoUrl())
                     <img
-                        src="{{ $log->user->profile_photo_url }}"
+                        src="{{ $log->user->getProfilePhotoUrl() }}"
                         alt="{{ $log->user->name ?? 'User' }}"
+                        referrerpolicy="no-referrer"
                         class="h-8 w-8 shrink-0 rounded-full object-cover"
                     >
                 @else

@@ -872,7 +872,7 @@
 
                                 <a
                                     href="{{ route('admin.documents.file', [
-                                        'document' => $document['id'],
+                                        'document' => $document['public_id'],
                                         'filename' => $fileName,
                                     ]) }}"
                                     wire:click.prevent="selectItem(@js($displayName), {{ $document['id'] }}, {{ isset($document['copy_key']) ? (int) substr($document['copy_key'], 5) : 'null' }})"
@@ -949,7 +949,7 @@
 
                                 <a
                                     href="{{ route('admin.documents.file', [
-                                        'document' => $document['id'],
+                                        'document' => $document['public_id'],
                                         'filename' => $fileName,
                                     ]) }}"
                                     wire:click.prevent="selectItem(@js($displayName), {{ $document['id'] }}, {{ isset($document['copy_key']) ? (int) substr($document['copy_key'], 5) : 'null' }})"
@@ -1223,7 +1223,7 @@
                             @if(str_ends_with(strtolower($selectedDocument['name']), '.pdf'))
 
                                 <iframe
-                                    src="{{ route('admin.documents.preview', ['document' => $selectedDocument['id']]) }}"
+                                    src="{{ route('admin.documents.preview', ['document' => $selectedDocument['public_id']]) }}"
                                     title="Preview of {{ $selectedDocument['name'] }}"
                                     class="h-full w-full rounded-lg border border-gray-200 dark:border-gray-700"
                                 ></iframe>

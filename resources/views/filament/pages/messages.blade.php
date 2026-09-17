@@ -778,6 +778,21 @@
         transition: background 0.15s, border-color 0.15s, color 0.15s;
     }
 
+    .message-reaction-trigger {
+        font-size: 25px;
+        align-items: center;
+        justify-content: center;
+        display: inline-flex;
+        line-height: 1;
+        text-align: center;
+    }
+
+    .message-reaction-trigger-icon {
+        display: block;
+        width: 20px;
+        height: 20px;
+    }
+
     .message-reaction {
         display: inline-flex;
         align-items: center;
@@ -847,7 +862,7 @@
         border: none;
         border-radius: 6px;
         cursor: pointer;
-        font-size: 15px;
+        font-size: 18px;
     }
 
     .message-reaction-menu button:hover {
@@ -1948,6 +1963,16 @@
 
                 $documentTitle = $activeConversation?->document?->particulars
                     ?? 'Untitled Document';
+
+                $documentSection = match ((string) $activeConversation?->document?->status) {
+                    'pending' => 'pending',
+                    'in_progress' => 'incoming',
+                    'outgoing' => 'outgoing',
+                    'completed' => 'completed',
+                    'rejected' => 'rejected',
+                    'archived' => 'archived',
+                    default => 'incoming',
+                };
             @endphp
 
 
@@ -1956,11 +1981,27 @@
             ====================================================== --}}
             <div class="thread-header">
 
-                <div class="t-avatar">
-                     <div class="m-avatar-icon">
-                               <x-heroicon-o-document-text />
-                      </div>
-                </div>
+                @if ($activeConversation?->document?->public_id)
+                    <a
+                        href="{{ \App\Filament\Pages\Document::getUrl([
+                            'section' => $documentSection,
+                            'document' => $activeConversation->document->public_id,
+                        ]) }}"
+                        class="t-avatar transition-opacity hover:opacity-80"
+                        aria-label="View document in Documents"
+                        title="View document in Documents"
+                    >
+                        <div class="m-avatar-icon">
+                            <x-heroicon-o-document-text />
+                        </div>
+                    </a>
+                @else
+                    <div class="t-avatar">
+                        <div class="m-avatar-icon">
+                            <x-heroicon-o-document-text />
+                        </div>
+                    </div>
+                @endif
 
 
                 <div style="flex: 1;">
@@ -2178,7 +2219,7 @@
 
                         $senderName = $sender?->name ?? 'Unknown User';
 
-                        $senderPhoto = $sender?->profile_photo_url;
+                        $senderPhoto = $sender?->getProfilePhotoUrl();
 
                         $clientUserId = $activeConversation->document?->user_id;
 
@@ -2437,7 +2478,7 @@
                                         aria-label="Add reaction"
                                         title="Add reaction"
                                     >
-                                        ☺
+                                        <x-heroicon-o-face-smile class="message-reaction-trigger-icon" aria-hidden="true" />
                                     </button>
 
                                     <div

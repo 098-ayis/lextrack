@@ -160,9 +160,11 @@ class Calendar extends Page
 
     public function openDocumentDeadline(int $documentId): void
     {
+        $document = Document::findOrFail($documentId);
+
         $this->redirect(
             ViewDocument::getUrl([
-                'document' => $documentId,
+                'document' => $document->public_id,
             ])
         );
     }

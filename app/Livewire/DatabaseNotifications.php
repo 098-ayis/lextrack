@@ -3,6 +3,7 @@
 namespace App\Livewire;
 
 use App\Filament\Notifications\ClickableDatabaseNotification;
+use App\Models\Document;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Illuminate\Notifications\DatabaseNotification;
@@ -86,6 +87,14 @@ class DatabaseNotifications extends \Filament\Livewire\DatabaseNotifications
         $path = $parts['path'] ?? '';
 
         if (preg_match('#^/client/documents/(\d+)$#', $path, $matches)) {
+            $publicId = Document::query()
+                ->whereKey((int) $matches[1])
+                ->value('public_id');
+
+            if (blank($publicId)) {
+                return null;
+            }
+
             $query = [];
             parse_str($parts['query'] ?? '', $query);
 
@@ -101,11 +110,19 @@ class DatabaseNotifications extends \Filament\Livewire\DatabaseNotifications
 
             return url(
                 '/client/documents?tab=' . $tab .
-                '&document=' . (int) $matches[1]
+                '&document=' . $publicId
             );
         }
 
         if (preg_match('#^/admin/documents/(\d+)$#', $path, $matches)) {
+            $publicId = Document::query()
+                ->whereKey((int) $matches[1])
+                ->value('public_id');
+
+            if (blank($publicId)) {
+                return null;
+            }
+
             $query = [];
             parse_str($parts['query'] ?? '', $query);
 
@@ -121,7 +138,7 @@ class DatabaseNotifications extends \Filament\Livewire\DatabaseNotifications
 
             return url(
                 '/admin/incoming?section=' . $section .
-                '&document=' . (int) $matches[1]
+                '&document=' . $publicId
             );
         }
 

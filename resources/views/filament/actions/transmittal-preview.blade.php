@@ -71,7 +71,7 @@
                 </div>
 
                 <iframe
-                    src="{{ route('admin.documents.transmittal.preview', ['document' => $document->document_id]) }}"
+                    src="{{ route('admin.documents.transmittal.preview', ['document' => $document->public_id]) }}"
                     title="Transmittal/Endorsement document preview"
                     class="min-h-0 w-full flex-1 border-0"
                 ></iframe>

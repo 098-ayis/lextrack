@@ -70,7 +70,7 @@ class ViewDocument extends Page
     public function mount(string|int $document): void
     {
         $this->documentRecord = Document::where(
-            'document_id',
+            'public_id',
             $document
         )->with([
             'user',
@@ -185,7 +185,7 @@ class ViewDocument extends Page
                             ->required(),
 
                         Textarea::make('particulars')
-                            ->label('Document Details')
+                            ->label('Particulars')
                             ->required()
                             ->rows(4),
 
@@ -239,7 +239,7 @@ class ViewDocument extends Page
                         ->required(),
 
                     Textarea::make('particulars')
-                        ->label('Document Details')
+                        ->label('Particulars')
                         ->required()
                         ->rows(4),
 
@@ -355,6 +355,42 @@ class ViewDocument extends Page
                 }
 
                 $filePath = $data['file_path'] ?? null;
+
+                $fileHash = filled($filePath)
+                    ? DocumentVersion::hashForUpload($filePath)
+                    : null;
+
+                if (filled($filePath) && $fileHash === null) {
+                    DocumentVersion::removeUnreferencedUpload($filePath);
+
+                    Notification::make()
+                        ->danger()
+                        ->title('Upload could not be verified')
+                        ->body('The uploaded file could not be read. Please select the file again and try again.')
+                        ->send();
+
+                    return;
+                }
+
+                if (
+                    filled($filePath)
+                    && DocumentVersion::existsForDocumentOrUserHash(
+                        $this->documentRecord->document_id,
+                        $fileHash,
+                        auth()->id(),
+                    )
+                ) {
+                    DocumentVersion::removeUnreferencedUpload($filePath);
+
+                    Notification::make()
+                        ->danger()
+                        ->title('Duplicate document detected')
+                        ->body('This exact file has already been uploaded for this document. Please select a different file.')
+                        ->send();
+
+                    return;
+                }
+
                 unset($data['file_path']);
 
                 $oldValues = $document->only(array_keys($data));
@@ -369,6 +405,7 @@ class ViewDocument extends Page
                         'user_id' => auth()->id(),
                         'version_number' => (string) $this->getNextVersionNumber($document),
                         'file_path' => $filePath,
+                        'file_hash' => $fileHash,
                     ]);
 
                     $updatedFields[] = 'Document File';
@@ -395,8 +432,12 @@ class ViewDocument extends Page
 
                 Notification::make()
                     ->success()
-                    ->title('Document details updated')
+                    ->title('Document details updated successfully')
                     ->send();
+
+                $this->redirect(static::getUrl([
+                    'document' => $document->public_id,
+                ]), navigate: true);
             });
     }
 
@@ -440,11 +481,14 @@ class ViewDocument extends Page
             ->modalSubmitActionLabel('Upload')
             ->schema([
                 FileUpload::make('file_path')
-                    ->label('PDF File')
+                    ->label('PDF or DOCX File')
                     ->disk('local')
                     ->directory('documents/versions')
                     ->preserveFilenames()
-                    ->acceptedFileTypes(['application/pdf'])
+                    ->acceptedFileTypes([
+                        'application/pdf',
+                        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                    ])
                     ->required(),
             ])
             ->action(function (array $data): void {
@@ -463,12 +507,54 @@ class ViewDocument extends Page
 
                 $version = null;
                 $versionNumber = null;
+                $filePath = $data['file_path'] ?? null;
+                $fileHash = DocumentVersion::hashForUpload($filePath);
 
-                DB::transaction(function () use ($data, &$version, &$versionNumber): void {
+                if ($fileHash === null) {
+                    DocumentVersion::removeUnreferencedUpload($filePath);
+
+                    Notification::make()
+                        ->danger()
+                        ->title('Upload could not be verified')
+                        ->body('The uploaded file could not be read. Please select the file again and try again.')
+                        ->send();
+
+                    return;
+                }
+
+                if (DocumentVersion::existsForDocumentOrUserHash(
+                    $this->documentRecord->document_id,
+                    $fileHash,
+                    auth()->id(),
+                )) {
+                    DocumentVersion::removeUnreferencedUpload($filePath);
+
+                    Notification::make()
+                        ->danger()
+                        ->title('Duplicate document detected')
+                        ->body('This exact file has already been uploaded for this document. Please select a different file.')
+                        ->send();
+
+                    return;
+                }
+
+                $duplicate = false;
+
+                DB::transaction(function () use ($filePath, $fileHash, &$version, &$versionNumber, &$duplicate): void {
                     $document = Document::query()
                         ->whereKey($this->documentRecord->document_id)
                         ->lockForUpdate()
                         ->firstOrFail();
+
+                if (DocumentVersion::existsForDocumentOrUserHash(
+                    $document->document_id,
+                    $fileHash,
+                    auth()->id(),
+                    )) {
+                        $duplicate = true;
+
+                        return;
+                    }
 
                     $versionNumber = $this->getNextVersionNumber(
                         $document->versions()->get()
@@ -478,9 +564,22 @@ class ViewDocument extends Page
                         'document_id' => $document->document_id,
                         'user_id' => auth()->id(),
                         'version_number' => (string) $versionNumber,
-                        'file_path' => $data['file_path'],
+                        'file_path' => $filePath,
+                        'file_hash' => $fileHash,
                     ]);
                 });
+
+                if ($duplicate) {
+                    DocumentVersion::removeUnreferencedUpload($filePath);
+
+                    Notification::make()
+                        ->danger()
+                        ->title('Duplicate document detected')
+                        ->body('This exact file has already been uploaded for this document. Please select a different file.')
+                        ->send();
+
+                    return;
+                }
 
                 $this->logDocumentActivity(
                     'Version uploaded',
@@ -511,7 +610,7 @@ class ViewDocument extends Page
         $this->selectedVersionId = $version->version_id;
         $this->isTransmittalSelected = false;
         $this->previewUrl = route('admin.document.version.preview', [
-            'document' => $this->documentRecord->document_id,
+            'document' => $this->documentRecord->public_id,
             'version' => $version->version_id,
         ]);
 
@@ -883,7 +982,7 @@ class ViewDocument extends Page
         $this->selectedVersionId = null;
         $this->isTransmittalSelected = true;
         $this->previewUrl = route('admin.documents.transmittal.preview', [
-            'document' => $this->documentRecord->document_id,
+            'document' => $this->documentRecord->public_id,
         ]);
 
         $this->logDocumentActivity(
@@ -1023,6 +1122,6 @@ class ViewDocument extends Page
             return '';
         }
 
-        return route('admin.documents.preview', ['document' => $this->documentRecord->document_id]);
+        return route('admin.documents.preview', ['document' => $this->documentRecord->public_id]);
     }
 }

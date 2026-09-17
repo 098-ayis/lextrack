@@ -53,6 +53,7 @@
                                 <img
                                     src="{{ $this->getProfilePhotoUrl() }}"
                                     alt="Profile photo"
+                                    referrerpolicy="no-referrer"
                                     class="h-24 w-24 rounded-full
                                            border-4 border-white
                                            object-cover shadow

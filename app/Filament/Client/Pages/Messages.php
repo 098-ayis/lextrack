@@ -245,7 +245,7 @@ class Messages extends Page
         abort_unless($isRevisionRequest, 404);
 
         return redirect()->to(ReviseDocument::getUrl([
-            'document' => $document->document_id,
+            'document' => $document->public_id,
         ], false, 'client'));
     }
 
@@ -475,15 +475,19 @@ class Messages extends Page
 
         $message = $conversation->messages()->findOrFail($messageId);
 
-        $existingReaction = MessageReaction::query()
+        $userReactions = MessageReaction::query()
             ->where('message_id', $message->id)
             ->where('user_id', auth()->id())
-            ->where('reaction', $reaction)
-            ->first();
+            ->get();
 
-        if ($existingReaction) {
-            $existingReaction->delete();
-        } else {
+        $isTogglingOff = $userReactions->contains('reaction', $reaction);
+
+        MessageReaction::query()
+            ->where('message_id', $message->id)
+            ->where('user_id', auth()->id())
+            ->delete();
+
+        if (! $isTogglingOff) {
             MessageReaction::create([
                 'message_id' => $message->id,
                 'user_id' => auth()->id(),
@@ -574,14 +578,14 @@ class Messages extends Page
 
     public function mount(): void
     {
-        $documentId = request()->query('document');
+        $documentPublicId = request()->query('document');
 
-        if (! $documentId) {
+        if (! $documentPublicId) {
             return;
         }
 
         $document = \App\Models\Document::query()
-            ->where('document_id', $documentId)
+            ->where('public_id', $documentPublicId)
             ->where('user_id', auth()->id())
             ->firstOrFail();
 

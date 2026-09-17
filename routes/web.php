@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\ChatbotController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -23,6 +24,11 @@ use RyanChandler\LaravelCloudflareTurnstile\Rules\Turnstile;
 
 
 Route::view('/ai-test', 'ai-test');
+
+Route::post('/chatbot/message', [
+    ChatbotController::class,
+    'reply',
+])->middleware('throttle:10,1');
 
 Route::post('/ask-ai', [AIController::class, 'ask']);
 
@@ -93,10 +99,10 @@ Route::get('/document-status/{document}', function (int $document) {
 |--------------------------------------------------------------------------
 */
 
-Route::get('/client/document-preview/{document}', function ($document) {
+Route::get('/client/document-preview/{document}', function (string $document) {
 
     $documentRecord = Document::query()
-        ->where('document_id', $document)
+        ->where('public_id', $document)
         ->where(function ($query) {
             $query
                 ->where('user_id', auth()->id())
@@ -135,9 +141,9 @@ Route::get('/client/document-preview/{document}', function ($document) {
     ->middleware('auth')
     ->name('client.document.preview');
 
-Route::get('/client/document-download/{document}', function (int $document) {
+Route::get('/client/document-download/{document}', function (string $document) {
     $documentRecord = Document::query()
-        ->where('document_id', $document)
+        ->where('public_id', $document)
         ->where(function ($query) {
             $query
                 ->where('user_id', auth()->id())
@@ -248,9 +254,11 @@ Route::get('/admin/document-temp-preview/{file}', function (string $file) {
     ->middleware(['auth', AdminMiddleware::class])
     ->name('admin.document.temp-preview');
 
-Route::get('/admin/documents/{document}/preview', function (int $document) {
+Route::get('/admin/documents/{document}/preview', function (string $document) {
 
-    $documentRecord = Document::findOrFail($document);
+    $documentRecord = Document::query()
+        ->where('public_id', $document)
+        ->firstOrFail();
     $versionRecord = DocumentVersion::query()
         ->where('document_id', $documentRecord->document_id)
         ->latest('created_at')
@@ -274,11 +282,13 @@ Route::get('/admin/documents/{document}/preview', function (int $document) {
 
     return app(\App\Services\DocumentPreviewService::class)->preview($path);
 })
-    ->middleware('auth')
+    ->middleware(['auth', AdminMiddleware::class])
     ->name('admin.documents.preview');
 
-Route::get('/admin/documents/{document}/transmittal-preview', function (int $document) {
-    $documentRecord = Document::findOrFail($document);
+Route::get('/admin/documents/{document}/transmittal-preview', function (string $document) {
+    $documentRecord = Document::query()
+        ->where('public_id', $document)
+        ->firstOrFail();
     $filePath = $documentRecord->transmittal;
 
     $disk = Storage::disk('local');
@@ -299,8 +309,10 @@ Route::get('/admin/documents/{document}/transmittal-preview', function (int $doc
     ->middleware(['auth', AdminMiddleware::class])
     ->name('admin.documents.transmittal.preview');
 
-Route::get('/admin/documents/{document}/transmittal-download', function (int $document) {
-    $documentRecord = Document::findOrFail($document);
+Route::get('/admin/documents/{document}/transmittal-download', function (string $document) {
+    $documentRecord = Document::query()
+        ->where('public_id', $document)
+        ->firstOrFail();
     $filePath = $documentRecord->transmittal;
 
     $disk = Storage::disk('local');
@@ -319,11 +331,13 @@ Route::get('/admin/documents/{document}/transmittal-download', function (int $do
     ->middleware(['auth', AdminMiddleware::class])
     ->name('admin.documents.transmittal.download');
 
-Route::get('/admin/documents/{document}/download', function (int $document) {
-    $documentRecord = Document::findOrFail($document);
+Route::get('/admin/documents/{document}/download', function (string $document) {
+    $documentRecord = Document::query()
+        ->where('public_id', $document)
+        ->firstOrFail();
 
     $versionRecord = DocumentVersion::query()
-        ->where('document_id', $document)
+        ->where('document_id', $documentRecord->document_id)
         ->latest('created_at')
         ->latest('version_id')
         ->first();
@@ -347,11 +361,15 @@ Route::get('/admin/documents/{document}/download', function (int $document) {
     ->name('admin.documents.download');
 
 Route::get('/admin/documents/{document}/versions/{version}/preview', function (
-    int $document,
+    string $document,
     int $version
 ) {
+    $documentRecord = Document::query()
+        ->where('public_id', $document)
+        ->firstOrFail();
+
     $versionRecord = DocumentVersion::query()
-        ->where('document_id', $document)
+        ->where('document_id', $documentRecord->document_id)
         ->findOrFail($version);
 
     abort_unless(
@@ -364,14 +382,16 @@ Route::get('/admin/documents/{document}/versions/{version}/preview', function (
 
     return app(\App\Services\DocumentPreviewService::class)->preview($path);
 })
-    ->middleware('auth')
+    ->middleware(['auth', AdminMiddleware::class])
     ->name('admin.document.version.preview');
 
 Route::get('/admin/documents/{document}/versions/{version}/download', function (
-    int $document,
+    string $document,
     int $version
 ) {
-    $documentRecord = Document::findOrFail($document);
+    $documentRecord = Document::query()
+        ->where('public_id', $document)
+        ->firstOrFail();
     $versionRecord = DocumentVersion::query()
         ->where('document_id', $documentRecord->document_id)
         ->findOrFail($version);
