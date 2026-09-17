@@ -2,8 +2,11 @@
 
 namespace App\Filament\Pages;
 
+use App\Models\ActionType;
 use App\Models\Document;
 use App\Models\DocumentRequest;
+use App\Models\DocumentType;
+use App\Models\OfficeUnit;
 use App\Notifications\DocumentAcceptedNotification;
 use App\Notifications\DocumentRejectedNotification;
 use Filament\Actions\Action;
@@ -47,6 +50,10 @@ class DocumentRequests extends Page implements HasTable
     public string $search = '';
 
     public string $typeFilter = '';
+
+    public string $actionTypeFilter = '';
+
+    public string $officeUnitFilter = '';
 
     public string $dateFilter = '';
 
@@ -135,6 +142,16 @@ class DocumentRequests extends Page implements HasTable
             ->when($this->typeFilter !== '', function (Builder $query): void {
                 $query->whereHas('document', function (Builder $query): void {
                     $query->where('document_type', $this->typeFilter);
+                });
+            })
+            ->when($this->actionTypeFilter !== '', function (Builder $query): void {
+                $query->whereHas('document', function (Builder $query): void {
+                    $query->where('action_type', $this->actionTypeFilter);
+                });
+            })
+            ->when($this->officeUnitFilter !== '', function (Builder $query): void {
+                $query->whereHas('document', function (Builder $query): void {
+                    $query->where('office_unit', $this->officeUnitFilter);
                 });
             })
             ->when($this->dateFilter !== '', function (Builder $query): void {
@@ -603,9 +620,56 @@ class DocumentRequests extends Page implements HasTable
         $this->resetPage();
     }
 
+    public function updatedActionTypeFilter(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedOfficeUnitFilter(): void
+    {
+        $this->resetPage();
+    }
+
+    public function clearRequestFilters(): void
+    {
+        $this->typeFilter = '';
+        $this->actionTypeFilter = '';
+        $this->officeUnitFilter = '';
+        $this->resetPage();
+    }
+
+    public function applyRequestFilters(): void
+    {
+        $this->resetPage();
+    }
+
     public function updatedDateFilter(): void
     {
         $this->resetPage();
+    }
+
+    public function getDocumentTypeFilterOptions(): array
+    {
+        return DocumentType::query()
+            ->orderBy('type_name')
+            ->pluck('type_name', 'type_name')
+            ->all();
+    }
+
+    public function getActionTypeFilterOptions(): array
+    {
+        return ActionType::query()
+            ->orderBy('action_name')
+            ->pluck('action_name', 'action_name')
+            ->all();
+    }
+
+    public function getOfficeUnitFilterOptions(): array
+    {
+        return OfficeUnit::query()
+            ->orderBy('name')
+            ->pluck('name', 'name')
+            ->all();
     }
 
 }

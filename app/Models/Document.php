@@ -31,6 +31,33 @@ class Document extends Model
     {
         return 'public_id';
     }
+
+    /**
+     * Return the public route key, with a legacy primary-key fallback for
+     * records created before the public_id migration was completed.
+     */
+    public function getPublicRouteKey(): string
+    {
+        return (string) ($this->public_id ?: $this->getKey());
+    }
+
+    /**
+     * Resolve both the preferred public ULID and legacy numeric document IDs.
+     */
+    public static function findForRoute(string|int $identifier): self
+    {
+        $identifier = (string) $identifier;
+
+        return static::query()
+            ->where(function (Builder $query) use ($identifier): void {
+                $query->where('public_id', $identifier);
+
+                if (ctype_digit($identifier)) {
+                    $query->orWhereKey((int) $identifier);
+                }
+            })
+            ->firstOrFail();
+    }
     
     protected $fillable = [
         'user_id',

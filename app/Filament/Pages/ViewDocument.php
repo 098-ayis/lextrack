@@ -69,17 +69,15 @@ class ViewDocument extends Page
 
     public function mount(string|int $document): void
     {
-        $this->documentRecord = Document::where(
-            'public_id',
-            $document
-        )->with([
+        $this->documentRecord = Document::findForRoute($document);
+        $this->documentRecord->load([
             'user',
             'notes.user',
             'versions',
             'latestVersion',
             'rejections',
             'activityLogs.user',
-        ])->firstOrFail();
+        ]);
 
         $this->previewUrl = $this->generatePreview();
 
@@ -436,7 +434,7 @@ class ViewDocument extends Page
                     ->send();
 
                 $this->redirect(static::getUrl([
-                    'document' => $document->public_id,
+                    'document' => $document->getPublicRouteKey(),
                 ]), navigate: true);
             });
     }
@@ -610,7 +608,7 @@ class ViewDocument extends Page
         $this->selectedVersionId = $version->version_id;
         $this->isTransmittalSelected = false;
         $this->previewUrl = route('admin.document.version.preview', [
-            'document' => $this->documentRecord->public_id,
+            'document' => $this->documentRecord->getPublicRouteKey(),
             'version' => $version->version_id,
         ]);
 
@@ -982,7 +980,7 @@ class ViewDocument extends Page
         $this->selectedVersionId = null;
         $this->isTransmittalSelected = true;
         $this->previewUrl = route('admin.documents.transmittal.preview', [
-            'document' => $this->documentRecord->public_id,
+            'document' => $this->documentRecord->getPublicRouteKey(),
         ]);
 
         $this->logDocumentActivity(
@@ -1122,6 +1120,6 @@ class ViewDocument extends Page
             return '';
         }
 
-        return route('admin.documents.preview', ['document' => $this->documentRecord->public_id]);
+        return route('admin.documents.preview', ['document' => $this->documentRecord->getPublicRouteKey()]);
     }
 }

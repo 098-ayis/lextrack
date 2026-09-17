@@ -88,6 +88,10 @@ class Document extends Page implements HasTable
 
     public string $typeFilter = '';
 
+    public string $actionTypeFilter = '';
+
+    public string $officeUnitFilter = '';
+
     public string $dateFilter = '';
 
     public string $activeSection = 'incoming';
@@ -131,9 +135,7 @@ class Document extends Page implements HasTable
         ], true) ? $section : 'incoming';
 
         $this->highlightedDocumentId = filled($document)
-            ? DocumentModel::query()
-                ->where('public_id', $document)
-                ->value('document_id')
+            ? DocumentModel::findForRoute($document)->document_id
             : null;
 
         $this->initializeDocumentNavigationViewState();
@@ -429,6 +431,12 @@ class Document extends Page implements HasTable
             ->when($this->typeFilter !== '', function (Builder $query): void {
                 $query->where('document_type', $this->typeFilter);
             })
+            ->when($this->actionTypeFilter !== '', function (Builder $query): void {
+                $query->where('action_type', $this->actionTypeFilter);
+            })
+            ->when($this->officeUnitFilter !== '', function (Builder $query): void {
+                $query->where('office_unit', $this->officeUnitFilter);
+            })
             ->when($this->dateFilter !== '', function (Builder $query): void {
                 $query->whereDate('created_at', $this->dateFilter);
             })
@@ -444,7 +452,7 @@ class Document extends Page implements HasTable
             ->recordActionsColumnLabel('ACTION')
             ->recordActionsAlignment('fi-align-center')
             ->recordUrl(fn (DocumentModel $record): string => ViewDocument::getUrl([
-                'document' => $record->public_id,
+                'document' => $record->getPublicRouteKey(),
             ]))
             ->recordClasses(
                 fn (DocumentModel $record): string => $this->highlightedDocumentId !== null &&
@@ -600,13 +608,13 @@ class Document extends Page implements HasTable
                 ->label('View')
                 ->icon('heroicon-o-eye')
                 ->url(fn (DocumentModel $record): string => ViewDocument::getUrl([
-                    'document' => $record->public_id,
+                    'document' => $record->getPublicRouteKey(),
                 ])),
             Action::make('downloadDocument')
                 ->label('Download')
                 ->icon('heroicon-o-arrow-down-tray')
                 ->url(fn (DocumentModel $record): string => route('admin.documents.download', [
-                    'document' => $record->public_id,
+                    'document' => $record->getPublicRouteKey(),
                 ]))
                 ->disabled(fn (DocumentModel $record): bool => blank($record->latestVersion?->file_path))
                 ->tooltip(fn (DocumentModel $record): string =>
@@ -707,9 +715,56 @@ class Document extends Page implements HasTable
         $this->resetPage();
     }
 
+    public function updatedActionTypeFilter(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedOfficeUnitFilter(): void
+    {
+        $this->resetPage();
+    }
+
+    public function clearDocumentFilters(): void
+    {
+        $this->typeFilter = '';
+        $this->actionTypeFilter = '';
+        $this->officeUnitFilter = '';
+        $this->resetPage();
+    }
+
+    public function applyDocumentFilters(): void
+    {
+        $this->resetPage();
+    }
+
     public function updatedDateFilter(): void
     {
         $this->resetPage();
+    }
+
+    public function getDocumentTypeFilterOptions(): array
+    {
+        return DocumentType::query()
+            ->orderBy('type_name')
+            ->pluck('type_name', 'type_name')
+            ->all();
+    }
+
+    public function getActionTypeFilterOptions(): array
+    {
+        return ActionType::query()
+            ->orderBy('action_name')
+            ->pluck('action_name', 'action_name')
+            ->all();
+    }
+
+    public function getOfficeUnitFilterOptions(): array
+    {
+        return OfficeUnit::query()
+            ->orderBy('name')
+            ->pluck('name', 'name')
+            ->all();
     }
 
     public function openQrCode(int $documentId): void
@@ -1888,7 +1943,7 @@ class Document extends Page implements HasTable
 
         $this->redirect(
             route('filament.admin.pages.messages', [
-                'document' => $document->public_id,
+                'document' => $document->getPublicRouteKey(),
             ])
         );
     }

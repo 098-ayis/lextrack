@@ -53,17 +53,15 @@
 
             <div class="relative w-full sm:w-60">
                 <select
-                    wire:model.live="typeFilter"
+                    wire:model="typeFilter"
                     class="h-9 w-full appearance-none rounded-full border border-gray-300 bg-white pl-3 pr-10 text-xs text-gray-500 focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"
                 >
                     <option value="">All Document Types</option>
-                    @foreach (\App\Models\DocumentType::orderBy('type_name')->get() as $type)
-                        <option value="{{ $type->type_name }}">{{ $type->type_name }}</option>
+                    @foreach ($this->getDocumentTypeFilterOptions() as $type)
+                        <option value="{{ $type }}">{{ $type }}</option>
                     @endforeach
                 </select>
-                <svg class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500 dark:text-gray-400" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 1 1 1.06-1.04L10 10.832l3.71-3.938a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .02-1.06Z" clip-rule="evenodd" />
-                </svg>
+                <x-heroicon-m-chevron-down class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500 dark:text-gray-400" />
             </div>
 
             <div class="relative w-full sm:w-60">

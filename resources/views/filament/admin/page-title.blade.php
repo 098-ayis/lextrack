@@ -62,7 +62,13 @@
 @endphp
 
 @if (filled($pageTitle))
-    <h1 class="fi-admin-page-title">
-        {{ $pageTitle }}
-    </h1>
+    <div class="fi-admin-page-heading">
+        <h1 class="fi-admin-page-title">
+            {{ $pageTitle }}
+        </h1>
+
+        <p class="fi-admin-page-date">
+            {{ now()->format('l, F j, Y') }}
+        </p>
+    </div>
 @endif

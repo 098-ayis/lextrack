@@ -256,9 +256,7 @@ Route::get('/admin/document-temp-preview/{file}', function (string $file) {
 
 Route::get('/admin/documents/{document}/preview', function (string $document) {
 
-    $documentRecord = Document::query()
-        ->where('public_id', $document)
-        ->firstOrFail();
+    $documentRecord = Document::findForRoute($document);
     $versionRecord = DocumentVersion::query()
         ->where('document_id', $documentRecord->document_id)
         ->latest('created_at')
@@ -286,9 +284,7 @@ Route::get('/admin/documents/{document}/preview', function (string $document) {
     ->name('admin.documents.preview');
 
 Route::get('/admin/documents/{document}/transmittal-preview', function (string $document) {
-    $documentRecord = Document::query()
-        ->where('public_id', $document)
-        ->firstOrFail();
+    $documentRecord = Document::findForRoute($document);
     $filePath = $documentRecord->transmittal;
 
     $disk = Storage::disk('local');
@@ -310,9 +306,7 @@ Route::get('/admin/documents/{document}/transmittal-preview', function (string $
     ->name('admin.documents.transmittal.preview');
 
 Route::get('/admin/documents/{document}/transmittal-download', function (string $document) {
-    $documentRecord = Document::query()
-        ->where('public_id', $document)
-        ->firstOrFail();
+    $documentRecord = Document::findForRoute($document);
     $filePath = $documentRecord->transmittal;
 
     $disk = Storage::disk('local');
@@ -332,9 +326,7 @@ Route::get('/admin/documents/{document}/transmittal-download', function (string 
     ->name('admin.documents.transmittal.download');
 
 Route::get('/admin/documents/{document}/download', function (string $document) {
-    $documentRecord = Document::query()
-        ->where('public_id', $document)
-        ->firstOrFail();
+    $documentRecord = Document::findForRoute($document);
 
     $versionRecord = DocumentVersion::query()
         ->where('document_id', $documentRecord->document_id)
@@ -364,9 +356,7 @@ Route::get('/admin/documents/{document}/versions/{version}/preview', function (
     string $document,
     int $version
 ) {
-    $documentRecord = Document::query()
-        ->where('public_id', $document)
-        ->firstOrFail();
+    $documentRecord = Document::findForRoute($document);
 
     $versionRecord = DocumentVersion::query()
         ->where('document_id', $documentRecord->document_id)
@@ -389,9 +379,7 @@ Route::get('/admin/documents/{document}/versions/{version}/download', function (
     string $document,
     int $version
 ) {
-    $documentRecord = Document::query()
-        ->where('public_id', $document)
-        ->firstOrFail();
+    $documentRecord = Document::findForRoute($document);
     $versionRecord = DocumentVersion::query()
         ->where('document_id', $documentRecord->document_id)
         ->findOrFail($version);

@@ -316,7 +316,7 @@
 
             <div class="w-full lg:max-w-xl lg:flex-1">
 
-                @if(! $isRoot)
+                @if(! $isRoot && $currentType !== 'Recycle Bin')
 
                     <h2 class="text-2xl font-bold tracking-tight text-gray-950 dark:text-white">
 

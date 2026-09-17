@@ -188,7 +188,7 @@
         <div class="dashboard-top-row grid grid-cols-1 items-stretch gap-6 xl:grid-cols-3">
             <div class="dashboard-graph-panel min-w-0 xl:col-span-2">
                 <div class="dashboard-section-heading mb-4">
-                    <h2 class="text-lg font-semibold text-violet-800 dark:text-violet-300">
+                    <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
                         Document Activity
                     </h2>
                 </div>
@@ -196,7 +196,7 @@
             </div>
             <section class="dashboard-reminders-panel dashboard-work-panel min-w-0 rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900" aria-labelledby="dashboard-reminders-title">
                 <div class="flex items-center justify-between gap-3 border-b border-gray-200 px-5 py-4 dark:border-gray-700">
-                    <h2 id="dashboard-reminders-title" class="text-base font-semibold text-violet-800 dark:text-violet-300">Reminders</h2>
+                    <h2 id="dashboard-reminders-title" class="text-base font-semibold text-gray-900 dark:text-white">Reminders</h2>
                     <a
                         href="{{ \App\Filament\Pages\Calendar::getUrl(['date' => now()->toDateString()]) }}"
                         wire:navigate
@@ -243,7 +243,7 @@
             <div class="dashboard-recent-panel dashboard-work-panel min-w-0 xl:col-span-2">
 
                 <div class="mb-4 flex items-center justify-between gap-3">
-                    <h2 class="text-lg font-semibold text-violet-800 dark:text-violet-300">
+                    <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
                         Recent Documents
                     </h2>
                     <a
@@ -331,8 +331,7 @@
 
 
                             <a
-                                href="{{ url('/admin/documents/' . $document->public_id) }}"
-                                href="{{ \App\Filament\Pages\ViewDocument::getUrl(['document' => $document->document_id]) }}"
+                                href="{{ \App\Filament\Pages\ViewDocument::getUrl(['document' => $document->getPublicRouteKey()]) }}"
                                 wire:navigate
                                 class="group min-w-0 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm
                                        transition hover:border-gray-300 hover:shadow-md
@@ -348,7 +347,7 @@
                                     )
 
                                         <iframe
-                                            src="{{ route('admin.documents.preview', ['document' => $document->public_id]) }}#toolbar=0"
+                                            src="{{ route('admin.documents.preview', ['document' => $document->getPublicRouteKey()]) }}#toolbar=0"
                                             class="pointer-events-none h-full w-full border-0"
                                             title="Document preview"
                                         ></iframe>
@@ -474,7 +473,7 @@
             <div class="dashboard-calendar-panel min-w-0">
 
                 <div class="mb-4">
-                    <h2 class="text-lg font-semibold text-violet-800 dark:text-violet-300">
+                    <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
                         <a href="{{ \App\Filament\Pages\Calendar::getUrl(['date' => sprintf('%04d-%02d-01', $year, $month)]) }}" wire:navigate class="hover:underline">My Calendar</a>
                     </h2>
 

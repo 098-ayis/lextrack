@@ -18,6 +18,8 @@ class DocumentExportController extends Controller
         $section = $this->normalizeSection($request->query('section'));
         $search = $this->normalizeString($request->query('search'));
         $typeFilter = $this->normalizeString($request->query('type'));
+        $actionTypeFilter = $this->normalizeString($request->query('action'));
+        $officeUnitFilter = $this->normalizeString($request->query('office'));
         $dateFilter = $this->normalizeDate($request->query('date'));
 
         try {
@@ -46,6 +48,12 @@ class DocumentExportController extends Controller
                 ->when($typeFilter !== '', function ($query) use ($typeFilter): void {
                     $query->where('document_type', $typeFilter);
                 })
+                ->when($actionTypeFilter !== '', function ($query) use ($actionTypeFilter): void {
+                    $query->where('action_type', $actionTypeFilter);
+                })
+                ->when($officeUnitFilter !== '', function ($query) use ($officeUnitFilter): void {
+                    $query->where('office_unit', $officeUnitFilter);
+                })
                 ->when($dateFilter !== '', function ($query) use ($dateFilter): void {
                     $query->whereDate('created_at', $dateFilter);
                 })
@@ -59,6 +67,8 @@ class DocumentExportController extends Controller
                 'section' => $section,
                 'search' => $search,
                 'type' => $typeFilter,
+                'action' => $actionTypeFilter,
+                'office' => $officeUnitFilter,
                 'date' => $dateFilter,
                 'exception' => $exception,
             ]);
