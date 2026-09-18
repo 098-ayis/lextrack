@@ -56,19 +56,6 @@
                 </svg>
             </div>
 
-<<<<<<< HEAD
-            <div class="relative w-full sm:w-60">
-                <select
-                    wire:model="typeFilter"
-                    class="h-9 w-full appearance-none rounded-full border border-gray-300 bg-white pl-3 pr-10 text-xs text-gray-500 focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"
-                >
-                    <option value="">All Document Types</option>
-                    @foreach ($this->getDocumentTypeFilterOptions() as $type)
-                        <option value="{{ $type }}">{{ $type }}</option>
-                    @endforeach
-                </select>
-                <x-heroicon-m-chevron-down class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500 dark:text-gray-400" />
-=======
             <div class="flex items-center gap-1.5">
                 <div class="relative w-full sm:w-44">
                     <select
@@ -98,7 +85,6 @@
                         </svg>
                     </button>
                 @endif
->>>>>>> ef04070 (upload box)
             </div>
 
             <div class="relative w-full sm:w-60">

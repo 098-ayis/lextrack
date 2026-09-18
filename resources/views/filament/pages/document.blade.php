@@ -61,11 +61,7 @@
         </defs>
     </svg>
 
-<<<<<<< ours
-=======
     <div class="admin-documents-page">
-
->>>>>>> theirs
     @php
         $activeSection = $this->activeSection;
         $statusCounts = $this->getStatusCounts();
@@ -790,13 +786,10 @@
                                                bg-white
                                                hover:bg-[#0F172A]
                                                hover:text-white
-<<<<<<< ours
-=======
                                                dark:border-gray-300
                                                dark:bg-gray-900
                                                dark:text-white
                                                dark:hover:bg-gray-700
->>>>>>> theirs
                                                transition"
                                         title="Message"
                                     >
@@ -1182,12 +1175,9 @@
                                                 text-[#0F172A]
                                                 hover:bg-[#0F172A]
                                                 hover:text-white
-<<<<<<< ours
-=======
                                                 dark:border-gray-300
                                                 dark:text-white
                                                 dark:hover:bg-gray-700
->>>>>>> theirs
                                                 transition-colors duration-150"
                                             title="Message"
                                         >
@@ -1244,8 +1234,6 @@
         .fi-page-content {
             gap: 0 !important;
         }
-<<<<<<< ours
-=======
 
         /* Keep the custom document tables and their controls readable in dark mode. */
         .dark .admin-documents-page .bg-white {
@@ -1311,7 +1299,6 @@
         .dark .admin-documents-page [class*="hover:bg-blue-50"]:hover {
             background-color: rgb(30 64 175 / 0.35) !important;
         }
->>>>>>> theirs
     </style>
 
     @if ($showAcceptedModal)
@@ -1412,11 +1399,7 @@
         </div>
     @endif
 
-<<<<<<< ours
-=======
     </div>
-
->>>>>>> theirs
     <script>
         document.addEventListener('click', (event) => {
             const clickedMenu = event.target.closest('.document-options-menu');

@@ -462,32 +462,12 @@ class Documents extends Page implements HasTable
                     ->placeholder('—')
                     ->alignCenter(),
 
-<<<<<<< HEAD
-                TextColumn::make('description')
-                    ->label('DOCUMENT DESCRIPTION'),
-
-                TextColumn::make('source')
-                    ->label('SOURCE')
-                    ->visible(fn (): bool => $this->activeTab === 'all')
-                    ->state(
-                        fn (Document $record): string => $record->documentRequests->isNotEmpty()
-                            ? 'Requested'
-                            : 'Uploaded'
-                    )
-                    ->badge()
-                    ->color(
-                        fn (string $state): string => $state === 'Requested'
-                            ? 'purple'
-                            : 'gray'
-                    ),
-=======
                 TextColumn::make('particulars')
                     ->label('DOCUMENT DESCRIPTION')
                     ->state(fn (Document $record): string => (string) (
                         $record->particulars ?: $record->description ?: '—'
                     ))
                     ->alignStart(),
->>>>>>> ef04070 (upload box)
 
                 TextColumn::make('created_at')
                     ->label('DATE SUBMITTED')
