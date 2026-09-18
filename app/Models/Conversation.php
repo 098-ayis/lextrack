@@ -11,6 +11,7 @@ class Conversation extends Model
 {
     protected $fillable = [
         'document_id',
+        'document_request_id',
         'created_by',
         'status',
     ];
@@ -21,6 +22,15 @@ class Conversation extends Model
             Document::class,
             'document_id',
             'document_id'
+        );
+    }
+
+    public function documentRequest(): BelongsTo
+    {
+        return $this->belongsTo(
+            DocumentRequest::class,
+            'document_request_id',
+            'request_id'
         );
     }
 

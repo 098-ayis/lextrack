@@ -9,7 +9,17 @@ use App\Models\DocumentType;
 use App\Models\OfficeUnit;
 use App\Notifications\DocumentAcceptedNotification;
 use App\Notifications\DocumentRejectedNotification;
+use App\Models\Calendar as CalendarModel;
+use App\Models\Document;
+use App\Models\DocumentRequest;
+use App\Models\DocumentVersion;
+use App\Models\Conversation;
+use App\Notifications\DocumentRequestRejectedNotification;
+use App\Notifications\DocumentRequestFulfilledNotification;
 use Filament\Actions\Action;
+use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
@@ -17,11 +27,9 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\ViewColumn;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
-use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
 use Filament\Support\Enums\Width;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
 use UnitEnum;
@@ -128,10 +136,11 @@ class DocumentRequests extends Page implements HasTable
                     $query
                         ->whereHas('document', function (Builder $query) use ($search): void {
                             $query
-                                ->where('lao_number', 'like', $search)
-                                ->orWhere('office_unit', 'like', $search)
+                                ->where('office_unit', 'like', $search)
                                 ->orWhere('particulars', 'like', $search);
                         })
+                        ->orWhere('purpose', 'like', $search)
+                        ->orWhere('purpose_details', 'like', $search)
                         ->orWhereHas('user', function (Builder $query) use ($search): void {
                             $query
                                 ->where('name', 'like', $search)
@@ -186,6 +195,14 @@ class DocumentRequests extends Page implements HasTable
             ])
             ->defaultGroup('date_of_request')
             ->groupingSettingsHidden()
+            ->recordActionsAlignment('center')
+            ->recordUrl(
+                fn (DocumentRequest $record): ?string => $record->document_id
+                    ? ViewDocument::getUrl([
+                        'document' => $record->document_id,
+                    ])
+                    : null
+            )
             ->defaultSort('date_of_request', 'desc')
             ->paginationPageOptions([10, 25, 50])
             ->defaultPaginationPageOption(10)
@@ -199,25 +216,49 @@ class DocumentRequests extends Page implements HasTable
     protected function getDocumentRequestTableColumns(): array
     {
         $columns = [
+            ViewColumn::make('document_icon')
+                ->label('')
+                ->view('filament.tables.columns.request-document-icon')
+                ->alignCenter()
+                ->width('4rem')
+                ->extraHeaderAttributes(['class' => 'w-16']),
 
             ViewColumn::make('document_details')
-                ->label('DOCUMENT')
-                ->view('filament.tables.columns.request-document-details')
-                ->width('20rem')
-                ->extraHeaderAttributes(['class' => 'min-w-[240px]']),
-
-            TextColumn::make('purpose')
                 ->label('PURPOSE')
-                ->placeholder('—')
-                ->wrap()
-                ->extraHeaderAttributes(['class' => 'min-w-[220px]']),
+                ->view('filament.tables.columns.request-document-purpose')
+                ->width('14rem')
+                ->extraHeaderAttributes(['class' => 'min-w-[200px]']),
 
-            ViewColumn::make('document_type')
-                ->label('DOCUMENT TYPE')
-                ->view('filament.tables.columns.request-document-type')
+            TextColumn::make('purpose_details')
+                ->label('DETAILS')
+                ->placeholder('—')
+                ->width('30rem')
+                ->extraHeaderAttributes(['class' => 'min-w-[320px]'])
+                ->wrap(),
+
+            TextColumn::make('copy_type')
+                ->label('TYPE')
+                ->formatStateUsing(
+                    fn (?string $state): string => match ($state) {
+                        'original' => 'Original',
+                        'soft_copy' => 'Soft copy',
+                        default => '—',
+                    }
+                )
                 ->alignCenter()
-                ->width('11rem')
-                ->extraHeaderAttributes(['class' => 'min-w-[160px]']),
+                ->extraHeaderAttributes(['class' => 'min-w-[140px]']),
+
+            ...($this->activeSection !== 'rejected' ? [
+                TextColumn::make('pickup_at')
+                    ->label('PICKUP')
+                    ->state(
+                        fn (DocumentRequest $record): string =>
+                            $record->pickup_at?->format('M d, Y g:i A') ?? '—'
+                    )
+                    ->alignCenter()
+                    ->width('12rem')
+                    ->extraHeaderAttributes(['class' => 'min-w-[170px]']),
+            ] : []),
 
             ViewColumn::make('requested_by')
                 ->label('REQUESTED BY')
@@ -242,6 +283,19 @@ class DocumentRequests extends Page implements HasTable
                 ->extraHeaderAttributes(['class' => 'min-w-[150px]']);
         }
 
+        if ($this->activeSection === 'rejected') {
+            $columns[] = TextColumn::make('rejection_reason')
+                ->label('REASON FOR REJECTION')
+                ->state(
+                    fn (DocumentRequest $record): string => filled($record->rejection_reason)
+                        ? (string) $record->rejection_reason
+                        : '—'
+                )
+                ->wrap()
+                ->width('20rem')
+                ->extraHeaderAttributes(['class' => 'min-w-[220px]']);
+        }
+
         return $columns;
     }
 
@@ -251,12 +305,31 @@ class DocumentRequests extends Page implements HasTable
             return [
                 $this->acceptRequestAction(),
                 $this->rejectRequestAction(),
+                $this->messageRequestAction(),
             ];
         }
 
-        return [
-            $this->returnRequestAction()->button(),
-        ];
+        return $this->activeSection === 'accepted'
+            ? [
+                $this->messageRequestAction(),
+            ]
+            : [
+                $this->messageRequestAction(),
+            ];
+    }
+
+    protected function pickupTimeOptions(): array
+    {
+        $options = [];
+
+        for ($minutes = 8 * 60; $minutes <= 17 * 60; $minutes += 30) {
+            $time = sprintf('%02d:%02d', intdiv($minutes, 60), $minutes % 60);
+
+            $options[$time] = \Carbon\Carbon::createFromFormat('H:i', $time)
+                ->format('g:i A');
+        }
+
+        return $options;
     }
 
     public function updateSection(string $section): void
@@ -281,41 +354,154 @@ class DocumentRequests extends Page implements HasTable
     {
         return Action::make('acceptRequest')
             ->label('Accept')
+            ->icon('heroicon-o-check-circle')
             ->color('success')
             ->button()
-            ->requiresConfirmation()
-            ->modalHeading('Accept Document Request')
+            ->modalHeading(
+                fn (DocumentRequest $record): string =>
+                    $record->copy_type === 'soft_copy'
+                        ? 'Accept Soft Copy Request'
+                        : 'Accept Original Copy Request'
+            )
             ->modalIcon('heroicon-o-check-circle')
             ->modalIconColor('success')
-            ->modalDescription('Are you sure you want to accept this document request? The requester will be granted access to view the document.')
+            ->modalDescription(
+                fn (DocumentRequest $record): string =>
+                    $record->copy_type === 'soft_copy'
+                        ? 'Upload the document that will be delivered to the requester.'
+                        : 'Set the pickup schedule and add it to your calendar.'
+            )
             ->modalAlignment(\Filament\Support\Enums\Alignment::Center)
             ->modalFooterActionsAlignment(\Filament\Support\Enums\Alignment::Center)
-            ->modalSubmitActionLabel('Accept')
+            ->modalSubmitActionLabel(
+                fn (DocumentRequest $record): string =>
+                    $record->copy_type === 'soft_copy'
+                        ? 'Upload and accept'
+                        : 'Accept and schedule'
+            )
             ->modalCancelActionLabel('Cancel')
+            ->schema(
+                fn (DocumentRequest $record): array => $record->copy_type === 'soft_copy'
+                    ? [
+                        FileUpload::make('file_path')
+                            ->label('Requested document')
+                            ->disk('local')
+                            ->directory('documents/requested')
+                            ->preserveFilenames()
+                            ->acceptedFileTypes([
+                                'application/pdf',
+                                'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                            ])
+                            ->maxSize(5120)
+                            ->helperText('Accepted files: PDF or DOCX. Maximum file size: 5 MB.')
+                            ->required(),
+                    ]
+                    : [
+                        DatePicker::make('pickup_date')
+                            ->label('Pickup date')
+                            ->native(false)
+                            ->displayFormat('M d, Y')
+                            ->minDate(today())
+                            ->default(today()->toDateString())
+                            ->required(),
+                        Select::make('pickup_time')
+                            ->label('Pickup time')
+                            ->options(fn (): array => $this->pickupTimeOptions())
+                            ->native(false)
+                            ->searchable()
+                            ->required(),
+                    ]
+            )
             ->extraAttributes([
-                'class' => 'inline-flex h-9 items-center justify-center rounded-md bg-green-600 px-3 text-xs font-semibold text-white transition hover:bg-green-700',
+                'class' => 'inline-flex h-9 w-32 items-center justify-center gap-1.5 rounded-md bg-green-600 px-3 text-xs font-semibold !text-white transition hover:bg-green-700 [&_svg]:!text-white',
             ])
-            ->action(function (array $arguments, ?DocumentRequest $record = null): void {
-                $requestId = $record?->request_id ?? ($arguments['request'] ?? null);
+            ->action(function (array $data, ?DocumentRequest $record = null): void {
+                if ($record) {
+                    $filePath = null;
+                    $pickupAt = null;
 
-                if ($requestId !== null) {
-                    $this->acceptRequest((int) $requestId);
+                    if ($record->copy_type === 'soft_copy') {
+                        $filePath = $data['file_path'] ?? null;
+                    } else {
+                        $pickupAt = \Carbon\Carbon::createFromFormat(
+                            'Y-m-d H:i',
+                            $data['pickup_date'] . ' ' . $data['pickup_time']
+                        );
+
+                        if ($pickupAt->isPast()) {
+                            Notification::make()
+                                ->title('Invalid pickup schedule')
+                                ->body('The pickup date and time must be in the future.')
+                                ->danger()
+                                ->send();
+
+                            return;
+                        }
+                    }
+
+                    $this->fulfillRequest($record->request_id, $filePath, $pickupAt?->toDateTimeString());
                 }
             });
     }
 
-    /**
-     * ACCEPT REQUEST
-     */
-    public function acceptRequest(int $requestId): void
+    public function rejectRequestAction(): Action
     {
-        $result = DB::transaction(function () use ($requestId) {
+        return Action::make('rejectRequest')
+            ->label('Reject')
+            ->icon('heroicon-o-x-circle')
+            ->color('danger')
+            ->button()
+            ->modalHeading('Reject Document Request')
+            ->modalIcon('heroicon-o-x-circle')
+            ->modalIconColor('danger')
+            ->modalDescription('Please state the reason for rejecting this request.')
+            ->modalAlignment(\Filament\Support\Enums\Alignment::Center)
+            ->modalFooterActionsAlignment(\Filament\Support\Enums\Alignment::Center)
+            ->modalSubmitActionLabel('Reject request')
+            ->modalCancelActionLabel('Cancel')
+            ->schema([
+                Textarea::make('rejection_reason')
+                    ->label('Reason for rejection')
+                    ->placeholder('Explain why this request cannot be fulfilled...')
+                    ->rows(5)
+                    ->required()
+                    ->maxLength(1000),
+            ])
+            ->extraAttributes([
+                'class' => 'inline-flex h-9 w-32 items-center justify-center gap-1.5 rounded-md bg-red-600 px-3 text-xs font-semibold !text-white transition hover:bg-red-700 [&_svg]:!text-white',
+            ])
+            ->action(function (array $data, ?DocumentRequest $record = null): void {
+                if ($record) {
+                    $this->rejectRequest($record->request_id, trim($data['rejection_reason']));
+                }
+            });
+    }
 
-            $request = DocumentRequest::query()
-                ->with([
-                    'document.user',
-                    'user',
+    public function messageRequestAction(): Action
+    {
+        return Action::make('messageRequest')
+            ->label('Message')
+            ->icon('heroicon-o-chat-bubble-left-right')
+            ->color('gray')
+            ->iconButton()
+            ->tooltip('Message requester')
+            ->url(
+                fn (DocumentRequest $record): string => Messages::getUrl([
+                    'request' => $record->request_id,
                 ])
+            )
+            ->extraAttributes(['class' => 'documents-table-action mx-auto']);
+    }
+
+    public function fulfillRequest(
+        int $requestId,
+        ?string $filePath = null,
+        ?string $pickupAt = null
+    ): void
+    {
+        $result = DB::transaction(function () use ($requestId, $filePath, $pickupAt): ?array {
+            $request = DocumentRequest::query()
+                ->with(['document', 'user'])
                 ->lockForUpdate()
                 ->findOrFail($requestId);
 
@@ -323,28 +509,80 @@ class DocumentRequests extends Page implements HasTable
                 return null;
             }
 
-            $document = $request->document;
-
-            if (!$document) {
+            if ($request->copy_type === 'soft_copy' && blank($filePath)) {
                 return null;
             }
 
-            /*
-             * Only generate an LAO number if this document
-             * doesn't already have one.
-             */
-            if (!$document->lao_number) {
-                $document->lao_number = Document::generateLaoNumber($document->created_at);
+            if ($request->copy_type !== 'soft_copy' && blank($pickupAt)) {
+                return null;
+            }
+
+            $document = $request->document;
+
+            if (! $document) {
+                $document = Document::create([
+                    'user_id' => $request->user_id,
+                    'document_type' => $request->purpose,
+                    'description' => $request->purpose_details,
+                    'particulars' => $request->purpose_details ?: $request->purpose,
+                    'status' => 'pending',
+                ]);
+
+                $request->update([
+                    'document_id' => $document->document_id,
+                ]);
             }
 
             $document->status = 'in_progress';
             $document->deadline = Document::deadlineForType($document->document_type);
+
+            if ($filePath) {
+                $document->document_name = basename($filePath);
+            }
+
             $document->save();
+
+            if ($filePath && ! $document->versions()->where('file_path', $filePath)->exists()) {
+                DocumentVersion::create([
+                    'document_id' => $document->document_id,
+                    'user_id' => auth()->id(),
+                    'version_number' => '1',
+                    'file_path' => $filePath,
+                ]);
+            }
 
             $request->update([
                 'status' => 'accepted',
                 'date_processed' => now()->toDateString(),
+                'pickup_at' => $request->copy_type !== 'soft_copy'
+                    ? $pickupAt
+                    : null,
             ]);
+
+            if ($request->copy_type !== 'soft_copy' && $pickupAt) {
+                $pickupDateTime = \Carbon\Carbon::parse($pickupAt);
+                $requesterName = $request->user?->name ?? 'Client';
+                $details = 'Document pickup for ' . $requesterName . '.';
+
+                if (filled($request->purpose_details)) {
+                    $details .= ' Details: ' . $request->purpose_details;
+                }
+
+                CalendarModel::create([
+                    'user_id' => auth()->id(),
+                    'date' => $pickupDateTime->toDateString(),
+                    'time' => $pickupDateTime->format('H:i:s'),
+                    'event' => 'Document pickup: ' . $request->purpose,
+                    'category' => 'meeting',
+                    'details' => $details,
+                ]);
+            }
+
+            Conversation::query()
+                ->where('document_request_id', $request->request_id)
+                ->update([
+                    'document_id' => $document->document_id,
+                ]);
 
             return [
                 'request' => $request->fresh([
@@ -355,9 +593,9 @@ class DocumentRequests extends Page implements HasTable
             ];
         });
 
-        if (!$result) {
+        if (! $result) {
             Notification::make()
-                ->title('Unable to accept request')
+                ->title('Unable to fulfill request')
                 ->danger()
                 ->send();
 
@@ -366,44 +604,35 @@ class DocumentRequests extends Page implements HasTable
 
         $request = $result['request'];
         $document = $result['document'];
+        $pickupMessage = $request->pickup_at
+            ? 'Your requested original document has been scheduled for pickup on ' . $request->pickup_at->format('F d, Y g:i A') . '.'
+            : 'Your requested original document has a pickup date scheduled.';
 
-        /*
-         * Prefer the user attached to the request.
-         * Fall back to the document owner.
-         */
-        $client = $request->user ?? $document->user;
+        // Request notifications must always go to the requester.
+        $client = $request->user;
         $emailFailed = false;
 
         if ($client) {
-
-            // EMAIL
             try {
                 $client->notify(
-                    new DocumentAcceptedNotification($document)
+                    new DocumentRequestFulfilledNotification($request, $document)
                 );
             } catch (TransportExceptionInterface $exception) {
                 report($exception);
                 $emailFailed = true;
             }
 
-            // CLIENT FILAMENT BELL
             Notification::make()
-                ->title('Document Accepted')
-                ->body(
-                    'Your requested document has been accepted. Your document QR code is ready. Open it below and scan it to track the document status.'
-                )
+                ->title($request->copy_type === 'soft_copy'
+                    ? 'Requested document is ready'
+                    : 'Original document pickup scheduled')
+                ->body($request->copy_type === 'soft_copy'
+                    ? 'The requested soft copy is ready to view and download.'
+                    : $pickupMessage)
                 ->success()
                 ->actions([
-                    Action::make('viewDocumentQrCode')
-                        ->label('View QR code')
-                        ->icon('heroicon-o-qr-code')
-                        ->url(\Illuminate\Support\Facades\URL::signedRoute('documents.qr', [
-                            'document' => $document->document_id,
-                        ]))
-                        ->openUrlInNewTab()
-                        ->button(),
-                    Action::make('viewAcceptedDocument')
-                        ->label('View document')
+                    Action::make('viewRequestedDocument')
+                        ->label('View request')
                         ->url(
                             \App\Filament\Client\Pages\ViewDocument::getUrl([
                                 'document' => $document->public_id,
@@ -418,12 +647,12 @@ class DocumentRequests extends Page implements HasTable
 
         // ADMIN TOAST
         $notification = Notification::make()
-            ->title($emailFailed ? 'Document accepted, but email failed' : 'Document accepted')
-            ->body(
-                'Assigned LAO Number: ' .
-                $document->lao_number .
-                ($emailFailed ? '. The email notification could not be sent. Please contact your administrator to check the mail server connection.' : '')
-            );
+            ->title($emailFailed ? 'Request fulfilled, but email failed' : 'Request fulfilled')
+            ->body($emailFailed
+                ? 'The request was fulfilled, but the email notification could not be sent. Please check the mail server connection.'
+                : ($request->copy_type === 'soft_copy'
+                    ? 'The requester has been notified.'
+                    : 'The requester has been notified and the pickup was added to your calendar.'));
 
         if ($emailFailed) {
             $notification->warning();
@@ -440,115 +669,66 @@ class DocumentRequests extends Page implements HasTable
         );
     }
 
-    /**
-     * REJECT REQUEST WITH REASON
-     */
-    public function rejectRequestAction(): Action
+    public function rejectRequest(int $requestId, string $reason): void
     {
-        return Action::make('rejectRequest')
-            ->label('Reject')
-            ->color('danger')
-            ->button()
-            ->size('xs')
-            ->extraAttributes([
-                'class' => 'inline-flex h-9 items-center justify-center rounded-md bg-red-600 px-3 text-xs font-semibold text-white transition hover:bg-red-700',
-            ])
-            ->modalHeading('Reject Document Request')
-            ->modalIcon('heroicon-o-x-circle')
-            ->modalIconColor('danger')
-            ->modalDescription(
-                'Please provide the reason why this document is being rejected.'
-            )
-            ->modalAlignment(\Filament\Support\Enums\Alignment::Center)
-            ->modalFooterActionsAlignment(\Filament\Support\Enums\Alignment::Center)
-            ->modalSubmitActionLabel('Reject request')
-            ->modalCancelActionLabel('Cancel')
-            ->schema([
-                Textarea::make('rejection_reason')
-                    ->label('Reason for Rejection')
-                    ->placeholder(
-                        'e.g., Incomplete supporting documents, incorrect document type...'
-                    )
-                    ->rows(5)
-                    ->required()
-                    ->maxLength(1000),
-            ])
-            ->action(function (
-                array $data,
-                array $arguments,
-                ?DocumentRequest $record = null
-            ): void {
+        $result = DB::transaction(function () use ($requestId, $reason): ?DocumentRequest {
+            $request = DocumentRequest::query()
+                ->with('user')
+                ->lockForUpdate()
+                ->findOrFail($requestId);
 
-                $request = ($record ?? DocumentRequest::query()
-                    ->with([
-                        'document.user',
-                        'user',
-                    ])
-                    ->findOrFail(
-                        $arguments['request'] ?? null
-                    ))->load([
-                        'document.user',
-                        'user',
-                    ]);
+            if ($request->status !== 'pending') {
+                return null;
+            }
 
-                $document = $request->document;
+            $request->update([
+                'status' => 'rejected',
+                'rejection_reason' => $reason,
+                'date_processed' => now()->toDateString(),
+            ]);
 
-                if (!$document) {
-                    Notification::make()
-                        ->title('Document not found')
-                        ->danger()
-                        ->send();
+            return $request->fresh('user');
+        });
 
-                    return;
-                }
+        if (! $result) {
+            Notification::make()
+                ->title('Unable to reject request')
+                ->danger()
+                ->send();
 
-                DB::transaction(function () use (
-                    $request,
-                    $document,
-                    $data
-                ) {
-                    $document->update([
-                        'status' => 'rejected',
-                        'rejection_reason' =>
-                            $data['rejection_reason'],
-                    ]);
+            return;
+        }
 
-                    $request->update([
-                        'status' => 'rejected',
-                        'date_processed' =>
-                            now()->toDateString(),
-                    ]);
-                });
+        $emailFailed = false;
 
-                $client =
-                    $request->user ??
-                    $document->user;
-
-                if ($client) {
-
-                    // EMAIL
-                    $client->notify(
-                        new DocumentRejectedNotification(
-                            $document
-                        )
-                    );
-                }
-
-                // ADMIN TOAST
-                Notification::make()
-                    ->title('Document rejected')
-                    ->body(
-                        'The client has been notified by email and in-app notification.'
-                    )
-                    ->success()
-                    ->send();
-
-                $this->redirect(
-                    self::getUrl([
-                        'section' => 'rejected',
-                    ])
+        if ($result->user) {
+            try {
+                $result->user->notify(
+                    new DocumentRequestRejectedNotification($result, $reason)
                 );
-            });
+            } catch (TransportExceptionInterface $exception) {
+                report($exception);
+                $emailFailed = true;
+            }
+        }
+
+        $notification = Notification::make()
+            ->title($emailFailed ? 'Request rejected, but email failed' : 'Request rejected')
+            ->body($emailFailed
+                ? 'The request was rejected, but the email notification could not be sent.'
+                : 'The requester has been notified with the rejection reason.');
+
+        $emailFailed
+            ? $notification->warning()
+            : $notification->success();
+
+        $notification->send();
+
+        $this->redirect(
+            self::getUrl([
+                'section' => 'rejected',
+            ])
+        );
     }
 
     public function returnRequestAction(): Action
@@ -586,6 +766,7 @@ class DocumentRequests extends Page implements HasTable
         $request->update([
             'status' => 'pending',
             'date_processed' => null,
+            'rejection_reason' => null,
         ]);
 
         /*

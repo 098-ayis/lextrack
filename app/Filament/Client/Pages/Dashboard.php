@@ -8,13 +8,13 @@ class Dashboard extends BaseDashboard
 {
     public function getHeading(): string
     {
-        return '';
+        return 'Dashboard';
     }
 
     public function getWidgets(): array
     {
         return [
-            \App\Filament\Client\Widgets\DashboardStats::class,
+            \App\Filament\Client\Widgets\DashboardWelcome::class,
             \App\Filament\Client\Widgets\DashboardDocumentTable::class,
         ];
     }

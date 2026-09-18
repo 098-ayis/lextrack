@@ -5,12 +5,14 @@ namespace App\Filament\Client\Pages;
 use App\Filament\Client\Pages\Messages as ClientMessages;
 use App\Filament\Client\Pages\ViewDocument;
 use App\Models\Document;
+use App\Models\DocumentRequest;
 use Filament\Actions\Action;
 use Filament\Pages\Page;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Table;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Columns\ViewColumn;
 use Illuminate\Database\Eloquent\Builder;
 
 class Documents extends Page implements HasTable
@@ -39,11 +41,21 @@ class Documents extends Page implements HasTable
         return Document::query()
             ->where(function (Builder $query): void {
                 $query
-                    ->where('user_id', auth()->id())
+                    ->where(function (Builder $ownedQuery): void {
+                        $ownedQuery
+                            ->where('user_id', auth()->id())
+                            ->whereDoesntHave(
+                                'documentRequests',
+                                fn (Builder $requestQuery) => $requestQuery
+                                    ->where('user_id', auth()->id())
+                                    ->where('copy_type', 'original')
+                            );
+                    })
                     ->orWhereHas(
                         'documentRequests',
                         fn (Builder $requestQuery) => $requestQuery
                             ->where('user_id', auth()->id())
+                            ->where('copy_type', 'soft_copy')
                     );
             })
             ->count();
@@ -82,6 +94,10 @@ class Documents extends Page implements HasTable
     // This method sets the tab AND instantly refreshes the table data
     public function updateTab($tab)
     {
+        if ($tab !== $this->activeTab) {
+            $this->documentType = '';
+        }
+
         $this->activeTab = $tab;
 
         if ($tab !== 'requested') {
@@ -128,10 +144,26 @@ class Documents extends Page implements HasTable
     {
         $query = Document::query();
 
-        if ($this->activeTab === 'requested') {
+        if ($this->activeTab === 'all') {
             $query
-                ->whereHas('documentRequests', function ($requestQuery) {
-                    $requestQuery->where('user_id', auth()->id());
+                ->where(function (Builder $documentQuery): void {
+                    $documentQuery
+                        ->where(function (Builder $ownedQuery): void {
+                            $ownedQuery
+                                ->where('user_id', auth()->id())
+                                ->whereDoesntHave(
+                                    'documentRequests',
+                                    fn (Builder $requestQuery) => $requestQuery
+                                        ->where('user_id', auth()->id())
+                                        ->where('copy_type', 'original')
+                                );
+                        })
+                        ->orWhereHas(
+                            'documentRequests',
+                            fn (Builder $requestQuery) => $requestQuery
+                                ->where('user_id', auth()->id())
+                                ->where('copy_type', 'soft_copy')
+                        );
                 })
                 ->with([
                     'documentRequests' => function ($requestQuery) {
@@ -140,60 +172,36 @@ class Documents extends Page implements HasTable
                             ->latest('created_at')
                             ->latest('request_id');
                     },
-                ])
-                ->when(
-                    $this->documentStatus !== '',
-                    fn ($documentQuery) => $documentQuery->whereHas(
-                        'documentRequests',
-                        fn ($requestQuery) => $requestQuery
-                            ->where('user_id', auth()->id())
-                            ->where('status', $this->documentStatus)
-                    )
-                );
+                ]);
         } else {
-            if ($this->activeTab === 'all') {
-                $query
-                    ->where(function (Builder $documentQuery): void {
-                        $documentQuery
-                            ->where('user_id', auth()->id())
-                            ->orWhereHas(
-                                'documentRequests',
-                                fn (Builder $requestQuery) => $requestQuery
-                                    ->where('user_id', auth()->id())
-                            );
-                    })
-                    ->with([
-                        'documentRequests' => function ($requestQuery) {
-                            $requestQuery
-                                ->where('user_id', auth()->id())
-                                ->latest('created_at')
-                                ->latest('request_id');
-                        },
-                    ]);
-            } else {
-                $query->where('user_id', auth()->id());
+            $query->where('user_id', auth()->id());
 
-                if ($this->activeTab === 'in_progress') {
-                    $query->whereIn('status', [
+            if ($this->activeTab === 'in_progress') {
+                $query
+                    ->whereIn('status', [
                         'in_progress',
                         'outgoing',
-                    ]);
-                } elseif ($this->activeTab === 'completed') {
-                    $query->whereIn('status', [
-                        'completed',
-                        'archived',
-                    ]);
-                } else {
-                    $query->where('status', $this->activeTab);
-                }
+                    ])
+                    ->whereDoesntHave(
+                        'documentRequests',
+                        fn (Builder $requestQuery) => $requestQuery
+                            ->where('user_id', auth()->id())
+                    );
+            } elseif ($this->activeTab === 'completed') {
+                $query->whereIn('status', [
+                    'completed',
+                    'archived',
+                ]);
+            } else {
+                $query->where('status', $this->activeTab);
+            }
 
-                if ($this->activeTab === 'rejected') {
-                    $query->with([
-                        'rejections' => fn ($rejectionQuery) => $rejectionQuery
-                            ->latest('created_at')
-                            ->latest('rejected_id'),
-                    ]);
-                }
+            if ($this->activeTab === 'rejected') {
+                $query->with([
+                    'rejections' => fn ($rejectionQuery) => $rejectionQuery
+                        ->latest('created_at')
+                        ->latest('rejected_id'),
+                ]);
             }
         }
 
@@ -220,6 +228,49 @@ class Documents extends Page implements HasTable
             );
     }
 
+    protected function requestedDocumentsQuery(): Builder
+    {
+        return DocumentRequest::query()
+            ->where('user_id', auth()->id())
+            ->with([
+                'document.latestVersion',
+            ])
+            ->when(
+                $this->documentStatus !== '',
+                fn (Builder $query) => $query->where(
+                    'status',
+                    $this->documentStatus
+                )
+            )
+            ->when(
+                $this->documentType !== '',
+                fn (Builder $query) => $query->where(
+                    'copy_type',
+                    $this->documentType
+                )
+            )
+            ->when(
+                trim($this->documentSearch) !== '',
+                function (Builder $query): void {
+                    $search = trim($this->documentSearch);
+
+                    $query->where(function (Builder $query) use ($search): void {
+                        $query
+                            ->where('purpose', 'like', "%{$search}%")
+                            ->orWhere('purpose_details', 'like', "%{$search}%")
+                            ->orWhereHas('document', function (Builder $documentQuery) use ($search): void {
+                                $documentQuery
+                                    ->where('particulars', 'like', "%{$search}%")
+                                    ->orWhere('office_unit', 'like', "%{$search}%")
+                                    ->orWhere('lao_number', 'like', "%{$search}%");
+                            });
+                    });
+                }
+            )
+            ->latest('date_of_request')
+            ->latest('request_id');
+    }
+
     protected function hasDocumentsForCurrentTable(): bool
     {
         return $this->documentsQuery()->exists();
@@ -238,6 +289,176 @@ class Documents extends Page implements HasTable
     }
 
     public function table(Table $table): Table
+    {
+        if ($this->activeTab === 'requested') {
+            return $this->requestedTable($table);
+        }
+
+        return $this->documentsTable($table);
+    }
+
+    protected function requestedTable(Table $table): Table
+    {
+        return $table
+            ->query($this->requestedDocumentsQuery())
+            ->recordUrl(
+                fn (DocumentRequest $record): ?string => $record->status === 'accepted' &&
+                    $record->copy_type === 'soft_copy' &&
+                    filled($record->document?->latestVersion?->file_path)
+                    ? ViewDocument::getUrl([
+                        'document' => $record->document_id,
+                        'from' => 'documents',
+                        'tab' => 'requested',
+                    ])
+                    : null
+            )
+            ->recordClasses(
+                fn (DocumentRequest $record): string => $this->highlightedDocumentId !== null &&
+                    (int) $record->document_id === $this->highlightedDocumentId
+                    ? 'document-highlighted'
+                    : ''
+            )
+            ->columns([
+                ViewColumn::make('document_icon')
+                    ->label('')
+                    ->view('filament.tables.columns.request-document-icon')
+                    ->alignCenter()
+                    ->width('5rem')
+                    ->extraHeaderAttributes(['class' => 'w-20']),
+
+                ViewColumn::make('document_details')
+                    ->label('PURPOSE')
+                    ->view('filament.tables.columns.request-document-purpose')
+                    ->width('13rem')
+                    ->alignLeft()
+                    ->extraCellAttributes(['class' => 'text-left'])
+                    ->extraHeaderAttributes(['class' => 'min-w-[170px]']),
+
+                TextColumn::make('purpose_details')
+                    ->label('DETAILS')
+                    ->placeholder('—')
+                    ->width('26rem')
+                    ->extraHeaderAttributes(['class' => 'min-w-[320px]'])
+                    ->wrap(),
+
+                TextColumn::make('copy_type')
+                    ->label('TYPE')
+                    ->formatStateUsing(
+                        fn (?string $state): string => match ($state) {
+                            'original' => 'Original',
+                            'soft_copy' => 'Soft copy',
+                            default => '—',
+                        }
+                    )
+                    ->alignCenter(),
+
+                TextColumn::make('pickup_at')
+                    ->label('PICKUP')
+                    ->state(
+                        fn (DocumentRequest $record): string =>
+                            $record->pickup_at
+                                ? $record->pickup_at->format('M d, Y|g:i A')
+                                : '—'
+                    )
+                    ->formatStateUsing(
+                        fn (?string $state): string => str_replace('|', '<br>', e($state ?? '—'))
+                    )
+                    ->html()
+                    ->alignCenter()
+                    ->width('12rem'),
+
+                TextColumn::make('date_of_request')
+                    ->label('DATE OF REQUEST')
+                    ->date('M d, Y')
+                    ->placeholder('—')
+                    ->alignCenter(),
+
+                TextColumn::make('status')
+                    ->label('STATUS')
+                    ->formatStateUsing(
+                        fn (?string $state): string => blank($state)
+                            ? '—'
+                            : ucfirst((string) $state)
+                    )
+                    ->color(
+                        fn (string $state): string => match (strtolower($state)) {
+                            'pending' => 'warning',
+                            'accepted' => 'success',
+                            'rejected' => 'danger',
+                            default => 'gray',
+                        }
+                    ),
+
+                TextColumn::make('rejection_reason')
+                    ->label('REASON')
+                    ->placeholder('—')
+                    ->width('14rem')
+                    ->wrap(),
+
+                TextColumn::make('empty_actions_placeholder')
+                    ->label('ACTIONS')
+                    ->state('')
+                    ->alignEnd()
+                    ->visible(fn (): bool => ! $this->requestedDocumentsQuery()->exists()),
+            ])
+            ->recordActions([
+                Action::make('print')
+                    ->label('Print')
+                    ->icon('heroicon-o-printer')
+                    ->color('gray')
+                    ->iconButton()
+                    ->extraAttributes(['class' => 'documents-table-action'])
+                    ->tooltip('Print')
+                    ->url(
+                        fn (DocumentRequest $record): string => route(
+                            'client.document.preview',
+                            ['document' => $record->document_id]
+                        )
+                    )
+                    ->visible(
+                        fn (DocumentRequest $record): bool => $record->status === 'accepted'
+                            && $record->copy_type === 'soft_copy'
+                            && filled($record->document?->latestVersion?->file_path)
+                    )
+                    ->openUrlInNewTab(),
+
+                Action::make('download')
+                    ->label('Download')
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->color('gray')
+                    ->iconButton()
+                    ->extraAttributes(['class' => 'documents-table-action'])
+                    ->tooltip('Download')
+                    ->url(
+                        fn (DocumentRequest $record): string => route(
+                            'client.document.download',
+                            ['document' => $record->document_id]
+                        )
+                    )
+                    ->visible(
+                        fn (DocumentRequest $record): bool => $record->status === 'accepted'
+                            && $record->copy_type === 'soft_copy'
+                            && filled($record->document?->latestVersion?->file_path)
+                    )
+                    ->openUrlInNewTab(),
+
+                Action::make('message')
+                    ->label('Message')
+                    ->icon('heroicon-o-chat-bubble-left-right')
+                    ->color('gray')
+                    ->iconButton()
+                    ->extraAttributes(['class' => 'documents-table-action'])
+                    ->tooltip('Message')
+                    ->url(
+                        fn (DocumentRequest $record): string => ClientMessages::getUrl([
+                            'request' => $record->request_id,
+                        ])
+                    ),
+            ])
+            ->recordActionsColumnLabel('ACTIONS');
+    }
+
+    protected function documentsTable(Table $table): Table
     {
         return $table
             ->query(
@@ -261,10 +482,16 @@ class Documents extends Page implements HasTable
                 TextColumn::make('lao_number')
                     ->label('LAO #')
                     ->visible(fn (): bool => $this->activeTab !== 'rejected')
-                    ->formatStateUsing(fn ($state) => $state ?? ''),
+                    ->state(
+                        fn (Document $record): string => filled($record->lao_number)
+                            ? (string) $record->lao_number
+                            : '—'
+                    )
+                    ->alignCenter(),
 
                 TextColumn::make('document_type')
-                    ->label('TYPE'),
+                    ->label('TYPE')
+                    ->placeholder('—'),
 
                 TextColumn::make('description')
                     ->label('DOCUMENT DESCRIPTION'),
@@ -273,9 +500,9 @@ class Documents extends Page implements HasTable
                     ->label('SOURCE')
                     ->visible(fn (): bool => $this->activeTab === 'all')
                     ->state(
-                        fn (Document $record): string => (int) $record->user_id === (int) auth()->id()
-                            ? 'Uploaded'
-                            : 'Requested'
+                        fn (Document $record): string => $record->documentRequests->isNotEmpty()
+                            ? 'Requested'
+                            : 'Uploaded'
                     )
                     ->badge()
                     ->color(
@@ -286,7 +513,8 @@ class Documents extends Page implements HasTable
 
                 TextColumn::make('created_at')
                     ->label('DATE SUBMITTED')
-                    ->date('M d, Y'),
+                    ->date('M d, Y')
+                    ->placeholder('—'),
 
                 TextColumn::make('status')
                     ->label('STATUS')
@@ -315,7 +543,9 @@ class Documents extends Page implements HasTable
                         }
                     )
                     ->formatStateUsing(
-                        fn (?string $state): string => match (strtolower((string) $state)) {
+                        fn (?string $state): string => blank($state)
+                            ? '—'
+                            : match (strtolower($state)) {
                             'archived' => 'Completed',
                             'outgoing' => 'In Progress',
                             'accepted' => 'Accepted',
@@ -329,7 +559,7 @@ class Documents extends Page implements HasTable
                     ->state(
                         fn (Document $record): string => $record->rejections->first()?->reason
                             ?? $record->rejection_reason
-                            ?? 'No reason provided'
+                            ?? '—'
                     )
                     ->wrap(),
 

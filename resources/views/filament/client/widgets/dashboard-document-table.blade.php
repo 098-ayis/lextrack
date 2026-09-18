@@ -202,74 +202,6 @@
             </div>
 
 
-            {{-- RIGHT SIDE --}}
-            <div class="order-1 flex w-full items-center justify-end gap-3">
-
-                {{-- REQUEST --}}
-                <a
-                    href="/client/request-document"
-                    class="inline-flex items-center justify-center gap-2
-                           w-36 px-5 py-2.5 text-sm font-semibold
-                           text-[#6366F1] bg-white dark:bg-gray-800 dark:text-indigo-400
-                           border border-[#6366F1]
-                           dark:border-indigo-400
-                           rounded-full"
-                >
-                    <svg
-                        class="w-5 h-5"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        stroke-width="2"
-                    >
-                        <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            d="M9 12h6m-6 4h6m2 5H7
-                               a2 2 0 01-2-2V5
-                               a2 2 0 012-2h5.586
-                               a1 1 0 01.707.293
-                               l3.414 3.414
-                               A1 1 0 0117 7.414V19
-                               a2 2 0 01-2 2z"
-                        />
-                    </svg>
-
-                    Request
-                </a>
-
-                {{-- UPLOAD --}}
-                <a
-                    href="/client/upload"
-                    class="inline-flex items-center justify-center gap-2
-                           w-36 px-5 py-2.5 text-sm font-semibold
-                           text-white bg-[#6366F1]
-                           border border-[#6366F1]
-                           rounded-full"
-                >
-                    <svg
-                        class="w-5 h-5"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        stroke-width="2"
-                    >
-                        <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3
-                               M6.75 19.5a4.5 4.5 0 01-1.41-8.775
-                               5.25 5.25 0 0110.233-2.33
-                               3 3 0 013.758 3.848
-                               A3.752 3.752 0 0118 19.5H6.75z"
-                        />
-                    </svg>
-
-                    Submit
-                </a>
-
-            </div>
-
         </div>
 
 
@@ -296,9 +228,10 @@
             <div class="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
                 @foreach ($documents as $document)
                     @php
-                        $isRequested = (int) $document->user_id !== (int) auth()->id();
+                        $requestedDocument = $document->documentRequests->first();
+                        $isRequested = $requestedDocument !== null;
                         $cardStatus = $isRequested
-                            ? ($document->documentRequests->first()?->status ?? $document->status)
+                            ? ($requestedDocument->status ?? $document->status)
                             : $document->status;
 
                         $statusLabel = match ($cardStatus) {
@@ -382,7 +315,7 @@
                             </h3>
 
                             <p class="mt-2 text-xs font-medium text-gray-500 dark:text-gray-400">
-                                {{ $document->lao_number ?: 'LAO number not assigned' }}
+                                {{ $document->lao_number ?: '—' }}
                             </p>
 
                             <div class="mt-auto flex items-center justify-between gap-3 pt-5">

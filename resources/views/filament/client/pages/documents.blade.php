@@ -32,7 +32,7 @@
         >
             In Progress
             <span class="flex items-center justify-center rounded-full px-2 py-0.5 text-xs {{ $activeTab === 'in_progress' ? 'bg-white/20 text-white' : 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300' }}">
-                {{ \App\Models\Document::where('user_id', auth()->id())->whereIn('status', ['in_progress', 'outgoing'])->count() }}
+                {{ \App\Models\Document::where('user_id', auth()->id())->whereIn('status', ['in_progress', 'outgoing'])->whereDoesntHave('documentRequests', fn ($query) => $query->where('user_id', auth()->id()))->count() }}
             </span>
         </button>
 
@@ -112,9 +112,14 @@
                         class="w-full appearance-none rounded-lg border-2 py-2 pl-3 pr-9 text-xs font-semibold text-gray-900 focus:outline-none focus:ring-0 dark:text-gray-100 {{ $documentType ? 'border-[#6366F1] bg-[#F0F1FF] dark:border-indigo-400 dark:bg-indigo-950' : 'border-gray-300 bg-white dark:border-gray-600 dark:bg-gray-800' }}"
                     >
                         <option value="">Type</option>
-                        @foreach (\App\Models\DocumentType::orderBy('type_name')->get() as $type)
-                            <option value="{{ $type->type_name }}">{{ $type->type_name }}</option>
-                        @endforeach
+                        @if ($activeTab === 'requested')
+                            <option value="original">Original</option>
+                            <option value="soft_copy">Soft copy</option>
+                        @else
+                            @foreach (\App\Models\DocumentType::orderBy('type_name')->get() as $type)
+                                <option value="{{ $type->type_name }}">{{ $type->type_name }}</option>
+                            @endforeach
+                        @endif
                     </select>
 
                     <svg

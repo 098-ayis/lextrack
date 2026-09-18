@@ -139,9 +139,15 @@
             }
 
             .admin-document-requests-page .fi-ta-actions {
-                justify-content: flex-end !important;
+                justify-content: center !important;
                 gap: 0.375rem;
-                margin-left: auto;
+                margin-inline: auto;
+            }
+
+            .admin-document-requests-page .fi-ta-table thead tr:last-child > th:last-child,
+            .admin-document-requests-page .fi-ta-table thead tr:last-child > th:last-child > div {
+                text-align: center !important;
+                justify-content: center !important;
             }
 
             .admin-document-requests-page .fi-ta-table tbody tr:not(.fi-ta-group-header-row) {

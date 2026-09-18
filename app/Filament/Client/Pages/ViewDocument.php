@@ -33,16 +33,18 @@ class ViewDocument extends Page
             ? 'dashboard'
             : 'documents';
 
-        $tab = request()->query('tab', 'all');
+        $tab = request()->query('tab');
 
-        $this->returnTab = in_array($tab, [
+        $hasValidReturnTab = in_array($tab, [
             'all',
             'pending',
             'in_progress',
             'completed',
             'rejected',
             'requested',
-        ], true) ? $tab : 'all';
+        ], true);
+
+        $this->returnTab = $hasValidReturnTab ? $tab : 'all';
 
         $this->documentRecord = Document::query()
             ->where('public_id', $id)
@@ -69,6 +71,10 @@ class ViewDocument extends Page
             ->latest('created_at')
             ->latest('request_id')
             ->value('status');
+
+        if (! $hasValidReturnTab && $this->requestStatus !== null) {
+            $this->returnTab = 'requested';
+        }
 
         $canAccessFile =
             (int) $this->documentRecord->user_id === (int) auth()->id()
