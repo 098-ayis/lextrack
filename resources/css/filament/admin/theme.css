@@ -1271,17 +1271,21 @@ Edit-Button
 ================================ */
 
 .dark .client-documents-table .fi-ta-ctn,
+.dark .client-documents-table .fi-ta-header,
 .dark .client-documents-table .fi-ta-content,
 .dark .client-documents-table .fi-ta-footer {
-    background-color: #171717 !important;
+    background-color: transparent !important;
     border-color: #374151 !important;
     color: #e5e7eb !important;
     box-shadow: none !important;
 }
 
 .dark .client-documents-table .fi-ta-table,
+.dark .client-documents-table .fi-ta-table thead,
+.dark .client-documents-table .fi-ta-table tbody,
+.dark .client-documents-table .fi-ta-table tfoot,
 .dark .client-documents-table .fi-ta-table tbody tr {
-    background-color: #171717 !important;
+    background-color: transparent !important;
     color: #e5e7eb !important;
 }
 
@@ -1289,13 +1293,13 @@ Edit-Button
 .dark .client-documents-table .fi-ta-table thead .fi-ta-header-cell,
 .dark .client-documents-table .fi-ta-table thead .fi-ta-actions-header-cell,
 .dark .client-documents-table .fi-ta-table thead .fi-ta-header-cell button {
-    background-color: #262626 !important;
+    background-color: transparent !important;
     border-color: #374151 !important;
     color: #f3f4f6 !important;
 }
 
-.dark .client-documents-table .fi-ta-table tbody tr:hover {
-    background-color: #262626 !important;
+.dark .client-documents-table .fi-ta-table tbody tr:hover > td {
+    background-color: rgb(255 255 255 / 0.05) !important;
 }
 
 .dark .client-documents-table .fi-ta-table tbody .fi-ta-cell,
@@ -2167,27 +2171,38 @@ Edit-Button
 .dark .admin-documents-page .fi-ta-header,
 .dark .admin-documents-page .fi-ta-content,
 .dark .admin-documents-page .fi-ta-footer {
-    background-color: #111827 !important;
+    background-color: transparent !important;
     border-color: #374151 !important;
     color: #e5e7eb !important;
+}
+
+.dark .admin-documents-page .fi-ta-table,
+.dark .admin-documents-page .fi-ta-table thead,
+.dark .admin-documents-page .fi-ta-table tbody,
+.dark .admin-documents-page .fi-ta-table tfoot {
+    background-color: transparent !important;
 }
 
 .dark .admin-documents-page .fi-ta-table thead tr,
 .dark .admin-documents-page .fi-ta-table thead .fi-ta-header-cell,
 .dark .admin-documents-page .fi-ta-table thead .fi-ta-actions-header-cell,
 .dark .admin-documents-page .fi-ta-table thead .fi-ta-header-cell button {
-    background-color: #1f2937 !important;
+    background-color: transparent !important;
     border-color: #374151 !important;
     color: #f3f4f6 !important;
 }
 
 .dark .admin-documents-page .fi-ta-table tbody tr {
-    background-color: #111827 !important;
+    background-color: transparent !important;
     border-color: #374151 !important;
 }
 
 .dark .admin-documents-page .fi-ta-table tbody tr:nth-child(even) {
-    background-color: #172033 !important;
+    background-color: transparent !important;
+}
+
+.dark .admin-documents-page .fi-ta-table tbody tr:hover {
+    background-color: rgb(255 255 255 / 0.05) !important;
 }
 
 .dark .admin-documents-page .fi-ta-table tbody .fi-ta-cell,
@@ -2195,6 +2210,50 @@ Edit-Button
 .dark .admin-documents-page .fi-ta-footer * {
     border-color: #374151 !important;
     color: #d1d5db !important;
+}
+
+/* ================================
+   ADMIN DOCUMENT REQUESTS TABLE DARK MODE
+================================ */
+
+.dark .admin-document-requests-page .fi-ta-ctn,
+.dark .admin-document-requests-page .fi-ta-header,
+.dark .admin-document-requests-page .fi-ta-content,
+.dark .admin-document-requests-page .fi-ta-footer {
+    background-color: transparent !important;
+    border-color: #374151 !important;
+    color: #e5e7eb !important;
+}
+
+.dark .admin-document-requests-page .fi-ta-table,
+.dark .admin-document-requests-page .fi-ta-table thead,
+.dark .admin-document-requests-page .fi-ta-table tbody,
+.dark .admin-document-requests-page .fi-ta-table tfoot,
+.dark .admin-document-requests-page .fi-ta-table thead tr,
+.dark .admin-document-requests-page .fi-ta-table tbody tr,
+.dark .admin-document-requests-page .fi-ta-table tbody tr:nth-child(even),
+.dark .admin-document-requests-page .fi-ta-table thead .fi-ta-header-cell,
+.dark .admin-document-requests-page .fi-ta-table thead .fi-ta-actions-header-cell,
+.dark .admin-document-requests-page .fi-ta-table thead .fi-ta-header-cell button,
+.dark .admin-document-requests-page .fi-ta-table tbody .fi-ta-cell {
+    background-color: transparent !important;
+    border-color: #374151 !important;
+}
+
+.dark .admin-document-requests-page .fi-ta-table thead .fi-ta-header-cell,
+.dark .admin-document-requests-page .fi-ta-table thead .fi-ta-actions-header-cell,
+.dark .admin-document-requests-page .fi-ta-table thead .fi-ta-header-cell button {
+    color: #f3f4f6 !important;
+}
+
+.dark .admin-document-requests-page .fi-ta-table tbody .fi-ta-cell,
+.dark .admin-document-requests-page .fi-ta-footer,
+.dark .admin-document-requests-page .fi-ta-footer * {
+    color: #d1d5db !important;
+}
+
+.dark .admin-document-requests-page .fi-ta-table tbody tr:hover {
+    background-color: rgb(255 255 255 / 0.05) !important;
 }
 
 /* Keep the existing brand styling and move only the logo to the left of the text on reduced screens. */

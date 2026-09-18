@@ -39,25 +39,12 @@ class Documents extends Page implements HasTable
     public function getAllDocumentsCount(): int
     {
         return Document::query()
-            ->where(function (Builder $query): void {
-                $query
-                    ->where(function (Builder $ownedQuery): void {
-                        $ownedQuery
-                            ->where('user_id', auth()->id())
-                            ->whereDoesntHave(
-                                'documentRequests',
-                                fn (Builder $requestQuery) => $requestQuery
-                                    ->where('user_id', auth()->id())
-                                    ->where('copy_type', 'original')
-                            );
-                    })
-                    ->orWhereHas(
-                        'documentRequests',
-                        fn (Builder $requestQuery) => $requestQuery
-                            ->where('user_id', auth()->id())
-                            ->where('copy_type', 'soft_copy')
-                    );
-            })
+            ->where('user_id', auth()->id())
+            ->whereDoesntHave(
+                'documentRequests',
+                fn (Builder $requestQuery) => $requestQuery
+                    ->where('user_id', auth()->id())
+            )
             ->count();
     }
 
@@ -146,33 +133,12 @@ class Documents extends Page implements HasTable
 
         if ($this->activeTab === 'all') {
             $query
-                ->where(function (Builder $documentQuery): void {
-                    $documentQuery
-                        ->where(function (Builder $ownedQuery): void {
-                            $ownedQuery
-                                ->where('user_id', auth()->id())
-                                ->whereDoesntHave(
-                                    'documentRequests',
-                                    fn (Builder $requestQuery) => $requestQuery
-                                        ->where('user_id', auth()->id())
-                                        ->where('copy_type', 'original')
-                                );
-                        })
-                        ->orWhereHas(
-                            'documentRequests',
-                            fn (Builder $requestQuery) => $requestQuery
-                                ->where('user_id', auth()->id())
-                                ->where('copy_type', 'soft_copy')
-                        );
-                })
-                ->with([
-                    'documentRequests' => function ($requestQuery) {
-                        $requestQuery
-                            ->where('user_id', auth()->id())
-                            ->latest('created_at')
-                            ->latest('request_id');
-                    },
-                ]);
+                ->where('user_id', auth()->id())
+                ->whereDoesntHave(
+                    'documentRequests',
+                    fn (Builder $requestQuery) => $requestQuery
+                        ->where('user_id', auth()->id())
+                );
         } else {
             $query->where('user_id', auth()->id());
 
@@ -401,6 +367,8 @@ class Documents extends Page implements HasTable
                     ->alignEnd()
                     ->visible(fn (): bool => ! $this->requestedDocumentsQuery()->exists()),
             ])
+            ->striped()
+            ->recordActionsAlignment('end')
             ->recordActions([
                 Action::make('print')
                     ->label('Print')
@@ -491,8 +459,10 @@ class Documents extends Page implements HasTable
 
                 TextColumn::make('document_type')
                     ->label('TYPE')
-                    ->placeholder('—'),
+                    ->placeholder('—')
+                    ->alignCenter(),
 
+<<<<<<< HEAD
                 TextColumn::make('description')
                     ->label('DOCUMENT DESCRIPTION'),
 
@@ -510,11 +480,20 @@ class Documents extends Page implements HasTable
                             ? 'purple'
                             : 'gray'
                     ),
+=======
+                TextColumn::make('particulars')
+                    ->label('DOCUMENT DESCRIPTION')
+                    ->state(fn (Document $record): string => (string) (
+                        $record->particulars ?: $record->description ?: '—'
+                    ))
+                    ->alignStart(),
+>>>>>>> ef04070 (upload box)
 
                 TextColumn::make('created_at')
                     ->label('DATE SUBMITTED')
                     ->date('M d, Y')
-                    ->placeholder('—'),
+                    ->placeholder('—')
+                    ->alignCenter(),
 
                 TextColumn::make('status')
                     ->label('STATUS')
@@ -551,7 +530,8 @@ class Documents extends Page implements HasTable
                             'accepted' => 'Accepted',
                             default => ucwords(str_replace('_', ' ', (string) $state)),
                         }
-                    ),
+                    )
+                    ->alignCenter(),
 
                 TextColumn::make('rejection_reason')
                     ->label('REASON')
@@ -561,7 +541,8 @@ class Documents extends Page implements HasTable
                             ?? $record->rejection_reason
                             ?? '—'
                     )
-                    ->wrap(),
+                    ->wrap()
+                    ->alignStart(),
 
                 // Filament hides record actions when there are no rows.
                 // Keep the empty table header aligned with populated tables.
@@ -572,6 +553,8 @@ class Documents extends Page implements HasTable
                     ->visible(fn (): bool => ! $this->hasDocumentsForCurrentTable()),
 
             ])
+            ->striped()
+            ->recordActionsAlignment('end')
             ->recordActions([
                 Action::make('message')
                     ->label('Message')
@@ -588,6 +571,7 @@ class Documents extends Page implements HasTable
                     ->disabled(
                         fn (Document $record): bool => ! $record->isAvailableForMessaging()
                     )
+                    ->visible(fn (Document $record): bool => $this->activeTab !== 'rejected')
                     ->url(
                         fn (Document $record): ?string =>
                             $record->isAvailableForMessaging()

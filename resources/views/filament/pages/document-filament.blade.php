@@ -24,16 +24,16 @@
                         data-section-url="{{ \App\Filament\Pages\Document::getUrl(['section' => $section]) }}"
                         class="group relative flex h-10 flex-none items-center justify-start gap-2 border-b-2 border-transparent px-3 text-sm font-medium whitespace-nowrap transition-colors
                             {{ $activeSection === $section
-                                ? 'rounded-md bg-[#0F172A] text-white'
-                                : 'text-gray-500 hover:border-gray-200 hover:text-gray-800 dark:text-gray-400 dark:hover:border-gray-700 dark:hover:text-gray-200' }}"
+                                ? 'rounded-md bg-[#0F172A] text-white dark:bg-[#6366F1]'
+                                : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white' }}"
                         aria-current="{{ $activeSection === $section ? 'page' : 'false' }}"
                     >
                         <x-filament::icon :icon="$item['icon']" class="h-5 w-5 shrink-0" />
                         <span>{{ $item['label'] }}</span>
                         <span
-                            class="ml-0.5 text-xs font-semibold {{ $activeSection === $section
-                                ? 'text-white'
-                                : 'text-gray-500 dark:text-gray-400' }}"
+                            class="ml-0.5 flex items-center justify-center rounded-full px-2 py-0.5 text-xs font-semibold {{ $activeSection === $section
+                                ? 'bg-white/20 text-white'
+                                : 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300' }}"
                         >
                             {{ $statusCounts[$section] ?? 0 }}
                         </span>
@@ -56,6 +56,7 @@
                 </svg>
             </div>
 
+<<<<<<< HEAD
             <div class="relative w-full sm:w-60">
                 <select
                     wire:model="typeFilter"
@@ -67,6 +68,37 @@
                     @endforeach
                 </select>
                 <x-heroicon-m-chevron-down class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500 dark:text-gray-400" />
+=======
+            <div class="flex items-center gap-1.5">
+                <div class="relative w-full sm:w-44">
+                    <select
+                        wire:model.live="typeFilter"
+                        class="h-10 w-full appearance-none rounded-full border border-gray-300 bg-white pl-3 pr-9 text-xs font-semibold text-gray-900 focus:outline-none focus:ring-0 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                    >
+                        <option value="">All Document Types</option>
+                        @foreach (\App\Models\DocumentType::orderBy('type_name')->get() as $type)
+                            <option value="{{ $type->type_name }}">{{ $type->type_name }}</option>
+                        @endforeach
+                    </select>
+                    <svg class="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-500 dark:text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.168l3.71-3.938a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .02-1.06Z" clip-rule="evenodd" />
+                    </svg>
+                </div>
+
+                @if ($typeFilter)
+                    <button
+                        type="button"
+                        wire:click="clearTypeFilter"
+                        class="flex h-[34px] w-[34px] items-center justify-center rounded-full border border-gray-300 bg-white text-gray-500 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
+                        title="Clear document type"
+                        aria-label="Clear document type filter"
+                    >
+                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                @endif
+>>>>>>> ef04070 (upload box)
             </div>
 
             <div class="relative w-full sm:w-60">
@@ -204,24 +236,43 @@
             .dark .admin-documents-page .fi-ta-content,
             .dark .admin-documents-page .fi-ta-footer {
                 border-color: rgb(75 85 99);
-                background-color: rgb(17 24 39);
+                background-color: transparent;
             }
 
             .dark .admin-documents-page .fi-ta-table tbody tr {
                 border-color: rgb(75 85 99);
             }
 
-            .dark .admin-documents-page .fi-ta-table tbody tr:hover {
-                background-color: rgb(255 255 255 / 0.05);
+            .dark .admin-documents-page .fi-ta-table,
+            .dark .admin-documents-page .fi-ta-table thead,
+            .dark .admin-documents-page .fi-ta-table tbody,
+            .dark .admin-documents-page .fi-ta-table tfoot,
+            .dark .admin-documents-page .fi-ta-table tbody tr {
+                background-color: transparent !important;
+            }
+
+            .dark .admin-documents-page .fi-ta-table thead tr > th,
+            .dark .admin-documents-page .fi-ta-table tbody tr > td,
+            .dark .admin-documents-page .fi-ta-table tfoot tr > td {
+                border-color: rgb(75 85 99);
+                background-color: transparent !important;
+                color: rgb(229 231 235);
+            }
+
+            .dark .admin-documents-page .fi-ta-table thead tr > th {
+                background-color: transparent !important;
+            }
+
+            .dark .admin-documents-page .fi-ta-table tbody tr:hover > td {
+                background-color: rgb(255 255 255 / 0.05) !important;
             }
 
             .dark .admin-documents-page .fi-ta-table tbody tr.document-highlighted > td {
-                background-color: rgb(55 65 81) !important;
+                background-color: transparent !important;
             }
 
-            .dark .admin-documents-page .fi-ta-table th,
-            .dark .admin-documents-page .fi-ta-table td {
-                color: rgb(229 231 235);
+            .dark .admin-documents-page .fi-ta-table tbody tr.fi-ta-group-header-row > td {
+                background-color: transparent !important;
             }
         </style>
 

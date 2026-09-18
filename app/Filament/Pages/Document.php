@@ -719,6 +719,7 @@ class Document extends Page implements HasTable
         $this->resetPage();
     }
 
+<<<<<<< HEAD
     public function updatedActionTypeFilter(): void
     {
         $this->resetPage();
@@ -740,6 +741,11 @@ class Document extends Page implements HasTable
     public function applyDocumentFilters(): void
     {
         $this->resetPage();
+=======
+    public function clearTypeFilter(): void
+    {
+        $this->typeFilter = '';
+>>>>>>> ef04070 (upload box)
     }
 
     public function updatedDateFilter(): void
