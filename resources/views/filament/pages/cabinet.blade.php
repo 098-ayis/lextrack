@@ -16,13 +16,13 @@
         }
         .cabinet-search:focus {
             outline: none;
-            border-color: #d1d5db;
-            box-shadow: 0 2px 8px rgb(15 23 42 / 12%);
+            border-color: #6366f1;
+            box-shadow: 0 0 0 3px rgb(99 102 241 / 15%);
         }
 
         .dark .cabinet-search:focus {
-            border-color: #4b5563;
-            box-shadow: 0 2px 8px rgb(0 0 0 / 25%);
+            border-color: #818cf8;
+            box-shadow: 0 0 0 3px rgb(129 140 248 / 18%);
         }
         .cabinet-toolbar-control {
             height: 40px;
@@ -332,15 +332,11 @@
 
                 <div @class(['relative', 'mt-4' => ! $isRoot])>
 
-                    <x-heroicon-o-magnifying-glass
-                        class="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400"
-                    />
-
                     <input
                         type="text"
                         wire:model.live.debounce.300ms="search"
                         placeholder="Search documents, folders, or offices..."
-                        class="cabinet-search w-full rounded-lg border border-gray-300 bg-white py-2.5 pl-10 pr-10 text-sm shadow-sm transition-colors hover:border-gray-400 dark:border-gray-600 dark:bg-gray-800 dark:text-white dark:hover:border-gray-500"
+                        class="cabinet-search h-10 w-full rounded-full border border-gray-300 bg-white pl-4 pr-11 text-sm text-gray-900 shadow-sm transition-colors hover:border-gray-400 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:hover:border-gray-500"
                     />
 
                     @if($search)
@@ -354,6 +350,12 @@
                             <x-heroicon-m-x-mark class="h-5 w-5" />
 
                         </button>
+
+                    @else
+
+                        <x-heroicon-o-magnifying-glass
+                            class="pointer-events-none absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-800 dark:text-gray-200"
+                        />
 
                     @endif
 
@@ -709,7 +711,7 @@
                                         @click="clearTimeout(clickTimer); clickTimer = setTimeout(() => $wire.selectFolder(@js($type)), 220)"
                                         @dblclick="clearTimeout(clickTimer); $wire.openType(@js($type))"
                                         wire:key="root-type-tile-{{ $type }}" @contextmenu.prevent="$dispatch('cabinet-folder-context', { type: @js($type), office: null, x: $event.currentTarget.getBoundingClientRect().right + 8, y: $event.currentTarget.getBoundingClientRect().top })"
-                                        class="group rounded-xl border bg-white p-5 text-left transition {{ $selectedFolderType === $type && $selectedFolderOffice === null ? 'border-violet-500 ring-2 ring-violet-500/30' : 'border-gray-200' }} hover:border-indigo-300 hover:bg-indigo-50/40 hover:shadow-sm dark:border-gray-700 dark:bg-gray-900 dark:hover:border-indigo-500 dark:hover:bg-indigo-500/5"
+                                        class="group rounded-xl border bg-white p-5 text-left transition {{ $selectedFolderType === $type && $selectedFolderOffice === null ? 'border-indigo-500 ring-2 ring-indigo-500/30' : 'border-gray-200' }} hover:border-indigo-300 hover:bg-indigo-50/40 hover:shadow-sm dark:border-gray-700 dark:bg-gray-900 dark:hover:border-indigo-500 dark:hover:bg-indigo-500/5"
                                     >
 
                                         <x-dynamic-component :component="$type === 'Recycle Bin' ? 'heroicon-o-trash' : 'heroicon-o-folder'"
@@ -741,7 +743,7 @@
                                         @click="clearTimeout(clickTimer); clickTimer = setTimeout(() => $wire.selectFolder(@js($type)), 220)"
                                         @dblclick="clearTimeout(clickTimer); $wire.openType(@js($type))"
                                         wire:key="root-type-content-{{ $type }}" @contextmenu.prevent="$dispatch('cabinet-folder-context', { type: @js($type), office: null, x: $event.currentTarget.getBoundingClientRect().right + 8, y: $event.currentTarget.getBoundingClientRect().top })"
-                                        class="flex w-full items-center gap-4 border-b {{ $selectedFolderType === $type && $selectedFolderOffice === null ? 'ring-2 ring-inset ring-violet-500' : '' }} border-gray-100 px-5 py-4 text-left transition hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800"
+                                        class="flex w-full items-center gap-4 border-b {{ $selectedFolderType === $type && $selectedFolderOffice === null ? 'ring-2 ring-inset ring-indigo-500' : '' }} border-gray-100 px-5 py-4 text-left transition hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800"
                                     >
 
                                         <x-dynamic-component :component="$type === 'Recycle Bin' ? 'heroicon-o-trash' : 'heroicon-o-folder'"
@@ -783,7 +785,7 @@
                                         @click="clearTimeout(clickTimer); clickTimer = setTimeout(() => $wire.selectFolder(@js($currentType), @js($office)), 220)"
                                         @dblclick="clearTimeout(clickTimer); $wire.openOffice(@js($office))"
                                         wire:key="office-tile-{{ $office }}" @contextmenu.prevent="$dispatch('cabinet-folder-context', { type: @js($currentType), office: @js($office), x: $event.currentTarget.getBoundingClientRect().right + 8, y: $event.currentTarget.getBoundingClientRect().top })"
-                                        class="group rounded-xl border border-gray-200 bg-white p-5 text-left transition hover:border-indigo-300 hover:bg-indigo-50/40 hover:shadow-sm dark:border-gray-700 dark:bg-gray-900 dark:hover:border-indigo-500 dark:hover:bg-indigo-500/5 {{ $selectedFolderType === $currentType && $selectedFolderOffice === $office ? 'border-violet-500 ring-2 ring-violet-500/30' : 'border-gray-200' }}"
+                                        class="group rounded-xl border border-gray-200 bg-white p-5 text-left transition hover:border-indigo-300 hover:bg-indigo-50/40 hover:shadow-sm dark:border-gray-700 dark:bg-gray-900 dark:hover:border-indigo-500 dark:hover:bg-indigo-500/5 {{ $selectedFolderType === $currentType && $selectedFolderOffice === $office ? 'border-indigo-500 ring-2 ring-indigo-500/30' : 'border-gray-200' }}"
                                     >
 
                                         <x-heroicon-o-folder
@@ -815,7 +817,7 @@
                                         @click="clearTimeout(clickTimer); clickTimer = setTimeout(() => $wire.selectFolder(@js($currentType), @js($office)), 220)"
                                         @dblclick="clearTimeout(clickTimer); $wire.openOffice(@js($office))"
                                         wire:key="office-content-{{ $office }}" @contextmenu.prevent="$dispatch('cabinet-folder-context', { type: @js($currentType), office: @js($office), x: $event.currentTarget.getBoundingClientRect().right + 8, y: $event.currentTarget.getBoundingClientRect().top })"
-                                        class="flex w-full items-center gap-4 border-b {{ $selectedFolderType === $currentType && $selectedFolderOffice === $office ? 'ring-2 ring-inset ring-violet-500' : '' }} border-gray-100 px-5 py-4 text-left transition hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800"
+                                        class="flex w-full items-center gap-4 border-b {{ $selectedFolderType === $currentType && $selectedFolderOffice === $office ? 'ring-2 ring-inset ring-indigo-500' : '' }} border-gray-100 px-5 py-4 text-left transition hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800"
                                     >
 
                                         <x-heroicon-o-folder
@@ -849,7 +851,7 @@
                     @if ($childFolders->isNotEmpty())
                         <div class="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
                             @foreach ($childFolders as $folder)
-                                <button x-data="{ clickTimer: null }" @click="clearTimeout(clickTimer); clickTimer = setTimeout(() => $wire.selectFolder(@js($folder->name)), 220)" @dblclick="clearTimeout(clickTimer); $wire.openType(@js($folder->name))" @contextmenu.prevent="$dispatch('cabinet-folder-context', { type: @js($folder->name), office: null, x: $event.currentTarget.getBoundingClientRect().right + 8, y: $event.currentTarget.getBoundingClientRect().top })" class="rounded-xl border bg-white p-5 text-left transition {{ $selectedFolderType === $folder->name ? 'border-violet-500 ring-2 ring-violet-500/30' : 'border-gray-200' }}">
+                                <button x-data="{ clickTimer: null }" @click="clearTimeout(clickTimer); clickTimer = setTimeout(() => $wire.selectFolder(@js($folder->name)), 220)" @dblclick="clearTimeout(clickTimer); $wire.openType(@js($folder->name))" @contextmenu.prevent="$dispatch('cabinet-folder-context', { type: @js($folder->name), office: null, x: $event.currentTarget.getBoundingClientRect().right + 8, y: $event.currentTarget.getBoundingClientRect().top })" class="rounded-xl border bg-white p-5 text-left transition {{ $selectedFolderType === $folder->name ? 'border-indigo-500 ring-2 ring-indigo-500/30' : 'border-gray-200' }}">
                                     <x-heroicon-o-folder class="h-14 w-14 text-indigo-500" /><p class="mt-4 truncate text-sm font-semibold">{{ $folder->name }}</p>
                                     <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ $this->folderFileCount($folder->name) }} {{ Str::plural('file', $this->folderFileCount($folder->name)) }}</p>
                                 </button>
@@ -880,7 +882,7 @@
                                     wire:key="document-tile-{{ $document['copy_key'] ?? $document['id'] }}"
                                     @contextmenu.prevent="$dispatch('cabinet-context', { id: {{ $document['id'] }}, name: @js($displayName), url: $el.href, x: $event.currentTarget.getBoundingClientRect().right + 8, y: $event.currentTarget.getBoundingClientRect().top }); $wire.selectItem(@js($displayName), {{ $document['id'] }}, {{ isset($document['copy_key']) ? (int) substr($document['copy_key'], 5) : 'null' }})"
                                     rel="noopener noreferrer"
-                                    class="group rounded-xl border bg-white p-5 text-left transition hover:border-violet-300 hover:bg-violet-50/40 hover:shadow-sm dark:bg-gray-900 dark:hover:border-violet-500 dark:hover:bg-violet-500/5 {{ $selectedDocumentId === $document['id'] && $selectedCopyId === (isset($document['copy_key']) ? (int) substr($document['copy_key'], 5) : null) ? 'border-violet-500 bg-violet-50 ring-2 ring-violet-500/25 dark:bg-violet-500/10' : 'border-gray-200 dark:border-gray-700' }}"
+                                    class="group rounded-xl border bg-white p-5 text-left transition hover:border-indigo-300 hover:bg-indigo-50/40 hover:shadow-sm dark:bg-gray-900 dark:hover:border-indigo-500 dark:hover:bg-indigo-500/5 {{ $selectedDocumentId === $document['id'] && $selectedCopyId === (isset($document['copy_key']) ? (int) substr($document['copy_key'], 5) : null) ? 'border-indigo-500 bg-indigo-50 ring-2 ring-indigo-500/25 dark:bg-indigo-500/10' : 'border-gray-200 dark:border-gray-700' }}"
                                 >
 
                                     <div class="flex h-14 w-14 items-center justify-center rounded-xl bg-red-50 text-red-500 dark:bg-red-500/10 dark:text-red-400">
@@ -957,7 +959,7 @@
                                     wire:key="document-row-{{ $document['copy_key'] ?? $document['id'] }}"
                                     @contextmenu.prevent="$dispatch('cabinet-context', { id: {{ $document['id'] }}, name: @js($displayName), url: $el.href, x: $event.currentTarget.getBoundingClientRect().right + 8, y: $event.currentTarget.getBoundingClientRect().top }); $wire.selectItem(@js($displayName), {{ $document['id'] }}, {{ isset($document['copy_key']) ? (int) substr($document['copy_key'], 5) : 'null' }})"
                                     rel="noopener noreferrer"
-                                    class="cabinet-list-row grid w-full cursor-pointer grid-cols-[minmax(0,1fr)_120px_160px_60px] items-center border-b px-5 py-4 text-left transition {{ $selectedDocumentId === $document['id'] && $selectedCopyId === (isset($document['copy_key']) ? (int) substr($document['copy_key'], 5) : null) ? 'border-violet-300 bg-violet-100 ring-1 ring-inset ring-violet-500 dark:bg-violet-500/20' : 'border-gray-100 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800' }}"
+                                    class="cabinet-list-row grid w-full cursor-pointer grid-cols-[minmax(0,1fr)_120px_160px_60px] items-center border-b px-5 py-4 text-left transition {{ $selectedDocumentId === $document['id'] && $selectedCopyId === (isset($document['copy_key']) ? (int) substr($document['copy_key'], 5) : null) ? 'border-indigo-300 bg-indigo-100 ring-1 ring-inset ring-indigo-500 dark:bg-indigo-500/20' : 'border-gray-100 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800' }}"
                                 >
 
                                     {{-- DOCUMENT NAME --}}

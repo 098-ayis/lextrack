@@ -17,8 +17,7 @@
         $lastPoint = $points->last();
         $areaPath = 'M'.$firstPoint['x'].' '.$chartBottom.' L'.$linePoints.' L'.$lastPoint['x'].' '.$chartBottom.' Z';
     @endphp
-    <svg class="processing-trend-line" viewBox="0 0 800 220" role="img" aria-labelledby="processing-line-title">
-        <title id="processing-line-title">Unique papers processed each day: {{ $points->map(fn ($point) => $point['date'].': '.$point['count'])->implode(', ') }}</title>
+    <svg class="processing-trend-line" viewBox="0 0 800 220" role="img" aria-label="Daily document activity for the last 14 days">
         <defs>
             <linearGradient id="processing-area" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" class="processing-trend-area-start" />
@@ -36,13 +35,11 @@
         <path d="{{ $areaPath }}" class="processing-trend-area" />
         <polyline points="{{ $linePoints }}" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" />
         @foreach($points as $index => $point)
-            <g><title>{{ $point['date'] }}: {{ $point['count'] }} papers</title>
+            <g>
                 @if($point['count'] > 0 || $index === $points->count() - 1)
                     <circle cx="{{ $point['x'] }}" cy="{{ $point['y'] }}" r="4.5" class="processing-trend-point" />
                 @endif
-                @if($index % 2 === 0 || $index === $points->count() - 1)
-                    <text x="{{ $point['x'] }}" y="210" text-anchor="middle" class="processing-trend-label">{{ $point['date'] }}</text>
-                @endif
+                <text x="{{ $point['x'] }}" y="210" text-anchor="middle" class="processing-trend-label">{{ $point['date'] }}</text>
             </g>
         @endforeach
     </svg>

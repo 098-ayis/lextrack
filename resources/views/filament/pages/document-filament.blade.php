@@ -228,8 +228,8 @@
         @if ($showAcceptedModal)
             <div wire:click="redirectToIncoming" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4" role="dialog" aria-modal="true" aria-labelledby="document-accepted-title">
                 <div wire:click.stop class="w-full max-w-md rounded-2xl bg-white px-7 py-8 text-center shadow-2xl dark:bg-gray-900">
-                    <div class="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-blue-50 dark:bg-blue-500/10">
-                        <div class="flex h-14 w-14 items-center justify-center rounded-full text-white shadow-lg" style="background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%);">
+                    <div class="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-indigo-50 dark:bg-indigo-500/10">
+                        <div class="flex h-14 w-14 items-center justify-center rounded-full text-white shadow-lg" style="background: linear-gradient(135deg, #6366F1 0%, #4F46E5 100%);">
                             <svg class="h-8 w-8" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="m5 12 4 4L19 7" />
                             </svg>

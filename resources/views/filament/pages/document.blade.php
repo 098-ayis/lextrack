@@ -1326,10 +1326,10 @@
                 wire:click.stop
                 class="w-full max-w-md rounded-2xl bg-white px-7 py-8 text-center shadow-2xl"
             >
-                <div class="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-blue-50">
+                <div class="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-indigo-50">
                     <div
                         class="flex h-14 w-14 items-center justify-center rounded-full text-white shadow-lg"
-                        style="background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%); box-shadow: 0 4px 10px rgba(37, 99, 235, 0.3);"
+                        style="background: linear-gradient(135deg, #6366F1 0%, #4F46E5 100%); box-shadow: 0 4px 10px rgba(99, 102, 241, 0.3);"
                     >
                         <svg
                             class="h-8 w-8"

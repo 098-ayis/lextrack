@@ -14,7 +14,7 @@
         .report-heading { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:16px; }
         .report-heading h2 { font-size:20px; font-weight:600; }
         .report-cards { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
-        .report-number { font-size:30px; font-weight:650; margin:16px 0; color:#7c3aed; }
+        .report-number { font-size:30px; font-weight:650; margin:16px 0; color:#6366f1; }
         .report-badge { display:inline-block; padding:4px 9px; border-radius:6px; background:#f3f4f6; color:#4b5563; white-space:normal; }
         .report-badge[data-status="completed"] { background:#dcfce7; color:#15803d; }
         .report-badge[data-status="in_progress"] { background:#dbeafe; color:#1d4ed8; }

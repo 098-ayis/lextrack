@@ -1,79 +1,33 @@
 <x-filament-panels::page>
 
     <style>
-        .calendar-event-strip { display:block; width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:left; padding:3px 6px; border-radius:5px; background:var(--event-color); color:#fff; border-left:4px solid color-mix(in srgb,var(--event-color) 40%,white); font-size:11px; font-weight:600; line-height:1.4; }
-        .calendar-event-more { display:block; width:100%; text-align:left; padding:2px 6px; border-radius:5px; border-left:3px solid #004b80; background:#edf5fc; color:#004b80; font-size:10px; font-weight:600; line-height:1.4; }
+        .calendar-event-strip { display:block; width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:left; padding:2px 5px; border-radius:5px; background:color-mix(in srgb,var(--event-color) 28%,white); color:#334155; border-left:3px solid color-mix(in srgb,var(--event-color) 62%,white); font-size:10px; font-weight:600; line-height:1.25; }
+        .calendar-event-more { display:block; width:100%; text-align:left; padding:2px 5px; border-radius:5px; border-left:3px solid #004b80; background:#edf5fc; color:#004b80; font-size:9px; font-weight:600; line-height:1.25; }
         .calendar-event-strip:focus-visible,.calendar-event-more:focus-visible { outline:2px solid #a78bfa; outline-offset:2px; }
         .dark .calendar-event-more { background:#24364a; color:#bfdbfe; }
 
-        .calendar-category-legend { display:flex; flex-wrap:wrap; align-items:center; gap:14px 24px; padding:18px; border-top:1px solid #e5e7eb; color:#748492; font-size:12px; background:#fff; }
+        .calendar-category-legend { display:flex; flex-wrap:wrap; align-items:center; gap:10px 16px; padding:12px; border-top:1px solid #e5e7eb; color:#748492; font-size:11px; background:#fff; }
         .calendar-category-legend strong { font-weight:650; }
         .calendar-category-legend span { display:inline-flex; align-items:center; gap:8px; }
         .calendar-category-legend i { width:9px; height:9px; flex-shrink:0; border-radius:50%; }
         .dark .calendar-category-legend { background:#18181b; color:#a8b3c1; border-color:#374151; }
 
-        .theme-violet-action .fi-btn {
-            background-color: #7c3aed !important;
+        .theme-indigo-action .fi-btn {
+            background-color: #6366f1 !important;
             color: #ffffff !important;
         }
 
-        .theme-violet-action .fi-btn:hover {
-            background-color: #6d28d9 !important;
+        .theme-indigo-action .fi-btn:hover {
+            background-color: #4f46e5 !important;
         }
 
-        .theme-violet-action .fi-btn:focus-visible {
-            outline: 2px solid #a78bfa;
+        .theme-indigo-action .fi-btn:focus-visible {
+            outline: 2px solid #818cf8;
             outline-offset: 2px;
         }
     </style>
 
     <div class="space-y-6" wire:poll.60s>
-
-        {{-- ========================================================= --}}
-        {{-- TOP SEARCH --}}
-        {{-- ========================================================= --}}
-
-        <div class="flex items-center justify-between gap-4">
-
-            <div class="relative w-full max-w-md">
-
-                <x-heroicon-o-magnifying-glass
-                    class="
-                        absolute
-                        left-3
-                        top-1/2
-                        h-4
-                        w-4
-                        -translate-y-1/2
-                        text-gray-400
-                    "
-                />
-
-                <input
-                    type="text"
-                    placeholder="Search Anything"
-                    class="
-                        w-full
-                        rounded-md
-                        border-gray-300
-                        py-3
-                        pl-12
-                        pr-4
-                        text-base
-                        shadow-sm
-
-                        focus:border-violet-500
-                        focus:ring-violet-500
-
-                        dark:border-gray-700
-                        dark:bg-gray-800
-                    "
-                >
-
-            </div>
-
-        </div>
-
 
         {{-- ========================================================= --}}
         {{-- LOAD MONTH EVENTS ONCE --}}
@@ -118,8 +72,8 @@
             class="
                 grid
                 grid-cols-1
-                gap-6
-                xl:grid-cols-[minmax(0,1fr)_300px]
+                gap-4
+                xl:grid-cols-[minmax(0,1fr)_280px]
             "
         >
 
@@ -135,15 +89,17 @@
                 {{-- MONTH NAVIGATION --}}
                 {{-- ================================================= --}}
 
-                <div class="mb-4 flex items-center gap-3">
+                <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
+
+                    <div class="flex items-center gap-2">
 
                     <button
                         wire:click="previousMonth"
                         type="button"
                         class="
                             flex
-                            h-9
-                            w-9
+                            h-8
+                            w-8
                             items-center
                             justify-center
 
@@ -167,7 +123,7 @@
 
                     <h2
                         class="
-                            text-xl
+                            text-lg
                             font-bold
                             text-gray-900
                             dark:text-white
@@ -188,8 +144,8 @@
                         type="button"
                         class="
                             flex
-                            h-9
-                            w-9
+                            h-8
+                            w-8
                             items-center
                             justify-center
 
@@ -209,6 +165,22 @@
                     >
                         ›
                     </button>
+
+                    </div>
+
+                    <div class="relative w-full sm:w-64 lg:w-72">
+
+                        <x-heroicon-o-magnifying-glass
+                            class="absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-800 dark:text-gray-200"
+                        />
+
+                        <input
+                            type="text"
+                            placeholder="Search Anything"
+                            class="h-10 w-full rounded-full border border-gray-300 bg-white pl-4 pr-11 text-sm text-gray-900 focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:placeholder:text-gray-400"
+                        >
+
+                    </div>
 
 
 
@@ -269,7 +241,7 @@
 
                             <div
                                 class="
-                                    p-3
+                                    p-2
                                     text-center
                                     text-xs
                                     font-bold
@@ -488,7 +460,7 @@
                                 class="
                                     relative
 
-                                    min-h-[140px]
+                                    min-h-[96px]
 
                                     overflow-hidden
 
@@ -496,7 +468,7 @@
                                     border-r
                                     border-gray-200
 
-                                    p-2
+                                    p-1.5
 
                                     transition
 
@@ -515,21 +487,21 @@
                                     @elseif($isSelected)
 
                                         cursor-pointer
-                                        bg-violet-50
+                                        bg-indigo-50
 
                                         ring-2
                                         ring-inset
-                                        ring-violet-500
+                                        ring-indigo-500
 
-                                        dark:bg-violet-950
+                                        dark:bg-indigo-950
 
 
                                     @elseif($isToday)
 
                                         cursor-pointer
-                                        bg-violet-50
+                                        bg-indigo-50
 
-                                        dark:bg-violet-950
+                                        dark:bg-indigo-950
 
 
                                     @else
@@ -553,7 +525,7 @@
 
                                 <div
                                     class="
-                                        mb-2
+                                        mb-1
                                         flex
                                         items-center
                                         justify-between
@@ -563,12 +535,12 @@
                                     <div
                                         class="
                                             flex
-                                            h-7
-                                            w-7
+                                            h-6
+                                            w-6
                                             items-center
                                             justify-center
 
-                                            text-sm
+                                            text-xs
                                             font-bold
 
 
@@ -576,7 +548,7 @@
 
                                                 rounded-full
 
-                                                bg-violet-500
+                                                bg-indigo-500
 
                                                 text-white
 
@@ -616,7 +588,7 @@
 
                                 @if(!$isOtherMonth)
 
-                                    <div class="space-y-1">
+                                    <div class="space-y-0.5">
 
                                         @foreach(
                                             $dayEvents->take(2)
@@ -669,7 +641,7 @@
                                                 @if($isDocumentDeadline)
                                                     wire:click.stop="openDocumentDeadline({{ $event->document_id }})"
                                                 @else
-                                                    wire:click.stop="openDayEvents('{{ $dateString }}')"
+                                                    wire:click.stop="selectDate('{{ $dateString }}')"
                                                 @endif
                                                 title="{{ $event->event }}{{ $eventTime ? ' · '.$eventTime : '' }}"
                                             >{{ $event->event }}</button>
@@ -688,7 +660,7 @@
 
                                             <button
                                                 type="button"
-                                                wire:click.stop="openDayEvents('{{ $dateString }}')"
+                                                wire:click.stop="selectDate('{{ $dateString }}')"
                                                 aria-label="View all {{ $dayEvents->count() }} events on {{ $dateString }}"
                                                 class="calendar-event-more"
                                             >
@@ -711,7 +683,10 @@
                     <div class="calendar-category-legend">
                         <strong>Legend:</strong>
                         @foreach($this->getEventCategories() as $category => $label)
-                            <span><i style="background:{{ $this->getEventColor((object) ['category' => $category]) }}"></i>{{ $label }}</span>
+                            @php
+                                $legendColor = $this->getEventColor((object) ['category' => $category]);
+                            @endphp
+                            <span><i style="background:color-mix(in srgb, {{ $legendColor }} 28%, white); border:1px solid color-mix(in srgb, {{ $legendColor }} 42%, white);"></i>{{ $label }}</span>
                         @endforeach
                     </div>
 
@@ -830,7 +805,7 @@
                             class="
                                 text-2xl
                                 font-bold
-                                text-violet-600
+                                text-indigo-600
                             "
                         ></div>
 
@@ -902,7 +877,7 @@
 
                                 <span
                                     class="
-                                    text-violet-600
+                                    text-indigo-600
                                     "
                                 >
                                     {{
@@ -921,7 +896,7 @@
                         </h3>
 
 
-                        <div class="theme-violet-action ml-auto">
+                        <div class="theme-indigo-action ml-auto">
                             {{ $this->createEvent() }}
                         </div>
 
@@ -1052,10 +1027,7 @@
                                         rounded-full
                                     "
 
-                                    style="
-                                        background-color:
-                                            {{ $eventColor }};
-                                    "
+                                    style="background-color:color-mix(in srgb, {{ $eventColor }} 28%, white); border:1px solid color-mix(in srgb, {{ $eventColor }} 42%, white);"
 
                                     title="{{ $staffName }}"
                                 ></span>
@@ -1080,10 +1052,7 @@
                                             font-bold
                                         "
 
-                                        style="
-                                            color:
-                                                {{ $eventColor }};
-                                        "
+                                        style="color:color-mix(in srgb, {{ $eventColor }} 72%, #334155);"
                                     >
 
                                         {{ $formattedDate }}
@@ -1307,7 +1276,7 @@
 
                     <div
                         class="
-                            theme-violet-action
+                            theme-indigo-action
 
                             mt-3
 
@@ -1333,18 +1302,18 @@
 
                                     rounded-md
 
-                                    bg-violet-50
+                                    bg-indigo-50
 
                                     px-2
                                     py-1
 
                                     text-xs
                                     font-semibold
-                                    text-violet-700
+                                    text-indigo-700
 
                                     transition
 
-                                    hover:bg-violet-100
+                                    hover:bg-indigo-100
                                 "
                             >
                                 Show all
@@ -1365,9 +1334,4 @@
 
     </div>
 
-    @php($modalEntries = $selectedDate ? ($eventsByDate[$selectedDate] ?? collect()) : collect())
-    <x-filament::modal id="calendar-day-events" width="xl">
-        <x-slot name="heading">All events on {{ $selectedDate ? \Carbon\Carbon::parse($selectedDate)->format('M j, Y') : '' }} ({{ $modalEntries->count() }})</x-slot>
-        @include('filament.pages.partials.calendar-event-list', ['entries' => $modalEntries, 'showDetails' => false])
-    </x-filament::modal>
 </x-filament-panels::page>

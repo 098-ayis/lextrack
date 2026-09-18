@@ -85,9 +85,9 @@
                         </p>
                     </div>
 
-                    <div class="flex h-11 w-11 items-center justify-center rounded-lg bg-violet-50 dark:bg-violet-500/10">
+                    <div class="flex h-11 w-11 items-center justify-center rounded-lg bg-indigo-50 dark:bg-indigo-500/10">
                         <svg
-                            class="h-5 w-5 text-violet-500"
+                            class="h-5 w-5 text-indigo-500"
                             fill="none"
                             viewBox="0 0 24 24"
                             stroke="currentColor"
@@ -184,11 +184,10 @@
 
 
         <div class="dashboard-main-grid grid grid-cols-1 gap-6 xl:grid-cols-3">
-
-        <div class="dashboard-top-row grid grid-cols-1 items-stretch gap-6 xl:grid-cols-3">
+            <div class="dashboard-top-row contents">
             <div class="dashboard-graph-panel min-w-0 xl:col-span-2">
-                <div class="dashboard-section-heading mb-4">
-                    <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+                <div class="mb-4">
+                    <h2 class="text-lg font-semibold text-[#0F172A] dark:text-white">
                         Document Activity
                     </h2>
                 </div>
@@ -196,11 +195,11 @@
             </div>
             <section class="dashboard-reminders-panel dashboard-work-panel min-w-0 rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900" aria-labelledby="dashboard-reminders-title">
                 <div class="flex items-center justify-between gap-3 border-b border-gray-200 px-5 py-4 dark:border-gray-700">
-                    <h2 id="dashboard-reminders-title" class="text-base font-semibold text-gray-900 dark:text-white">Reminders</h2>
+                    <h2 id="dashboard-reminders-title" class="text-base font-semibold text-[#0F172A] dark:text-white">Reminders</h2>
                     <a
                         href="{{ \App\Filament\Pages\Calendar::getUrl(['date' => now()->toDateString()]) }}"
                         wire:navigate
-                        class="shrink-0 text-xs font-semibold text-violet-700 transition hover:text-violet-900 hover:underline dark:text-violet-300 dark:hover:text-violet-200"
+                        class="shrink-0 text-xs font-semibold text-[#0F172A] transition hover:text-[#6366F1] hover:underline dark:text-white dark:hover:text-indigo-300"
                     >
                         Show All
                     </a>
@@ -224,7 +223,7 @@
                     @endforelse
                 </div>
             </section>
-        </div>
+            </div>
 
         {{-- ========================================================= --}}
         {{-- SEARCH / FILTER --}}
@@ -234,7 +233,7 @@
         {{-- RECENT DOCUMENTS + CALENDAR --}}
         {{-- ========================================================= --}}
 
-        <div class="dashboard-bottom-row grid grid-cols-1 gap-6 xl:grid-cols-3">
+        <div class="dashboard-bottom-row contents">
 
             {{-- ===================================================== --}}
             {{-- RECENT DOCUMENTS --}}
@@ -243,13 +242,13 @@
             <div class="dashboard-recent-panel dashboard-work-panel min-w-0 xl:col-span-2">
 
                 <div class="mb-4 flex items-center justify-between gap-3">
-                    <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+                    <h2 class="text-lg font-semibold text-[#0F172A] dark:text-white">
                         Recent Documents
                     </h2>
                     <a
                         href="{{ \App\Filament\Pages\Document::getUrl() }}"
                         wire:navigate
-                        class="shrink-0 text-xs font-semibold text-violet-700 transition hover:text-violet-900 hover:underline dark:text-violet-300 dark:hover:text-violet-200"
+                        class="shrink-0 text-xs font-semibold text-[#0F172A] transition hover:text-[#6366F1] hover:underline dark:text-white dark:hover:text-indigo-300"
                     >
                         View All
                     </a>
@@ -260,13 +259,21 @@
 
             {{-- SEARCH --}}
             <div class="relative w-full sm:max-w-md">
+                <input
+                    type="text"
+                    wire:model.live.debounce.300ms="search"
+                    placeholder="Search Document"
+                    class="h-10 w-full rounded-full border border-gray-300 bg-white pl-4 pr-11 text-sm text-gray-900
+                           focus:border-primary-500 focus:ring-primary-500
+                           dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:placeholder:text-gray-400"
+                >
 
                 <svg
-                    class="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400"
+                    class="pointer-events-none absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-800 dark:text-gray-200"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
-                    stroke-width="2"
+                    stroke-width="1.75"
                 >
                     <path
                         stroke-linecap="round"
@@ -274,15 +281,6 @@
                         d="m21 21-4.35-4.35m2.1-5.4a7.5 7.5 0 1 1-15 0 7.5 7.5 0 0 1 15 0Z"
                     />
                 </svg>
-
-                <input
-                    type="search"
-                    wire:model.live.debounce.300ms="search"
-                    placeholder="Search documents..."
-                    class="block w-full rounded-lg border-gray-300 bg-white py-2.5 pl-11 pr-4 text-sm text-gray-950 shadow-sm
-                           focus:border-primary-500 focus:ring-primary-500
-                           dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-                >
 
             </div>
 
@@ -331,15 +329,14 @@
 
 
                             <a
-                                href="{{ \App\Filament\Pages\ViewDocument::getUrl(['document' => $document->getPublicRouteKey()]) }}"
-                                wire:navigate
+                                href="{{ url('/admin/documents/' . $document->public_id) }}"
                                 class="group min-w-0 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm
                                        transition hover:border-gray-300 hover:shadow-md
                                        dark:border-gray-700 dark:bg-gray-900"
                             >
 
                                 {{-- DOCUMENT PREVIEW --}}
-                                <div class="dashboard-document-preview flex h-32 items-start justify-start overflow-hidden bg-gray-50 dark:bg-gray-800">
+                                <div class="dashboard-document-preview flex h-32 items-center justify-center overflow-hidden bg-gray-50 dark:bg-gray-800">
 
                                     @if (
                                         $document->latestVersion?->file_path &&
@@ -347,7 +344,8 @@
                                     )
 
                                         <iframe
-                                            src="{{ route('admin.documents.preview', ['document' => $document->getPublicRouteKey()]) }}#toolbar=0"
+                                            src="{{ route('admin.documents.preview', ['document' => $document->public_id]) }}#toolbar=0"
+                                            scrolling="no"
                                             class="pointer-events-none h-full w-full border-0"
                                             title="Document preview"
                                         ></iframe>
@@ -473,15 +471,15 @@
             <div class="dashboard-calendar-panel min-w-0">
 
                 <div class="mb-4">
-                    <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
-                        <a href="{{ \App\Filament\Pages\Calendar::getUrl(['date' => sprintf('%04d-%02d-01', $year, $month)]) }}" wire:navigate class="hover:underline">My Calendar</a>
+                    <h2 class="text-lg font-semibold text-[#0F172A] dark:text-white">
+                        <a href="{{ \App\Filament\Pages\Calendar::getUrl(['date' => sprintf('%04d-%02d-01', $year, $month)]) }}" class="hover:underline">My Calendar</a>
                     </h2>
 
                 </div>
 
 
                 <div
-                    class="dashboard-work-panel dashboard-calendar-card overflow-hidden rounded-xl border border-gray-200 bg-white p-4 shadow-sm
+                    class="dashboard-work-panel overflow-hidden rounded-xl border border-gray-200 bg-white p-4 shadow-sm
                            dark:border-gray-700 dark:bg-gray-900"
                 >
 
@@ -578,7 +576,7 @@
                                     /*
                                      * TODAY
                                      */
-                                    'bg-violet-500 font-semibold text-white'
+                                    'bg-indigo-500 font-semibold text-white'
                                         => $cell['isToday'],
 
                                     /*
@@ -587,7 +585,7 @@
                                      * No dots / labels.
                                      * Day number only.
                                      */
-                                    'bg-violet-50 font-semibold text-violet-700 ring-1 ring-inset ring-violet-200 dark:bg-violet-500/10 dark:text-violet-300 dark:ring-violet-500/30'
+                                    'bg-indigo-50 font-semibold text-indigo-700 ring-1 ring-inset ring-indigo-200 dark:bg-indigo-500/10 dark:text-indigo-300 dark:ring-indigo-500/30'
                                         => !$cell['isToday']
                                             && $cell['hasEvent']
                                             && $cell['date'] >= now()->toDateString()
@@ -621,7 +619,7 @@
                     <div class="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-gray-100 pt-3 dark:border-gray-800">
 
                         <div class="flex items-center gap-2">
-                            <span class="h-2.5 w-2.5 rounded bg-violet-500"></span>
+                            <span class="h-2.5 w-2.5 rounded bg-indigo-500"></span>
 
                             <span class="text-xs text-gray-500 dark:text-gray-400">
                                 Today
@@ -630,7 +628,7 @@
 
 
                         <div class="flex items-center gap-2">
-                            <span class="h-2.5 w-2.5 rounded bg-violet-100 ring-1 ring-violet-200 dark:bg-violet-500/20 dark:ring-violet-500/40"></span>
+                            <span class="h-2.5 w-2.5 rounded bg-indigo-100 ring-1 ring-indigo-200 dark:bg-indigo-500/20 dark:ring-indigo-500/40"></span>
 
                             <span class="text-xs text-gray-500 dark:text-gray-400">
                                 Event
@@ -644,10 +642,7 @@
             </div>
 
         </div>
-
         </div>
-
-
 
     </div>
 
