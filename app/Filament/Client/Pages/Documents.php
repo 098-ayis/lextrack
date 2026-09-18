@@ -272,7 +272,7 @@ class Documents extends Page implements HasTable
                     $record->copy_type === 'soft_copy' &&
                     filled($record->document?->latestVersion?->file_path)
                     ? ViewDocument::getUrl([
-                        'document' => $record->document_id,
+                        'document' => $record->document?->getPublicRouteKey() ?: $record->document_id,
                         'from' => 'documents',
                         'tab' => 'requested',
                     ])
@@ -380,7 +380,7 @@ class Documents extends Page implements HasTable
                     ->url(
                         fn (DocumentRequest $record): string => route(
                             'client.document.preview',
-                            ['document' => $record->document_id]
+                            ['document' => $record->document?->getPublicRouteKey() ?: $record->document_id]
                         )
                     )
                     ->visible(
@@ -400,7 +400,7 @@ class Documents extends Page implements HasTable
                     ->url(
                         fn (DocumentRequest $record): string => route(
                             'client.document.download',
-                            ['document' => $record->document_id]
+                            ['document' => $record->document?->getPublicRouteKey() ?: $record->document_id]
                         )
                     )
                     ->visible(
@@ -435,7 +435,7 @@ class Documents extends Page implements HasTable
             )
             ->recordUrl(
                 fn (Document $record): string => ViewDocument::getUrl([
-                    'document' => $record->public_id,
+                    'document' => $record->getPublicRouteKey(),
                     'from' => 'documents',
                     'tab' => $this->activeTab,
                 ])
@@ -556,7 +556,7 @@ class Documents extends Page implements HasTable
                         fn (Document $record): ?string =>
                             $record->isAvailableForMessaging()
                                 ? ClientMessages::getUrl([
-                                    'document' => $record->public_id,
+                                    'document' => $record->getPublicRouteKey(),
                                 ])
                                 : null
                     ),
@@ -571,7 +571,7 @@ class Documents extends Page implements HasTable
                     ->url(
                         fn (Document $record): string => route(
                             'client.document.download',
-                            ['document' => $record->public_id]
+                            ['document' => $record->getPublicRouteKey()]
                         )
                     )
                     ->visible(fn (Document $record): bool =>
@@ -589,7 +589,7 @@ class Documents extends Page implements HasTable
                     ->url(
                         fn (Document $record): string => route(
                             'client.document.preview',
-                            ['document' => $record->public_id]
+                            ['document' => $record->getPublicRouteKey()]
                         )
                     )
                     ->visible(fn (Document $record): bool =>

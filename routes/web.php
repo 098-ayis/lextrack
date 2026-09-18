@@ -102,20 +102,17 @@ Route::get('/document-status/{document}', function (int $document) {
 
 Route::get('/client/document-preview/{document}', function (string $document) {
 
-    $documentRecord = Document::query()
-        ->where('public_id', $document)
-        ->where(function ($query) {
-            $query
-                ->where('user_id', auth()->id())
-                ->orWhereHas(
-                    'documentRequests',
-                    fn ($requestQuery) => $requestQuery->where(
-                        'user_id',
-                        auth()->id()
-                    )->where('status', 'accepted')
-                );
-        })
-        ->firstOrFail();
+    $documentRecord = Document::findForRoute($document);
+
+    abort_unless(
+        (int) $documentRecord->user_id === (int) auth()->id()
+        || $documentRecord
+            ->documentRequests()
+            ->where('user_id', auth()->id())
+            ->where('status', 'accepted')
+            ->exists(),
+        404
+    );
 
     $versionRecord = DocumentVersion::query()
         ->where('document_id', $documentRecord->document_id)
@@ -143,20 +140,17 @@ Route::get('/client/document-preview/{document}', function (string $document) {
     ->name('client.document.preview');
 
 Route::get('/client/document-download/{document}', function (string $document) {
-    $documentRecord = Document::query()
-        ->where('public_id', $document)
-        ->where(function ($query) {
-            $query
-                ->where('user_id', auth()->id())
-                ->orWhereHas(
-                    'documentRequests',
-                    fn ($requestQuery) => $requestQuery->where(
-                        'user_id',
-                        auth()->id()
-                    )->where('status', 'accepted')
-                );
-        })
-        ->firstOrFail();
+    $documentRecord = Document::findForRoute($document);
+
+    abort_unless(
+        (int) $documentRecord->user_id === (int) auth()->id()
+        || $documentRecord
+            ->documentRequests()
+            ->where('user_id', auth()->id())
+            ->where('status', 'accepted')
+            ->exists(),
+        404
+    );
 
     $versionRecord = DocumentVersion::query()
         ->where('document_id', $documentRecord->document_id)
