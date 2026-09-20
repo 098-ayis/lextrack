@@ -400,9 +400,8 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            height: 4.25rem;
-            min-height: 4.25rem;
-            padding: 0 1.5rem;
+            min-height: 7rem;
+            padding: 1rem 1.5rem;
         }
 
         .client-documents-page .client-documents-table-all .fi-ta-empty-state-content,
@@ -411,9 +410,10 @@
         .client-documents-page .client-documents-table-completed .fi-ta-empty-state-content {
             display: flex;
             max-width: none;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
-            gap: 0.75rem;
+            gap: 0.5rem;
         }
 
         .client-documents-page .client-documents-table-all .fi-ta-empty-state-icon-bg,

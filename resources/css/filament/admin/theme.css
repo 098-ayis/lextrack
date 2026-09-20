@@ -2388,6 +2388,36 @@ Edit-Button
 .dark .dashboard-status-grid .text-3xl { color:#a5b4fc; }
 .dark .office-dashboard .bg-white { background-color:#0f172a; }
 .dark .office-dashboard .processing-trend-line { color:#a5b4fc; }
+
+/* Decorative Lady Justice artwork on the client dashboard welcome banner. */
+.client-dashboard-welcome::after {
+    position:absolute;
+    z-index:2;
+    top:0;
+    right:1.5rem;
+    bottom:0;
+    width:min(52%, 38rem);
+    background-image:url('../../../images/stamp_banner.png');
+    background-repeat:no-repeat;
+    background-position:right center;
+    background-size:contain;
+    content:"";
+    opacity:.62;
+    pointer-events:none;
+}
+
+.client-dashboard-welcome > svg {
+    z-index:1;
+}
+
+@media (max-width:40rem) {
+    .client-dashboard-welcome::after {
+        right:.75rem;
+        width:70%;
+        background-size:contain;
+        opacity:.34;
+    }
+}
 .dark .office-dashboard .processing-trend-area-start { stop-color:#818cf8; stop-opacity:.32; }
 .dark .office-dashboard .processing-trend-area-end { stop-color:#818cf8; stop-opacity:0; }
 @media(max-width:900px) { .dashboard-productivity { grid-template-columns:minmax(0,1fr); } }

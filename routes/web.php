@@ -139,6 +139,39 @@ Route::get('/client/document-preview/{document}', function (string $document) {
     ->middleware('auth')
     ->name('client.document.preview');
 
+Route::get('/client/document-thumbnail/{document}', function (string $document) {
+    $documentRecord = Document::findForRoute($document);
+
+    abort_unless(
+        (int) $documentRecord->user_id === (int) auth()->id()
+        || $documentRecord
+            ->documentRequests()
+            ->where('user_id', auth()->id())
+            ->where('status', 'accepted')
+            ->exists(),
+        404
+    );
+
+    $versionRecord = DocumentVersion::query()
+        ->where('document_id', $documentRecord->document_id)
+        ->latest('created_at')
+        ->latest('version_id')
+        ->first();
+
+    $disk = Storage::disk('local');
+    $filePath = $versionRecord?->file_path;
+
+    if ($filePath && ! $disk->exists($filePath)) {
+        $disk = Storage::disk('public');
+    }
+
+    abort_unless($filePath && $disk->exists($filePath), 404);
+
+    return app(\App\Services\DocumentPreviewService::class)->thumbnail($disk->path($filePath));
+})
+    ->middleware('auth')
+    ->name('client.document.thumbnail');
+
 Route::get('/client/document-download/{document}', function (string $document) {
     $documentRecord = Document::findForRoute($document);
 

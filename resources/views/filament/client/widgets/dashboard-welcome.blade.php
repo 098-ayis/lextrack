@@ -1,5 +1,5 @@
 <x-filament-widgets::widget>
-    <div class="relative overflow-hidden rounded-2xl bg-[linear-gradient(115deg,#050816_0%,#101b46_38%,#172b68_72%,#1e3a8a_100%)] shadow-sm">
+    <div class="client-dashboard-welcome relative isolate overflow-hidden rounded-2xl bg-[linear-gradient(115deg,#050816_0%,#101b46_38%,#172b68_72%,#1e3a8a_100%)] shadow-sm">
         <div class="relative z-10 px-6 pb-12 pt-10 sm:px-8 sm:pb-16 sm:pt-12">
             <h2 class="text-2xl font-bold tracking-tight text-white sm:text-3xl">
                 Welcome, {{ auth()->user()?->name ?? 'User' }}!
@@ -84,56 +84,6 @@
                 fill="currentColor"
                 d="M0 116C120 60 240 60 360 116s240 56 360 0 240-56 360 0 240 56 360 0v44H0v-44Z"
             />
-        </svg>
-
-        <svg
-            class="pointer-events-none absolute inset-0 h-full w-full text-white/30"
-            viewBox="0 0 1440 260"
-            preserveAspectRatio="none"
-            fill="currentColor"
-            aria-hidden="true"
-        >
-            <g>
-                <circle cx="95" cy="42" r="1.5" />
-                <circle cx="178" cy="112" r="1" />
-                <circle cx="264" cy="62" r="1.25" />
-                <circle cx="355" cy="150" r="1.5" />
-                <circle cx="446" cy="38" r="1" />
-                <circle cx="536" cy="94" r="1.25" />
-                <circle cx="638" cy="52" r="1.5" />
-                <circle cx="748" cy="136" r="1" />
-                <circle cx="842" cy="44" r="1.25" />
-                <circle cx="934" cy="106" r="1.5" />
-                <circle cx="1030" cy="58" r="1" />
-                <circle cx="1120" cy="144" r="1.25" />
-                <circle cx="1210" cy="38" r="1.5" />
-                <circle cx="1320" cy="116" r="1" />
-                <circle cx="1380" cy="70" r="1.25" />
-                <circle cx="54" cy="176" r="0.9" />
-                <circle cx="132" cy="78" r="0.8" />
-                <circle cx="218" cy="28" r="0.7" />
-                <circle cx="306" cy="126" r="0.9" />
-                <circle cx="402" cy="82" r="0.8" />
-                <circle cx="482" cy="156" r="0.7" />
-                <circle cx="574" cy="24" r="0.9" />
-                <circle cx="688" cy="112" r="0.8" />
-                <circle cx="776" cy="28" r="0.7" />
-                <circle cx="884" cy="156" r="0.9" />
-                <circle cx="976" cy="76" r="0.8" />
-                <circle cx="1068" cy="28" r="0.7" />
-                <circle cx="1162" cy="104" r="0.9" />
-                <circle cx="1254" cy="168" r="0.8" />
-                <circle cx="1350" cy="150" r="0.7" />
-            </g>
-            <g class="text-indigo-100/60">
-                <path d="M220 178l2 6 6 2-6 2-2 6-2-6-6-2 6-2 2-6Z" />
-                <path d="M510 188l2 6 6 2-6 2-2 6-2-6-6-2 6-2 2-6Z" />
-                <path d="M800 84l2 6 6 2-6 2-2 6-2-6-6-2 6-2 2-6Z" />
-                <path d="M1088 188l2 6 6 2-6 2-2 6-2-6-6-2 6-2 2-6Z" />
-                <path d="M146 210l1.5 4.5 4.5 1.5-4.5 1.5-1.5 4.5-1.5-4.5-4.5-1.5 4.5-1.5 1.5-4.5Z" />
-                <path d="M690 204l1.5 4.5 4.5 1.5-4.5 1.5-1.5 4.5-1.5-4.5-4.5-1.5 4.5-1.5 1.5-4.5Z" />
-                <path d="M1260 206l1.5 4.5 4.5 1.5-4.5 1.5-1.5 4.5-1.5-4.5-4.5-1.5 4.5-1.5 1.5-4.5Z" />
-            </g>
         </svg>
 
     </div>

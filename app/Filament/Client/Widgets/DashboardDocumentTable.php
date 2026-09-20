@@ -48,7 +48,7 @@ class DashboardDocumentTable extends Widget
                     ->latest('request_id'),
             ])
             ->latest('created_at')
-            ->limit(8)
+            ->limit(10)
             ->get();
     }
 
