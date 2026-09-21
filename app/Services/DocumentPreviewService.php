@@ -10,6 +10,37 @@ use Symfony\Component\Process\Process;
 
 class DocumentPreviewService
 {
+    /** Return the number of pages in a PDF, or null when it cannot be read. */
+    public function pageCount(string $source): ?int
+    {
+        if (! is_file($source) || strtolower(pathinfo($source, PATHINFO_EXTENSION)) !== 'pdf') {
+            return null;
+        }
+
+        $escapedPath = str_replace(['\\', '(', ')'], ['\\\\', '\\(', '\\)'], $source);
+        $process = new Process([
+            'gs', '-q', '-dSAFER', '-dNODISPLAY',
+            '-c', '('.$escapedPath.') (r) file runpdfbegin pdfpagecount = quit',
+        ]);
+        $process->setTimeout(15);
+
+        try {
+            $process->mustRun();
+        } catch (\Throwable) {
+            return null;
+        }
+
+        foreach (array_reverse(preg_split('/\R/', trim($process->getOutput())) ?: []) as $line) {
+            $line = trim($line);
+
+            if (ctype_digit($line) && (int) $line > 0) {
+                return (int) $line;
+            }
+        }
+
+        return null;
+    }
+
     /**
      * Build a consistent, first-page thumbnail for document cards.
      *

@@ -120,7 +120,7 @@
                         wire:model.live="documentType"
                         class="h-10 w-full appearance-none rounded-full border border-gray-300 bg-white pl-3 pr-9 text-xs font-semibold text-gray-900 focus:outline-none focus:ring-0 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
                     >
-                        <option value="">Type</option>
+                        <option value="">Document Type</option>
                         @if ($activeTab === 'requested')
                             <option value="original">Original</option>
                             <option value="soft_copy">Soft copy</option>

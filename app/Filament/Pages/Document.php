@@ -1287,7 +1287,7 @@ class Document extends Page implements HasTable
                                 ->label('Status')
                                 ->options([
                                     'pending' => 'Pending',
-                                    'in_progress' => 'In Progress',
+                                    'in_progress' => 'Incoming',
                                     'completed' => 'Completed',
                                     'returned' => 'Returned',
                                     'outgoing' => 'Outgoing',

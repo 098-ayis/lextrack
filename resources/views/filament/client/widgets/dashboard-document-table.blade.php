@@ -1,6 +1,20 @@
 <x-filament-widgets::widget>
 
-    <div class="client-dashboard-documents space-y-4">
+    <div class="client-dashboard-documents space-y-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+
+        {{-- RECENT DOCUMENTS TITLE --}}
+        <div class="flex items-center justify-between">
+            <h2 class="text-lg font-bold text-gray-900 dark:text-gray-100">
+                Recent Documents
+            </h2>
+
+            <a
+                href="{{ \App\Filament\Client\Pages\Documents::getUrl() }}"
+                class="text-sm font-semibold text-[#6366F1] transition hover:underline dark:text-indigo-400"
+            >
+                View all
+            </a>
+        </div>
 
         {{-- SEARCH / FILTERS / ACTIONS --}}
         <div class="flex w-full flex-col gap-4">
@@ -57,7 +71,7 @@
                                 wire:model.live="documentType"
                                 class="h-10 w-full appearance-none rounded-full border border-gray-300 bg-white pl-3 pr-9 text-xs font-semibold text-gray-900 focus:outline-none focus:ring-0 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
                             >
-                                <option value="">Type</option>
+                                <option value="">Document Type</option>
                                 @foreach (\App\Models\DocumentType::orderBy('type_name')->get() as $type)
                                     <option value="{{ $type->type_name }}">{{ $type->type_name }}</option>
                                 @endforeach
@@ -173,20 +187,6 @@
         </div>
 
 
-        {{-- RECENT DOCUMENTS TITLE --}}
-        <div class="flex items-center justify-between">
-            <h2 class="text-lg font-bold text-gray-900 dark:text-gray-100">
-                Recent Documents
-            </h2>
-
-            <a
-                href="{{ \App\Filament\Client\Pages\Documents::getUrl() }}"
-                class="text-sm font-semibold text-[#6366F1] transition hover:underline dark:text-indigo-400"
-            >
-                View all
-            </a>
-        </div>
-
         {{-- DOCUMENT CARDS --}}
         @php
             $documents = $this->getDocuments();
@@ -248,7 +248,7 @@
                         </span>
 
                         {{-- PREVIEW --}}
-                        <div class="dashboard-document-preview relative aspect-[4/3] shrink-0 overflow-hidden border-b border-gray-200 bg-gray-100 dark:border-gray-700 dark:bg-gray-900">
+                        <div class="dashboard-document-preview relative aspect-video shrink-0 overflow-hidden border-b border-gray-200 bg-gray-100 dark:border-gray-700 dark:bg-gray-900">
                             @if ($thumbnailUrl)
                                 <img
                                     src="{{ $thumbnailUrl }}"
@@ -289,16 +289,15 @@
                                 {{ $document->particulars ?: $document->description ?: 'Untitled document' }}
                             </h3>
 
-                            <p class="mt-2 text-xs font-medium text-gray-500 dark:text-gray-400">
+                            <p class="mt-1 text-xs font-medium text-gray-500 dark:text-gray-400">
                                 {{ $document->lao_number ?: '—' }}
                             </p>
 
-                            <div class="mt-auto flex items-center justify-between gap-3 pt-5">
-                                <span class="inline-flex items-center rounded-lg border px-3 py-1 text-xs font-semibold {{ $statusClasses }}">
+                            <div class="mt-auto flex items-center justify-between gap-2 pt-3">
+                                <span class="inline-flex w-fit shrink-0 items-center whitespace-nowrap rounded-lg border px-3 py-1 text-xs font-semibold {{ $statusClasses }}">
                                     {{ $statusLabel }}
                                 </span>
-
-                                <span class="text-xs text-gray-400 dark:text-gray-500">
+                                <span class="whitespace-nowrap text-right text-xs text-gray-400 dark:text-gray-500">
                                     {{ $document->created_at?->diffForHumans() }}
                                 </span>
                             </div>

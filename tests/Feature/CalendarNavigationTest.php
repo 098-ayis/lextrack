@@ -80,7 +80,11 @@ class CalendarNavigationTest extends TestCase
         $cells = collect($dashboard->getCalendarCells())->keyBy('date');
 
         $this->assertTrue($cells['2026-09-06']['isCompleted']);
+        $this->assertSame(1, $cells['2026-09-06']['eventCount']);
+        $this->assertSame(['#0f766e'], $cells['2026-09-06']['eventColors']);
         $this->assertFalse($cells['2026-09-07']['isCompleted']);
+        $this->assertSame(2, $cells['2026-09-07']['eventCount']);
+        $this->assertSame(['#0f766e', '#0f766e'], $cells['2026-09-07']['eventColors']);
         $this->assertFalse($cells['2026-09-08']['isCompleted']);
     }
 }

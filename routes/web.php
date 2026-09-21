@@ -311,6 +311,28 @@ Route::get('/admin/documents/{document}/preview', function (string $document) {
     ->middleware(['auth', AdminMiddleware::class])
     ->name('admin.documents.preview');
 
+Route::get('/admin/documents/{document}/thumbnail', function (string $document) {
+    $documentRecord = Document::findForRoute($document);
+    $versionRecord = DocumentVersion::query()
+        ->where('document_id', $documentRecord->document_id)
+        ->latest('created_at')
+        ->latest('version_id')
+        ->first();
+
+    $disk = Storage::disk('local');
+    $filePath = $versionRecord?->file_path;
+
+    if ($filePath && ! $disk->exists($filePath)) {
+        $disk = Storage::disk('public');
+    }
+
+    abort_unless($filePath && $disk->exists($filePath), 404);
+
+    return app(\App\Services\DocumentPreviewService::class)->thumbnail($disk->path($filePath));
+})
+    ->middleware(['auth', AdminMiddleware::class])
+    ->name('admin.documents.thumbnail');
+
 Route::get('/admin/documents/{document}/transmittal-preview', function (string $document) {
     $documentRecord = Document::findForRoute($document);
     $filePath = $documentRecord->transmittal;
