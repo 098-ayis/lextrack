@@ -11,7 +11,6 @@ use App\Models\Document;
 use App\Models\DocumentVersion;
 use App\Models\Message;
 use App\Models\MessageAttachment;
-use App\Http\Controllers\AIController;
 use App\Http\Controllers\Auth\GoogleAuthController;
 use App\Http\Controllers\UserExportController;
 use App\Http\Controllers\DocumentExportController;
@@ -21,16 +20,10 @@ use App\Services\DocumentQrToken;
 use Spatie\Honeypot\Honeypot;
 use Spatie\Honeypot\ProtectAgainstSpam;
 use RyanChandler\LaravelCloudflareTurnstile\Rules\Turnstile;
-
-
-Route::view('/ai-test', 'ai-test');
-
 Route::post('/chatbot/message', [
     ChatbotController::class,
     'reply',
-])->middleware('throttle:10,1');
-
-Route::post('/ask-ai', [AIController::class, 'ask']);
+])->middleware(['auth', 'throttle:10,1'])->name('chatbot.message');
 
 Route::get('/', function () {
     return view('home');

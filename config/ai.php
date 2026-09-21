@@ -155,4 +155,12 @@ return [
         ],
     ],
 
+    'conversations' => [
+        
+    'tables' => [
+        'conversations' => 'ai_conversations',
+        'messages' => 'ai_conversation_messages',
+    ],
+],
+
 ];
