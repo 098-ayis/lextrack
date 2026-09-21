@@ -1463,7 +1463,7 @@ JS;
             $changes = $this->documentDetailsChanges($log);
 
             if ($changes !== []) {
-                return implode("\n", $changes);
+                return 'updated document details';
             }
         }
 
@@ -1472,23 +1472,60 @@ JS;
             $newNote = trim((string) $log->new_value);
 
             if ($log->action_type === 'Note added' && $newNote !== '') {
-                return 'Note added: ' . $newNote;
+                return 'added a note: ' . $newNote;
             }
 
             if ($log->action_type === 'Note updated' && $oldNote !== '' && $newNote !== '') {
-                return 'Note changed: ' . $oldNote . ' → ' . $newNote;
+                return 'updated a note';
             }
 
             if ($log->action_type === 'Note updated' && $newNote !== '') {
-                return 'Updated note to: ' . $newNote;
+                return 'updated a note to: ' . $newNote;
             }
 
             if ($log->action_type === 'Note deleted' && $oldNote !== '') {
-                return 'Note deleted: ' . $oldNote;
+                return 'deleted a note: ' . $oldNote;
             }
         }
 
-        return (string) ($log->action_details ?: $log->action_type ?: 'Document updated');
+        $description = trim((string) ($log->action_details ?: $log->action_type ?: 'Document updated'));
+
+        return $description === '' ? 'updated the document.' : lcfirst($description);
+    }
+
+    public function activityActorFirstName(ActivityLog $log): string
+    {
+        $name = preg_replace('/\s+/u', ' ', trim((string) $log->user?->name)) ?? '';
+
+        return explode(' ', $name, 2)[0] ?: 'Someone';
+    }
+
+    /** @return list<array{label: string, before: string, after: string}> */
+    public function activityChangeRows(ActivityLog $log): array
+    {
+        if (in_array($log->action_type, ['Document details updated', 'Document updated'], true)) {
+            $oldValues = json_decode((string) $log->old_value, true);
+            $newValues = json_decode((string) $log->new_value, true);
+
+            if (is_array($oldValues) && is_array($newValues)) {
+                return $this->formatDocumentDetailsChangeRows($oldValues, $newValues);
+            }
+        }
+
+        if ($log->action_type === 'Note updated') {
+            $oldNote = trim((string) $log->old_value);
+            $newNote = trim((string) $log->new_value);
+
+            if ($oldNote !== '' && $newNote !== '') {
+                return [[
+                    'label' => 'Note',
+                    'before' => $oldNote,
+                    'after' => $newNote,
+                ]];
+            }
+        }
+
+        return [];
     }
 
     /** @return list<string> */
@@ -1506,6 +1543,15 @@ JS;
 
     /** @return list<string> */
     private function formatDocumentDetailsChanges(array $oldValues, array $newValues): array
+    {
+        return array_map(
+            fn (array $change): string => $change['label'] . ': ' . $change['before'] . ' → ' . $change['after'],
+            $this->formatDocumentDetailsChangeRows($oldValues, $newValues),
+        );
+    }
+
+    /** @return list<array{label: string, before: string, after: string}> */
+    private function formatDocumentDetailsChangeRows(array $oldValues, array $newValues): array
     {
         $labels = [
             'lao_number' => 'LAO Number',
@@ -1536,8 +1582,11 @@ JS;
                 continue;
             }
 
-            $changes[] = ($labels[$field] ?? str($field)->replace('_', ' ')->ucfirst()->toString())
-                . ': ' . $oldDisplay . ' → ' . $newDisplay;
+            $changes[] = [
+                'label' => $labels[$field] ?? str($field)->replace('_', ' ')->ucfirst()->toString(),
+                'before' => $oldDisplay,
+                'after' => $newDisplay,
+            ];
         }
 
         return $changes;

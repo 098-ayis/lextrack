@@ -116,7 +116,26 @@ class AdminPanelProvider extends PanelProvider
             )
             ->renderHook(
                 PanelsRenderHook::TOPBAR_START,
-                fn () => view('filament.admin.page-title'),
+                function () {
+                    $route = request()->route();
+                    $documentIdentifier = $route?->parameter('document');
+
+                    if (request()->routeIs('filament.admin.pages.documents.*')) {
+                        $document = $documentIdentifier instanceof Document
+                            ? $documentIdentifier
+                            : ((is_string($documentIdentifier) || is_int($documentIdentifier))
+                                ? Document::findForRoute($documentIdentifier)
+                                : null);
+
+                        if ($document) {
+                            return view('filament.admin.document-page-title', [
+                                'document' => $document,
+                            ]);
+                        }
+                    }
+
+                    return view('filament.admin.page-title');
+                },
             )
             ->globalSearch(false)
             ->databaseNotifications(true, DatabaseNotifications::class)

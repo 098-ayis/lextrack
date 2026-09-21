@@ -411,6 +411,98 @@
     flex-shrink: 1;
 }
 
+.fi-panel-admin .fi-topbar .fi-admin-document-context {
+    display: flex;
+    min-width: 0;
+    max-width: min(55vw, 48rem);
+    flex: 0 1 auto;
+    align-items: center;
+    gap: 0.75rem;
+    margin-inline-end: auto;
+}
+
+/* TOPBAR_START is the marked upper-left slot, outside Filament's hidden sidebar area. */
+.fi-panel-admin .fi-topbar > .fi-admin-document-context {
+    display: flex !important;
+    position: relative;
+    z-index: 1;
+}
+
+.fi-panel-admin .fi-topbar .fi-admin-document-back {
+    display: inline-flex;
+    width: 3rem;
+    height: 3rem;
+    flex: 0 0 3rem;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 0;
+    border-radius: 0.625rem;
+    background: #ffffff;
+    color: #4b5563;
+    cursor: pointer;
+    transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease;
+}
+
+.fi-panel-admin .fi-topbar .fi-admin-document-back:hover,
+.fi-panel-admin .fi-topbar .fi-admin-document-back:focus-visible {
+    border-color: #cbd5e1;
+    background: #f8fafc;
+    color: #111827;
+    outline: none;
+}
+
+.fi-panel-admin .fi-topbar .fi-admin-document-back svg {
+    width: 1.6rem;
+    height: 1.6rem;
+}
+
+.fi-panel-admin .fi-topbar .fi-admin-document-context-copy {
+    min-width: 0;
+}
+
+.fi-panel-admin .fi-topbar .fi-admin-document-context-copy h1 {
+    overflow: hidden;
+    margin: 0;
+    color: #111827;
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1.25;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.fi-panel-admin .fi-topbar .fi-admin-document-context-copy p {
+    overflow: hidden;
+    margin: 0.15rem 0 0;
+    color: #6b7280;
+    font-size: 0.75rem;
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dark .fi-panel-admin .fi-topbar .fi-admin-document-back {
+    border-color: #374151;
+    background: #111827;
+    color: #d1d5db;
+}
+
+.dark .fi-panel-admin .fi-topbar .fi-admin-document-back:hover,
+.dark .fi-panel-admin .fi-topbar .fi-admin-document-back:focus-visible {
+    border-color: #4b5563;
+    background: #1f2937;
+    color: #ffffff;
+}
+
+.dark .fi-panel-admin .fi-topbar .fi-admin-document-context-copy h1 {
+    color: #f9fafb;
+}
+
+.dark .fi-panel-admin .fi-topbar .fi-admin-document-context-copy p {
+    color: #9ca3af;
+}
+
 /* On compact screens, place the title immediately after the sidebar toggle. */
 @media (max-width: 63.99rem) {
     .fi-panel-admin .fi-topbar > .fi-topbar-open-sidebar-btn,
@@ -422,6 +514,12 @@
         order: 2;
         margin-inline-start: 0.75rem;
         padding-inline-start: 0;
+    }
+
+    .fi-panel-admin .fi-topbar > .fi-admin-document-context {
+        order: 2;
+        max-width: calc(100vw - 9rem);
+        margin-inline-start: 0.75rem;
     }
 
     .fi-panel-admin .fi-topbar > .fi-topbar-end {

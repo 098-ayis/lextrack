@@ -244,6 +244,8 @@
                     <div class="document-history-list">
                         @forelse ($activityLogs as $log)
                             @php($activityDescription = $this->activityDescription($log))
+                            @php($activityActor = $this->activityActorFirstName($log))
+                            @php($activityChanges = $this->activityChangeRows($log))
                             <article
                                 class="document-history-item"
                                 wire:key="document-history-{{ $log->log_id }}"
@@ -260,8 +262,30 @@
                                         <h3>{{ $log->action_type ?? 'Document updated' }}</h3>
                                         <time>{{ $log->created_at?->format('m/d/Y | g:i A') }}</time>
                                     </div>
-                                    @if (filled($activityDescription))
-                                        <p>{{ $activityDescription }}</p>
+                                    @if ($activityChanges !== [])
+                                        <details class="document-history-changes">
+                                            <summary>
+                                                <p><strong class="document-history-actor">{{ $activityActor }}</strong> {{ $activityDescription }}</p>
+                                                <span>View changes</span>
+                                            </summary>
+                                            <div class="document-history-change-list">
+                                                @foreach ($activityChanges as $change)
+                                                    <div class="document-history-change">
+                                                        <h4>{{ $change['label'] }}</h4>
+                                                        <div class="document-history-change-value">
+                                                            <span class="document-history-change-tag document-history-before">Before</span>
+                                                            <span>{{ $change['before'] }}</span>
+                                                        </div>
+                                                        <div class="document-history-change-value">
+                                                            <span class="document-history-change-tag document-history-after">After</span>
+                                                            <span>{{ $change['after'] }}</span>
+                                                        </div>
+                                                    </div>
+                                                @endforeach
+                                            </div>
+                                        </details>
+                                    @elseif (filled($activityDescription))
+                                        <p><strong class="document-history-actor">{{ $activityActor }}</strong> {{ $activityDescription }}</p>
                                     @endif
                                 </div>
                             </article>
@@ -362,7 +386,9 @@
         .document-activity-card { display: flex; flex-direction: column; padding: 0.75rem; }
         .document-notes-panel { min-height: 0; height: 40%; max-height: 40%; flex: 0 0 40%; overflow-y: auto; }
         .document-notes-panel > div:first-child { padding: 0.15rem 0.75rem 0.7rem; }
-        .document-notes-panel > div:first-child p { margin: 0; color: #111827; font-size: 1rem; font-weight: 650; letter-spacing: 0; text-transform: none; }
+        .document-notes-panel > div:first-child p { margin: 0; color: #111827; font-size: 1.08rem; font-weight: 650; letter-spacing: 0; text-transform: none; }
+        .document-note-author, .document-note-content, .document-note-empty { font-size: 0.84rem !important; }
+        .document-note-timestamp { font-size: 0.72rem !important; }
         .document-notes-panel .add-note-button { display: inline-flex; width: 2rem !important; height: 2rem !important; align-items: center; justify-content: center; border: 0 !important; border-radius: 999px !important; background: white !important; color: #111827 !important; padding: 0.3rem !important; box-shadow: none !important; }
         .document-notes-panel .add-note-button:hover { background: #f9fafb !important; }
         .document-notes-panel .add-note-button svg { width: 1.2rem; height: 1.2rem; }
@@ -379,9 +405,29 @@
         .document-history-avatar span { font-size: 0.9rem; font-weight: 700; }
         .document-history-copy { min-width: 0; padding: 0.1rem 0 0.8rem; }
         .document-history-title-line { display: flex; align-items: baseline; justify-content: space-between; gap: 0.45rem; border-bottom: 1px solid #111827; padding-bottom: 0.25rem; }
-        .document-history-title-line h3 { min-width: 0; margin: 0; color: #111827; font-size: 0.8rem; font-weight: 650; line-height: 1.35; }
-        .document-history-title-line time { flex-shrink: 0; color: #4b5563; font-size: 0.68rem; font-weight: 600; white-space: nowrap; }
-        .document-history-copy p { margin: 0.35rem 0 0; color: #4b5563; font-size: 0.74rem; line-height: 1.4; white-space: pre-line; overflow-wrap: anywhere; }
+        .document-history-title-line h3 { min-width: 0; margin: 0; color: #111827; font-size: 0.84rem; font-weight: 650; line-height: 1.35; }
+        .document-history-title-line time { flex-shrink: 0; color: #4b5563; font-size: 0.72rem; font-weight: 600; white-space: nowrap; }
+        .document-history-copy p { margin: 0.35rem 0 0; color: #4b5563; font-size: 0.84rem; line-height: 1.4; white-space: pre-line; overflow-wrap: anywhere; }
+        .document-history-actor { color: #1f2937; font-weight: 700; }
+        .document-history-changes { margin-top: 0.35rem; }
+        .document-history-changes summary { display: flex; cursor: pointer; list-style: none; align-items: center; gap: 0.5rem; color: #4f46e5; font-size: 0.76rem; font-weight: 650; line-height: 1.4; }
+        .document-history-changes summary p { min-width: 0; flex: 1; margin: 0; color: #4b5563; font-size: 0.84rem; font-weight: 400; white-space: pre-line; overflow-wrap: anywhere; }
+        .document-history-changes summary > span { flex: 0 0 auto; white-space: nowrap; }
+        .document-history-changes summary::-webkit-details-marker { display: none; }
+        .document-history-changes summary::after { width: 0.42rem; height: 0.42rem; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; content: ''; transform: rotate(45deg) translateY(-0.1rem); transition: transform 150ms ease; }
+        .document-history-changes[open] summary::after { transform: rotate(225deg) translate(-0.05rem, -0.05rem); }
+        .document-history-change-list { display: grid; width: 100%; max-height: min(45vh, 20rem); gap: 0.4rem; overflow-y: auto; margin: 0.4rem 0 0; padding: 0.5rem; border: 1px solid #e5e7eb; border-radius: 0.65rem; background: #ffffff; }
+        .document-history-change { display: grid; gap: 0.3rem; padding: 0.45rem 0.55rem; border: 1px solid #e5e7eb; border-radius: 0.55rem; background: #f8fafc; }
+        .document-history-change h4 { margin: 0; color: #374151; font-size: 0.78rem; font-weight: 700; line-height: 1.3; }
+        .document-history-change-value { display: grid; grid-template-columns: 3.25rem minmax(0, 1fr); align-items: start; gap: 0.4rem; color: #374151; font-size: 0.78rem; line-height: 1.35; overflow-wrap: anywhere; }
+        .document-history-change-tag { width: fit-content; padding: 0.08rem 0.3rem; border-radius: 999px; font-size: 0.6rem; font-weight: 700; line-height: 1.35; }
+        .document-history-before { background: #fee2e2; color: #b91c1c; }
+        .document-history-after { background: #e0e7ff; color: #4338ca; }
+        .dark .document-history-actor { color: #f9fafb; }
+        .dark .document-history-changes summary { color: #a5b4fc; }
+        .dark .document-history-change-list { border-color: #374151; background: #111827; }
+        .dark .document-history-change { border-color: #374151; background: #1f2937; }
+        .dark .document-history-change h4, .dark .document-history-change-value { color: #e5e7eb; }
         .document-history-empty { padding: 1rem 0.25rem; color: #858b98; font-size: 0.8rem; text-align: center; }
         @media (max-width: 1200px) {
             .document-viewer-layout { grid-template-columns: minmax(250px, 0.95fr) minmax(360px, 1.2fr) minmax(260px, 0.9fr); gap: 0.7rem; }
