@@ -1,13 +1,79 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# LexTrack
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+A web-based document tracking and management system for the
+Bicol University Legal Affairs Office, developed as a BSIT
+Capstone Project at Bicol University.
 
-## Document downloads
+## Features
+
+- Role-based access control (client and admin)
+- Document submission, validation, and status tracking
+- Secure messaging and calendar/scheduling
+- Notifications, monthly reports, and chatbot assistance
+
+## Tech Stack
+
+Laravel, Vue, Tailwind CSS + daisyUI, MySQL, Docker (Laravel Sail),
+Google Authentication
+
+## Setup
+
+**Requirements:** Git and Docker Desktop.
+
+1. Clone the repository and switch to `develop`:
+
+   ```bash
+   git clone https://github.com/098-ayis/lextrack.git
+   cd lextrack
+   git checkout develop
+   ```
+
+2. Copy the environment file, then open `.env` and set your database,
+   mail, and Google OAuth values:
+
+   ```bash
+   cp .env.example .env
+   ```
+
+3. Start the containers:
+
+   ```bash
+   docker compose up -d --build
+   ```
+
+4. Install PHP dependencies, generate the app key, and run the migrations:
+
+   ```bash
+   docker compose exec --user sail laravel.test composer install
+   docker compose exec --user sail laravel.test php artisan key:generate
+   docker compose exec --user sail laravel.test php artisan migrate
+   ```
+
+5. Install and build the frontend:
+
+   ```bash
+   docker compose exec --user sail laravel.test npm ci
+   docker compose exec --user sail laravel.test npm run build
+   ```
+
+6. Open the app at http://localhost.
+
+## Branching
+
+- `main`: tested, stable version
+- `develop`: shared integration branch
+- `feature/*`: one short-lived branch per module or task, merged into
+  `develop` through a reviewed pull request
+
+## Team
+- Kathleen Ann Borromeo
+- Hershey Hestiada, Leader
+- Chariesse Lobarbio
+- Rhona Eloisa Lumbes
+
+## Developer Notes
+
+### Document downloads
 
 DOCX downloads keep their Word format and include a clickable QR image above the document content. The original upload is unchanged. PDF downloads remain PDF. Legacy `.doc` downloads require LibreOffice Writer to convert the document to PDF before adding its QR code. The Sail image includes `libreoffice-writer` and `fonts-liberation` in `docker/8.5/Dockerfile`.
 
@@ -27,7 +93,7 @@ docker compose exec -T --user sail laravel.test php artisan test --filter=Docume
 
 DOCX previews render the original Word data directly in the browser, without PDF conversion. DOCX downloads retain their Word format with the QR code. Only legacy `.doc` previews require LibreOffice Writer.
 
-## Monthly report PDF downloads
+### Monthly report PDF downloads
 
 Monthly report PDFs automatically install the Chromium version required by the
 installed Playwright package. `npm ci` prepares it, container startup checks it,
@@ -50,57 +116,7 @@ Verify PDF downloads with:
 docker compose exec -T --user sail laravel.test php artisan test --filter=MonthlyReportPdfTest
 ```
 
-## About Laravel
-
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
-
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
-
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
-
-## Learning Laravel
-
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
-
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
-
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
-
-## Agentic Development
-
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
-
-```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
-```
-
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
-
-## Contributing
-
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
-
-## Code of Conduct
-
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
-
-## Security Vulnerabilities
-
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
-
-## License
-
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
-
-## Calendar holidays
+### Calendar holidays
 
 The calendar adds Philippine holidays automatically as read-only events. Staff
 choose a category from the calendar legend for their own events; document deadlines

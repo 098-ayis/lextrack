@@ -43,11 +43,12 @@ class DashboardDocumentTable extends Widget
                 'latestVersion',
                 'documentRequests' => fn ($query) => $query
                     ->where('user_id', auth()->id())
+                    ->where('copy_type', 'soft_copy')
                     ->latest('created_at')
                     ->latest('request_id'),
             ])
             ->latest('created_at')
-            ->limit(8)
+            ->limit(10)
             ->get();
     }
 
@@ -56,11 +57,21 @@ class DashboardDocumentTable extends Widget
         return Document::query()
             ->where(function (Builder $query): void {
                 $query
-                    ->where('user_id', auth()->id())
+                    ->where(function (Builder $ownedQuery): void {
+                        $ownedQuery
+                            ->where('user_id', auth()->id())
+                            ->whereDoesntHave(
+                                'documentRequests',
+                                fn (Builder $requestQuery) => $requestQuery
+                                    ->where('user_id', auth()->id())
+                                    ->where('copy_type', 'original')
+                            );
+                    })
                     ->orWhereHas(
                         'documentRequests',
                         fn (Builder $requestQuery) => $requestQuery
                             ->where('user_id', auth()->id())
+                            ->where('copy_type', 'soft_copy')
                     );
             })
             ->when(

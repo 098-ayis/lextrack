@@ -133,12 +133,6 @@ class Calendar extends Page
         $this->selectedDate = $date;
     }
 
-    public function openDayEvents(string $date): void
-    {
-        $this->selectDate($date);
-        $this->dispatch('open-modal', id: 'calendar-day-events');
-    }
-
     public function changeMonth(string $value): void
     {
         if (! preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $value)) {
@@ -436,7 +430,7 @@ class Calendar extends Page
         return match ($category = $this->getEventCategory($event)) {
             'holiday' => '#c9362b',
             'meeting' => '#0f766e',
-            'deadline' => '#7c3aed',
+            'deadline' => '#6366f1',
             default => $this->customCategories()->firstWhere('key', $category)->color,
         };
     }
@@ -474,7 +468,7 @@ class Calendar extends Page
             ->in(fn () => array_keys($this->getEventCategories()))
             ->createOptionForm([
                 TextInput::make('name')->label('Category name')->required()->maxLength(100),
-                \Filament\Forms\Components\ColorPicker::make('color')->label('Color')->default('#7c3aed')->required(),
+                \Filament\Forms\Components\ColorPicker::make('color')->label('Color')->default('#6366f1')->required(),
             ])
             ->createOptionUsing(fn (array $data): string => $this->addEventCategory($data));
     }

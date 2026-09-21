@@ -3,7 +3,9 @@
 namespace App\Services;
 
 use App\Models\Document;
+use App\Models\DocumentRequest;
 use App\Models\User;
+use App\Notifications\AdminDocumentRequestSubmittedNotification;
 use App\Notifications\AdminDocumentSubmittedNotification;
 use App\Notifications\DocumentDeadlineReminder;
 use Illuminate\Support\Collection;
@@ -52,6 +54,21 @@ class AdminDocumentNotificationService
             }
 
             app(InAppNotificationService::class)->send($admin, $notification);
+        }
+    }
+
+    /**
+     * Notify every admin when a client submits a document request.
+     */
+    public function notifyRequestSubmitted(DocumentRequest $request): void
+    {
+        $request->loadMissing('user');
+
+        foreach ($this->administrators() as $admin) {
+            app(InAppNotificationService::class)->send(
+                $admin,
+                new AdminDocumentRequestSubmittedNotification($request)
+            );
         }
     }
 

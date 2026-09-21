@@ -107,6 +107,10 @@ class AdminPanelProvider extends PanelProvider
                 fn () => view('filament.admin.sidebar-default-state'),
             )
             ->renderHook(
+                PanelsRenderHook::SIDEBAR_LOGO_AFTER,
+                fn () => view('filament.admin.sidebar-collapse-button'),
+            )
+            ->renderHook(
                 PanelsRenderHook::SIDEBAR_FOOTER,
                 fn () => view('filament.admin.sidebar-logout'),
             )

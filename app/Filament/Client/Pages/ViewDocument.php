@@ -27,25 +27,33 @@ class ViewDocument extends Page
 
     public function mount($document): void
     {
-        $id = $document;
+        $id = (string) $document;
 
         $this->returnPage = request()->query('from') === 'dashboard'
             ? 'dashboard'
             : 'documents';
 
-        $tab = request()->query('tab', 'all');
+        $tab = request()->query('tab');
 
-        $this->returnTab = in_array($tab, [
+        $hasValidReturnTab = in_array($tab, [
             'all',
             'pending',
             'in_progress',
             'completed',
             'rejected',
             'requested',
-        ], true) ? $tab : 'all';
+        ], true);
+
+        $this->returnTab = $hasValidReturnTab ? $tab : 'all';
 
         $this->documentRecord = Document::query()
-            ->where('public_id', $id)
+            ->where(function ($query) use ($id): void {
+                $query->where('public_id', $id);
+
+                if (ctype_digit($id)) {
+                    $query->orWhereKey((int) $id);
+                }
+            })
             ->where(function ($query): void {
                 $query
                     ->where('user_id', auth()->id())
@@ -70,6 +78,10 @@ class ViewDocument extends Page
             ->latest('request_id')
             ->value('status');
 
+        if (! $hasValidReturnTab && $this->requestStatus !== null) {
+            $this->returnTab = 'requested';
+        }
+
         $canAccessFile =
             (int) $this->documentRecord->user_id === (int) auth()->id()
             || $this->documentRecord
@@ -83,11 +95,11 @@ class ViewDocument extends Page
             $this->documentRecord->latestVersion?->file_path
         ) {
             $this->previewUrl = route('client.document.preview', [
-                'document' => $this->documentRecord->public_id,
+                'document' => $this->documentRecord->getPublicRouteKey(),
             ]);
 
             $this->downloadUrl = route('client.document.download', [
-                'document' => $this->documentRecord->public_id,
+                'document' => $this->documentRecord->getPublicRouteKey(),
             ]);
         }
     }

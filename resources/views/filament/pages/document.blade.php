@@ -61,11 +61,7 @@
         </defs>
     </svg>
 
-<<<<<<< ours
-=======
     <div class="admin-documents-page">
-
->>>>>>> theirs
     @php
         $activeSection = $this->activeSection;
         $statusCounts = $this->getStatusCounts();
@@ -790,13 +786,10 @@
                                                bg-white
                                                hover:bg-[#0F172A]
                                                hover:text-white
-<<<<<<< ours
-=======
                                                dark:border-gray-300
                                                dark:bg-gray-900
                                                dark:text-white
                                                dark:hover:bg-gray-700
->>>>>>> theirs
                                                transition"
                                         title="Message"
                                     >
@@ -1182,12 +1175,9 @@
                                                 text-[#0F172A]
                                                 hover:bg-[#0F172A]
                                                 hover:text-white
-<<<<<<< ours
-=======
                                                 dark:border-gray-300
                                                 dark:text-white
                                                 dark:hover:bg-gray-700
->>>>>>> theirs
                                                 transition-colors duration-150"
                                             title="Message"
                                         >
@@ -1244,8 +1234,6 @@
         .fi-page-content {
             gap: 0 !important;
         }
-<<<<<<< ours
-=======
 
         /* Keep the custom document tables and their controls readable in dark mode. */
         .dark .admin-documents-page .bg-white {
@@ -1311,7 +1299,6 @@
         .dark .admin-documents-page [class*="hover:bg-blue-50"]:hover {
             background-color: rgb(30 64 175 / 0.35) !important;
         }
->>>>>>> theirs
     </style>
 
     @if ($showAcceptedModal)
@@ -1326,10 +1313,10 @@
                 wire:click.stop
                 class="w-full max-w-md rounded-2xl bg-white px-7 py-8 text-center shadow-2xl"
             >
-                <div class="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-blue-50">
+                <div class="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-indigo-50">
                     <div
                         class="flex h-14 w-14 items-center justify-center rounded-full text-white shadow-lg"
-                        style="background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%); box-shadow: 0 4px 10px rgba(37, 99, 235, 0.3);"
+                        style="background: linear-gradient(135deg, #6366F1 0%, #4F46E5 100%); box-shadow: 0 4px 10px rgba(99, 102, 241, 0.3);"
                     >
                         <svg
                             class="h-8 w-8"
@@ -1412,11 +1399,7 @@
         </div>
     @endif
 
-<<<<<<< ours
-=======
     </div>
-
->>>>>>> theirs
     <script>
         document.addEventListener('click', (event) => {
             const clickedMenu = event.target.closest('.document-options-menu');

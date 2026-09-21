@@ -8,8 +8,10 @@ use App\Models\DocumentVersion;
 use App\Models\ActivityLog;
 use App\Models\ActionType;
 use App\Models\DocumentType;
+use App\Models\OfficeUnit;
 use App\Models\Message;
 use App\Models\RejectedDocument;
+use App\Rules\UniqueDocumentVersionUpload;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
@@ -20,13 +22,19 @@ use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Filament\Support\Enums\Alignment;
 use Filament\Support\Enums\Width;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Js;
+use Illuminate\Validation\Rule;
 // use BezhanSalleh\FilamentShield\Traits\HasPageShield;
 
 class ViewDocument extends Page
 {
+    public const string OTHER_DOCUMENT_TYPE_VALUE = '__custom_document_type__';
+
     private const string REVISION_UPLOAD_PREFIX = 'A revised document was uploaded';
 
     private const string REVISION_DECISION_PREFIX = 'The revised document (';
@@ -50,9 +58,25 @@ class ViewDocument extends Page
      */
     public string $previewUrl = '';
 
+    public ?int $previewPageCount = null;
+
     public ?int $selectedVersionId = null;
 
     public bool $isTransmittalSelected = false;
+
+    public bool $isEditingDetails = false;
+
+    public array $documentDetailsForm = [];
+
+    public array $originalDocumentDetailsForm = [];
+
+    public bool $isAddingNote = false;
+
+    public string $newNoteText = '';
+
+    public ?int $editingNoteId = null;
+
+    public string $editingNoteText = '';
 
     public function getMaxContentWidth(): Width
     {
@@ -69,75 +93,341 @@ class ViewDocument extends Page
 
     public function mount(string|int $document): void
     {
-        $this->documentRecord = Document::where(
-            'public_id',
-            $document
-        )->with([
+        $this->documentRecord = Document::findForRoute($document);
+        $this->documentRecord->load([
             'user',
             'notes.user',
             'versions',
             'latestVersion',
             'rejections',
             'activityLogs.user',
-        ])->firstOrFail();
+        ]);
 
         $this->previewUrl = $this->generatePreview();
-
-        $this->logDocumentActivity(
-            'Document viewed',
-            'Opened the document viewer.'
-        );
+        $this->previewPageCount = $this->pageCountForVersion($this->documentRecord->latestVersion);
     }
 
-    public function addNoteAction(): Action
+    public function startEditingDetails(): void
     {
-        return Action::make('addNote')
-            ->label('Add Notes')
-            ->icon('heroicon-o-plus')
-            ->size('sm')
-            ->color('white')
-            ->extraAttributes([
-                'class' => 'add-note-button !h-8 !min-h-8 !rounded-full !border-0
-                            !bg-[#5B5CE2] !px-3 !py-1 !text-[11px]
-                            !font-semibold !text-white !shadow-none
-                            hover:!bg-[#4F50D0]',
-                'style' => 'color: #ffffff;',
-            ])
-            ->modalHeading('Add Notes')
-            ->modalSubmitActionLabel('Save Note')
-            ->schema([
-                Textarea::make('note')
-                    ->label('Note')
-                    ->placeholder('Write a note about this document...')
-                    ->required()
-                    ->rows(5)
-                    ->maxLength(5000),
-            ])
-            ->action(function (array $data, array $arguments): void {
-                Note::create([
-                    'document_id' => $arguments['document'] ?? $this->documentRecord->document_id,
-                    'user_id' => auth()->id(),
-                    'note' => $data['note'],
-                ]);
+        if (in_array($this->documentRecord->status, ['pending', 'rejected'], true)) {
+            Notification::make()
+                ->warning()
+                ->title('Document details cannot be edited')
+                ->body('Pending and rejected documents are locked.')
+                ->send();
 
-                $this->logDocumentActivity(
-                    'Note added',
-                    'Added a document note.',
-                    null,
-                    $data['note']
-                );
+            return;
+        }
 
-                $this->documentRecord->load([
-                    'notes.user',
-                    'versions',
-                    'activityLogs.user',
-                ]);
+        $this->documentDetailsForm = [
+            'lao_number' => $this->documentRecord->lao_number,
+            'document_type' => $this->documentRecord->document_type,
+            'document_type_other' => '',
+            'office_unit' => $this->documentRecord->office_unit,
+            'particulars' => $this->documentRecord->particulars ?: $this->documentRecord->description,
+            'action_type' => $this->documentRecord->action_type,
+            'deadline' => $this->documentRecord->deadline?->format('Y-m-d'),
+            'outgoing_date' => $this->documentRecord->outgoing_date?->format('Y-m-d'),
+            'sent_date' => $this->documentRecord->sent_date?->format('Y-m-d'),
+            'sent_to' => $this->documentRecord->sent_to,
+            'returned_from' => $this->documentRecord->returned_from,
+            'date_returned' => $this->documentRecord->date_returned?->format('Y-m-d'),
+        ];
 
-                Notification::make()
-                    ->success()
-                    ->title('Note added')
-                    ->send();
-            });
+        if ($this->documentRecord->status === 'completed') {
+            $this->documentDetailsForm['status'] = $this->documentRecord->status;
+        }
+
+        $this->originalDocumentDetailsForm = $this->documentDetailsForm;
+        $this->resetValidation();
+        $this->isEditingDetails = true;
+    }
+
+    public function cancelEditingDetails(): void
+    {
+        $this->isEditingDetails = false;
+        $this->documentDetailsForm = [];
+        $this->originalDocumentDetailsForm = [];
+        $this->resetValidation();
+    }
+
+    public function hasDocumentDetailsChanges(): bool
+    {
+        if (! $this->isEditingDetails) {
+            return false;
+        }
+
+        $original = $this->originalDocumentDetailsForm;
+        $current = $this->documentDetailsForm;
+
+        if (($current['document_type'] ?? null) === self::OTHER_DOCUMENT_TYPE_VALUE) {
+            $customType = trim((string) ($current['document_type_other'] ?? ''));
+            $current['document_type'] = $customType !== ''
+                ? $customType
+                : ($original['document_type'] ?? null);
+        }
+
+        unset($original['document_type_other'], $current['document_type_other']);
+
+        $normalize = static fn (array $values): array => array_map(
+            static fn ($value) => $value === '' ? null : $value,
+            $values,
+        );
+
+        return $normalize($current) !== $normalize($original);
+    }
+
+    public function getActionTypeOptions(): array
+    {
+        $options = ActionType::query()
+            ->orderBy('action_name')
+            ->pluck('action_name', 'action_name')
+            ->all();
+
+        $currentActionType = $this->documentRecord->action_type;
+
+        if (filled($currentActionType) && ! array_key_exists($currentActionType, $options)) {
+            $options = [$currentActionType => $currentActionType.' (existing)'] + $options;
+        }
+
+        return $options;
+    }
+
+    public function getDocumentTypeOptions(): array
+    {
+        $options = DocumentType::query()
+            ->orderedForChoices()
+            ->pluck('type_name', 'type_name')
+            ->all();
+
+        $currentDocumentType = $this->documentRecord->document_type;
+
+        if (filled($currentDocumentType) && ! array_key_exists($currentDocumentType, $options)) {
+            $options = [$currentDocumentType => $currentDocumentType.' (existing)'] + $options;
+        }
+
+        $options[self::OTHER_DOCUMENT_TYPE_VALUE] = 'Others';
+
+        return $options;
+    }
+
+    public function getOfficeUnitOptions(): array
+    {
+        $options = OfficeUnit::query()
+            ->orderBy('name')
+            ->pluck('name', 'name')
+            ->all();
+
+        $currentOfficeUnit = $this->documentRecord->office_unit;
+
+        if (filled($currentOfficeUnit) && ! array_key_exists($currentOfficeUnit, $options)) {
+            $options = [$currentOfficeUnit => $currentOfficeUnit.' (existing)'] + $options;
+        }
+
+        return $options;
+    }
+
+    public function saveDocumentDetails(): void
+    {
+        if (! $this->hasDocumentDetailsChanges()) {
+            return;
+        }
+
+        $document = Document::findOrFail($this->documentRecord->document_id);
+
+        if (in_array($document->status, ['pending', 'rejected'], true)) {
+            $this->cancelEditingDetails();
+
+            Notification::make()
+                ->warning()
+                ->title('Document details cannot be edited')
+                ->body('Pending and rejected documents are locked.')
+                ->send();
+
+            return;
+        }
+
+        $actionTypeOptions = ActionType::query()
+            ->pluck('action_name', 'action_name')
+            ->all();
+
+        if (filled($document->action_type)) {
+            $actionTypeOptions[$document->action_type] = $document->action_type;
+        }
+
+        $documentTypeOptions = DocumentType::query()
+            ->orderedForChoices()
+            ->pluck('type_name', 'type_name')
+            ->all();
+
+        if (filled($document->document_type)) {
+            $documentTypeOptions[$document->document_type] = $document->document_type;
+        }
+
+        $officeUnitOptions = OfficeUnit::query()
+            ->pluck('name', 'name')
+            ->all();
+
+        if (filled($document->office_unit)) {
+            $officeUnitOptions[$document->office_unit] = $document->office_unit;
+        }
+
+        $rules = [
+            'documentDetailsForm.lao_number' => ['required', 'string', 'max:255'],
+            'documentDetailsForm.document_type' => ['required', 'string', Rule::in([...array_keys($documentTypeOptions), self::OTHER_DOCUMENT_TYPE_VALUE])],
+            'documentDetailsForm.document_type_other' => ['nullable', 'required_if:documentDetailsForm.document_type,'.self::OTHER_DOCUMENT_TYPE_VALUE, 'string', 'max:255'],
+            'documentDetailsForm.office_unit' => ['required', 'string', 'max:255', Rule::in(array_keys($officeUnitOptions))],
+            'documentDetailsForm.particulars' => ['required', 'string', 'max:5000'],
+            'documentDetailsForm.action_type' => ['nullable', 'string', 'max:255', Rule::in(array_keys($actionTypeOptions))],
+            'documentDetailsForm.deadline' => ['nullable', 'date'],
+            'documentDetailsForm.outgoing_date' => ['nullable', 'date'],
+            'documentDetailsForm.sent_date' => ['nullable', 'date'],
+            'documentDetailsForm.sent_to' => ['nullable', 'string', 'max:255'],
+            'documentDetailsForm.returned_from' => ['nullable', 'string', 'max:255'],
+            'documentDetailsForm.date_returned' => ['nullable', 'date'],
+        ];
+
+        if ($document->status === 'completed') {
+            $rules['documentDetailsForm.status'] = ['required', 'in:pending,in_progress,completed,returned,outgoing,rejected'];
+        }
+
+        $validated = $this->validate($rules);
+        $data = $validated['documentDetailsForm'];
+        if (($data['document_type'] ?? null) === self::OTHER_DOCUMENT_TYPE_VALUE) {
+            $data['document_type'] = trim($data['document_type_other']);
+        }
+        unset($data['document_type_other']);
+        $data['lao_number'] = $document->lao_number;
+        $oldValues = $document->only(array_keys($data));
+
+        $document->fill($data);
+        $updatedFields = array_keys($document->getDirty());
+        $document->save();
+
+        if ($updatedFields !== []) {
+            $newValues = $document->only(array_keys($data));
+
+            $this->logDocumentActivity(
+                'Document details updated',
+                implode("\n", $this->formatDocumentDetailsChanges($oldValues, $newValues)),
+                (string) json_encode($oldValues),
+                (string) json_encode($newValues),
+            );
+        }
+
+        $this->documentRecord->refresh()->load([
+            'user',
+            'notes.user',
+            'versions',
+            'latestVersion',
+            'rejections',
+            'activityLogs.user',
+        ]);
+        $this->isEditingDetails = false;
+        $this->documentDetailsForm = [];
+        $this->originalDocumentDetailsForm = [];
+        $this->resetValidation();
+
+        Notification::make()
+            ->success()
+            ->title('Document details updated successfully')
+            ->send();
+    }
+
+    public function startAddingNote(): void
+    {
+        $this->newNoteText = '';
+        $this->resetValidation('newNoteText');
+        $this->isAddingNote = true;
+    }
+
+    public function cancelAddingNote(): void
+    {
+        $this->isAddingNote = false;
+        $this->newNoteText = '';
+        $this->resetValidation('newNoteText');
+    }
+
+    public function saveNote(): void
+    {
+        $validated = $this->validate([
+            'newNoteText' => ['required', 'string', 'max:5000'],
+        ]);
+        $noteText = trim($validated['newNoteText']);
+
+        Note::create([
+            'document_id' => $this->documentRecord->document_id,
+            'user_id' => auth()->id(),
+            'note' => $noteText,
+        ]);
+
+        $this->logDocumentActivity(
+            'Note added',
+            'Added a document note.',
+            null,
+            $noteText
+        );
+
+        $this->documentRecord->load([
+            'notes.user',
+            'versions',
+            'activityLogs.user',
+        ]);
+        $this->isAddingNote = false;
+        $this->newNoteText = '';
+        $this->resetValidation('newNoteText');
+
+        Notification::make()
+            ->success()
+            ->title('Note added')
+            ->send();
+    }
+
+    public function startEditingNote(int $noteId): void
+    {
+        $note = Note::where('document_id', $this->documentRecord->document_id)
+            ->findOrFail($noteId);
+
+        $this->editingNoteId = (int) $note->note_id;
+        $this->editingNoteText = (string) $note->note;
+        $this->resetValidation('editingNoteText');
+    }
+
+    public function cancelEditingNote(): void
+    {
+        $this->editingNoteId = null;
+        $this->editingNoteText = '';
+        $this->resetValidation('editingNoteText');
+    }
+
+    public function saveNoteEdit(): void
+    {
+        $validated = $this->validate([
+            'editingNoteText' => ['required', 'string', 'max:5000'],
+        ]);
+        $note = Note::where('document_id', $this->documentRecord->document_id)
+            ->findOrFail($this->editingNoteId);
+        $oldNote = (string) $note->note;
+        $newNote = trim($validated['editingNoteText']);
+
+        if ($oldNote !== $newNote) {
+            $note->update(['note' => $newNote]);
+
+            $this->logDocumentActivity(
+                'Note updated',
+                'Updated a document note.',
+                $oldNote,
+                $newNote
+            );
+        }
+
+        $this->documentRecord->load('notes.user');
+        $this->cancelEditingNote();
+
+        Notification::make()
+            ->success()
+            ->title($oldNote === $newNote ? 'No changes made' : 'Note updated')
+            ->send();
     }
 
     public function editDocumentDetailsAction(): Action
@@ -286,7 +576,7 @@ class ViewDocument extends Page
                         ->label('Status')
                         ->options([
                             'pending' => 'Pending',
-                            'in_progress' => 'In Progress',
+                            'in_progress' => 'Incoming',
                             'completed' => 'Completed',
                             'returned' => 'Returned',
                             'outgoing' => 'Outgoing',
@@ -411,16 +701,22 @@ class ViewDocument extends Page
                     $updatedFields[] = 'Document File';
                 }
 
-                $updatedSummary = $updatedFields !== []
-                    ? implode(', ', $updatedFields) . ' changed'
-                    : 'No fields changed';
+                if ($updatedFields !== []) {
+                    $newValues = $document->only(array_keys($data));
+                    $changeDetails = implode("\n", $this->formatDocumentDetailsChanges($oldValues, $newValues));
 
-                $this->logDocumentActivity(
-                    'Document details updated',
-                    $updatedSummary,
-                    (string) json_encode($oldValues),
-                    (string) json_encode($document->only(array_keys($data)))
-                );
+                    if (filled($filePath)) {
+                        $changeDetails .= ($changeDetails !== '' ? "\n" : '')
+                            . 'Document File: uploaded ' . basename($filePath) . '.';
+                    }
+
+                    $this->logDocumentActivity(
+                        'Document details updated',
+                        $changeDetails !== '' ? $changeDetails : 'Document file updated.',
+                        (string) json_encode($oldValues),
+                        (string) json_encode($newValues)
+                    );
+                }
 
                 $this->documentRecord->load([
                     'user',
@@ -436,7 +732,7 @@ class ViewDocument extends Page
                     ->send();
 
                 $this->redirect(static::getUrl([
-                    'document' => $document->public_id,
+                    'document' => $document->getPublicRouteKey(),
                 ]), navigate: true);
             });
     }
@@ -455,6 +751,15 @@ class ViewDocument extends Page
         return app(\App\Filament\Pages\Document::class)->rejectDocumentAction();
     }
 
+    public function notifyDuplicateVersionUpload(): void
+    {
+        Notification::make()
+            ->warning()
+            ->title('Duplicate file not added')
+            ->body('This file is already selected for upload or has already been uploaded for this document.')
+            ->send();
+    }
+
     public function addVersionAction(): Action
     {
         $isLocked = in_array(
@@ -462,6 +767,92 @@ class ViewDocument extends Page
             ['pending', 'rejected'],
             true
         ) || $this->hasPendingRevision();
+
+        $documentId = $this->documentRecord->document_id;
+        $userId = auth()->id();
+        $existingFileHashes = DocumentVersion::query()
+            ->where(function ($query) use ($documentId, $userId): void {
+                $query->where('document_id', $documentId);
+
+                if ($userId !== null) {
+                    $query->orWhere('user_id', $userId);
+                }
+            })
+            ->whereNotNull('file_hash')
+            ->pluck('file_hash')
+            ->all();
+
+        $duplicateFileGuard = <<<'JS'
+const installDocumentVersionDuplicateGuard = (pond) => {
+    if (! pond || pond.__documentVersionDuplicateGuardInstalled) {
+        return;
+    }
+
+    pond.__documentVersionDuplicateGuardInstalled = true;
+
+    const uploadedHashes = new Set(__EXISTING_FILE_HASHES__);
+    const selectedHashes = new Map();
+    const selectedFileSignatures = new Map();
+    const livewire = $wire;
+
+    const hashFile = async (file) => {
+        const digest = await crypto.subtle.digest('SHA-256', await file.arrayBuffer());
+
+        return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
+    };
+
+    pond.setOptions({
+        beforeAddFile: (fileItem) => {
+            const file = fileItem.file;
+
+            if (! (file instanceof File)) {
+                return true;
+            }
+
+            // Reject a file re-selected in this dialog synchronously. Waiting
+            // for its hash here makes FilePond briefly show a gray loading row.
+            const signature = JSON.stringify([file.name, file.size, file.lastModified]);
+
+            if (Array.from(selectedFileSignatures.values()).includes(signature)) {
+                livewire.call('notifyDuplicateVersionUpload');
+
+                return false;
+            }
+
+            selectedFileSignatures.set(fileItem.id, signature);
+
+            return hashFile(file).then((hash) => {
+                if (uploadedHashes.has(hash) || Array.from(selectedHashes.values()).includes(hash)) {
+                    selectedFileSignatures.delete(fileItem.id);
+                    livewire.call('notifyDuplicateVersionUpload');
+
+                    return false;
+                }
+
+                selectedHashes.set(fileItem.id, hash);
+
+                return true;
+            }).catch(() => {
+                // Keep the server-side hash validation as the fallback if browser hashing is unavailable.
+                return true;
+            });
+        },
+    });
+
+    pond.on('removefile', (_error, fileItem) => {
+        selectedHashes.delete(fileItem.id);
+        selectedFileSignatures.delete(fileItem.id);
+    });
+};
+
+installDocumentVersionDuplicateGuard(pond);
+$watch('pond', installDocumentVersionDuplicateGuard);
+JS;
+        $duplicateFileGuard = str_replace(
+            '__EXISTING_FILE_HASHES__',
+            (string) Js::from($existingFileHashes),
+            $duplicateFileGuard,
+        );
 
         return Action::make('addVersion')
             ->label('')
@@ -478,24 +869,46 @@ class ViewDocument extends Page
                         : 'hover:bg-gray-100'),
             ])
             ->modalHeading('Upload Document')
-            ->modalSubmitActionLabel('Upload')
+            ->modalSubmitAction(fn (Action $action): Action => $action
+                ->label('Upload')
+                ->extraAttributes([
+                    'style' => 'background-color: #6366F1; border-color: #6366F1; color: #ffffff;',
+                ]))
+            ->modalFooterActionsAlignment(Alignment::End)
             ->schema([
                 FileUpload::make('file_path')
-                    ->label('PDF or DOCX File')
+                    ->label('PDF or DOCX Files')
                     ->disk('local')
                     ->directory('documents/versions')
                     ->preserveFilenames()
+                    ->multiple()
+                    ->appendFiles()
+                    ->nestedRecursiveRule(new UniqueDocumentVersionUpload(
+                        $this->documentRecord->document_id,
+                        auth()->id(),
+                    ))
                     ->acceptedFileTypes([
                         'application/pdf',
                         'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
                     ])
+                    ->extraAlpineAttributes(['x-init' => $duplicateFileGuard])
+                    ->extraAttributes(['class' => 'document-version-upload-files'])
                     ->required(),
             ])
             ->action(function (array $data): void {
+                $filePaths = array_values(array_filter(
+                    (array) ($data['file_path'] ?? []),
+                    fn (mixed $filePath): bool => is_string($filePath) && $filePath !== '',
+                ));
+
                 if (
                     in_array($this->documentRecord->status, ['pending', 'rejected'], true)
                     || $this->hasPendingRevision()
                 ) {
+                    foreach ($filePaths as $filePath) {
+                        DocumentVersion::removeUnreferencedUpload($filePath);
+                    }
+
                     Notification::make()
                         ->warning()
                         ->title('Version upload is disabled')
@@ -505,98 +918,117 @@ class ViewDocument extends Page
                     return;
                 }
 
-                $version = null;
-                $versionNumber = null;
-                $filePath = $data['file_path'] ?? null;
-                $fileHash = DocumentVersion::hashForUpload($filePath);
-
-                if ($fileHash === null) {
-                    DocumentVersion::removeUnreferencedUpload($filePath);
-
+                if ($filePaths === []) {
                     Notification::make()
                         ->danger()
-                        ->title('Upload could not be verified')
-                        ->body('The uploaded file could not be read. Please select the file again and try again.')
+                        ->title('No files selected')
+                        ->body('Select at least one PDF or DOCX file to upload.')
                         ->send();
 
                     return;
                 }
 
-                if (DocumentVersion::existsForDocumentOrUserHash(
-                    $this->documentRecord->document_id,
-                    $fileHash,
-                    auth()->id(),
-                )) {
-                    DocumentVersion::removeUnreferencedUpload($filePath);
+                $uploadedVersions = [];
+                $duplicates = [];
+                $unreadableFiles = [];
 
-                    Notification::make()
-                        ->danger()
-                        ->title('Duplicate document detected')
-                        ->body('This exact file has already been uploaded for this document. Please select a different file.')
-                        ->send();
+                foreach ($filePaths as $filePath) {
+                    $fileName = basename($filePath);
+                    $fileHash = DocumentVersion::hashForUpload($filePath);
 
-                    return;
-                }
+                    if ($fileHash === null) {
+                        DocumentVersion::removeUnreferencedUpload($filePath);
+                        $unreadableFiles[] = $fileName;
 
-                $duplicate = false;
-
-                DB::transaction(function () use ($filePath, $fileHash, &$version, &$versionNumber, &$duplicate): void {
-                    $document = Document::query()
-                        ->whereKey($this->documentRecord->document_id)
-                        ->lockForUpdate()
-                        ->firstOrFail();
-
-                if (DocumentVersion::existsForDocumentOrUserHash(
-                    $document->document_id,
-                    $fileHash,
-                    auth()->id(),
-                    )) {
-                        $duplicate = true;
-
-                        return;
+                        continue;
                     }
 
-                    $versionNumber = $this->getNextVersionNumber(
-                        $document->versions()->get()
+                    $version = DB::transaction(function () use ($filePath, $fileHash): ?DocumentVersion {
+                        $document = Document::query()
+                            ->whereKey($this->documentRecord->document_id)
+                            ->lockForUpdate()
+                            ->firstOrFail();
+
+                        if (DocumentVersion::existsForDocumentOrUserHash(
+                            $document->document_id,
+                            $fileHash,
+                            auth()->id(),
+                        )) {
+                            return null;
+                        }
+
+                        $versionNumber = $this->getNextVersionNumber(
+                            $document->versions()->get()
+                        );
+
+                        return DocumentVersion::create([
+                            'document_id' => $document->document_id,
+                            'user_id' => auth()->id(),
+                            'version_number' => (string) $versionNumber,
+                            'file_path' => $filePath,
+                            'file_hash' => $fileHash,
+                        ]);
+                    });
+
+                    if ($version === null) {
+                        DocumentVersion::removeUnreferencedUpload($filePath);
+                        $duplicates[] = $fileName;
+
+                        continue;
+                    }
+
+                    $uploadedVersions[] = $version;
+
+                    $this->logDocumentActivity(
+                        'Version uploaded',
+                        'Uploaded ' . basename($version->file_path) .
+                        ' as version ' . $version->version_number . '.'
                     );
+                }
 
-                    $version = DocumentVersion::create([
-                        'document_id' => $document->document_id,
-                        'user_id' => auth()->id(),
-                        'version_number' => (string) $versionNumber,
-                        'file_path' => $filePath,
-                        'file_hash' => $fileHash,
+                if ($uploadedVersions !== []) {
+                    $this->documentRecord->load([
+                        'notes.user',
+                        'versions',
+                        'latestVersion',
+                        'activityLogs.user',
                     ]);
-                });
+                }
 
-                if ($duplicate) {
-                    DocumentVersion::removeUnreferencedUpload($filePath);
+                if ($uploadedVersions === []) {
+                    $details = [];
+
+                    if ($duplicates !== []) {
+                        $details[] = 'Already uploaded: ' . implode(', ', $duplicates) . '.';
+                    }
+
+                    if ($unreadableFiles !== []) {
+                        $details[] = 'Could not read: ' . implode(', ', $unreadableFiles) . '.';
+                    }
 
                     Notification::make()
                         ->danger()
-                        ->title('Duplicate document detected')
-                        ->body('This exact file has already been uploaded for this document. Please select a different file.')
+                        ->title('No files uploaded')
+                        ->body(implode(' ', $details) ?: 'The selected files could not be uploaded.')
                         ->send();
 
                     return;
                 }
 
-                $this->logDocumentActivity(
-                    'Version uploaded',
-                    'Uploaded ' . basename($version->file_path) .
-                    ' as version ' . $versionNumber . '.'
-                );
+                $details = [count($uploadedVersions) . ' file' . (count($uploadedVersions) === 1 ? '' : 's') . ' uploaded.'];
 
-                $this->documentRecord->load([
-                    'notes.user',
-                    'versions',
-                    'latestVersion',
-                    'activityLogs.user',
-                ]);
+                if ($duplicates !== []) {
+                    $details[] = 'Skipped duplicates: ' . implode(', ', $duplicates) . '.';
+                }
+
+                if ($unreadableFiles !== []) {
+                    $details[] = 'Could not read: ' . implode(', ', $unreadableFiles) . '.';
+                }
 
                 Notification::make()
                     ->success()
-                    ->title('Document version added')
+                    ->title('Document versions uploaded')
+                    ->body(implode(' ', $details))
                     ->send();
             });
     }
@@ -610,15 +1042,10 @@ class ViewDocument extends Page
         $this->selectedVersionId = $version->version_id;
         $this->isTransmittalSelected = false;
         $this->previewUrl = route('admin.document.version.preview', [
-            'document' => $this->documentRecord->public_id,
+            'document' => $this->documentRecord->getPublicRouteKey(),
             'version' => $version->version_id,
         ]);
-
-        $this->logDocumentActivity(
-            'Version viewed',
-            'Viewed ' . basename($version->file_path) .
-            ' (version ' . $version->version_number . ').'
-        );
+        $this->previewPageCount = $this->pageCountForVersion($version);
     }
 
     public function deleteVersion(int $versionId): void
@@ -641,10 +1068,7 @@ class ViewDocument extends Page
         $versionNumber = $version->version_number;
         $version->delete();
 
-        if ($this->selectedVersionId === $versionId) {
-            $this->selectedVersionId = null;
-            $this->previewUrl = $this->generatePreview();
-        }
+        $wasSelected = $this->selectedVersionId === $versionId;
 
         $this->logDocumentActivity(
             'Version deleted',
@@ -658,6 +1082,12 @@ class ViewDocument extends Page
             'latestVersion',
             'activityLogs.user',
         ]);
+
+        if ($wasSelected) {
+            $this->selectedVersionId = null;
+            $this->previewUrl = $this->generatePreview();
+            $this->previewPageCount = $this->pageCountForVersion($this->documentRecord->latestVersion);
+        }
 
         Notification::make()
             ->success()
@@ -962,15 +1392,7 @@ class ViewDocument extends Page
         $this->selectedVersionId = null;
         $this->isTransmittalSelected = false;
         $this->previewUrl = $this->generatePreview();
-
-        $latestFilePath = $this->documentRecord->latestVersion?->file_path;
-
-        $this->logDocumentActivity(
-            'Current document viewed',
-            $latestFilePath
-                ? 'Viewed ' . basename($latestFilePath) . '.'
-                : 'Viewed the current document without an attachment.'
-        );
+        $this->previewPageCount = $this->pageCountForVersion($this->documentRecord->latestVersion);
     }
 
     public function selectTransmittal(): void
@@ -982,13 +1404,9 @@ class ViewDocument extends Page
         $this->selectedVersionId = null;
         $this->isTransmittalSelected = true;
         $this->previewUrl = route('admin.documents.transmittal.preview', [
-            'document' => $this->documentRecord->public_id,
+            'document' => $this->documentRecord->getPublicRouteKey(),
         ]);
-
-        $this->logDocumentActivity(
-            'Transmittal viewed',
-            'Viewed ' . basename($filePath) . '.'
-        );
+        $this->previewPageCount = $this->pageCountForStoredFile($filePath);
     }
 
     protected function getNextVersionNumber($versions = null): int
@@ -1007,6 +1425,148 @@ class ViewDocument extends Page
     public function goBack(): void
     {
         $this->js('window.history.back()');
+    }
+
+    public function shouldShowActivity(ActivityLog $log): bool
+    {
+        if (in_array($log->action_type, [
+            'Document viewed',
+            'Version viewed',
+            'Current document viewed',
+            'Transmittal viewed',
+            'Document downloaded',
+            'Rejection reason viewed',
+            'Message opened',
+        ], true)) {
+            return false;
+        }
+
+        if (in_array($log->action_type, ['Document details updated', 'Document updated'], true)) {
+            $details = strtolower(trim((string) $log->action_details));
+            $oldValues = json_decode((string) $log->old_value, true);
+            $newValues = json_decode((string) $log->new_value, true);
+
+            if (is_array($oldValues) && is_array($newValues)) {
+                return $this->documentDetailsChanges($log) !== []
+                    || str_contains($details, 'document file');
+            }
+
+            return $details !== '' && $details !== 'no fields changed';
+        }
+
+        return true;
+    }
+
+    public function activityDescription(ActivityLog $log): string
+    {
+        if (in_array($log->action_type, ['Document details updated', 'Document updated'], true)) {
+            $changes = $this->documentDetailsChanges($log);
+
+            if ($changes !== []) {
+                return implode("\n", $changes);
+            }
+        }
+
+        if (in_array($log->action_type, ['Note added', 'Note updated', 'Note deleted'], true)) {
+            $oldNote = trim((string) $log->old_value);
+            $newNote = trim((string) $log->new_value);
+
+            if ($log->action_type === 'Note added' && $newNote !== '') {
+                return 'Note added: ' . $newNote;
+            }
+
+            if ($log->action_type === 'Note updated' && $oldNote !== '' && $newNote !== '') {
+                return 'Note changed: ' . $oldNote . ' → ' . $newNote;
+            }
+
+            if ($log->action_type === 'Note updated' && $newNote !== '') {
+                return 'Updated note to: ' . $newNote;
+            }
+
+            if ($log->action_type === 'Note deleted' && $oldNote !== '') {
+                return 'Note deleted: ' . $oldNote;
+            }
+        }
+
+        return (string) ($log->action_details ?: $log->action_type ?: 'Document updated');
+    }
+
+    /** @return list<string> */
+    private function documentDetailsChanges(ActivityLog $log): array
+    {
+        $oldValues = json_decode((string) $log->old_value, true);
+        $newValues = json_decode((string) $log->new_value, true);
+
+        if (! is_array($oldValues) || ! is_array($newValues)) {
+            return [];
+        }
+
+        return $this->formatDocumentDetailsChanges($oldValues, $newValues);
+    }
+
+    /** @return list<string> */
+    private function formatDocumentDetailsChanges(array $oldValues, array $newValues): array
+    {
+        $labels = [
+            'lao_number' => 'LAO Number',
+            'document_type' => 'Document Type',
+            'office_unit' => 'Office / Unit',
+            'particulars' => 'Particulars',
+            'description' => 'Description',
+            'action_type' => 'Action Taken',
+            'deadline' => 'Deadline',
+            'outgoing_date' => 'Outgoing Date',
+            'sent_date' => 'Sent Date',
+            'sent_to' => 'Sent To',
+            'returned_from' => 'Returned From',
+            'date_returned' => 'Date Returned',
+            'status' => 'Status',
+            'file_path' => 'Document File',
+        ];
+        $dateFields = ['deadline', 'outgoing_date', 'sent_date', 'date_returned'];
+        $changes = [];
+
+        foreach (array_unique([...array_keys($oldValues), ...array_keys($newValues)]) as $field) {
+            $oldValue = $oldValues[$field] ?? null;
+            $newValue = $newValues[$field] ?? null;
+            $oldDisplay = $this->formatActivityValue($field, $oldValue, $dateFields);
+            $newDisplay = $this->formatActivityValue($field, $newValue, $dateFields);
+
+            if ($oldDisplay === $newDisplay) {
+                continue;
+            }
+
+            $changes[] = ($labels[$field] ?? str($field)->replace('_', ' ')->ucfirst()->toString())
+                . ': ' . $oldDisplay . ' → ' . $newDisplay;
+        }
+
+        return $changes;
+    }
+
+    private function formatActivityValue(string $field, mixed $value, array $dateFields): string
+    {
+        if ($value === null || $value === '') {
+            return 'Not set';
+        }
+
+        if (in_array($field, $dateFields, true)) {
+            try {
+                return \Illuminate\Support\Carbon::parse((string) $value)
+                    ->setTimezone(config('app.timezone'))
+                    ->format('F j, Y');
+            } catch (\Throwable) {
+                // Keep the stored value visible if an old activity row has a non-date value.
+            }
+        }
+
+        if ($field === 'status') {
+            return match ((string) $value) {
+                'in_progress' => 'Incoming',
+                default => str((string) $value)->replace('_', ' ')->title()->toString(),
+            };
+        }
+
+        return is_scalar($value) ? (string) $value : (string) json_encode($value);
     }
 
     protected function logDocumentActivity(
@@ -1029,76 +1589,31 @@ class ViewDocument extends Page
         $this->documentRecord->load('activityLogs.user');
     }
 
-    public function editNoteAction(): Action
-    {
-        return Action::make('editNote')
-            ->label('Edit')
-            ->icon('heroicon-o-pencil-square')
-            ->color('gray')
-            ->extraAttributes([
-                'class' => 'w-full justify-start rounded-md px-3 py-2 text-xs',
-            ])
-            ->modalHeading('Edit Note')
-            ->modalSubmitActionLabel('Save Changes')
-            ->schema([
-                Textarea::make('note')
-                    ->label('Note')
-                    ->required()
-                    ->rows(5)
-                    ->maxLength(5000),
-            ])
-            ->fillForm(function (array $arguments): array {
-                $note = Note::where(
-                    'document_id',
-                    $this->documentRecord->document_id
-                )->findOrFail($arguments['note']);
-
-                return ['note' => $note->note];
-            })
-            ->action(function (array $data, array $arguments): void {
-                $note = Note::where(
-                    'document_id',
-                    $this->documentRecord->document_id
-                )->findOrFail($arguments['note']);
-
-                $note->update(['note' => $data['note']]);
-                $this->logDocumentActivity(
-                    'Note updated',
-                    'Updated a document note.',
-                    null,
-                    $data['note']
-                );
-                $this->documentRecord->load('notes.user');
-
-                Notification::make()
-                    ->success()
-                    ->title('Note updated')
-                    ->send();
-            });
-    }
-
     public function deleteNoteAction(): Action
     {
         return Action::make('deleteNote')
             ->label('Delete')
-            ->icon('heroicon-o-trash')
             ->color('danger')
             ->extraAttributes([
-                'class' => 'w-full justify-start rounded-md px-3 py-2 text-xs',
+                'class' => 'w-full justify-start rounded-md px-3 py-2 text-xs !bg-red-50 !text-red-700 hover:!bg-red-100',
             ])
             ->requiresConfirmation()
             ->modalHeading('Delete Note')
             ->modalDescription('Are you sure you want to delete this note?')
             ->modalSubmitActionLabel('Delete')
             ->action(function (array $arguments): void {
-                Note::where(
+                $note = Note::where(
                     'document_id',
                     $this->documentRecord->document_id
-                )->findOrFail($arguments['note'])->delete();
+                )->findOrFail($arguments['note']);
+
+                $noteText = (string) $note->note;
+                $note->delete();
 
                 $this->logDocumentActivity(
                     'Note deleted',
-                    'Deleted a document note.'
+                    'Deleted a document note.',
+                    $noteText
                 );
 
                 $this->documentRecord->load('notes.user');
@@ -1122,6 +1637,40 @@ class ViewDocument extends Page
             return '';
         }
 
-        return route('admin.documents.preview', ['document' => $this->documentRecord->public_id]);
+        return route('admin.documents.preview', ['document' => $this->documentRecord->getPublicRouteKey()]);
+    }
+
+    private function pageCountForVersion(?DocumentVersion $version): ?int
+    {
+        if (! $version || strtolower(pathinfo((string) $version->file_path, PATHINFO_EXTENSION)) !== 'pdf') {
+            return null;
+        }
+
+        $disk = $version->storageDisk();
+
+        if (! $disk->exists($version->file_path)) {
+            return null;
+        }
+
+        return app(\App\Services\DocumentPreviewService::class)
+            ->pageCount($disk->path($version->file_path));
+    }
+
+    private function pageCountForStoredFile(string $filePath): ?int
+    {
+        if (strtolower(pathinfo($filePath, PATHINFO_EXTENSION)) !== 'pdf') {
+            return null;
+        }
+
+        foreach (['local', 'public'] as $diskName) {
+            $disk = Storage::disk($diskName);
+
+            if ($disk->exists($filePath)) {
+                return app(\App\Services\DocumentPreviewService::class)
+                    ->pageCount($disk->path($filePath));
+            }
+        }
+
+        return null;
     }
 }

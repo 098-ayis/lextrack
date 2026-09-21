@@ -1,30 +1,69 @@
-<section class="processing-trend" aria-label="Daily document processing trend">
-    <div class="processing-trend-heading">
-        <span class="processing-trend-period">Last 14 days</span>
+<section class="processing-trend" aria-label="Document processing activity">
+    <div class="dashboard-trend-header">
+        <div class="dashboard-trend-summary">
+            <span class="dashboard-trend-summary-label">Documents processed</span>
+            <div class="dashboard-trend-summary-value">
+                <strong>{{ number_format($trend['total']) }}</strong>
+                <span class="dashboard-trend-summary-period">{{ $trend['periodLabel'] }}</span>
+            </div>
+        </div>
+
+        <div class="dashboard-trend-switch" role="group" aria-label="Choose chart time period">
+            @foreach(['weekly' => 'Weekly', 'monthly' => 'Monthly', 'yearly' => 'Yearly'] as $period => $label)
+                <button
+                    type="button"
+                    class="dashboard-trend-option {{ $trend['period'] === $period ? 'is-active' : '' }}"
+                    wire:click="setProcessingTrendPeriod('{{ $period }}')"
+                    aria-pressed="{{ $trend['period'] === $period ? 'true' : 'false' }}"
+                >{{ $label }}</button>
+            @endforeach
+        </div>
     </div>
+
     @php
-        $ceiling = max(10, (int) ceil($trend['maximum'] / 5) * 5);
-        $points = collect($trend['days'])->map(fn ($day, $index) => [
-            'x' => 36 + $index * (728 / max(1, count($trend['days']) - 1)),
-            'y' => 96 - $day['count'] / $ceiling * 80,
-            'date' => $day['date'], 'count' => $day['count'],
-        ]);
+        $chartLeft = 64;
+        $chartRight = 798;
+        $chartTop = 16;
+        $chartBottom = 350;
+        $chartHeight = $chartBottom - $chartTop;
+        $tickCount = min(4, max(1, $trend['maximum']));
+        $ceiling = max(1, (int) ceil($trend['maximum'] / $tickCount) * $tickCount);
+        $slotWidth = ($chartRight - $chartLeft) / max(1, count($trend['buckets']));
+        $barWidth = min(36, $slotWidth * 0.58);
     @endphp
-    <svg class="processing-trend-line" viewBox="0 0 800 120" role="img" aria-labelledby="processing-line-title">
-        <title id="processing-line-title">Unique papers processed each day: {{ $points->map(fn ($point) => $point['date'].': '.$point['count'])->implode(', ') }}</title>
-        <defs>
-            <marker id="processing-arrow" viewBox="0 0 10 10" markerWidth="9" markerHeight="9" refX="8" refY="5" markerUnits="userSpaceOnUse" orient="auto"><path d="M3 1.5 L8 5 L3 8.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></marker>
-        </defs>
-        @for($value = 0; $value <= $ceiling; $value += 5)
-            @php($y = 96 - $value / $ceiling * 80)
-            <text x="26" y="{{ $y + 3 }}" text-anchor="end" class="processing-trend-label">{{ $value }}</text>
-            <path d="M36 {{ $y }} H764" class="processing-trend-grid" />
+
+    <svg
+        class="processing-trend-line dashboard-activity-chart"
+        viewBox="0 0 800 400"
+        preserveAspectRatio="none"
+        role="img"
+        aria-label="{{ $trend['chartLabel'] }}"
+    >
+        @for($tick = 0; $tick <= $tickCount; $tick++)
+            @php
+                $value = (int) round($ceiling * $tick / $tickCount);
+                $y = $chartBottom - $chartHeight * $tick / $tickCount;
+            @endphp
+            <text x="38" y="{{ $y + 3 }}" text-anchor="end" class="processing-trend-label">{{ $value }}</text>
+            <line x1="{{ $chartLeft }}" y1="{{ $y }}" x2="{{ $chartRight }}" y2="{{ $y }}" class="processing-trend-grid" />
         @endfor
-        <polyline points="{{ $points->map(fn ($point) => $point['x'].','.$point['y'])->implode(' ') }}" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#processing-arrow)" />
-        @foreach($points as $point)
-            <g><title>{{ $point['date'] }}: {{ $point['count'] }} papers</title>
-                <circle cx="{{ $point['x'] }}" cy="{{ $point['y'] }}" r="6" fill="transparent" />
-                <text x="{{ $point['x'] }}" y="116" text-anchor="middle" class="processing-trend-label">{{ $point['date'] }}</text>
+
+        <line x1="{{ $chartLeft }}" y1="{{ $chartTop }}" x2="{{ $chartLeft }}" y2="{{ $chartBottom }}" class="processing-trend-axis" />
+        <line x1="{{ $chartLeft }}" y1="{{ $chartBottom }}" x2="{{ $chartRight }}" y2="{{ $chartBottom }}" class="processing-trend-axis" />
+
+        @foreach($trend['buckets'] as $index => $bucket)
+            @php
+                $barHeight = $bucket['count'] / $ceiling * $chartHeight;
+                $x = $chartLeft + ($slotWidth * $index) + (($slotWidth - $barWidth) / 2);
+                $y = $chartBottom - $barHeight;
+                $labelX = $chartLeft + ($slotWidth * $index) + ($slotWidth / 2);
+            @endphp
+            <g>
+                <title>{{ $bucket['tooltip'] }}: {{ $bucket['count'] }} {{ \Illuminate\Support\Str::plural('document', $bucket['count']) }}</title>
+                @if($bucket['count'] > 0)
+                    <rect x="{{ $x }}" y="{{ $y }}" width="{{ $barWidth }}" height="{{ max(1, $barHeight) }}" rx="2" class="processing-trend-bar" />
+                @endif
+                <text x="{{ $labelX }}" y="381" text-anchor="middle" class="processing-trend-label">{{ $bucket['label'] }}</text>
             </g>
         @endforeach
     </svg>

@@ -3,8 +3,8 @@
 return [
     // Public Philippine holiday calendar; fetched at most once daily.
     'feed_url' => env('PH_HOLIDAY_FEED_URL', 'https://calendar.google.com/calendar/ical/en.philippines%23holiday%40group.v.calendar.google.com/public/basic.ics'),
-    // Verified nationwide dates override the feed for this year, also available offline.
-    // Proclamation 1006 (2025), Proclamation 1189 (2026), Proclamation 1264 (2026).
+    // Verified nationwide dates override the feed for these years, also available offline.
+    // Proclamations 1006 (2025), 1189 and 1264 (2026), and 1427 (2026).
     'official' => [
         2026 => [
             '2026-01-01' => "New Year's Day",
@@ -28,6 +28,27 @@ return [
             '2026-12-25' => 'Christmas Day',
             '2026-12-30' => 'Rizal Day',
             '2026-12-31' => 'Last Day of the Year',
+        ],
+        2027 => [
+            '2027-01-01' => "New Year's Day",
+            '2027-02-06' => 'Chinese New Year',
+            '2027-02-25' => 'EDSA People Power Anniversary (special working day)',
+            '2027-03-25' => 'Maundy Thursday',
+            '2027-03-26' => 'Good Friday',
+            '2027-03-27' => 'Black Saturday',
+            '2027-04-09' => 'Araw ng Kagitingan',
+            '2027-05-01' => 'Labor Day',
+            '2027-06-12' => 'Independence Day',
+            '2027-08-21' => 'Ninoy Aquino Day',
+            '2027-08-30' => 'National Heroes Day',
+            '2027-11-01' => "All Saints' Day",
+            '2027-11-02' => "All Souls' Day",
+            '2027-11-30' => 'Bonifacio Day',
+            '2027-12-08' => 'Feast of the Immaculate Conception',
+            '2027-12-24' => 'Christmas Eve',
+            '2027-12-25' => 'Christmas Day',
+            '2027-12-30' => 'Rizal Day',
+            '2027-12-31' => 'Last Day of the Year',
         ],
     ],
 ];

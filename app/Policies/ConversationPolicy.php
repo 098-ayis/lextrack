@@ -11,7 +11,10 @@ class ConversationPolicy
         User $user, 
         Conversation $conversation
         ): bool {
-        if (! $conversation->document?->isAvailableForMessaging()) {
+        $isDocumentConversation = $conversation->document?->isAvailableForMessaging();
+        $isRequestConversation = $conversation->documentRequest !== null;
+
+        if (! $isDocumentConversation && ! $isRequestConversation) {
             return false;
         }
 
@@ -31,9 +34,13 @@ class ConversationPolicy
         User $user, 
         Conversation $conversation
         ): bool {
+        $hasMessageableSubject =
+            $conversation->document?->isAvailableForMessaging()
+            || $conversation->documentRequest !== null;
+
         if (
             $conversation->status !== 'active'
-            || ! $conversation->document?->isAvailableForMessaging()
+            || ! $hasMessageableSubject
         ) {
             return false;
         }
