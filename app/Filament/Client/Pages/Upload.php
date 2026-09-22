@@ -169,6 +169,7 @@ class Upload extends Page implements HasForms
                     ->multiple()
                     ->appendFiles()
                     ->panelLayout('compact')
+                    ->removeUploadedFileButtonPosition('right')
                     ->acceptedFileTypes([
                         'application/pdf',
                         'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -193,6 +194,7 @@ class Upload extends Page implements HasForms
                     ->multiple()
                     ->appendFiles()
                     ->panelLayout('compact')
+                    ->removeUploadedFileButtonPosition('right')
                     ->acceptedFileTypes([
                         'application/pdf',
                         'application/vnd.openxmlformats-officedocument.wordprocessingml.document',

@@ -2728,6 +2728,20 @@ Edit-Button
     display: flex !important;
 }
 
+/* Keep the client-only form pages comfortable on wide screens. */
+.fi-panel-client .client-request-page,
+.fi-panel-client .client-upload-page {
+    width: auto !important;
+    margin-inline: 2in;
+}
+
+@media (max-width: 63.99rem) {
+    .fi-panel-client .client-request-page,
+    .fi-panel-client .client-upload-page {
+        margin-inline: 1rem;
+    }
+}
+
 @media (min-width: 64rem) {
     .fi-panel-client .fi-topbar-open-sidebar-btn,
     .fi-panel-client .fi-topbar-close-sidebar-btn {
