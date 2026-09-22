@@ -7,8 +7,8 @@ use App\Filament\Resources\ActionTypes\Pages\CreateActionType;
 use App\Filament\Resources\ActionTypes\Pages\EditActionType;
 use App\Filament\Resources\ActionTypes\Pages\ListActionTypes;
 use App\Models\ActionType;
-use Filament\Forms\Components\ColorPicker;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\ViewField;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
@@ -35,12 +35,16 @@ class ActionTypeResource extends Resource
                 ->label('Action name')
                 ->required()
                 ->maxLength(255)
+                ->columnSpanFull()
                 ->unique(ignoreRecord: true)
                 ->validationMessages([
                     'unique' => 'This action type already exists. Please enter a new unique action type.',
                 ]),
-            ColorPicker::make('color')
+            ViewField::make('color')
                 ->label('Color')
+                ->view('filament.forms.color-range-picker')
+                ->columnSpanFull()
+                ->rule('regex:/^#[0-9A-F]{6}$/i')
                 ->required()
                 ->default('#059669'),
         ]);
@@ -73,7 +77,7 @@ class ActionTypeResource extends Resource
             ->toolbarActions([
                 \Filament\Actions\CreateAction::make()
                     ->modal()
-                    ->modalWidth('lg')
+                    ->modalWidth('xs')
                     ->createAnother(false)
                     ->successNotificationTitle('Action type created successfully')
                     ->successRedirectUrl(fn (): string => ActionTypeResource::getUrl('index')),

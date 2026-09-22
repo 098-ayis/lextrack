@@ -7,9 +7,9 @@ use App\Filament\Resources\DocumentTypes\Pages\CreateDocumentType;
 use App\Filament\Resources\DocumentTypes\Pages\EditDocumentType;
 use App\Filament\Resources\DocumentTypes\Pages\ListDocumentTypes;
 use App\Models\DocumentType;
-use Filament\Forms\Components\ColorPicker;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\ViewField;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
@@ -36,6 +36,7 @@ class DocumentTypeResource extends Resource
                 ->label('Document type')
                 ->required()
                 ->maxLength(255)
+                ->columnSpanFull()
                 ->unique(ignoreRecord: true)
                 ->validationMessages([
                     'unique' => 'This document type already exists. Please enter a new unique document type.',
@@ -51,8 +52,11 @@ class DocumentTypeResource extends Resource
                 ->maxValue(65535)
                 ->helperText('Used to calculate the document deadline.')
                 ->nullable(),
-            ColorPicker::make('color')
+            ViewField::make('color')
                 ->label('Color')
+                ->view('filament.forms.color-range-picker')
+                ->columnSpanFull()
+                ->rule('regex:/^#[0-9A-F]{6}$/i')
                 ->nullable(),
         ]);
     }
@@ -93,7 +97,7 @@ class DocumentTypeResource extends Resource
             ->toolbarActions([
                 \Filament\Actions\CreateAction::make()
                     ->modal()
-                    ->modalWidth('lg')
+                    ->modalWidth('md')
                     ->createAnother(false)
                     ->successNotificationTitle('Document type created successfully')
                     ->successRedirectUrl(fn (): string => DocumentTypeResource::getUrl('index')),
