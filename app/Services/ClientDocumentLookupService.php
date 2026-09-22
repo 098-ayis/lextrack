@@ -26,37 +26,59 @@ class ClientDocumentLookupService
             ->where('user_id', $user->getKey())
             ->orderByDesc('created_at')
             ->orderByDesc('document_id')
-            ->first(['document_id', 'status']);
+            ->first([
+                'document_id',
+                'status',
+                'lao_number',
+                'document_name',
+                'document_type',
+            ]);
 
         if (! $document) {
             return $this->documentResult('You have no submitted documents yet.');
         }
 
+        $label = $this->documentDisplayName($document);
+
+        if (filled($label)) {
+            return $this->documentResult(
+                $this->statusResponse(
+                    $user,
+                    (int) $document->document_id,
+                    (string) $document->status,
+                    filled($document->lao_number) ? (string) $document->lao_number : null,
+                    $label,
+                ),
+                (int) $document->document_id,
+                (string) $document->status,
+            );
+        }
+
         $reply = match ($document->status) {
 
             'pending' =>
-                'Your latest submitted document is currently Pending. '
+                $this->withDocumentLabel($label, 'Your latest submitted document is currently Pending. ')
                 . 'It is awaiting initial review and validation by the Legal Affairs Office.',
 
             'in_progress' =>
-                'Your latest submitted document is currently In Progress.',
+                $this->withDocumentLabel($label, 'Your latest submitted document is currently In Progress.'),
 
             'outgoing' =>
-                'Your latest submitted document is currently Outgoing.',
+                $this->withDocumentLabel($label, 'Your latest submitted document is currently Outgoing.'),
 
             'completed' =>
-                'Your latest submitted document is Completed.',
+                $this->withDocumentLabel($label, 'Your latest submitted document is Completed.'),
 
             'returned' =>
-                'Your latest submitted document is currently Returned. '
+                $this->withDocumentLabel($label, 'Your latest submitted document is currently Returned. ')
                 . 'Please check the Documents or Messages page for details.',
 
             'rejected' =>
-                'Your latest submitted document was Rejected. '
+                $this->withDocumentLabel($label, 'Your latest submitted document was Rejected. ')
                 . 'Please review its recorded rejection reason in the Documents page.',
 
             'archived' =>
-                'Your latest submitted document is Archived — Retained for Records. '
+                $this->withDocumentLabel($label, 'Your latest submitted document is Archived — Retained for Records. ')
                 . 'It is no longer undergoing active processing and has been retained '
                 . 'by the Legal Affairs Office for future reference. '
                 . 'Archiving does not necessarily mean that processing was completed.',
@@ -89,7 +111,13 @@ class ClientDocumentLookupService
         $document = Document::query()
             ->where('user_id', $user->getKey())
             ->where('lao_number', $laoNumber)
-            ->first(['document_id', 'status']);
+            ->first([
+                'document_id',
+                'status',
+                'lao_number',
+                'document_name',
+                'document_type',
+            ]);
 
         if (! $document) {
             return $this->documentResult(self::NO_AUTHORIZED_MATCH);
@@ -101,6 +129,7 @@ class ClientDocumentLookupService
                 (int) $document->document_id,
                 (string) $document->status,
                 $laoNumber,
+                $this->documentDisplayName($document),
             ),
             (int) $document->document_id,
             (string) $document->status,
@@ -122,17 +151,91 @@ class ClientDocumentLookupService
         $document = Document::query()
             ->where('user_id', $user->getKey())
             ->where('document_id', $documentId)
-            ->first(['document_id', 'status']);
+            ->first([
+                'document_id',
+                'status',
+                'lao_number',
+                'document_name',
+                'document_type',
+            ]);
 
         if (! $document) {
             return $this->documentResult(self::NO_AUTHORIZED_MATCH);
         }
 
         return $this->documentResult(
-            $this->statusResponse($user, (int) $document->document_id, (string) $document->status, null),
+            $this->statusResponse(
+                $user,
+                (int) $document->document_id,
+                (string) $document->status,
+                filled($document->lao_number) ? (string) $document->lao_number : null,
+                $this->documentDisplayName($document),
+            ),
             (int) $document->document_id,
             (string) $document->status,
         );
+    }
+
+    /**
+     * Return a rejection reason only for an owned document whose current
+     * status is actually Rejected. Ownership and status are checked in the
+     * same query; the reason is never read for another status.
+     *
+     * @return array{reply: string, document_id: ?int, status: ?string}
+     */
+    public function rejectionReasonByDocumentIdResult(User $user, int $documentId): array
+    {
+        $document = Document::query()
+            ->where('user_id', $user->getKey())
+            ->where('document_id', $documentId)
+            ->first(['document_id', 'lao_number', 'status', 'rejection_reason']);
+
+        if (! $document) {
+            return $this->documentResult(self::NO_AUTHORIZED_MATCH);
+        }
+
+        $label = filled($document->lao_number)
+            ? 'Document ' . $document->lao_number
+            : 'Your selected document';
+        $status = (string) $document->status;
+
+        if ($status !== 'rejected') {
+            return $this->documentResult(
+                "{$label} is currently " . $this->statusLabel($status) . ". I can show a rejection reason only when the current status is Rejected.",
+                (int) $document->document_id,
+                $status,
+            );
+        }
+
+        $reason = filled($document->rejection_reason)
+            ? (string) $document->rejection_reason
+            : 'No recorded rejection reason is available.';
+
+        return $this->documentResult(
+            "{$label} is Rejected. Recorded rejection reason: {$reason}",
+            (int) $document->document_id,
+            $status,
+        );
+    }
+
+    public function rejectionReasonByLaoNumberResult(User $user, string $laoNumber): array
+    {
+        $laoNumber = strtoupper(trim($laoNumber));
+
+        if (preg_match('/^LAO-\d{2}-\d{3,}$/D', $laoNumber) !== 1) {
+            return $this->documentResult('Please enter a valid LAO number in the format LAO-26-009.');
+        }
+
+        $document = Document::query()
+            ->where('user_id', $user->getKey())
+            ->where('lao_number', $laoNumber)
+            ->first(['document_id']);
+
+        if (! $document) {
+            return $this->documentResult(self::NO_AUTHORIZED_MATCH);
+        }
+
+        return $this->rejectionReasonByDocumentIdResult($user, (int) $document->document_id);
     }
 
     /**
@@ -189,10 +292,101 @@ class ClientDocumentLookupService
     }
 
     /**
+     * Resolve a title/name only among the authenticated client's documents.
+     * The returned choices are selectors, never an authorization decision.
+     * The owner is checked again by statusByDocumentIdResult() after selection.
+     *
+     * @return list<array{document_id: int, lao_number: ?string, document_type: ?string, display_name: ?string, submitted_at: string}>
+     */
+    public function authorizedDocumentChoicesByName(User $user, string $name): array
+    {
+        $name = trim($name);
+
+        if ($name === '') {
+            return [];
+        }
+
+        return Document::query()
+            ->where('user_id', $user->getKey())
+            ->where(function ($query) use ($name): void {
+                $query->where('document_name', $name);
+            })
+            ->orderByDesc('created_at')
+            ->orderByDesc('document_id')
+            ->get([
+                'document_id',
+                'lao_number',
+                'document_type',
+                'document_name',
+                'created_at',
+            ])
+            ->map(fn (Document $document): array => [
+                'document_id' => (int) $document->document_id,
+                'lao_number' => filled($document->lao_number) ? (string) $document->lao_number : null,
+                'document_type' => filled($document->document_type) ? (string) $document->document_type : null,
+                'display_name' => $this->documentDisplayName($document),
+                'submitted_at' => $document->created_at?->format('F j, Y') ?? 'date unavailable',
+            ])
+            ->all();
+    }
+
+    /**
+     * Return the selected client's current approved details. Every call is
+     * owner-scoped; the session reference is not treated as authorization.
+     *
+     * @return array{reply: string, document_id: ?int, status: ?string}
+     */
+    public function detailsByDocumentIdResult(User $user, int $documentId, string $topic = 'summary'): array
+    {
+        $document = Document::query()
+            ->where('user_id', $user->getKey())
+            ->where('document_id', $documentId)
+            ->first([
+                'document_id',
+                'status',
+                'document_name',
+                'document_type',
+                'action_type',
+                'sent_to',
+                'sent_date',
+                'lao_number',
+            ]);
+
+        if (! $document) {
+            return $this->documentResult(self::NO_AUTHORIZED_MATCH);
+        }
+
+        $label = $this->documentLabel(
+            $this->documentDisplayName($document),
+            filled($document->lao_number) ? (string) $document->lao_number : null,
+        );
+        $status = (string) $document->status;
+
+        if ($topic === 'action_type') {
+            $statusLabel = $this->statusLabel($status);
+            $reply = $status !== 'in_progress'
+                ? "{$label} is currently {$statusLabel}. An assigned action type is available only for an In Progress document."
+                : (filled($document->action_type)
+                ? "{$label} is currently {$statusLabel}. Assigned action type: {$document->action_type}."
+                : "{$label} is currently {$statusLabel}. No assigned action type has been recorded.");
+        } else {
+            $reply = $this->statusResponse(
+                $user,
+                (int) $document->document_id,
+                $status,
+                filled($document->lao_number) ? (string) $document->lao_number : null,
+                $label,
+            );
+        }
+
+        return $this->documentResult($reply, (int) $document->document_id, $status);
+    }
+
+    /**
      * Return minimal selectors for the authenticated client's own records.
      * These values are used only to help the client disambiguate a private lookup.
      *
-     * @return list<array{document_id: int, lao_number: ?string, document_type: ?string, submitted_at: string}>
+     * @return list<array{document_id: int, lao_number: ?string, document_type: ?string, display_name: ?string, submitted_at: string}>
      */
     public function authorizedDocumentChoices(User $user, int $limit = 10): array
     {
@@ -201,11 +395,18 @@ class ClientDocumentLookupService
             ->orderByDesc('created_at')
             ->orderByDesc('document_id')
             ->limit(max(1, min($limit, 10)))
-            ->get(['document_id', 'lao_number', 'document_type', 'created_at'])
-            ->map(static fn (Document $document): array => [
+            ->get([
+                'document_id',
+                'lao_number',
+                'document_type',
+                'document_name',
+                'created_at',
+            ])
+            ->map(fn (Document $document): array => [
                 'document_id' => (int) $document->document_id,
                 'lao_number' => filled($document->lao_number) ? (string) $document->lao_number : null,
                 'document_type' => filled($document->document_type) ? (string) $document->document_type : null,
+                'display_name' => $this->documentDisplayName($document),
                 'submitted_at' => $document->created_at?->format('F j, Y') ?? 'date unavailable',
             ])
             ->all();
@@ -290,8 +491,9 @@ class ClientDocumentLookupService
         int $documentId,
         string $status,
         ?string $laoNumber,
+        ?string $displayName = null,
     ): string {
-        $label = filled($laoNumber) ? "Document {$laoNumber}" : 'Your selected document';
+        $label = $this->documentLabel($displayName, $laoNumber);
 
         return match ($status) {
             'pending' => "{$label} is Pending.",
@@ -373,6 +575,35 @@ class ClientDocumentLookupService
             'archived' => 'Archived',
             default => 'Unavailable',
         };
+    }
+
+    private function documentDisplayName(Document $document): ?string
+    {
+        // document_name is the actual title field populated from the uploaded
+        // document. document_type is only a display label and never an ID.
+        $name = $document->document_name ?: $document->document_type;
+
+        return filled($name) ? trim((string) $name) : null;
+    }
+
+    private function documentLabel(?string $displayName, ?string $laoNumber): string
+    {
+        if (filled($displayName) && filled($laoNumber)) {
+            return "Document {$displayName} ({$laoNumber})";
+        }
+
+        if (filled($displayName)) {
+            return "Document {$displayName}";
+        }
+
+        return filled($laoNumber) ? "Document {$laoNumber}" : 'Your selected document';
+    }
+
+    private function withDocumentLabel(?string $label, string $message): string
+    {
+        return filled($label)
+            ? 'Document ' . $label . ': ' . ltrim($message)
+            : $message;
     }
 
     /**

@@ -17,6 +17,8 @@ class Messages extends Page
 {
     use WithFileUploads;
 
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-chat-bubble-left-right';
+
     protected string $view = 'filament.client.pages.messages';
 
     public function getHeading(): string

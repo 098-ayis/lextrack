@@ -10,6 +10,8 @@ use Illuminate\Validation\Rule;
 
 class Request extends Page
 {
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-document-plus';
+
     protected static ?string $slug = 'request-document';
 
     protected static ?string $navigationLabel = 'Request';

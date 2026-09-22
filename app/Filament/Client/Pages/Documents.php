@@ -19,6 +19,8 @@ class Documents extends Page implements HasTable
 {
     use InteractsWithTable;
 
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-document-text';
+
     protected static ?string $navigationLabel = 'Documents';
     protected static ?string $title = 'Documents';
     protected static ?string $slug = 'documents';

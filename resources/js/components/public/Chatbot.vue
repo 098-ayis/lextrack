@@ -5,6 +5,9 @@ const message = ref('')
 const loading = ref(false)
 const isOpen = ref(false)
 const chatMessages = ref(null)
+const conversationId = ref(
+  globalThis.crypto?.randomUUID?.() || `chat-${Date.now()}-${Math.random().toString(36).slice(2)}`
+)
 
 
 const messages = ref([
@@ -45,7 +48,10 @@ async function sendMessage() {
         'Accept': 'application/json',
         'X-CSRF-TOKEN': token ?? ''
       },
-      body: JSON.stringify({ message: text })
+      body: JSON.stringify({
+        message: text,
+        conversation_id: conversationId.value
+      })
     })
 
     if (!response.ok) {
