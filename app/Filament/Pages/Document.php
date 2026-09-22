@@ -239,9 +239,13 @@ class Document extends Page implements HasTable
         ];
     }
 
-    public function acceptDocument(int $documentId, ?string $particulars = null): void
+    public function acceptDocument(
+        int $documentId,
+        ?string $particulars = null,
+        ?string $actionType = null,
+    ): void
     {
-        $result = DB::transaction(function () use ($documentId, $particulars): array {
+        $result = DB::transaction(function () use ($documentId, $particulars, $actionType): array {
 
             $document = DocumentModel::with('user')
                 ->lockForUpdate()
@@ -276,6 +280,9 @@ class Document extends Page implements HasTable
                 'particulars' => $particulars !== null
                     ? trim($particulars)
                     : $document->particulars,
+                'action_type' => $actionType !== null
+                    ? trim($actionType)
+                    : $document->action_type,
             ]);
 
             $this->recordDocumentActivity(
@@ -1632,12 +1639,7 @@ class Document extends Page implements HasTable
             ->color('success')
             ->size('xs')
             ->modalHeading('Accept Document')
-            ->modalDescription(function (array $arguments, ?DocumentModel $record = null): string {
-                $document = $record ?? DocumentModel::with('user')->find($arguments['document'] ?? null);
-                $uploader = $document?->user?->name ?? 'Unknown user';
-
-                return "Uploaded by {$uploader} will be moved to the Incoming table.";
-            })
+            
             ->schema(function (array $arguments, ?DocumentModel $record = null): array {
                 $document = $record ?? DocumentModel::find($arguments['document'] ?? null);
 
@@ -1657,7 +1659,19 @@ class Document extends Page implements HasTable
                                 ->autosize()
                                 ->maxLength(65535)
                                 ->required(),
+
                         ]),
+                        
+                         Select::make('action_type')
+                                ->label('Action Taken')
+                                ->options(fn () => ActionType::query()
+                                    ->orderBy('action_name')
+                                    ->pluck('action_name', 'action_name')
+                                    ->toArray())
+                                ->default($document?->action_type)
+                                ->searchable()
+                                ->preload()
+                                ->required(),
                 ];
             })
             ->modalContent(function (DocumentModel $record) {
@@ -1689,6 +1703,7 @@ class Document extends Page implements HasTable
                 $this->acceptDocument(
                     $document->document_id,
                     (string) $data['particulars'],
+                    (string) $data['action_type'],
                 );
             });
     }
