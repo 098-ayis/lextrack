@@ -408,14 +408,14 @@
         margin-top: -8px;
     }
 
-    /* Client messages = LEFT */
-    .t-msg-row.client-message {
+    /* Messages from anyone else = LEFT */
+    .t-msg-row.incoming {
         align-self: flex-start;
         flex-direction: row;
     }
 
-    /* Admin/staff messages = RIGHT */
-    .t-msg-row.staff-message {
+    /* The current user's messages = RIGHT */
+    .t-msg-row.own {
         align-self: flex-end;
         flex-direction: row-reverse;
     }
@@ -461,7 +461,7 @@
         visibility: hidden;
     }
 
-    .t-msg-row.staff-message .t-msg-avatar {
+    .t-msg-row.own .t-msg-avatar {
         background: #e0e7ff;
         color: #4f46e5;
     }
@@ -480,6 +480,14 @@
         width: fit-content;
         max-width: 100%;
         min-width: 0;
+    }
+
+    .t-msg-row.incoming .t-message-content {
+        align-items: flex-start;
+    }
+
+    .t-msg-row.own .t-message-content {
+        align-items: flex-end;
     }
 
     /* Single message image: show the whole photo */
@@ -596,7 +604,7 @@
         margin: 0 0 3px;
     }
 
-    .t-msg-row.staff-message .t-sender-name {
+    .t-msg-row.own .t-sender-name {
         text-align: right;
     }
 
@@ -626,14 +634,14 @@
         word-break: break-word;
     }
 
-    /* Admin/staff bubble */
-    .t-msg-row.staff-message .t-bubble {
+    /* The current user's bubble */
+    .t-msg-row.own .t-bubble {
         background: #6366f1;
         color: #ffffff;
         border: none;
     }
 
-    .t-msg-row.client-message .t-bubble {
+    .t-msg-row.incoming .t-bubble {
         background: #ffffff;
         color: #111827;
     }
@@ -743,19 +751,19 @@
         content: '';
     }
 
-    .t-msg-row.client-message .message-interactions {
+    .t-msg-row.incoming .message-interactions {
         left: calc(100% + 8px);
     }
 
-    .t-msg-row.client-message .message-interactions::before {
+    .t-msg-row.incoming .message-interactions::before {
         right: 100%;
     }
 
-    .t-msg-row.staff-message .message-interactions {
+    .t-msg-row.own .message-interactions {
         right: calc(100% + 8px);
     }
 
-    .t-msg-row.staff-message .message-interactions::before {
+    .t-msg-row.own .message-interactions::before {
         left: 100%;
     }
 
@@ -846,7 +854,7 @@
         box-shadow: 0 8px 20px rgba(15, 23, 42, 0.16);
     }
 
-    .t-msg-row.staff-message .message-reaction-menu {
+    .t-msg-row.own .message-reaction-menu {
         right: 0;
         left: auto;
     }
@@ -1107,7 +1115,7 @@
         margin-top: 4px;
     }
 
-    .t-msg-row.staff-message .t-time {
+    .t-msg-row.own .t-time {
         text-align: right;
     }
 
@@ -1578,13 +1586,13 @@
         color: #f9fafb;
     }
 
-    .dark .t-msg-row.client-message .t-bubble {
+    .dark .t-msg-row.incoming .t-bubble {
         background: #1f2937;
         border-color: #374151;
         color: #f3f4f6;
     }
 
-    .dark .t-msg-row.staff-message .t-bubble {
+    .dark .t-msg-row.own .t-bubble {
         background: #6366f1;
         border: none;
         color: #ffffff;
@@ -2221,18 +2229,7 @@
 
                         $senderPhoto = $sender?->getProfilePhotoUrl();
 
-                        $clientUserId = $activeConversation->document?->user_id;
-
-                        /*
-                        * Admin/shared inbox rule:
-                        * client = conversation creator
-                        * everyone else = Legal Office staff
-                        */
-                        $isStaffMessage =
-                            (int) $message->sender_id
-                            !== (int) $clientUserId;
-
-                        $isCurrentUser =
+                        $isOwn =
                             (int) $message->sender_id
                             === (int) auth()->id();
 
@@ -2249,7 +2246,7 @@
                     <div
                         class="
                             t-msg-row
-                            {{ $isStaffMessage ? 'staff-message' : 'client-message' }}
+                            {{ $isOwn ? 'own' : 'incoming' }}
                             {{ $isSameSenderAsPrevious ? 'message-continuation' : '' }}
                         "
                         data-message-id="{{ $message->id }}"

@@ -96,8 +96,32 @@
         <div class="document-viewer-layout">
             <section class="document-preview-pane flex min-h-0 min-w-0 flex-col bg-gray-100" aria-label="Document preview">
                 <div class="min-h-0 flex-1 overflow-hidden bg-gray-100">
-                    @if ($previewUrl)
-                        <iframe src="{{ $previewUrl }}" class="block h-full w-full border-0" title="Document Preview"></iframe>
+                    @if (auth()->user()->hasRole('Super Admin'))
+                        <div class="flex h-full flex-col items-center justify-center p-6 text-center">
+
+                            <x-heroicon-o-lock-closed
+                                class="h-12 w-12 text-gray-400"
+                            />
+
+                            <h3 class="mt-4 text-lg font-semibold text-gray-800">
+                                Document Preview Restricted
+                            </h3>
+
+                            <p class="mt-2 max-w-sm text-sm text-gray-500">
+                                Only authorized Legal Staff can view or download
+                                the original document.
+                            </p>
+
+                        </div>
+
+                    @elseif ($previewUrl)
+
+                        <iframe
+                            src="{{ $previewUrl }}"
+                            class="block h-full w-full border-0"
+                            title="Document Preview"
+                        ></iframe>
+
                     @else
                         <div class="flex h-full items-center justify-center p-6">
                             <div class="text-center">

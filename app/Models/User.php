@@ -2,30 +2,27 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Database\Factories\UserFactory;
+use Filament\Models\Contracts\FilamentUser;
+use Filament\Models\Contracts\HasAvatar;
+use Filament\Panel;
+use Illuminate\Auth\MustVerifyEmail as MustVerifyEmailTrait;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Laravel\Sanctum\HasApiTokens;
-use App\Models\Client;
-use Filament\Models\Contracts\HasAvatar;
-use Filament\Models\Contracts\FilamentUser;
-use Filament\Panel;
-use App\Models\Conversation;
-use App\Models\Document;
 use Spatie\Permission\Traits\HasRoles;
 
-#[Fillable(['name', 'email', 'password'])]
+#[Fillable(['name', 'email', 'password', 'phone_number'])]
 #[Hidden(['password', 'remember_token'])]
 
-
-class User extends Authenticatable implements HasAvatar, FilamentUser
+class User extends Authenticatable implements FilamentUser, HasAvatar, MustVerifyEmail
 {
     public const ADMIN_ROLES = ['Admin', 'Super Admin'];
 
@@ -39,7 +36,8 @@ class User extends Authenticatable implements HasAvatar, FilamentUser
     ];
 
     /** @use HasFactory<UserFactory> */
-    use HasApiTokens, HasFactory, Notifiable;
+    use HasApiTokens, HasFactory, MustVerifyEmailTrait, Notifiable;
+
     use HasRoles;
 
     protected $fillable = [
@@ -52,6 +50,7 @@ class User extends Authenticatable implements HasAvatar, FilamentUser
         'status',
         'join_date',
         'last_login',
+        'phone_number',
     ];
 
     public function getFilamentAvatarUrl(): ?string
@@ -74,7 +73,7 @@ class User extends Authenticatable implements HasAvatar, FilamentUser
         }
 
         if (str_starts_with($photoUrl, '//')) {
-            return 'https:' . $photoUrl;
+            return 'https:'.$photoUrl;
         }
 
         $photoHost = parse_url($photoUrl, PHP_URL_HOST);
@@ -87,7 +86,7 @@ class User extends Authenticatable implements HasAvatar, FilamentUser
                 || ($photoHost && str_ends_with($photoHost, '.googleusercontent.com'));
 
             if ($isGooglePhoto && $photoScheme === 'http') {
-                return 'https://' . substr($photoUrl, 7);
+                return 'https://'.substr($photoUrl, 7);
             }
 
             return $photoUrl;
@@ -136,7 +135,6 @@ class User extends Authenticatable implements HasAvatar, FilamentUser
         };
     }
 
-
     public function client()
     {
         return $this->hasOne(Client::class, 'user_id');
@@ -176,8 +174,8 @@ class User extends Authenticatable implements HasAvatar, FilamentUser
             'user_id',
             'conversation_id'
         )
-        ->withPivot('joined_at')
-        ->withTimestamps();
+            ->withPivot('joined_at')
+            ->withTimestamps();
     }
 
     public function documentRequests(): HasMany

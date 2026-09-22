@@ -4,6 +4,7 @@ namespace App\Providers\Filament;
 
 use App\Filament\Pages\Dashboard;
 use App\Filament\Widgets\DocumentStats;
+use App\Http\Middleware\EnsureLegalStaff;
 use App\Http\Middleware\FilamentAuthenticate;
 use App\Http\Middleware\IdleTimeout;
 use App\Livewire\DatabaseNotifications;
@@ -29,7 +30,7 @@ class AdminPanelProvider extends PanelProvider
 {
     public function boot(): void
     {
-        Route::middleware(['web', 'auth', 'admin'])
+        Route::middleware(['web', 'auth', 'admin',  EnsureLegalStaff::class])
             ->get('/admin/documents/{document}/file/{filename}', function (
                 Document $document,
                 string $filename,
@@ -97,6 +98,11 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->spa()
+            ->spaUrlExceptions([
+                '*/admin/documents/*/download',
+                '*/admin/documents/*/versions/*/download',
+                '*/admin/documents/*/transmittal-download',
+            ])
             ->maxContentWidth(\Filament\Support\Enums\Width::Full)
             ->sidebarWidth('15rem')
             ->sidebarCollapsibleOnDesktop()

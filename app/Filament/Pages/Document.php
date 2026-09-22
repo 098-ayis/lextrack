@@ -401,6 +401,10 @@ class Document extends Page implements HasTable
             }
         }
 
+        if ($result['accepted']) {
+            $this->redirect(self::getUrl(['section' => 'incoming']));
+        }
+
     }
 
     protected function getDocumentTableQuery(): Builder
@@ -1407,7 +1411,20 @@ class Document extends Page implements HasTable
 
     public function downloadDocument(int $documentId): BinaryFileResponse
     {
-        $document = DocumentModel::with(['user', 'latestVersion'])->findOrFail($documentId);
+        // Only Legal Staff can download original documents.
+        $user = auth()->user();
+
+        abort_unless(
+            $user
+            && $user->hasRole('Admin')
+            && ! $user->hasRole('Super Admin'),
+            403,
+            'You are not authorized to download this document.'
+        );
+
+        $document = DocumentModel::with(['user', 'latestVersion'])
+            ->findOrFail($documentId);
+
         $version = $document->latestVersion;
 
         abort_unless(
@@ -1416,15 +1433,14 @@ class Document extends Page implements HasTable
             404
         );
 
-        $disk = $version->storageDisk();
-
         $this->recordDocumentActivity(
             $document->document_id,
             'Document downloaded',
             'Downloaded ' . basename((string) $version->file_path) . '.'
         );
 
-        return app(DocumentDownloadService::class)->download($document, $version);
+        return app(DocumentDownloadService::class)
+            ->download($document, $version);
     }
 
     protected function getNextVersionNumber(DocumentModel $document): int

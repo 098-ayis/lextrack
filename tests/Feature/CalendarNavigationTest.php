@@ -39,7 +39,7 @@ class CalendarNavigationTest extends TestCase
         $this->assertSame('meeting', $page->getEventCategory((object) []));
         $this->assertSame('#c9362b', $page->getEventColor((object) ['category' => 'holiday']));
         $this->assertSame('#0f766e', $page->getEventColor((object) ['category' => 'meeting']));
-        $this->assertSame('#7c3aed', $page->getEventColor((object) ['is_document_deadline' => true]));
+        $this->assertSame('#6366f1', $page->getEventColor((object) ['is_document_deadline' => true]));
     }
 
     public function test_invalid_date_falls_back_to_today(): void

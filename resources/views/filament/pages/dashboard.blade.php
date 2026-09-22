@@ -338,9 +338,27 @@
                                 {{-- DOCUMENT PREVIEW --}}
                                 <div class="dashboard-document-preview flex h-32 items-center justify-center overflow-hidden bg-gray-50 dark:bg-gray-800">
 
-                                    @if (
+                                    @if (auth()->user()->hasRole('Super Admin'))
+
+                                        <div class="flex h-full w-full flex-col items-center justify-center gap-2 p-4 text-center">
+
+                                            <x-heroicon-o-lock-closed
+                                                class="h-8 w-8 text-gray-400"
+                                            />
+
+                                            <p class="text-sm font-semibold text-gray-600 dark:text-gray-300">
+                                                Preview Restricted
+                                            </p>
+
+                                        </div>
+
+                                    @elseif (
                                         $document->latestVersion?->file_path &&
-                                        in_array(strtolower(pathinfo($document->latestVersion->file_path, PATHINFO_EXTENSION)), ['pdf', 'doc', 'docx'], true)
+                                        in_array(
+                                            strtolower(pathinfo($document->latestVersion->file_path, PATHINFO_EXTENSION)),
+                                            ['pdf', 'doc', 'docx'],
+                                            true
+                                        )
                                     )
 
                                         <iframe
@@ -352,27 +370,7 @@
 
                                     @else
 
-                                        <div class="flex flex-col items-center justify-center gap-2">
-
-                                            <svg
-                                                class="h-8 w-8 text-gray-300 dark:text-gray-600"
-                                                fill="none"
-                                                viewBox="0 0 24 24"
-                                                stroke="currentColor"
-                                                stroke-width="1.5"
-                                            >
-                                                <path
-                                                    stroke-linecap="round"
-                                                    stroke-linejoin="round"
-                                                    d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5V5.25A2.25 2.25 0 0 0 12.375 3h-6.75A2.25 2.25 0 0 0 3.375 5.25v13.5A2.25 2.25 0 0 0 5.625 21h12.75a2.25 2.25 0 0 0 2.25-2.25v-4.5Z"
-                                                />
-                                            </svg>
-
-                                            <span class="text-xs text-gray-400">
-                                                Document
-                                            </span>
-
-                                        </div>
+                                        {{-- KEEP YOUR EXISTING DOCUMENT ICON AND LABEL HERE --}}
 
                                     @endif
 

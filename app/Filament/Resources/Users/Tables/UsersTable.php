@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Users\Tables;
 
 use App\Models\User;
+use App\Filament\Resources\Users\UserResource;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\CreateAction;
@@ -100,15 +101,18 @@ class UsersTable
                     ->icon(Heroicon::Plus)
                     ->extraAttributes(['class' => 'users-add-button']),
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    DeleteBulkAction::make()
+                        ->authorizeIndividualRecords(fn (User $record): bool => UserResource::canDelete($record)),
                 ]),
             ])
             ->recordActions([
                 EditAction::make()
+                    ->authorize(fn (User $record): bool => UserResource::canEdit($record))
                     ->iconButton()
                     ->tooltip('Edit user')
                     ->extraAttributes(['class' => 'users-edit-action']),
                 DeleteAction::make()
+                    ->authorize(fn (User $record): bool => UserResource::canDelete($record))
                     ->iconButton()
                     ->tooltip('Delete user')
                     ->extraAttributes(['class' => 'users-delete-action']),
