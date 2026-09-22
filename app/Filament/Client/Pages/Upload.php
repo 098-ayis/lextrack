@@ -36,6 +36,8 @@ class Upload extends Page implements HasForms
 
     use InteractsWithForms;
 
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-arrow-up-tray';
+
     protected string $view = 'filament.client.pages.upload';
     
     protected static ?string $navigationLabel = 'Submit';
