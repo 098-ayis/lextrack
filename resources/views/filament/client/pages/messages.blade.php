@@ -12,7 +12,7 @@
         display: grid;
         grid-template-columns: 320px minmax(0, 1fr);
         gap: 16px;
-        height: calc(100vh - 180px);
+        height: calc(100vh - 128px);
     }
 
 
@@ -1763,8 +1763,8 @@
 
     @media (max-width: 1024px) {
         .msg-wrap {
-            height: calc(100vh - 180px);
-            height: calc(100dvh - 180px);
+            height: calc(100vh - 128px);
+            height: calc(100dvh - 128px);
             min-height: 0;
         }
 

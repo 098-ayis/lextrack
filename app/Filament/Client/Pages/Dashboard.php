@@ -8,7 +8,7 @@ class Dashboard extends BaseDashboard
 {
     public function getHeading(): string
     {
-        return 'Dashboard';
+        return '';
     }
 
     public function getWidgets(): array
