@@ -91,14 +91,6 @@
                         </RouterLink>
                     </li>
 
-                    <li>
-                        <RouterLink
-                            to="/forms"
-                            class="hover:text-orange-400 transition">
-                            Legal Forms
-                        </RouterLink>
-                    </li>
-
                 </ul>
 
             </div>
@@ -117,8 +109,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import { RouterLink, useRoute } from 'vue-router'
+import { RouterLink } from 'vue-router'
 import { Icon } from '@iconify/vue'
 import logo from '../../../images/bu-logo.png'
 </script>

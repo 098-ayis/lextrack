@@ -34,7 +34,7 @@
             :key="link.path"
             :to="link.path"
             class="uppercase transition-colors pb-1 border-b-2"
-            :class="route.path === link.path ? 'text-[#6b77ff] border-[#6b77ff]' : 'text-gray-200 border-transparent hover:text-[#6b77ff]'"
+            :class="route.path === link.path ? 'text-white border-[#6366F1]' : 'text-gray-200 border-transparent hover:text-[#6366F1]'"
           >
             {{ link.name }}
           </RouterLink>
