@@ -48,6 +48,14 @@
                 min-height: calc(100vh / 0.78) !important;
                 background: #f5f5f7 !important;
             }
+
+            #public-app.is-windows:has(.public-login-layout) .public-login-main {
+                height: calc(100vh / 0.78) !important;
+                min-height: calc(100vh / 0.78) !important;
+                flex: 0 0 auto !important;
+                align-items: center !important;
+                justify-content: center !important;
+            }
         </style>
 
         <script>
@@ -72,8 +80,9 @@
 
                 const fitWindowsLogin = () => {
                     const loginLayout = publicRoot?.querySelector('.public-login-layout');
+                    const loginMain = publicRoot?.querySelector('.public-login-main');
 
-                    if (!loginLayout) {
+                    if (!loginLayout || !loginMain) {
                         return;
                     }
 
@@ -83,6 +92,11 @@
                     loginLayout.style.setProperty('height', layoutHeight, 'important');
                     loginLayout.style.setProperty('min-height', layoutHeight, 'important');
                     loginLayout.style.setProperty('background-color', '#f5f5f7', 'important');
+                    loginMain.style.setProperty('height', layoutHeight, 'important');
+                    loginMain.style.setProperty('min-height', layoutHeight, 'important');
+                    loginMain.style.setProperty('flex', '0 0 auto', 'important');
+                    loginMain.style.setProperty('align-items', 'center', 'important');
+                    loginMain.style.setProperty('justify-content', 'center', 'important');
                 };
 
                 const fitWindowsLayouts = () => {
