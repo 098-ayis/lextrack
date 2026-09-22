@@ -353,7 +353,15 @@
                             <td class="px-4 py-4 align-middle">
 
                                 @if ($document->document_type)
-                                    <span class="text-sm font-medium text-gray-800">
+                                    @php
+                                        $documentTypeColor = \App\Models\DocumentType::query()
+                                            ->where('type_name', $document->document_type)
+                                            ->value('color') ?? '#64748B';
+                                    @endphp
+                                    <span
+                                        class="inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-semibold leading-4"
+                                        style="background-color: color-mix(in srgb, {{ $documentTypeColor }} 14%, white); color: {{ $documentTypeColor }}; border-color: color-mix(in srgb, {{ $documentTypeColor }} 18%, transparent);"
+                                    >
                                         {{ $document->document_type }}
                                     </span>
 
@@ -627,7 +635,15 @@
                             <td class="px-4 py-4 align-middle">
 
                                 @if ($document->document_type)
-                                    <span class="text-sm font-medium text-gray-800">
+                                    @php
+                                        $documentTypeColor = \App\Models\DocumentType::query()
+                                            ->where('type_name', $document->document_type)
+                                            ->value('color') ?? '#64748B';
+                                    @endphp
+                                    <span
+                                        class="inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-semibold leading-4"
+                                        style="background-color: color-mix(in srgb, {{ $documentTypeColor }} 14%, white); color: {{ $documentTypeColor }}; border-color: color-mix(in srgb, {{ $documentTypeColor }} 18%, transparent);"
+                                    >
                                         {{ $document->document_type }}
                                     </span>
 
@@ -941,7 +957,15 @@
                             <td class="px-4 py-4 align-middle text-center">
 
                                 @if ($document->document_type)
-                                    <span class="text-sm font-medium text-gray-800">
+                                    @php
+                                        $documentTypeColor = \App\Models\DocumentType::query()
+                                            ->where('type_name', $document->document_type)
+                                            ->value('color') ?? '#64748B';
+                                    @endphp
+                                    <span
+                                        class="inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-semibold leading-4"
+                                        style="background-color: color-mix(in srgb, {{ $documentTypeColor }} 14%, white); color: {{ $documentTypeColor }}; border-color: color-mix(in srgb, {{ $documentTypeColor }} 18%, transparent);"
+                                    >
                                         {{ $document->document_type }}
                                     </span>
                                 @else
