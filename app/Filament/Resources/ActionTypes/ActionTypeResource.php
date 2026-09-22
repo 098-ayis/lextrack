@@ -72,6 +72,8 @@ class ActionTypeResource extends Resource
             ])
             ->toolbarActions([
                 \Filament\Actions\CreateAction::make()
+                    ->modal()
+                    ->modalWidth('lg')
                     ->createAnother(false)
                     ->successNotificationTitle('Action type created successfully')
                     ->successRedirectUrl(fn (): string => ActionTypeResource::getUrl('index')),

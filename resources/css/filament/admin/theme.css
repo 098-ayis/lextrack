@@ -2817,3 +2817,295 @@ Edit-Button
         gap: 16px;
     }
 }
+
+/* Keep admin resource tables readable when the panel is in dark mode. */
+.dark .fi-page.fi-resource-users .fi-ta-ctn,
+.dark .fi-page.fi-resource-users .fi-ta-header-ctn,
+.dark .fi-page.fi-resource-users .fi-ta-header-toolbar,
+.dark .fi-page.fi-resource-users .fi-ta-content,
+.dark .fi-page.fi-resource-users .fi-ta-footer,
+.dark .fi-page.fi-resource-roles .fi-ta-ctn,
+.dark .fi-page.fi-resource-roles .fi-ta-header-ctn,
+.dark .fi-page.fi-resource-roles .fi-ta-header-toolbar,
+.dark .fi-page.fi-resource-roles .fi-ta-content,
+.dark .fi-page.fi-resource-roles .fi-ta-footer {
+    border-color: #374151 !important;
+    background-color: #171717 !important;
+    color: #e5e7eb !important;
+    box-shadow: none !important;
+}
+
+.dark .fi-page.fi-resource-users .users-management-toolbar,
+.dark .fi-page.fi-resource-users .users-toolbar-search,
+.dark .fi-page.fi-resource-users .users-toolbar-select,
+.dark .fi-page.fi-resource-users .users-toolbar-export {
+    border-color: #4b5563 !important;
+    background-color: #1f2937 !important;
+    color: #e5e7eb !important;
+}
+
+.dark .fi-page.fi-resource-users .users-toolbar-search input,
+.dark .fi-page.fi-resource-users .users-toolbar-search input::placeholder,
+.dark .fi-page.fi-resource-users .users-toolbar-select select,
+.dark .fi-page.fi-resource-users .users-toolbar-export .fi-btn-label,
+.dark .fi-page.fi-resource-users .users-toolbar-export svg {
+    color: #e5e7eb !important;
+}
+
+.dark .fi-page.fi-resource-users .fi-ta-table,
+.dark .fi-page.fi-resource-roles .fi-ta-table,
+.dark .fi-page.fi-resource-users .fi-ta-table thead,
+.dark .fi-page.fi-resource-users .fi-ta-table tbody,
+.dark .fi-page.fi-resource-roles .fi-ta-table thead,
+.dark .fi-page.fi-resource-roles .fi-ta-table tbody {
+    background-color: #171717 !important;
+    color: #e5e7eb !important;
+}
+
+.dark .fi-page.fi-resource-users .fi-ta-table thead tr,
+.dark .fi-page.fi-resource-users .fi-ta-table thead .fi-ta-header-cell,
+.dark .fi-page.fi-resource-users .fi-ta-table thead .fi-ta-actions-header-cell,
+.dark .fi-page.fi-resource-users .fi-ta-table thead .fi-ta-header-cell button,
+.dark .fi-page.fi-resource-roles .fi-ta-table thead tr,
+.dark .fi-page.fi-resource-roles .fi-ta-table thead .fi-ta-header-cell,
+.dark .fi-page.fi-resource-roles .fi-ta-table thead .fi-ta-actions-header-cell,
+.dark .fi-page.fi-resource-roles .fi-ta-table thead .fi-ta-header-cell button {
+    border-color: #374151 !important;
+    background-color: #262626 !important;
+    color: #f3f4f6 !important;
+}
+
+.dark .fi-page.fi-resource-users .fi-ta-table tbody tr,
+.dark .fi-page.fi-resource-roles .fi-ta-table tbody tr {
+    border-color: #374151 !important;
+    background-color: #171717 !important;
+}
+
+.dark .fi-page.fi-resource-users .fi-ta-table tbody tr:nth-child(even),
+.dark .fi-page.fi-resource-roles .fi-ta-table tbody tr:nth-child(even) {
+    background-color: #1f2937 !important;
+}
+
+.dark .fi-page.fi-resource-users .fi-ta-table tbody tr:hover,
+.dark .fi-page.fi-resource-roles .fi-ta-table tbody tr:hover {
+    background-color: #374151 !important;
+}
+
+.dark .fi-page.fi-resource-users .fi-ta-table tbody .fi-ta-cell,
+.dark .fi-page.fi-resource-users .fi-ta-table tbody .fi-ta-text,
+.dark .fi-page.fi-resource-users .fi-ta-table tbody .fi-ta-text-item,
+.dark .fi-page.fi-resource-users .fi-ta-table tbody .fi-ta-text-item a,
+.dark .fi-page.fi-resource-roles .fi-ta-table tbody .fi-ta-cell,
+.dark .fi-page.fi-resource-roles .fi-ta-table tbody .fi-ta-text,
+.dark .fi-page.fi-resource-roles .fi-ta-table tbody .fi-ta-text-item,
+.dark .fi-page.fi-resource-roles .fi-ta-table tbody .fi-ta-text-item a,
+.dark .fi-page.fi-resource-users .fi-ta-pagination,
+.dark .fi-page.fi-resource-users .fi-ta-pagination *,
+.dark .fi-page.fi-resource-roles .fi-ta-pagination,
+.dark .fi-page.fi-resource-roles .fi-ta-pagination * {
+    border-color: #374151 !important;
+    color: #e5e7eb !important;
+}
+
+.dark .fi-page.fi-resource-users .users-edit-action,
+.dark .fi-page.fi-resource-roles .fi-ta-table .fi-btn,
+.dark .fi-page.fi-resource-roles .fi-ta-table .fi-icon-btn {
+    color: #a5b4fc !important;
+}
+
+.dark .fi-page.fi-resource-users .users-delete-action {
+    color: #fca5a5 !important;
+}
+
+/* Keep the Settings resource tables readable in dark mode as well. */
+.dark .fi-page:is(.fi-resource-action-types, .fi-resource-document-types, .fi-resource-office-units) .fi-ta-ctn,
+.dark .fi-page:is(.fi-resource-action-types, .fi-resource-document-types, .fi-resource-office-units) .fi-ta-header-ctn,
+.dark .fi-page:is(.fi-resource-action-types, .fi-resource-document-types, .fi-resource-office-units) .fi-ta-header-toolbar,
+.dark .fi-page:is(.fi-resource-action-types, .fi-resource-document-types, .fi-resource-office-units) .fi-ta-content,
+.dark .fi-page:is(.fi-resource-action-types, .fi-resource-document-types, .fi-resource-office-units) .fi-ta-footer {
+    border-color: #374151 !important;
+    background-color: #171717 !important;
+    color: #e5e7eb !important;
+    box-shadow: none !important;
+}
+
+.dark .fi-page:is(.fi-resource-action-types, .fi-resource-document-types, .fi-resource-office-units) .fi-ta-header-toolbar input,
+.dark .fi-page:is(.fi-resource-action-types, .fi-resource-document-types, .fi-resource-office-units) .fi-ta-header-toolbar input::placeholder,
+.dark .fi-page:is(.fi-resource-action-types, .fi-resource-document-types, .fi-resource-office-units) .fi-ta-header-toolbar .fi-btn,
+.dark .fi-page:is(.fi-resource-action-types, .fi-resource-document-types, .fi-resource-office-units) .fi-ta-header-toolbar .fi-btn-label,
+.dark .fi-page:is(.fi-resource-action-types, .fi-resource-document-types, .fi-resource-office-units) .fi-ta-header-toolbar svg {
+    border-color: #4b5563 !important;
+    color: #e5e7eb !important;
+}
+
+.dark .fi-page:is(.fi-resource-action-types, .fi-resource-document-types, .fi-resource-office-units) .fi-ta-table,
+.dark .fi-page:is(.fi-resource-action-types, .fi-resource-document-types, .fi-resource-office-units) .fi-ta-table thead,
+.dark .fi-page:is(.fi-resource-action-types, .fi-resource-document-types, .fi-resource-office-units) .fi-ta-table tbody {
+    background-color: #171717 !important;
+    color: #e5e7eb !important;
+}
+
+.dark .fi-page:is(.fi-resource-action-types, .fi-resource-document-types, .fi-resource-office-units) .fi-ta-table thead tr,
+.dark .fi-page:is(.fi-resource-action-types, .fi-resource-document-types, .fi-resource-office-units) .fi-ta-table thead .fi-ta-header-cell,
+.dark .fi-page:is(.fi-resource-action-types, .fi-resource-document-types, .fi-resource-office-units) .fi-ta-table thead .fi-ta-actions-header-cell,
+.dark .fi-page:is(.fi-resource-action-types, .fi-resource-document-types, .fi-resource-office-units) .fi-ta-table thead .fi-ta-header-cell button {
+    border-color: #374151 !important;
+    background-color: #262626 !important;
+    color: #f3f4f6 !important;
+}
+
+.dark .fi-page:is(.fi-resource-action-types, .fi-resource-document-types, .fi-resource-office-units) .fi-ta-table tbody tr {
+    border-color: #374151 !important;
+    background-color: #171717 !important;
+}
+
+.dark .fi-page:is(.fi-resource-action-types, .fi-resource-document-types, .fi-resource-office-units) .fi-ta-table tbody tr:nth-child(even) {
+    background-color: #1f2937 !important;
+}
+
+.dark .fi-page:is(.fi-resource-action-types, .fi-resource-document-types, .fi-resource-office-units) .fi-ta-table tbody tr:hover {
+    background-color: #374151 !important;
+}
+
+.dark .fi-page:is(.fi-resource-action-types, .fi-resource-document-types, .fi-resource-office-units) .fi-ta-table tbody .fi-ta-cell,
+.dark .fi-page:is(.fi-resource-action-types, .fi-resource-document-types, .fi-resource-office-units) .fi-ta-table tbody .fi-ta-text,
+.dark .fi-page:is(.fi-resource-action-types, .fi-resource-document-types, .fi-resource-office-units) .fi-ta-table tbody .fi-ta-text-item,
+.dark .fi-page:is(.fi-resource-action-types, .fi-resource-document-types, .fi-resource-office-units) .fi-ta-table tbody .fi-ta-text-item a,
+.dark .fi-page:is(.fi-resource-action-types, .fi-resource-document-types, .fi-resource-office-units) .fi-ta-pagination,
+.dark .fi-page:is(.fi-resource-action-types, .fi-resource-document-types, .fi-resource-office-units) .fi-ta-pagination * {
+    border-color: #374151 !important;
+    color: #e5e7eb !important;
+}
+
+.dark .fi-page:is(.fi-resource-action-types, .fi-resource-document-types, .fi-resource-office-units) .fi-ta-table .fi-btn,
+.dark .fi-page:is(.fi-resource-action-types, .fi-resource-document-types, .fi-resource-office-units) .fi-ta-table .fi-icon-btn {
+    color: #a5b4fc !important;
+}
+
+/* Filament Shield uses the `shield/roles` resource slug. */
+.dark .fi-page.fi-resource-shield-roles .fi-ta-ctn,
+.dark .fi-page.fi-resource-shield-roles .fi-ta-header-ctn,
+.dark .fi-page.fi-resource-shield-roles .fi-ta-header-toolbar,
+.dark .fi-page.fi-resource-shield-roles .fi-ta-content,
+.dark .fi-page.fi-resource-shield-roles .fi-ta-footer,
+.dark .fi-page.fi-resource-shield-roles .fi-ta-table,
+.dark .fi-page.fi-resource-shield-roles .fi-ta-table thead,
+.dark .fi-page.fi-resource-shield-roles .fi-ta-table tbody {
+    border-color: #374151 !important;
+    background-color: #171717 !important;
+    color: #e5e7eb !important;
+    box-shadow: none !important;
+}
+
+.dark .fi-page.fi-resource-shield-roles .fi-ta-table thead tr,
+.dark .fi-page.fi-resource-shield-roles .fi-ta-table thead .fi-ta-header-cell,
+.dark .fi-page.fi-resource-shield-roles .fi-ta-table thead .fi-ta-actions-header-cell,
+.dark .fi-page.fi-resource-shield-roles .fi-ta-table thead .fi-ta-header-cell button {
+    border-color: #374151 !important;
+    background-color: #262626 !important;
+    color: #f3f4f6 !important;
+}
+
+.dark .fi-page.fi-resource-shield-roles .fi-ta-table tbody tr {
+    border-color: #374151 !important;
+    background-color: #171717 !important;
+}
+
+.dark .fi-page.fi-resource-shield-roles .fi-ta-table tbody tr:nth-child(even) {
+    background-color: #1f2937 !important;
+}
+
+.dark .fi-page.fi-resource-shield-roles .fi-ta-table tbody tr:hover {
+    background-color: #374151 !important;
+}
+
+.dark .fi-page.fi-resource-shield-roles .fi-ta-table tbody .fi-ta-cell,
+.dark .fi-page.fi-resource-shield-roles .fi-ta-table tbody .fi-ta-text,
+.dark .fi-page.fi-resource-shield-roles .fi-ta-table tbody .fi-ta-text-item,
+.dark .fi-page.fi-resource-shield-roles .fi-ta-table tbody .fi-ta-text-item a,
+.dark .fi-page.fi-resource-shield-roles .fi-ta-pagination,
+.dark .fi-page.fi-resource-shield-roles .fi-ta-pagination * {
+    border-color: #374151 !important;
+    color: #e5e7eb !important;
+}
+
+.dark .fi-page.fi-resource-shield-roles .fi-ta-table .fi-btn,
+.dark .fi-page.fi-resource-shield-roles .fi-ta-table .fi-icon-btn {
+    color: #a5b4fc !important;
+}
+
+/* Match the Roles toolbar to the rounded search treatment used on Documents. */
+.fi-page.fi-resource-shield-roles .fi-header-actions-ctn {
+    margin-inline-start: auto !important;
+}
+
+.fi-page.fi-resource-shield-roles .fi-ta-header-toolbar {
+    align-items: center !important;
+    padding-inline-start: 0.75rem !important;
+}
+
+.fi-page.fi-resource-shield-roles .fi-ta-header-toolbar > :first-child {
+    order: 2;
+    margin-inline-start: auto !important;
+}
+
+.fi-page.fi-resource-shield-roles .fi-ta-header-toolbar > :last-child {
+    order: 1;
+    margin-inline-start: 0 !important;
+}
+
+.fi-page.fi-resource-shield-roles .fi-ta-search-field {
+    width: min(30rem, 100%) !important;
+}
+
+.fi-page.fi-resource-shield-roles .fi-ta-search-field .fi-input-wrp {
+    height: 2.25rem;
+    width: 100%;
+    border: 1px solid #d1d5db !important;
+    border-radius: 9999px !important;
+    background-color: #ffffff !important;
+    box-shadow: none !important;
+}
+
+.fi-page.fi-resource-shield-roles .fi-ta-search-field .fi-input-wrp-prefix {
+    order: 2;
+    padding-inline: 0.75rem !important;
+    border: 0 !important;
+}
+
+.fi-page.fi-resource-shield-roles .fi-ta-search-field .fi-input-wrp-content-ctn {
+    order: 1;
+}
+
+.fi-page.fi-resource-shield-roles .fi-ta-search-field input {
+    padding-inline-start: 0.75rem !important;
+    padding-inline-end: 0 !important;
+    font-size: 0.75rem !important;
+    color: #111827 !important;
+}
+
+.fi-page.fi-resource-shield-roles .fi-ta-search-field input::placeholder {
+    color: #6b7280 !important;
+    opacity: 1;
+}
+
+.dark .fi-page.fi-resource-shield-roles .fi-ta-search-field .fi-input-wrp {
+    border-color: #4b5563 !important;
+    background-color: #1f2937 !important;
+}
+
+.dark .fi-page.fi-resource-shield-roles .fi-ta-search-field input {
+    color: #f3f4f6 !important;
+}
+
+.dark .fi-page.fi-resource-shield-roles .fi-ta-search-field input::placeholder,
+.dark .fi-page.fi-resource-shield-roles .fi-ta-search-field .fi-input-wrp-prefix .fi-icon {
+    color: #9ca3af !important;
+}
+
+@media (max-width: 640px) {
+    .fi-page.fi-resource-shield-roles .fi-ta-header-toolbar > :last-child,
+    .fi-page.fi-resource-shield-roles .fi-ta-search-field {
+        width: 100% !important;
+    }
+}

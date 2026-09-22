@@ -92,6 +92,8 @@ class DocumentTypeResource extends Resource
             ])
             ->toolbarActions([
                 \Filament\Actions\CreateAction::make()
+                    ->modal()
+                    ->modalWidth('lg')
                     ->createAnother(false)
                     ->successNotificationTitle('Document type created successfully')
                     ->successRedirectUrl(fn (): string => DocumentTypeResource::getUrl('index')),
