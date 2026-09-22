@@ -214,22 +214,17 @@ class DocumentRequests extends Page implements HasTable
     protected function getDocumentRequestTableColumns(): array
     {
         $columns = [
-            ViewColumn::make('document_icon')
-                ->label('')
-                ->view('filament.tables.columns.request-document-icon')
-                ->alignCenter()
-                ->width('4rem')
-                ->extraHeaderAttributes(['class' => 'w-16']),
-
             ViewColumn::make('document_details')
                 ->label('PURPOSE')
                 ->view('filament.tables.columns.request-document-purpose')
+                ->alignLeft()
                 ->width('14rem')
                 ->extraHeaderAttributes(['class' => 'min-w-[200px]']),
 
             TextColumn::make('purpose_details')
                 ->label('DETAILS')
                 ->placeholder('—')
+                ->alignLeft()
                 ->width('30rem')
                 ->extraHeaderAttributes(['class' => 'min-w-[320px]'])
                 ->wrap(),
@@ -243,7 +238,7 @@ class DocumentRequests extends Page implements HasTable
                         default => '—',
                     }
                 )
-                ->alignCenter()
+                ->alignLeft()
                 ->extraHeaderAttributes(['class' => 'min-w-[140px]']),
 
             ...($this->activeSection !== 'rejected' ? [

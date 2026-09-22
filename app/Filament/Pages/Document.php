@@ -524,7 +524,7 @@ class Document extends Page implements HasTable
             ViewColumn::make('document_type')
                 ->label('DOCUMENT TYPE')
                 ->view('filament.tables.columns.document-type')
-                ->alignCenter()
+                ->alignLeft()
                 ->width('9rem')
                 ->extraHeaderAttributes(['class' => 'min-w-[140px]']);
 
@@ -585,18 +585,9 @@ class Document extends Page implements HasTable
                         ->first()?->reason ?? 'No reason recorded';
                 })
                 ->color('danger')
-                ->action(function (DocumentModel $record): void {
-                    $rejection = $record->rejections
-                        ->sortByDesc('created_at')
-                        ->first();
-
-                    if ($rejection) {
-                        $this->mountAction('viewRejectionReason', [
-                            'rejection' => $rejection->rejected_id,
-                        ]);
-                    }
-                })
-                ->alignCenter();
+                ->disabledClick()
+                ->alignLeft()
+                ->extraCellAttributes(['class' => 'rejection-reason-cell']);
         } elseif ($this->activeSection === 'archived') {
             $columns[] = TextColumn::make('archived_at')
                 ->label('ARCHIVED AT')

@@ -318,7 +318,7 @@ class Documents extends Page implements HasTable
                             default => '—',
                         }
                     )
-                    ->alignCenter(),
+                    ->alignLeft(),
 
                 TextColumn::make('pickup_at')
                     ->label('PICKUP')
@@ -462,7 +462,7 @@ class Documents extends Page implements HasTable
                 TextColumn::make('document_type')
                     ->label('TYPE')
                     ->placeholder('—')
-                    ->alignCenter(),
+                    ->alignLeft(),
 
                 TextColumn::make('particulars')
                     ->label('DOCUMENT DESCRIPTION')
