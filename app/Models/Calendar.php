@@ -11,6 +11,7 @@ class Calendar extends Model
 
     protected $fillable = [
         'user_id',
+        'document_request_id',
         'date',
         'time',
         'event',
@@ -50,6 +51,15 @@ class Calendar extends Model
             User::class,
             'user_id',
             'id'
+        );
+    }
+
+    public function documentRequest(): BelongsTo
+    {
+        return $this->belongsTo(
+            DocumentRequest::class,
+            'document_request_id',
+            'request_id'
         );
     }
 }

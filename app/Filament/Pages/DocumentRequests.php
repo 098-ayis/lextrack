@@ -214,22 +214,17 @@ class DocumentRequests extends Page implements HasTable
     protected function getDocumentRequestTableColumns(): array
     {
         $columns = [
-            ViewColumn::make('document_icon')
-                ->label('')
-                ->view('filament.tables.columns.request-document-icon')
-                ->alignCenter()
-                ->width('4rem')
-                ->extraHeaderAttributes(['class' => 'w-16']),
-
             ViewColumn::make('document_details')
                 ->label('PURPOSE')
                 ->view('filament.tables.columns.request-document-purpose')
+                ->alignLeft()
                 ->width('14rem')
                 ->extraHeaderAttributes(['class' => 'min-w-[200px]']),
 
             TextColumn::make('purpose_details')
                 ->label('DETAILS')
                 ->placeholder('—')
+                ->alignLeft()
                 ->width('30rem')
                 ->extraHeaderAttributes(['class' => 'min-w-[320px]'])
                 ->wrap(),
@@ -243,7 +238,7 @@ class DocumentRequests extends Page implements HasTable
                         default => '—',
                     }
                 )
-                ->alignCenter()
+                ->alignLeft()
                 ->extraHeaderAttributes(['class' => 'min-w-[140px]']),
 
             ...($this->activeSection !== 'rejected' ? [
@@ -614,18 +609,28 @@ class DocumentRequests extends Page implements HasTable
             if ($request->copy_type !== 'soft_copy' && $pickupAt) {
                 $pickupDateTime = \Carbon\Carbon::parse($pickupAt);
                 $requesterName = $request->user?->name ?? 'Client';
+                $pickupPurpose = strtolower(trim((string) $request->purpose));
+                $pickupPurpose = match ($pickupPurpose) {
+                    'certificate', 'certificate_request' => 'Certificate',
+                    'template', 'template_request' => 'Template',
+                    'document', 'document_request' => 'Document',
+                    default => $pickupPurpose !== ''
+                        ? ucwords(str_replace(['_', '-'], ' ', $pickupPurpose))
+                        : 'Document',
+                };
                 $details = 'Document pickup for ' . $requesterName . '.';
 
                 if (filled($request->purpose_details)) {
-                    $details .= ' Details: ' . $request->purpose_details;
+                    $details .= "\nDetails: " . $request->purpose_details;
                 }
 
                 CalendarModel::create([
                     'user_id' => auth()->id(),
+                    'document_request_id' => $request->request_id,
                     'date' => $pickupDateTime->toDateString(),
                     'time' => $pickupDateTime->format('H:i:s'),
-                    'event' => 'Document pickup: ' . $request->purpose,
-                    'category' => 'meeting',
+                    'event' => 'Document pickup: ' . $pickupPurpose,
+                    'category' => 'pickup',
                     'details' => $details,
                 ]);
             }

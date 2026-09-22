@@ -1,5 +1,5 @@
 <x-filament-panels::page>
-    <div class="admin-documents-page">
+    <div class="admin-documents-page admin-documents-section-{{ $this->activeSection }}">
         @php
             $activeSection = $this->activeSection;
             $statusCounts = $this->getStatusCounts();
@@ -298,6 +298,28 @@
                 font-size: 0.75rem;
             }
 
+            /* Distribute the rejected-table columns across the full panel. */
+            @media (min-width: 64rem) {
+                .admin-documents-section-rejected .fi-ta-table {
+                    width: 100%;
+                    min-width: 0;
+                    table-layout: fixed;
+                }
+
+                .admin-documents-section-rejected .fi-ta-table .fi-ta-header-cell-document-details,
+                .admin-documents-section-rejected .fi-ta-table .fi-ta-cell-document-details,
+                .admin-documents-section-rejected .fi-ta-table .fi-ta-header-cell-document-type,
+                .admin-documents-section-rejected .fi-ta-table .fi-ta-cell-document-type,
+                .admin-documents-section-rejected .fi-ta-table .fi-ta-header-cell-rejection-reason,
+                .admin-documents-section-rejected .fi-ta-table .fi-ta-cell-rejection-reason,
+                .admin-documents-section-rejected .fi-ta-table > thead > tr:last-child > th:last-child,
+                .admin-documents-section-rejected .fi-ta-table > tbody > tr:not(.fi-ta-group-header-row) > td:last-child {
+                    width: 25% !important;
+                    min-width: 0 !important;
+                }
+
+            }
+
             .admin-documents-page .fi-ta-table th,
             .admin-documents-page .fi-ta-table td {
                 padding-left: 0.75rem;
@@ -308,6 +330,16 @@
                 padding-left: 1rem;
                 padding-right: 0.5rem;
                 white-space: nowrap;
+            }
+
+            .admin-documents-page .rejection-reason-cell {
+                padding-inline-start: 1.25rem;
+                text-align: left;
+            }
+
+            .admin-documents-page .rejection-reason-cell > .fi-ta-col {
+                justify-content: flex-start;
+                text-align: left;
             }
 
             .admin-documents-page .outgoing-date-cell .fi-ta-placeholder {

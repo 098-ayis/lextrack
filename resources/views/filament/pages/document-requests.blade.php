@@ -4,7 +4,7 @@
         $statusCounts = $this->getStatusCounts();
     @endphp
 
-    <div class="admin-document-requests-page">
+    <div class="admin-document-requests-page admin-document-requests-{{ $activeSection }}">
         {{-- STATUS HEADER --}}
         <div class="mb-0 w-full overflow-x-auto border border-gray-300 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
             <nav class="flex w-full min-w-[720px] items-stretch justify-start gap-1 px-3 py-2" aria-label="Document request status">
@@ -144,6 +144,84 @@
                 font-size: 0.75rem;
                 font-weight: 700;
                 text-transform: uppercase;
+            }
+
+            /* Keep the request details readable without pushing the action buttons off-screen. */
+            @media (min-width: 64rem) {
+                .admin-document-requests-page .fi-ta-content {
+                    overflow-x: hidden;
+                }
+
+                .admin-document-requests-page .fi-ta-table {
+                    width: 100%;
+                    min-width: 0;
+                    table-layout: fixed;
+                }
+
+                .admin-document-requests-page .fi-ta-table .fi-ta-header-cell-document-details,
+                .admin-document-requests-page .fi-ta-table .fi-ta-cell-document-details {
+                    width: 11rem !important;
+                    min-width: 0 !important;
+                }
+
+                .admin-document-requests-page .fi-ta-table .fi-ta-header-cell-purpose-details,
+                .admin-document-requests-page .fi-ta-table .fi-ta-cell-purpose-details {
+                    width: 15rem !important;
+                    min-width: 0 !important;
+                }
+
+                .admin-document-requests-page .fi-ta-table .fi-ta-header-cell-copy-type,
+                .admin-document-requests-page .fi-ta-table .fi-ta-cell-copy-type {
+                    width: 7rem !important;
+                    min-width: 0 !important;
+                }
+
+                .admin-document-requests-page .fi-ta-table .fi-ta-header-cell-pickup-at,
+                .admin-document-requests-page .fi-ta-table .fi-ta-cell-pickup-at {
+                    width: 9rem !important;
+                    min-width: 0 !important;
+                }
+
+                .admin-document-requests-page .fi-ta-table .fi-ta-header-cell-requested-by,
+                .admin-document-requests-page .fi-ta-table .fi-ta-cell-requested-by {
+                    width: 6rem !important;
+                    min-width: 0 !important;
+                }
+
+                .admin-document-requests-page .fi-ta-table .fi-ta-header-cell-date-of-request,
+                .admin-document-requests-page .fi-ta-table .fi-ta-cell-date-of-request,
+                .admin-document-requests-page .fi-ta-table .fi-ta-header-cell-date-processed,
+                .admin-document-requests-page .fi-ta-table .fi-ta-cell-date-processed {
+                    width: 10rem !important;
+                    min-width: 0 !important;
+                }
+
+                .admin-document-requests-page .fi-ta-table .fi-ta-header-cell-rejection-reason,
+                .admin-document-requests-page .fi-ta-table .fi-ta-cell-rejection-reason {
+                    width: 12rem !important;
+                    min-width: 0 !important;
+                }
+
+                .admin-document-requests-pending .fi-ta-table > thead > tr:last-child > th:last-child,
+                .admin-document-requests-pending .fi-ta-table > tbody > tr:not(.fi-ta-group-header-row) > td:last-child {
+                    width: 17rem !important;
+                    min-width: 17rem !important;
+                }
+
+                .admin-document-requests-accepted .fi-ta-table > thead > tr:last-child > th:last-child,
+                .admin-document-requests-accepted .fi-ta-table > tbody > tr:not(.fi-ta-group-header-row) > td:last-child,
+                .admin-document-requests-rejected .fi-ta-table > thead > tr:last-child > th:last-child,
+                .admin-document-requests-rejected .fi-ta-table > tbody > tr:not(.fi-ta-group-header-row) > td:last-child {
+                    width: 8rem !important;
+                    min-width: 8rem !important;
+                }
+
+                .admin-document-requests-page .fi-ta-table .fi-ta-cell-document-details .fi-ta-col,
+                .admin-document-requests-page .fi-ta-table .fi-ta-cell-purpose-details .fi-ta-col {
+                    min-width: 0;
+                    overflow-wrap: anywhere;
+                    white-space: normal;
+                }
             }
 
             .admin-document-requests-page .fi-ta-table th,

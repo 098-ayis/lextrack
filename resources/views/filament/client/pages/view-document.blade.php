@@ -29,21 +29,10 @@
     @endphp
 
     <div class="client-document-view-page space-y-5">
-        <div class="grid min-h-[calc(100dvh-8rem)] grid-cols-1 items-stretch gap-5 xl:grid-cols-2">
-            <section class="flex h-full min-h-0 flex-col overflow-hidden rounded-3xl border border-gray-300 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800" aria-label="Document details and status history">
-                <div class="flex min-h-[64px] items-center gap-3 border-b border-gray-200 px-5 py-4 dark:border-gray-700">
-                    <a
-                        href="{{ $returnPage === 'dashboard'
-                            ? \App\Filament\Client\Pages\Dashboard::getUrl()
-                            : \App\Filament\Client\Pages\Documents::getUrl(['tab' => $returnTab]) }}"
-                        class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-gray-700 transition hover:bg-gray-100 dark:text-gray-100 dark:hover:bg-gray-700"
-                        title="Back"
-                    >
-                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
-                        </svg>
-                    </a>
-                    <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Document Details</h2>
+        <div class="grid min-h-[calc(100dvh-8rem)] grid-cols-1 items-stretch gap-0 xl:sticky xl:top-16 xl:h-[calc(100dvh-8rem)] xl:min-h-0 xl:grid-cols-[minmax(0,1.5fr)_minmax(18rem,0.75fr)] xl:overflow-hidden">
+            <section class="order-2 flex h-full min-h-0 flex-col overflow-hidden rounded-none border border-gray-300 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800 xl:order-2" aria-label="Document details and status history">
+                <div class="flex min-h-[64px] items-center border-b border-gray-200 px-5 py-4 dark:border-gray-700 xl:h-[80px] xl:min-h-[80px]">
+                    <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Document Details</h2>
                 </div>
 
                 <div class="min-h-0 flex-1 overflow-y-auto p-5">
@@ -111,59 +100,27 @@
                         </dl>
                     @endif
 
-                    <section class="mt-6" aria-label="Document status timeline">
-                        <div class="mb-4">
-                            <h2 class="text-lg font-semibold tracking-tight text-gray-900 dark:text-white">Status timeline</h2>
-                        </div>
-
-                        @if ($statusTimeline !== [])
-                            <div class="max-h-[22rem] overflow-y-auto overscroll-contain pr-2 md:max-h-[26rem]">
-                                <div class="space-y-0">
-                                    @foreach ($statusTimeline as $update)
-                                        @php
-                                            $timelineMarker = $loop->last
-                                                ? 'bg-emerald-700 text-white'
-                                                : 'bg-emerald-100 text-emerald-700';
-                                        @endphp
-                                        <article
-                                            class="relative grid grid-cols-[4.5rem_2.75rem_minmax(0,1fr)] gap-3 pb-5 last:pb-0 md:grid-cols-[6rem_3rem_minmax(0,1fr)]"
-                                            wire:key="client-document-status-{{ $loop->index }}"
-                                        >
-                                            <time class="pt-1 text-right text-sm font-semibold leading-5 text-gray-700 dark:text-gray-200">
-                                                <span class="block text-sm font-semibold leading-5">{{ $update['date'] }}</span>
-                                                <span class="mt-1 block font-normal text-gray-400 dark:text-gray-500">{{ $update['time'] }}</span>
-                                            </time>
-
-                                            @unless ($loop->last)
-                                                <span class="absolute bottom-0 left-[calc(4.5rem+0.75rem+1.375rem)] top-7 w-px -translate-x-1/2 bg-gray-300 dark:bg-gray-600 md:left-[calc(6rem+0.75rem+1.5rem)]" aria-hidden="true"></span>
-                                            @endunless
-
-                                            <span class="relative z-10 inline-flex h-7 w-7 items-center justify-center justify-self-center self-start rounded-full {{ $timelineMarker }} ring-4 ring-white dark:ring-gray-800" aria-hidden="true">
-                                                <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" d="m5 12 4.5 4.5L19 7" />
-                                                </svg>
-                                            </span>
-
-                                            <div class="min-w-0 pt-1">
-                                                <h3 class="text-sm font-semibold leading-5 text-gray-900 dark:text-gray-100">{{ $update['title'] }}</h3>
-                                                <p class="mt-1 text-sm leading-5 text-gray-500 dark:text-gray-400">{{ $update['description'] }}</p>
-                                            </div>
-                                        </article>
-                                    @endforeach
-                                </div>
-                            </div>
-                        @else
-                            <p class="text-sm text-gray-500 dark:text-gray-400">No status timeline available.</p>
-                        @endif
-                    </section>
                 </div>
             </section>
 
-            <section class="flex h-full min-h-0 flex-col overflow-hidden rounded-3xl border border-gray-300 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800" aria-label="Document preview">
-                <div class="flex min-h-[64px] items-center justify-between gap-3 border-b border-gray-200 px-5 py-4 dark:border-gray-700">
-                    <div class="min-w-0">
-                        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Document Preview</h2>
-                        <p class="mt-1 truncate text-sm font-medium text-gray-400 dark:text-gray-500" title="{{ $displayedFileName }}">{{ $displayedFileName }}</p>
+            <section class="order-1 flex h-full min-h-0 flex-col overflow-hidden rounded-none border border-gray-300 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800 xl:order-1" aria-label="Document preview">
+                <div class="flex min-h-[64px] items-center justify-between gap-3 border-b border-gray-200 px-5 py-4 dark:border-gray-700 xl:h-[80px] xl:min-h-[80px]">
+                    <div class="flex min-w-0 items-center gap-3">
+                        <a
+                            href="{{ $returnPage === 'dashboard'
+                                ? \App\Filament\Client\Pages\Dashboard::getUrl()
+                                : \App\Filament\Client\Pages\Documents::getUrl(['tab' => $returnTab]) }}"
+                            class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-gray-700 transition hover:bg-gray-100 dark:text-gray-100 dark:hover:bg-gray-700"
+                            title="Back"
+                        >
+                            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
+                            </svg>
+                        </a>
+                        <div class="min-w-0">
+                            <h2 class="text-base font-semibold text-gray-900 dark:text-white">Document Preview</h2>
+                            <p class="mt-1 truncate text-xs font-medium text-gray-400 dark:text-gray-500" title="{{ $displayedFileName }}">{{ $displayedFileName }}</p>
+                        </div>
                     </div>
                     <div class="flex shrink-0 items-center gap-2">
                         @if ($downloadUrl)
@@ -201,26 +158,26 @@
                     </div>
                 </div>
 
-                <div class="min-h-[600px] flex-1 overflow-hidden bg-gray-100 dark:bg-gray-900">
+                <div class="min-h-[600px] flex-1 overflow-auto bg-gray-100 dark:bg-gray-900 xl:min-h-0">
                     @if ($previewUrl)
                         @php
                             $extension = strtolower(pathinfo((string) $latestFilePath, PATHINFO_EXTENSION));
                         @endphp
 
                         @if (in_array($extension, ['pdf', 'doc', 'docx'], true))
-                            <iframe src="{{ $previewUrl }}#toolbar=0" class="h-full min-h-[600px] w-full border-0" title="Document Preview"></iframe>
+                            <iframe src="{{ $previewUrl }}#toolbar=0" class="h-full min-h-[600px] w-full border-0 xl:min-h-0" title="Document Preview"></iframe>
                         @elseif (in_array($extension, ['jpg', 'jpeg', 'png', 'webp'], true))
-                            <div class="flex h-full min-h-[600px] items-center justify-center overflow-auto p-4">
+                            <div class="flex h-full min-h-[600px] items-center justify-center overflow-auto p-4 xl:min-h-0">
                                 <img src="{{ $previewUrl }}" alt="Document Preview" class="max-h-full max-w-full object-contain">
                             </div>
                         @else
-                            <div class="flex h-full min-h-[600px] flex-col items-center justify-center gap-3 p-6 text-center">
+                            <div class="flex h-full min-h-[600px] flex-col items-center justify-center gap-3 p-6 text-center xl:min-h-0">
                                 <p class="font-medium text-gray-700 dark:text-gray-300">Preview is not available for this file type.</p>
                                 <a href="{{ $previewUrl }}" target="_blank" class="text-sm font-semibold text-[#6366F1] hover:underline">Open document</a>
                             </div>
                         @endif
                     @else
-                        <div class="flex h-full min-h-[600px] items-center justify-center p-6 text-center">
+                        <div class="flex h-full min-h-[600px] items-center justify-center p-6 text-center xl:min-h-0">
                             <p class="text-sm text-gray-500 dark:text-gray-400">No document file available.</p>
                         </div>
                     @endif
