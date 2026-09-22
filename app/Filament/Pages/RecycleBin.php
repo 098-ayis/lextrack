@@ -25,6 +25,7 @@ class RecycleBin extends Cabinet
     public function mount(): void
     {
         parent::mount();
+        $this->currentPath = ['Recycle Bin'];
         $this->currentType = 'Recycle Bin';
         $this->currentOffice = '';
     }

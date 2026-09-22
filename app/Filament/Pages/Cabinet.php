@@ -41,6 +41,17 @@ class Cabinet extends Page
 
     public array $cabinet = [];
 
+    /**
+     * The cabinet is rendered from this tree. The old $cabinet map is kept
+     * populated as a compatibility layer for existing cabinet destinations
+     * and records created before the three-root layout was introduced.
+     */
+    public array $cabinetTree = [];
+
+    public array $currentPath = [];
+
+    public array $selectedFolderPath = [];
+
     public string $search = '';
 
     public string $sourceFilter = 'all';
@@ -230,15 +241,338 @@ class Cabinet extends Page
                 $this->cabinet[$copy->cabinet_type ?? $folders[$copy->folder_id]][$copy->cabinet_office ?? 'Documents'][] = $entry;
             }
         }
+
+        $legacyCabinet = $this->cabinet;
+
+        $allDocuments = Document::query()
+            ->with(['latestVersion'])
+            ->whereNotNull('document_type')
+            ->get();
+
+        $this->cabinetTree = $this->emptyCabinetTree();
+        $entriesById = [];
+
+        foreach (array_values($knownTypes) as $type) {
+            $typeNode =& $this->treeNode($this->cabinetTree, ['Document Types', $type], true);
+            unset($typeNode);
+        }
+
+        foreach ($allDocuments as $document) {
+            $entry = $this->documentEntry($document);
+            $entriesById[(int) $document->document_id] = $entry;
+
+            if (in_array($document->document_id, $recycled)) {
+                $this->addTreeDocument($this->cabinetTree, ['Recycle Bin', 'Documents'], $entry);
+
+                continue;
+            }
+
+            $type = $this->cabinetDocumentType($document, $knownTypes);
+            $office = trim((string) $document->office_unit) ?: 'Unspecified Office';
+
+            if ($document->status === 'archived') {
+                $this->addTreeDocument($this->cabinetTree, ['Archived', $type, $office], $entry);
+            } else {
+                $this->addTreeDocument($this->cabinetTree, ['Document Types', $type, $office], $entry);
+                $this->addTreeDocument($this->cabinetTree, ['Office/Unit', $office, $type], $entry);
+            }
+        }
+
+        $folderPaths = [];
+        foreach ($folderRecords->whereNull('recycled_at') as $folder) {
+            $path = $this->cabinetFolderPath($folder, $folderRecords, $folderPaths);
+            $folderPaths[$folder->id] = $path;
+            $this->addTreeFolder($this->cabinetTree, $path, (int) $folder->id);
+        }
+
+        foreach ($folderRecords->whereNotNull('recycled_at') as $folder) {
+            $this->addTreeFolder($this->cabinetTree, ['Recycle Bin', $folder->name], (int) $folder->id);
+        }
+
+        foreach ($locations as $location) {
+            $documentId = (int) $location->document_id;
+
+            if (in_array($documentId, $recycled) || ! isset($entriesById[$documentId])) {
+                continue;
+            }
+
+            $path = $location->folder_id
+                ? ($folderPaths[$location->folder_id] ?? null)
+                : $this->cabinetDestinationPath($location, $entriesById[$documentId], $knownTypes);
+
+            if ($path && $this->destinationMatchesDocumentStatus($path, $entriesById[$documentId])) {
+                $this->addTreeDocument($this->cabinetTree, $path, $entriesById[$documentId]);
+            }
+        }
+
+        foreach (DB::table('cabinet_copies')->get() as $copy) {
+            $documentId = (int) $copy->document_id;
+
+            if (in_array($documentId, $recycled) || ! isset($entriesById[$documentId])) {
+                continue;
+            }
+
+            $path = $copy->folder_id
+                ? ($folderPaths[$copy->folder_id] ?? null)
+                : $this->cabinetDestinationPath($copy, $entriesById[$documentId], $knownTypes);
+
+            if (! $path || ! $this->destinationMatchesDocumentStatus($path, $entriesById[$documentId])) {
+                continue;
+            }
+
+            $entry = $entriesById[$documentId];
+            $entry['copy_key'] = 'copy-'.$copy->id;
+            $entry['name'] = $copy->display_name ?? $entry['name'];
+            $this->addTreeDocument($this->cabinetTree, $path, $entry);
+        }
+
+        $this->cabinet = array_merge($legacyCabinet, $this->treeToCabinetMap($this->cabinetTree));
+    }
+
+    protected function emptyCabinetTree(): array
+    {
+        $tree = [];
+
+        foreach (['Document Types', 'Office/Unit', 'Archived', 'Recycle Bin'] as $root) {
+            $tree[$root] = $this->newCabinetNode($root, [$root]);
+        }
+
+        return $tree;
+    }
+
+    protected function newCabinetNode(string $name, array $path, ?int $folderId = null): array
+    {
+        return [
+            'name' => $name,
+            'path' => $path,
+            'folder_id' => $folderId,
+            'documents' => [],
+            'children' => [],
+        ];
+    }
+
+    protected function documentEntry(Document $document): array
+    {
+        $version = $document->latestVersion;
+        $filePath = $version?->file_path;
+        $fileName = $document->document_name ?: ($filePath
+            ? basename($filePath)
+            : ($document->particulars ?: 'Untitled Document'));
+        $fileSize = '—';
+
+        if ($version && $filePath && $version->storageDisk()->exists($filePath)) {
+            $fileSize = $this->formatFileSize($version->storageDisk()->size($filePath));
+        }
+
+        return [
+            'id' => $document->document_id,
+            'public_id' => $document->public_id,
+            'name' => $fileName,
+            'particulars' => $document->particulars,
+            'lao_number' => $document->lao_number,
+            'size' => $fileSize,
+            'date' => $document->updated_at?->format('M d, Y') ?? '—',
+            'type' => $document->document_type ?? 'Unknown',
+            'office_unit' => $document->office_unit,
+            'status' => $document->status,
+            'file_path' => $filePath,
+        ];
+    }
+
+    protected function cabinetDocumentType(Document $document, array $knownTypes): string
+    {
+        $documentType = trim((string) $document->document_type);
+
+        return $knownTypes[strtolower($documentType)] ?? ($documentType ?: 'Unspecified Type');
+    }
+
+    protected function addTreeDocument(array &$tree, array $path, array $document): void
+    {
+        $node =& $this->treeNode($tree, $path, true);
+        $key = $document['copy_key'] ?? 'document-'.$document['id'];
+
+        foreach ($node['documents'] as $existing) {
+            if (($existing['copy_key'] ?? 'document-'.$existing['id']) === $key) {
+                return;
+            }
+        }
+
+        $node['documents'][] = $document;
+        unset($node);
+    }
+
+    protected function addTreeFolder(array &$tree, array $path, int $folderId): void
+    {
+        $node =& $this->treeNode($tree, $path, true);
+        $node['folder_id'] = $folderId;
+        unset($node);
+    }
+
+    protected function &treeNode(array &$tree, array $path, bool $create = false): array
+    {
+        $empty = [];
+        $segments = array_values(array_filter($path, static fn ($segment): bool => (string) $segment !== ''));
+
+        if ($segments === []) {
+            return $empty;
+        }
+
+        $node =& $tree;
+        foreach ($segments as $index => $segment) {
+            if ($index === 0) {
+                if (! isset($node[$segment])) {
+                    if (! $create) {
+                        return $empty;
+                    }
+                    $node[$segment] = $this->newCabinetNode($segment, [$segment]);
+                }
+                $node =& $node[$segment];
+                continue;
+            }
+
+            if (! isset($node['children'][$segment])) {
+                if (! $create) {
+                    return $empty;
+                }
+                $node['children'][$segment] = $this->newCabinetNode($segment, [...$node['path'], $segment]);
+            }
+            $node =& $node['children'][$segment];
+        }
+
+        return $node;
+    }
+
+    protected function cabinetFolderPath(object $folder, object $folders, array $memo = [], array $seen = []): array
+    {
+        if (isset($memo[$folder->id])) {
+            return $memo[$folder->id];
+        }
+
+        if (in_array($folder->id, $seen, true)) {
+            return ['Document Types', $folder->name];
+        }
+        $seen[] = $folder->id;
+
+        $memo[$folder->id] = ['Document Types', $folder->name];
+
+        if ($folder->parent_type === null) {
+            return $memo[$folder->id];
+        }
+
+        $roots = ['Document Types', 'Office/Unit', 'Archived', 'Recycle Bin'];
+        if (in_array($folder->parent_type, $roots, true)) {
+            $parentPath = [$folder->parent_type];
+            if (filled($folder->parent_office) && $folder->parent_office !== 'Documents') {
+                $parentPath = [...$parentPath, ...array_values(array_filter(explode('/', (string) $folder->parent_office)))];
+            }
+            return $memo[$folder->id] = [...$parentPath, $folder->name];
+        }
+
+        $parent = $folders->first(fn ($record): bool => $record->name === $folder->parent_type);
+        if ($parent && $parent->id !== $folder->id) {
+            return $memo[$folder->id] = [...$this->cabinetFolderPath($parent, $folders, $memo, $seen), $folder->name];
+        }
+
+        // Preserve legacy parent breadcrumbs even if their parent was created
+        // before the folder hierarchy was introduced.
+        if (filled($folder->parent_office) && $folder->parent_office !== 'Documents') {
+            return $memo[$folder->id] = ['Document Types', $folder->parent_type, $folder->parent_office, $folder->name];
+        }
+
+        return $memo[$folder->id] = ['Document Types', $folder->parent_type, $folder->name];
+    }
+
+    protected function cabinetDestinationPath(object $destination, array $entry, array $knownTypes): ?array
+    {
+        if ($destination->cabinet_type === null || $destination->cabinet_office === null) {
+            return null;
+        }
+
+        $branch = (string) $destination->cabinet_type;
+        $office = (string) $destination->cabinet_office;
+        $type = $knownTypes[strtolower(trim((string) ($entry['type'] ?? '')))] ?? trim((string) ($entry['type'] ?? ''));
+
+        if (in_array($branch, ['Document Types', 'Office/Unit', 'Archived'], true)) {
+            $segments = array_values(array_filter(explode('/', $office)));
+
+            return [$branch, ...$segments];
+        }
+
+        if (($entry['status'] ?? null) === 'archived') {
+            return ['Archived', $type, trim((string) ($entry['office_unit'] ?? '')) ?: 'Unspecified Office'];
+        }
+
+        if (strcasecmp($branch, 'Others') === 0) {
+            return ['Document Types', $type, $office];
+        }
+
+        return ['Document Types', $branch, $office];
+    }
+
+    protected function destinationMatchesDocumentStatus(array $path, array $entry): bool
+    {
+        $isArchived = ($entry['status'] ?? null) === 'archived';
+        $isArchivedBranch = ($path[0] ?? null) === 'Archived';
+
+        return $isArchived === $isArchivedBranch;
+    }
+
+    protected function treeToCabinetMap(array $tree): array
+    {
+        $map = [];
+
+        foreach ($tree as $name => $node) {
+            if ($name === 'Recycle Bin' && empty($node['documents']) && empty($node['children'])) {
+                continue;
+            }
+
+            $map[$name] = $this->treeNodeToMap($node);
+        }
+
+        return $map;
+    }
+
+    protected function treeNodeToMap(array $node): array
+    {
+        if (empty($node['children'])) {
+            return $node['documents'] ?? [];
+        }
+
+        $map = [];
+        foreach ($node['children'] ?? [] as $name => $child) {
+            $map[$name] = $this->treeNodeToMap($child);
+        }
+        if ($node['documents'] ?? []) {
+            $map['Documents'] = $node['documents'];
+        }
+
+        return $map;
     }
 
     public function destinationOptions(): array
     {
         $options = ['original' => 'Original type / office folder'];
+        $walk = function (array $nodes) use (&$walk, &$options): void {
+            foreach ($nodes as $node) {
+                if (($node['path'][0] ?? null) !== 'Recycle Bin' && count($node['path'] ?? []) > 1) {
+                    $key = 'path:'.base64_encode(json_encode($node['path']));
+                    $options[$key] = implode(' / ', $node['path']);
+                }
+                $walk($node['children'] ?? []);
+            }
+        };
+        $walk($this->cabinetTree);
+
+        // Keep the old two-segment destinations valid for existing records
+        // and for integrations that still submit a type / office pair.
         foreach ($this->cabinet as $type => $offices) {
-            if ($type === 'Recycle Bin') { continue; }
+            if (in_array($type, ['Document Types', 'Office/Unit', 'Archived', 'Recycle Bin'], true) || ! is_array($offices)) {
+                continue;
+            }
             foreach ($offices as $office => $documents) {
-                $options['path:'.base64_encode(json_encode([$type, $office]))] = $type.' / '.$office;
+                if (is_array($documents)) {
+                    $options['path:'.base64_encode(json_encode([$type, $office]))] = $type.' / '.$office;
+                }
             }
         }
         foreach (DB::table('cabinet_folders')->orderBy('name')->pluck('name', 'id') as $id => $name) {
@@ -251,7 +585,9 @@ class Cabinet extends Page
     {
         abort_unless(array_key_exists($destination, $this->destinationOptions()), 422);
         if (str_starts_with($destination, 'path:')) {
-            [$type, $office] = json_decode(base64_decode(substr($destination, 5)), true);
+            $path = json_decode(base64_decode(substr($destination, 5)), true);
+            $type = $path[0] ?? null;
+            $office = implode('/', array_slice($path, 1)) ?: 'Documents';
             return ['folder_id' => null, 'cabinet_type' => $type, 'cabinet_office' => $office];
         }
         return ['folder_id' => $destination, 'cabinet_type' => null, 'cabinet_office' => null];
@@ -273,8 +609,11 @@ class Cabinet extends Page
                 TextInput::make('name')->label('Folder name')->default(fn () => $this->selectedFolderOffice ?? $this->selectedFolderType)->required()->maxLength(255),
             ])->action(function (array $data): void {
                 abort_unless(auth()->user()?->canAccessPanel(\Filament\Facades\Filament::getPanel('admin')), 403);
-                $folder = DB::table('cabinet_folders')->where('name', $this->selectedFolderType)->first();
-                if (! $folder || $this->selectedFolderOffice !== null) {
+                $folderId = $this->selectedFolderPath !== []
+                    ? ($this->nodeAtPath($this->selectedFolderPath)['folder_id'] ?? null)
+                    : DB::table('cabinet_folders')->where('name', $this->selectedFolderType)->value('id');
+                $folder = DB::table('cabinet_folders')->where('id', $folderId ?: 0)->first();
+                if (! $folder || ($this->selectedFolderPath === [] && $this->selectedFolderOffice !== null)) {
                     throw \Illuminate\Validation\ValidationException::withMessages(['name' => 'Only folders created by staff can be renamed.']);
                 }
                 $name = trim($data['name']);
@@ -285,6 +624,10 @@ class Cabinet extends Page
                 }
                 DB::table('cabinet_folders')->where('id', $folder->id)->update(['name' => $name, 'updated_at' => now()]);
                 $this->selectedFolderType = $name;
+                if ($this->currentPath !== [] && ($this->currentPath[array_key_last($this->currentPath)] ?? null) === $folder->name) {
+                    $this->currentPath[array_key_last($this->currentPath)] = $name;
+                }
+                $this->selectedFolderPath = [];
                 $this->loadCabinet();
             });
     }
@@ -295,20 +638,71 @@ class Cabinet extends Page
             ->modalHeading('Send folder contents to Recycle Bin?')
             ->action(function (): void {
                 abort_unless(auth()->user()?->canAccessPanel(\Filament\Facades\Filament::getPanel('admin')), 403);
-                $folder = DB::table('cabinet_folders')->where('name', $this->selectedFolderType)->whereNull('recycled_at')->first();
-                if (! $folder || $this->selectedFolderOffice !== null) {
+                $folderId = $this->selectedFolderPath !== []
+                    ? ($this->nodeAtPath($this->selectedFolderPath)['folder_id'] ?? null)
+                    : DB::table('cabinet_folders')->where('name', $this->selectedFolderType)->value('id');
+                $folder = DB::table('cabinet_folders')->where('id', $folderId ?: 0)->whereNull('recycled_at')->first();
+                if (! $folder || ($this->selectedFolderPath === [] && $this->selectedFolderOffice !== null)) {
                     throw \Illuminate\Validation\ValidationException::withMessages(['folder' => 'Only folders created by staff can be deleted.']);
                 }
-                $documentIds = DB::table('cabinet_document_locations')->where('folder_id', $folder->id)->pluck('document_id')
-                    ->concat(DB::table('cabinet_copies')->where('folder_id', $folder->id)->pluck('document_id'))->unique();
-                DB::transaction(function () use ($folder, $documentIds): void {
-                    DB::table('cabinet_folders')->where('id', $folder->id)->update(['recycled_at' => now(), 'updated_at' => now()]);
+                $folderIds = $this->descendantFolderIds($folder);
+                $documentIds = DB::table('cabinet_document_locations')->whereIn('folder_id', $folderIds)->pluck('document_id')
+                    ->concat(DB::table('cabinet_copies')->whereIn('folder_id', $folderIds)->pluck('document_id'))->unique();
+                DB::transaction(function () use ($folderIds, $documentIds): void {
+                    DB::table('cabinet_folders')->whereIn('id', $folderIds)->update(['recycled_at' => now(), 'updated_at' => now()]);
                     foreach ($documentIds as $documentId) {
                         DB::table('cabinet_recycle_bin')->updateOrInsert(['document_id' => $documentId], ['created_at' => now(), 'updated_at' => now()]);
                     }
                 });
+                $this->selectedFolderPath = [];
                 $this->loadCabinet();
+                if ($this->currentPath !== [] && in_array($folder->name, $this->currentPath, true)) {
+                    $this->goToRoot();
+                }
             });
+    }
+
+    protected function descendantFolderIds(object $folder, bool $includeRecycled = false): array
+    {
+        $ids = [(int) $folder->id];
+        $names = [$folder->name];
+
+        while ($names !== []) {
+            $query = DB::table('cabinet_folders')->whereIn('parent_type', $names);
+            if (! $includeRecycled) {
+                $query->whereNull('recycled_at');
+            }
+            $children = $query->get(['id', 'name']);
+            $names = [];
+
+            foreach ($children as $child) {
+                if (in_array((int) $child->id, $ids, true)) {
+                    continue;
+                }
+                $ids[] = (int) $child->id;
+                $names[] = $child->name;
+            }
+        }
+
+        return $ids;
+    }
+
+    public function restoreTreeFolder(int $folderId): void
+    {
+        abort_unless(auth()->user()?->canAccessPanel(\Filament\Facades\Filament::getPanel('admin')), 403);
+        $folder = DB::table('cabinet_folders')->where('id', $folderId)->whereNotNull('recycled_at')->first();
+        abort_unless($folder, 404);
+
+        $folderIds = $this->descendantFolderIds($folder, includeRecycled: true);
+        $documentIds = DB::table('cabinet_document_locations')->whereIn('folder_id', $folderIds)->pluck('document_id')
+            ->concat(DB::table('cabinet_copies')->whereIn('folder_id', $folderIds)->pluck('document_id'))->unique();
+
+        DB::transaction(function () use ($folderIds, $documentIds): void {
+            DB::table('cabinet_folders')->whereIn('id', $folderIds)->update(['recycled_at' => null, 'updated_at' => now()]);
+            DB::table('cabinet_recycle_bin')->whereIn('document_id', $documentIds)->delete();
+        });
+
+        $this->loadCabinet();
     }
 
     public function restoreFolder(): void
@@ -372,6 +766,13 @@ class Cabinet extends Page
     public function pasteDocument(?string $requestedName = null): void
     {
         abort_unless(auth()->user()?->canAccessPanel(\Filament\Facades\Filament::getPanel('admin')), 403);
+
+        if ($this->currentPath !== []) {
+            $this->pasteDocumentIntoCurrentNode($requestedName);
+
+            return;
+        }
+
         if ($this->currentType === '' || $this->currentType === 'Recycle Bin') {
             \Filament\Notifications\Notification::make()->title('Open a folder before pasting')->warning()->send();
             return;
@@ -408,6 +809,81 @@ class Cabinet extends Page
         $this->loadCabinet();
         if ($folderId && $this->currentOffice === '') { $this->currentOffice = 'Documents'; }
         \Filament\Notifications\Notification::make()->title('Document pasted')->success()->send();
+    }
+
+    protected function pasteDocumentIntoCurrentNode(?string $requestedName = null): void
+    {
+        if ($this->currentPath === ['Recycle Bin']) {
+            \Filament\Notifications\Notification::make()->title('Open a folder before pasting')->warning()->send();
+
+            return;
+        }
+
+        $node = $this->nodeAtPath($this->currentPath);
+        // Documents can be pasted into a concrete folder or a leaf grouping;
+        // a branch with children is only a navigation level.
+        if ($node === [] || (($node['folder_id'] ?? null) === null && ($node['children'] ?? []) !== [] && ($node['documents'] ?? []) === [])) {
+            \Filament\Notifications\Notification::make()->title('Open a folder before pasting')->warning()->send();
+
+            return;
+        }
+
+        Document::findOrFail($this->clipboardDocumentId);
+        abort_if(DB::table('cabinet_recycle_bin')->where('document_id', $this->clipboardDocumentId)->exists(), 422);
+
+        $source = $this->treeDocuments()->first(
+            fn (array $entry): bool => $entry['id'] === $this->clipboardDocumentId && ! isset($entry['copy_key'])
+        );
+        abort_unless($source, 422);
+
+        $existing = collect($node['documents'] ?? [])
+            ->pluck('name')
+            ->map(fn ($name) => mb_strtolower($name));
+        $name = trim($requestedName ?? $source['name']);
+        if ($existing->contains(mb_strtolower($name))) {
+            if ($requestedName !== null) {
+                throw \Illuminate\Validation\ValidationException::withMessages(['name' => 'This filename already exists in this folder.']);
+            }
+            $this->mountAction('pasteRename');
+
+            return;
+        }
+
+        validator(['name' => $name], ['name' => ['required', 'string', 'max:255', 'not_regex:/[\\\\\/]/']])->validate();
+        $folderId = $node['folder_id'] ?? null;
+        $destination = $folderId
+            ? ['folder_id' => $folderId, 'cabinet_type' => null, 'cabinet_office' => null]
+            : ['folder_id' => null, 'cabinet_type' => $this->currentPath[0], 'cabinet_office' => implode('/', array_slice($this->currentPath, 1)) ?: 'Documents'];
+
+        if (! $this->destinationMatchesDocumentStatus($this->currentPath, $source)) {
+            \Filament\Notifications\Notification::make()->title('Archived documents stay in Archived')->warning()->send();
+
+            return;
+        }
+
+        DB::table('cabinet_copies')->insert([
+            ...$destination,
+            'display_name' => $name,
+            'document_id' => $this->clipboardDocumentId,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $this->loadCabinet();
+        \Filament\Notifications\Notification::make()->title('Document pasted')->success()->send();
+    }
+
+    protected function treeDocuments(): \Illuminate\Support\Collection
+    {
+        $documents = collect();
+        $walk = function (array $nodes) use (&$walk, &$documents): void {
+            foreach ($nodes as $node) {
+                $documents = $documents->concat($node['documents'] ?? []);
+                $walk($node['children'] ?? []);
+            }
+        };
+        $walk($this->cabinetTree);
+
+        return $documents;
     }
 
     protected function clipboardSourceName(): string
@@ -453,7 +929,9 @@ class Cabinet extends Page
             abort_unless(auth()->user()?->canAccessPanel(\Filament\Facades\Filament::getPanel('admin')), 403);
             $name = trim($data['name']);
             validator(['name' => $name], ['name' => ['required', 'string', 'max:255', 'not_regex:/[\\\\\/]/']])->validate();
-            $entries = collect($this->cabinet[$this->currentType][$this->currentOffice] ?? []);
+            $entries = $this->currentPath !== []
+                ? collect($this->nodeAtPath($this->currentPath)['documents'] ?? [])
+                : collect($this->cabinet[$this->currentType][$this->currentOffice] ?? []);
             $conflict = $entries->contains(function ($entry) use ($name) {
                 $copyId = isset($entry['copy_key']) ? (int) substr($entry['copy_key'], 5) : null;
                 $same = $entry['id'] === $this->selectedDocumentId && $copyId === $this->selectedCopyId;
@@ -474,8 +952,25 @@ class Cabinet extends Page
 
     public function prepareAddFolder(): void
     {
-        $this->newFolderParentType = $this->currentType !== '' ? $this->currentType : null;
-        $this->newFolderParentOffice = $this->currentType !== '' ? ($this->currentOffice ?: null) : null;
+        if ($this->currentPath !== []) {
+            $node = $this->nodeAtPath($this->currentPath);
+
+            if (($node['folder_id'] ?? null) !== null) {
+                $this->newFolderParentType = $node['name'];
+                $this->newFolderParentOffice = null;
+            } else {
+                $this->newFolderParentType = $this->currentPath[0];
+                $this->newFolderParentOffice = count($this->currentPath) > 1
+                    ? implode('/', array_slice($this->currentPath, 1))
+                    : null;
+            }
+        } else {
+            // Custom folders belong below one of the fixed cabinet roots.
+            // Keeping them under Document Types preserves the three-root
+            // layout while still allowing folders at every nested level.
+            $this->newFolderParentType = 'Document Types';
+            $this->newFolderParentOffice = null;
+        }
         $this->mountAction('addFolder');
     }
 
@@ -535,6 +1030,42 @@ class Cabinet extends Page
 
     protected function currentDocumentDefaults(): array
     {
+        if ($this->currentPath !== []) {
+            $segments = $this->currentPath;
+            $root = $segments[0] ?? null;
+
+            if (in_array($root, ['Document Types', 'Archived'], true)) {
+                return [$segments[1] ?? null, $segments[2] ?? null];
+            }
+
+            if ($root === 'Office/Unit') {
+                $type = $segments[2] ?? null;
+                $knownType = $type
+                    ? DocumentType::query()->whereRaw('LOWER(TRIM(type_name)) = ?', [mb_strtolower(trim($type))])->value('type_name')
+                    : null;
+
+                return [$knownType, $segments[1] ?? null];
+            }
+
+            $type = null;
+            $office = null;
+            $knownTypes = DocumentType::query()->pluck('type_name')->all();
+
+            foreach ($segments as $segment) {
+                $knownType = collect($knownTypes)->first(fn ($value): bool => strcasecmp(trim((string) $value), $segment) === 0);
+                if ($knownType !== null) {
+                    $type = $knownType;
+                    continue;
+                }
+
+                if ($type !== null && ! in_array($segment, ['Document Types', 'Office/Unit', 'Archived'], true)) {
+                    $office ??= $segment;
+                }
+            }
+
+            return [$type, $office];
+        }
+
         if ($this->currentType === '' || $this->currentType === 'Recycle Bin') {
             return [null, null];
         }
@@ -699,9 +1230,12 @@ class Cabinet extends Page
                     return;
                 }
 
-                $destinationType = $this->currentType;
-                $destinationOffice = $this->currentOffice;
-                DB::transaction(function () use ($data, $filePaths, $fileHashes, $destinationType, $destinationOffice): void {
+                $destinationFolderId = $this->currentPath !== []
+                    ? ($this->nodeAtPath($this->currentPath)['folder_id'] ?? null)
+                    : (($this->currentType !== '' && $this->currentType !== 'Recycle Bin')
+                        ? DB::table('cabinet_folders')->where('name', $this->currentType)->whereNull('recycled_at')->value('id')
+                        : null);
+                DB::transaction(function () use ($data, $filePaths, $fileHashes, $destinationFolderId): void {
                     $document = Document::create([
                         'user_id' => auth()->id(),
 
@@ -737,13 +1271,10 @@ class Cabinet extends Page
                             'file_hash' => $fileHashes[$index],
                         ]);
                     }
-                    if ($destinationType !== '' && $destinationType !== 'Recycle Bin') {
-                        $folderId = DB::table('cabinet_folders')->where('name', $destinationType)->value('id');
+                    if ($destinationFolderId) {
                         DB::table('cabinet_document_locations')->updateOrInsert(
                             ['document_id' => $document->document_id],
-                            $folderId
-                                ? ['folder_id' => $folderId, 'cabinet_type' => null, 'cabinet_office' => null]
-                                : ['folder_id' => null, 'cabinet_type' => $destinationType, 'cabinet_office' => $destinationOffice ?: $data['office_unit']]
+                            ['folder_id' => $destinationFolderId, 'cabinet_type' => null, 'cabinet_office' => null]
                         );
                     }
                 });
@@ -754,6 +1285,12 @@ class Cabinet extends Page
 
     public function openType(string $type): void
     {
+        if (in_array($type, ['Document Types', 'Office/Unit', 'Archived', 'Recycle Bin'], true)) {
+            $this->openNode([$type]);
+
+            return;
+        }
+
         if (! isset($this->cabinet[$type])) {
             return;
         }
@@ -768,8 +1305,78 @@ class Cabinet extends Page
         $this->selectedDocumentId = null;
     }
 
+    public function openNode(array $path): void
+    {
+        $path = array_values(array_filter(array_map('strval', $path), static fn (string $segment): bool => $segment !== ''));
+        abort_unless($path !== [] && $this->nodeAtPath($path) !== [], 404);
+
+        $this->currentPath = $path;
+        $this->currentType = $path[0];
+        $this->currentOffice = count($path) > 1 ? $path[array_key_last($path)] : '';
+        $this->sourceFilter = 'all';
+        $this->selectedItem = $path[array_key_last($path)];
+        $this->selectedDocumentId = null;
+        $this->selectedCopyId = null;
+        $this->selectedFolderType = null;
+        $this->selectedFolderOffice = null;
+        $this->selectedFolderPath = [];
+    }
+
+    public function nodeAtPath(array $path): array
+    {
+        if ($path === []) {
+            return [
+                'name' => 'Cabinet',
+                'path' => [],
+                'folder_id' => null,
+                'documents' => [],
+                'children' => $this->cabinetTree,
+            ];
+        }
+
+        $node = $this->cabinetTree[$path[0]] ?? null;
+        foreach (array_slice($path, 1) as $segment) {
+            $node = $node['children'][$segment] ?? null;
+        }
+
+        return is_array($node) ? $node : [];
+    }
+
+    public function nodeFileCount(array $path): int
+    {
+        $node = $this->nodeAtPath($path);
+
+        if ($node === []) {
+            return 0;
+        }
+
+        $count = count($node['documents'] ?? []);
+        foreach ($node['children'] ?? [] as $child) {
+            $count += $this->nodeFileCount($child['path'] ?? []);
+        }
+
+        return $count;
+    }
+
+    public function selectNode(array $path): void
+    {
+        $node = $this->nodeAtPath($path);
+        abort_unless($node !== [], 404);
+
+        $this->selectedFolderPath = $path;
+        $this->selectedFolderType = $node['folder_id'] ? $node['name'] : null;
+        $this->selectedFolderOffice = null;
+        $this->selectedDocumentId = null;
+        $this->selectedCopyId = null;
+        $this->selectedItem = $node['name'];
+    }
+
     public function folderBreadcrumbs(): array
     {
+        if ($this->currentPath !== []) {
+            return $this->currentPath;
+        }
+
         if ($this->currentType === '') {
             return [];
         }
@@ -817,6 +1424,10 @@ class Cabinet extends Page
 
     public function folderFileCount(string $folderName, array $seen = []): int
     {
+        if (isset($this->cabinetTree[$folderName])) {
+            return $this->nodeFileCount([$folderName]);
+        }
+
         if (in_array($folderName, $seen, true)) {
             return 0;
         }
@@ -838,6 +1449,15 @@ class Cabinet extends Page
 
     public function openOffice(string $office): void
     {
+        if ($this->currentPath !== []) {
+            $path = [...$this->currentPath, $office];
+            if ($this->nodeAtPath($path) !== []) {
+                $this->openNode($path);
+            }
+
+            return;
+        }
+
         if (
             $this->currentType === '' ||
             ! isset($this->cabinet[$this->currentType][$office])
@@ -846,6 +1466,7 @@ class Cabinet extends Page
         }
 
         $this->currentOffice = $office;
+        $this->sourceFilter = 'all';
 
         $this->selectedItem = $office;
         $this->selectedDocumentId = null;
@@ -853,16 +1474,31 @@ class Cabinet extends Page
 
     public function goToRoot(): void
     {
+        $this->currentPath = [];
         $this->currentType = '';
         $this->currentOffice = '';
         $this->sourceFilter = 'all';
 
         $this->selectedItem = null;
         $this->selectedDocumentId = null;
+        $this->selectedCopyId = null;
+        $this->selectedFolderType = null;
+        $this->selectedFolderOffice = null;
+        $this->selectedFolderPath = [];
     }
 
     public function goToType(): void
     {
+        if ($this->currentPath !== []) {
+            $this->currentPath = array_slice($this->currentPath, 0, 2);
+            $this->currentOffice = count($this->currentPath) > 1 ? $this->currentPath[1] : '';
+            $this->sourceFilter = 'all';
+            $this->selectedItem = $this->currentPath[array_key_last($this->currentPath)] ?? null;
+            $this->selectedDocumentId = null;
+
+            return;
+        }
+
         $this->currentOffice = '';
         $this->sourceFilter = 'all';
 
@@ -925,6 +1561,7 @@ class Cabinet extends Page
         $this->selectedItem = $item;
         $this->selectedFolderType = null;
         $this->selectedFolderOffice = null;
+        $this->selectedFolderPath = [];
 
         $this->selectedDocumentId = $documentId;
         $this->selectedCopyId = $copyId;
