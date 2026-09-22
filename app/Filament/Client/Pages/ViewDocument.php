@@ -4,7 +4,6 @@ namespace App\Filament\Client\Pages;
 
 use App\Models\Document;
 use App\Models\DocumentRequest;
-use App\Services\DocumentStatusTimeline;
 use Filament\Pages\Page;
 use Filament\Support\Enums\Width;
 
@@ -21,11 +20,6 @@ class ViewDocument extends Page
     public ?string $requestStatus = null;
 
     public ?DocumentRequest $requestRecord = null;
-
-    /**
-     * @var array<int, array{status: string, title: string, description: string, time: string, date: string}>
-     */
-    public array $statusTimeline = [];
 
     public ?string $previewUrl = null;
 
@@ -103,9 +97,6 @@ class ViewDocument extends Page
             ->latest('date_of_request')
             ->latest('request_id')
             ->first();
-
-        $this->statusTimeline = app(DocumentStatusTimeline::class)
-            ->build($this->documentRecord);
 
         if (! $hasValidReturnTab && $this->requestStatus !== null) {
             $this->returnTab = 'requested';

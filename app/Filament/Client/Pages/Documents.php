@@ -3,6 +3,7 @@
 namespace App\Filament\Client\Pages;
 
 use App\Filament\Client\Pages\Messages as ClientMessages;
+use App\Filament\Client\Pages\DocumentTimeline;
 use App\Filament\Client\Pages\ViewDocument;
 use App\Models\Document;
 use App\Models\DocumentRequest;
@@ -372,6 +373,21 @@ class Documents extends Page implements HasTable
             ->striped()
             ->recordActionsAlignment('end')
             ->recordActions([
+                Action::make('track')
+                    ->label('Track')
+                    ->icon('heroicon-o-clock')
+                    ->color('gray')
+                    ->extraAttributes(['class' => 'documents-table-action'])
+                    ->tooltip('Track status')
+                    ->url(
+                        fn (DocumentRequest $record): ?string => $record->document
+                            ? DocumentTimeline::getUrl([
+                                'document' => $record->document->getPublicRouteKey(),
+                                'tab' => 'requested',
+                            ])
+                            : null
+                    ),
+
                 Action::make('print')
                     ->label('Print')
                     ->icon('heroicon-o-printer')
@@ -538,6 +554,19 @@ class Documents extends Page implements HasTable
             ->striped()
             ->recordActionsAlignment('end')
             ->recordActions([
+                Action::make('track')
+                    ->label('Track')
+                    ->icon('heroicon-o-clock')
+                    ->color('gray')
+                    ->extraAttributes(['class' => 'documents-table-action'])
+                    ->tooltip('Track status')
+                    ->url(
+                        fn (Document $record): string => DocumentTimeline::getUrl([
+                            'document' => $record->getPublicRouteKey(),
+                            'tab' => $this->activeTab,
+                        ])
+                    ),
+
                 Action::make('message')
                     ->label('Message')
                     ->icon('heroicon-o-chat-bubble-left-right')
