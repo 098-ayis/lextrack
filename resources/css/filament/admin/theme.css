@@ -2437,7 +2437,7 @@ Edit-Button
 .dark .dashboard-stat-info { background:#334155; color:#94a3b8; }
 .dark .office-dashboard .bg-white { background-color:#0f172a; }
 
-/* Decorative Lady Justice artwork on the client dashboard welcome banner. */
+/* Decorative gavel artwork on the client dashboard welcome banner. */
 .client-dashboard-welcome::after {
     position:absolute;
     z-index:2;
@@ -2445,12 +2445,12 @@ Edit-Button
     right:1.5rem;
     bottom:0;
     width:min(52%, 38rem);
-    background-image:url('../../../images/stamp_banner.png');
+    background-image:url('../../../images/gavel_banner.png');
     background-repeat:no-repeat;
     background-position:right center;
     background-size:contain;
     content:"";
-    opacity:.62;
+    opacity:.3;
     pointer-events:none;
 }
 

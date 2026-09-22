@@ -11,7 +11,7 @@ class ChatbotIntentRouter
     /**
      * Detect what the client is asking independently of any document reference.
      *
-     * @return 'workflow_explanation'|'yes_no_comparison'|'status_lookup'|'document_count'|'general_knowledge'
+     * @return 'workflow_explanation'|'yes_no_comparison'|'status_lookup'|'document_count'|'request_status'|'request_count'|'general_knowledge'
      */
     public function detectQuestionIntent(string $message): string
     {
@@ -27,6 +27,10 @@ class ChatbotIntentRouter
 
         if ($this->isDocumentCountInquiry($normalized)) {
             return 'document_count';
+        }
+
+        if ($this->isPrivateDocumentRequestInquiry($normalized)) {
+            return $this->isRequestCountInquiry($normalized) ? 'request_count' : 'request_status';
         }
 
         if ($this->isLatestDocumentInquiry($normalized)
@@ -53,6 +57,10 @@ class ChatbotIntentRouter
             return ['type' => 'lao_numbers', 'numbers' => $laoNumbers];
         }
 
+        if ($this->isLatestDocumentInquiry($normalized)) {
+            return ['type' => 'latest'];
+        }
+
         if (($index = $this->documentSelectionIndex($normalized)) !== null) {
             return ['type' => 'selection', 'index' => $index];
         }
@@ -62,10 +70,6 @@ class ChatbotIntentRouter
             $message,
         ) === 1 || $this->hasIncompleteLaoReference($normalized)) {
             return ['type' => 'invalid'];
-        }
-
-        if ($this->isLatestDocumentInquiry($normalized)) {
-            return ['type' => 'latest'];
         }
 
         if ($hasPrivateDocumentContext && $this->hasContextualDocumentReference($normalized)) {
@@ -90,6 +94,53 @@ class ChatbotIntentRouter
             || preg_match('/(?<!\d)(?:\+?\d[\s().-]?){9,}\d(?!\d)/', $message) === 1;
     }
 
+    public function confirmationValue(string $message): ?bool
+    {
+        $normalized = $this->normalize($message);
+
+        if (preg_match('/^(?:yes|y|oo|opo|sige|go ahead|tuloy|ituloy)\b/', $normalized) === 1) {
+            return true;
+        }
+
+        if (preg_match('/^(?:no|n|hindi|ayaw|cancel|kanselahin|wag|huwag)\b/', $normalized) === 1) {
+            return false;
+        }
+
+        return null;
+    }
+
+    public function isClearTopicChange(string $message): bool
+    {
+        $normalized = $this->normalize($message);
+
+        return str_contains($message, '?')
+            || preg_match(
+                '/^(?:what|how|why|where|when|can|could|do|does|is|are|tell me|thanks|thank you|salamat|okay|ok|noted|ano|paano|pano|bakit|saan|kailan|mayroon ba|meron ba)\b/',
+                $normalized,
+            ) === 1;
+    }
+
+    public function documentSelectionIndex(string $message): ?int
+    {
+        return $this->selectionIndex($this->normalize($message));
+    }
+
+    public function requestId(string $message): ?int
+    {
+        if (preg_match('/\b(?:request|req|hiling|application)\s*(?:number|no\.?|#|id)?\s*(\d{1,12})\b/i', $message, $matches) !== 1) {
+            return null;
+        }
+
+        $id = filter_var($matches[1], FILTER_VALIDATE_INT);
+
+        return $id !== false && $id > 0 ? (int) $id : null;
+    }
+
+    public function isGreeting(string $message): bool
+    {
+        return preg_match('/^(?:hi|hello|hey|good morning|good afternoon|good evening|kumusta|kamusta|musta|magandang umaga|magandang hapon|magandang gabi)[!. ]*$/i', trim($message)) === 1;
+    }
+
     /**
      * @return array{intent: string, lao_numbers?: list<string>, selection_index?: int}
      */
@@ -99,6 +150,8 @@ class ChatbotIntentRouter
         bool $hasDocumentChoices = false,
         bool $hasPrivateDocumentContext = false,
         bool $hasPrivateMessageContext = false,
+        bool $hasRequestChoices = false,
+        bool $hasPrivateRequestContext = false,
     ): array {
         $normalized = $this->normalize($message);
         $questionIntent = $this->detectQuestionIntent($normalized);
@@ -109,6 +162,10 @@ class ChatbotIntentRouter
 
         if ($this->isMessageContentRequest($normalized, $hasPrivateMessageContext)) {
             return ['intent' => 'message_content', 'language' => $this->responseLanguage($normalized)];
+        }
+
+        if ($this->isGreeting($message)) {
+            return ['intent' => 'greeting', 'language' => $this->responseLanguage($normalized)];
         }
 
         if ($this->isAcknowledgment($normalized)) {
@@ -133,8 +190,58 @@ class ChatbotIntentRouter
             return ['intent' => 'unsupported'];
         }
 
+        if ($hasRequestChoices
+            && ($selectionIndex = $this->documentSelectionIndex($normalized)) !== null) {
+            return [
+                'intent' => 'request_selection',
+                'selection_index' => $selectionIndex,
+                'language' => $this->responseLanguage($normalized),
+            ];
+        }
+
+        if (($requestId = $this->requestId($message)) !== null) {
+            return [
+                'intent' => 'request_status',
+                'request_id' => $requestId,
+                'topic' => $this->requestTopic($normalized),
+                'language' => $this->responseLanguage($normalized),
+            ];
+        }
+
+        if ($hasPrivateRequestContext
+            && ($this->hasContextualRecordReference($normalized)
+                || ($this->hasPersonalReference($normalized)
+                    && $this->requestTopic($normalized) !== 'summary'))) {
+            return [
+                'intent' => 'request_context_details',
+                'topic' => $this->requestTopic($normalized),
+                'language' => $this->responseLanguage($normalized),
+            ];
+        }
+
+        if (! $hasPrivateRequestContext
+            && preg_match('/\b(?:request|requests|hiling|application)\b/', $normalized) === 1
+            && $this->hasContextualRecordReference($normalized)) {
+            return ['intent' => 'ambiguous_request'];
+        }
+
+        if ($this->isPrivateDocumentRequestInquiry($normalized)) {
+            return [
+                'intent' => $this->isRequestCountInquiry($normalized) ? 'request_count' : 'latest_request',
+                'status' => $this->requestedRequestStatus($normalized),
+                'language' => $this->responseLanguage($normalized),
+            ];
+        }
+
         if ($documentReference['type'] === 'lao_numbers') {
             $laoNumbers = $documentReference['numbers'];
+
+            if ($this->isRejectionReasonQuestion($normalized)) {
+                return [
+                    'intent' => 'lao_rejection_reason',
+                    'lao_numbers' => $laoNumbers,
+                ];
+            }
 
             if ($this->isComparison($normalized) && count($laoNumbers) > 1) {
                 return [
@@ -150,6 +257,14 @@ class ChatbotIntentRouter
         }
 
         if ($documentReference['type'] === 'selection') {
+            if ($hasRequestChoices) {
+                return [
+                    'intent' => 'request_selection',
+                    'selection_index' => $documentReference['index'],
+                    'language' => $this->responseLanguage($normalized),
+                ];
+            }
+
             if (! $hasDocumentChoices) {
                 return ['intent' => 'ambiguous_document'];
             }
@@ -162,6 +277,27 @@ class ChatbotIntentRouter
 
         if ($documentReference['type'] === 'invalid') {
             return ['intent' => 'invalid_lao'];
+        }
+
+        if (($documentName = $this->extractDocumentName($message)) !== null
+            && $this->isNamedDocumentInquiry($normalized)) {
+            return [
+                'intent' => 'document_name_lookup',
+                'document_name' => $documentName,
+                'language' => $this->responseLanguage($normalized),
+            ];
+        }
+
+        if ($documentReference['type'] === 'none'
+            && $this->isPotentialPrivateRecordInquiry($normalized)) {
+            return ['intent' => 'ambiguous_document'];
+        }
+
+        if ($this->isRejectionGuidanceQuestion($normalized)) {
+            return [
+                'intent' => 'rejection_guidance',
+                'language' => $this->responseLanguage($normalized),
+            ];
         }
 
         if ($questionIntent === 'workflow_explanation') {
@@ -225,6 +361,16 @@ class ChatbotIntentRouter
             return ['intent' => 'document_context_status'];
         }
 
+        if ($hasPrivateDocumentContext
+            && $documentReference['type'] === 'contextual'
+            && $this->isDocumentDetailFollowUp($normalized)) {
+            return [
+                'intent' => 'document_context_details',
+                'topic' => $this->isActionTypeQuestion($normalized) ? 'action_type' : 'summary',
+                'language' => $this->responseLanguage($normalized),
+            ];
+        }
+
         $hasDocumentTerm = $this->hasDocumentTerm($normalized);
         $hasPersonalReference = $this->hasPersonalReference($normalized);
 
@@ -273,6 +419,28 @@ class ChatbotIntentRouter
         return $asksHowOrWhen && ($asksAboutTransition || $asksAboutAcceptance);
     }
 
+    private function isRejectionGuidanceQuestion(string $message): bool
+    {
+        $hasRejectionCue = preg_match(
+            '/\b(?:rejected|rejection|nareject|na reject|tinanggihan|rejectado|reject)\b/',
+            $message,
+        ) === 1;
+        $asksNextStep = preg_match(
+            '/\b(?:what should i do|what do i do|what now|what next|next step|how do i proceed|paano na|ano ang gagawin|ano gagawin|ano ngayon|anong susunod|anong dapat gawin|anong gagawin)\b/',
+            $message,
+        ) === 1;
+
+        return $hasRejectionCue && $asksNextStep;
+    }
+
+    private function isRejectionReasonQuestion(string $message): bool
+    {
+        return preg_match(
+            '/\b(?:rejection reason|reason for rejection|why was .* rejected|bakit .* reject|dahilan ng rejection|dahilan kung bakit .* reject|recorded reason)\b/',
+            $message,
+        ) === 1;
+    }
+
     private function isYesNoStatusComparison(string $message): bool
     {
         $hasStatusTerms = preg_match(
@@ -292,6 +460,29 @@ class ChatbotIntentRouter
     {
         $message = mb_strtolower($message, 'UTF-8');
         $message = preg_replace('/[^\p{L}\p{N}]+/u', ' ', $message) ?? '';
+        $message = trim(preg_replace('/\s+/u', ' ', $message) ?? '');
+
+        // Normalize common chat shorthand and spelling variants once so each
+        // intent can remain semantic instead of accumulating sentence rules.
+        foreach ([
+            'statuz' => 'status',
+            'statu' => 'status',
+            'inprogress' => 'in progress',
+            'inprogres' => 'in progress',
+            'outgoin' => 'outgoing',
+            'pendng' => 'pending',
+            'msg' => 'message',
+            'msgs' => 'messages',
+            'mssg' => 'message',
+            'recieve' => 'receive',
+            'recieved' => 'received',
+        ] as $variant => $canonical) {
+            $message = preg_replace(
+                '/\b' . preg_quote($variant, '/') . '\b/u',
+                $canonical,
+                $message,
+            ) ?? $message;
+        }
 
         return trim(preg_replace('/\s+/u', ' ', $message) ?? '');
     }
@@ -549,6 +740,69 @@ class ChatbotIntentRouter
         return $hasCountCue && $hasDocumentOrStatus && ! $asksForKinds && ! $this->isComparison($message);
     }
 
+    private function isPrivateDocumentRequestInquiry(string $message): bool
+    {
+        $hasRequestTerm = preg_match('/\b(?:document requests?|requests?|requested|requesting|req|hiling|application|hinihiling|humiling)\b/', $message) === 1;
+        $hasPersonalReference = $this->hasPersonalReference($message);
+        $hasRecordCue = preg_match(
+            '/\b(?:status|pending|accepted|rejected|copy|soft copy|original|pickup|schedule|download|available|availability|latest|recent|update|count|how many|ilan|mayroon|meron|may|number|details?|type|pending request|request status|kalagayan|katayuan|nakuha|kunin|downloadable)\b/',
+            $message,
+        ) === 1;
+
+        if (! $hasRequestTerm || ! $hasRecordCue) {
+            return false;
+        }
+
+        // General procedure questions such as “How do I request a document?”
+        // remain approved knowledge-base questions unless they refer to the
+        // authenticated client's own request record.
+        return $hasPersonalReference
+            || preg_match('/\b(?:my request|latest request|recent request|request ko|hiling ko|sa request ko|requests? ko)\b/', $message) === 1
+            || $this->requestId($message) !== null;
+    }
+
+    private function isRequestCountInquiry(string $message): bool
+    {
+        return preg_match('/\b(?:how many|count|number of|do i have|have i|ilan|ilang|dami|karami|may|mayroon|meron)\b/', $message) === 1;
+    }
+
+    private function requestedRequestStatus(string $message): ?string
+    {
+        foreach ([
+            'pending' => '/\b(?:pending|awaiting|waiting|nakabinbin|hinihintay)\b/',
+            'accepted' => '/\b(?:accepted|approved|approve|tinanggap|na approve|naaprubahan)\b/',
+            'rejected' => '/\b(?:rejected|reject|tinanggihan|na reject|nareject)\b/',
+        ] as $status => $pattern) {
+            if (preg_match($pattern, $message) === 1) {
+                return $status;
+            }
+        }
+
+        return null;
+    }
+
+    private function requestTopic(string $message): string
+    {
+        if (preg_match('/\b(?:copy type|copy|soft copy|original|uri|type)\b/', $message) === 1) {
+            return 'copy_type';
+        }
+
+        if (preg_match('/\b(?:pickup|pick up|pick it up|schedule|when can i get|when can i pick|makukuha|makuha|kukunin|kukuha|kailan makukuha|kailan kukunin|kuha|iskedyul)\b/', $message) === 1) {
+            return 'pickup';
+        }
+
+        if (preg_match('/\b(?:download|downloadable|available|availability|soft copy)\b/', $message) === 1) {
+            return 'download';
+        }
+
+        return 'summary';
+    }
+
+    private function hasContextualRecordReference(string $message): bool
+    {
+        return preg_match('/\b(?:it|this|that|its|they|them|their|one|siya|niya|nya|iyon|iyon ba|yun|yan|jan|diyan|doon|dun|dito|yung|that one|this one)\b/', $message) === 1;
+    }
+
     private function requestedStatus(string $message): ?string
     {
         $patterns = [
@@ -609,9 +863,70 @@ class ChatbotIntentRouter
             || preg_match('/\b(?:accepted already|approved already|accepted na|approved na|tanggap na|na accept na|naapprove na)\b/', $message) === 1;
     }
 
+    private function isDocumentDetailFollowUp(string $message): bool
+    {
+        if ($this->isDocumentStatusFollowUp($message)
+            || $this->isAcceptanceGuidanceFollowUp($message)
+            || $this->isResubmissionQuestion($message)) {
+            return false;
+        }
+
+        return $this->isActionTypeQuestion($message)
+            || preg_match('/\b(?:detail|details|particulars|information|info|detalye|impormasyon|tungkol saan|about)\b/', $message) === 1
+            || $this->isContextDependentFollowUp($message);
+    }
+
+    private function isActionTypeQuestion(string $message): bool
+    {
+        return preg_match('/\b(?:action type|assigned action|what action|anong action|ano ang action|action niya|action nya)\b/', $message) === 1;
+    }
+
+    private function isNamedDocumentInquiry(string $message): bool
+    {
+        $hasQuotedName = preg_match('/["“‘][^"”’]+["”’]/u', $message) === 1;
+
+        return ($this->hasDocumentTerm($message) || $hasQuotedName)
+            && ($this->hasDocumentStatusTerm($message)
+                || preg_match('/\b(?:detail|details|information|info|about|tungkol|detalye|impormasyon|action type|assigned action)\b/', $message) === 1);
+    }
+
+    private function isPotentialPrivateRecordInquiry(string $message): bool
+    {
+        $hasRecordQuestion = $this->hasDocumentStatusTerm($message)
+            || preg_match('/\b(?:details?|particulars?|destination|recipient|pickup|download|availability|action type|assigned action)\b/', $message) === 1;
+        $hasReferenceStructure = preg_match('/\b(?:status|details?|information|update|where|when|what)\s+(?:of|for|about|on|sa|ng)\b/', $message) === 1;
+        $isKnownStatusDefinition = preg_match('/\b(?:pending|in progress|outgoing|completed|returned|rejected|archived)\b/', $message) === 1
+            && ! $this->hasPersonalReference($message);
+
+        return $hasRecordQuestion && $hasReferenceStructure && ! $isKnownStatusDefinition;
+    }
+
+    /** Extract a client-provided title locally; it is never sent to OpenAI. */
+    public function extractDocumentName(string $message): ?string
+    {
+        if (preg_match('/["“‘]([^"”’]+)["”’]/u', $message, $matches) === 1) {
+            $name = trim($matches[1]);
+
+            return $name !== '' ? $name : null;
+        }
+
+        if (preg_match(
+            '/\b(?:document|doc|submission)\s+(?:named|called|titled)\s+(.+?)(?:[?!.,]|$)/iu',
+            $message,
+            $matches,
+        ) === 1) {
+            $name = trim($matches[1]);
+            $name = preg_replace('/\s+(?:status|details?|information|info|about|tungkol|detalye)\s*$/iu', '', $name) ?? $name;
+
+            return $name !== '' ? $name : null;
+        }
+
+        return null;
+    }
+
     private function hasContextualDocumentReference(string $message): bool
     {
-        return preg_match('/\b(?:it|this|that|its|sya|siya|nya|iyan|iyon|yun|yung|that one|this one)\b/', $message) === 1
+        return preg_match('/\b(?:it|this|that|its|sya|siya|niya|nya|iyan|iyon|yun|jan|dito|doon|dun|yung|that one|this one)\b/', $message) === 1
             || ($this->hasPossessiveReference($message) && $this->hasDocumentTerm($message));
     }
 
@@ -723,7 +1038,7 @@ class ChatbotIntentRouter
     private function hasPersonalReference(string $message): bool
     {
         return preg_match(
-            '/\b(?:my|mine|our|ours|i|ko|akin|amin|namin|natin|sa akin|sa amin|akin ko)\b/',
+            '/\b(?:my|mine|our|ours|i|ako|ko|akin|amin|namin|natin|sa akin|sa amin|akin ko)\b/',
             $message,
         ) === 1;
     }
@@ -736,9 +1051,17 @@ class ChatbotIntentRouter
         ) === 1;
     }
 
-    private function documentSelectionIndex(string $message): ?int
+    private function selectionIndex(string $message): ?int
     {
-        if (preg_match('/\b(?:document|doc|number|no)\s+(\d{1,2})\b/', $message, $matches) === 1) {
+        if (preg_match('/\b(?:latest|most recent|newest|pinakabago|pinakahuli)\b/', $message) === 1) {
+            return 0;
+        }
+
+        if (preg_match('/^(\d{1,2})$/', $message, $matches) === 1) {
+            return max(0, (int) $matches[1] - 1);
+        }
+
+        if (preg_match('/\b(?:document|doc|request|req|number|no)\s+(\d{1,2})\b/', $message, $matches) === 1) {
             return max(0, (int) $matches[1] - 1);
         }
 
