@@ -10,8 +10,18 @@
         $selectedVersion = $selectedVersionId
             ? $documentRecord->versions->firstWhere('version_id', $selectedVersionId)
             : null;
-        $displayedFilePath = $isTransmittalSelected
+        $transmittalFiles = collect();
+        foreach ($documentRecord->transmittalAttachments as $attachment) {
+            $transmittalFiles->push(['id' => $attachment->transmittal_id, 'path' => $attachment->file_path]);
+        }
+        if ($transmittalFiles->isEmpty() && filled($documentRecord->transmittal)) {
+            $transmittalFiles->push(['id' => null, 'path' => $documentRecord->transmittal]);
+        }
+        $transmittalFilePath = $selectedTransmittalId === null
             ? $documentRecord->transmittal
+            : $documentRecord->transmittalAttachments->firstWhere('transmittal_id', $selectedTransmittalId)?->file_path;
+        $displayedFilePath = $isTransmittalSelected
+            ? $transmittalFilePath
             : ($selectedVersion?->file_path ?? $latestFilePath);
         $displayedFileName = filled($displayedFilePath)
             ? basename((string) $displayedFilePath)
@@ -26,48 +36,50 @@
                 : 'v' . $displayedVersionNumber)
             : null;
         $latestRejection = $documentRecord->rejections->sortByDesc('created_at')->first();
-        $versions = $documentRecord->versions->sortByDesc('created_at')->values();
+        $versions = $documentRecord->versions
+            ->sortByDesc(function ($version): int {
+                preg_match('/(\d+)\s*$/', (string) $version->version_number, $matches);
+
+                return (int) ($matches[1] ?? 0);
+            })
+            ->values();
         $hasCurrentVersion = $versions->contains(fn ($version) => $version->file_path === $latestFilePath);
         $hasPendingRevision = $this->hasPendingRevision();
         $pendingRevisionVersionId = $hasPendingRevision ? $documentRecord->latestVersion?->version_id : null;
         $showCurrentDocument = filled($latestFilePath) && ! $hasCurrentVersion;
-        $transmittalFilePath = $documentRecord->transmittal;
-        $transmittalFileName = filled($transmittalFilePath) ? basename((string) $transmittalFilePath) : null;
-        $documentTableSection = match ((string) $documentRecord->status) {
-            'pending' => 'pending',
-            'in_progress' => 'incoming',
-            'outgoing' => 'outgoing',
-            'completed' => 'completed',
-            'rejected' => 'rejected',
-            'archived' => 'archived',
-            default => 'incoming',
-        };
         $activityLogs = $documentRecord->activityLogs
             ->filter(fn ($log) => $this->shouldShowActivity($log))
             ->sortByDesc('created_at')
             ->values();
+        $softCopyRequest = $documentRecord->documentRequests
+            ->where('copy_type', 'soft_copy')
+            ->where('status', 'accepted')
+            ->sortByDesc('date_of_request')
+            ->first();
     @endphp
 
     <div class="document-viewer-page" x-data="{ printFile(url) { const printWindow = window.open(url, '_blank'); if (!printWindow) return; printWindow.addEventListener('load', () => { printWindow.focus(); printWindow.print(); }, { once: true }); } }">
-        <div class="document-viewer-layout">
+        <div class="document-viewer-layout {{ $softCopyRequest ? 'document-request-viewer-layout' : '' }}">
             <section class="document-panel-card document-details-card" aria-label="Document details and files">
                 <div class="document-card-heading">
                     <h1>Document Details</h1>
                     <div class="document-edit-controls">
-                        @if ($isEditingDetails)
-                            <button type="button" wire:click="cancelEditingDetails" class="document-cancel-button">Cancel</button>
-                            <button type="button" wire:click="saveDocumentDetails" wire:loading.attr="disabled" @disabled(! $this->hasDocumentDetailsChanges()) class="document-edit-button">Save Changes</button>
-                        @else
-                            <button
-                                type="button"
-                                wire:click="startEditingDetails"
-                                @disabled(in_array($documentRecord->status, ['pending', 'rejected'], true))
-                                title="{{ in_array($documentRecord->status, ['pending', 'rejected'], true) ? 'Pending and rejected documents are locked' : 'Edit document details' }}"
-                                aria-label="Edit document details"
-                                class="document-edit-button document-edit-icon-button"
-                            >
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="m15 5 4 4M4 20l4.2-.8L19 8.4a2.1 2.1 0 0 0-3-3L5.2 16.2 4 20Z" /></svg>
-                            </button>
+                        @if (! $softCopyRequest)
+                            @if ($isEditingDetails)
+                                <button type="button" wire:click="cancelEditingDetails" class="document-cancel-button">Cancel</button>
+                                <button type="button" wire:click="saveDocumentDetails" wire:loading.attr="disabled" @disabled(! $this->hasDocumentDetailsChanges()) class="document-edit-button">Save Changes</button>
+                            @else
+                                <button
+                                    type="button"
+                                    wire:click="startEditingDetails"
+                                    @disabled(in_array($documentRecord->status, ['pending', 'rejected'], true))
+                                    title="{{ in_array($documentRecord->status, ['pending', 'rejected'], true) ? 'Pending and rejected documents are locked' : 'Edit document details' }}"
+                                    aria-label="Edit document details"
+                                    class="document-edit-button document-edit-icon-button"
+                                >
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="m15 5 4 4M4 20l4.2-.8L19 8.4a2.1 2.1 0 0 0-3-3L5.2 16.2 4 20Z" /></svg>
+                                </button>
+                            @endif
                         @endif
                     </div>
                 </div>
@@ -76,6 +88,16 @@
                     @if ($errors->any())
                         <p class="document-edit-error">{{ $errors->first() }}</p>
                     @endif
+                    @if ($softCopyRequest)
+                        <dl class="document-detail-list">
+                            <div class="document-detail-row"><dt>Purpose</dt><dd>{{ $softCopyRequest->purpose ?: '—' }}</dd></div>
+                            <div class="document-detail-row"><dt>Details</dt><dd>{{ $softCopyRequest->purpose_details ?: '—' }}</dd></div>
+                            <div class="document-detail-row"><dt>Type</dt><dd>Soft copy</dd></div>
+                            <div class="document-detail-row"><dt>Requested By</dt><dd>{{ $softCopyRequest->user?->name ?? '—' }}</dd></div>
+                            <div class="document-detail-row"><dt>Date of Request</dt><dd>{{ $softCopyRequest->date_of_request?->format('F d, Y') ?? '—' }}</dd></div>
+                            <div class="document-detail-row"><dt>Date Accepted</dt><dd>{{ $softCopyRequest->date_processed?->format('F d, Y') ?? '—' }}</dd></div>
+                        </dl>
+                    @else
                     <dl class="document-detail-list">
                         <div class="document-detail-row"><dt>LAO Number</dt><dd>@if ($isEditingDetails)<input class="document-inline-field document-inline-readonly" wire:model="documentDetailsForm.lao_number" aria-label="LAO Number" readonly>@else{{ $documentRecord->lao_number ?: '—' }}@endif</dd></div>
                         <div class="document-detail-row"><dt>Status</dt><dd>@if ($isEditingDetails && $documentRecord->status === 'completed')<select class="document-inline-field" wire:model.live="documentDetailsForm.status" aria-label="Status"><option value="pending">Pending</option><option value="in_progress">Incoming</option><option value="completed">Completed</option><option value="returned">Returned</option><option value="outgoing">Outgoing</option><option value="rejected">Rejected</option></select>@else<span class="document-status-pill {{ $documentRecord->statusClasses() }}">{{ $documentRecord->status === 'in_progress' ? 'Incoming' : $documentRecord->statusLabel() }}</span>@endif</dd></div>
@@ -88,7 +110,7 @@
                             <div class="document-detail-row"><dt>Outgoing Date</dt><dd>@if ($isEditingDetails)<input class="document-inline-field" type="date" wire:model.live="documentDetailsForm.outgoing_date" aria-label="Outgoing Date">@else{{ $documentRecord->outgoing_date?->format('F d, Y') ?? 'Not set' }}@endif</dd></div>
                             <div class="document-detail-row"><dt>Sent Date</dt><dd>@if ($isEditingDetails)<input class="document-inline-field" type="date" wire:model.live="documentDetailsForm.sent_date" aria-label="Sent Date">@else{{ $documentRecord->sent_date?->format('F d, Y') ?? 'Not set' }}@endif</dd></div>
                             <div class="document-detail-row"><dt>Sent To</dt><dd>@if ($isEditingDetails)<input class="document-inline-field" wire:model.live.debounce.500ms="documentDetailsForm.sent_to" aria-label="Sent To">@else{{ $documentRecord->sent_to ?: 'Not set' }}@endif</dd></div>
-                            <div class="document-detail-row"><dt>Returned From</dt><dd>@if ($isEditingDetails)<input class="document-inline-field" wire:model.live.debounce.500ms="documentDetailsForm.returned_from" aria-label="Returned From">@else{{ $documentRecord->returned_from ?: 'Not returned' }}@endif</dd></div>
+                            <div class="document-detail-row"><dt>Returned From</dt><dd>@if ($isEditingDetails && $documentRecord->status === 'outgoing')<input class="document-inline-field document-inline-readonly" value="{{ $documentDetailsForm['sent_to'] ?? '' }}" aria-label="Returned From" readonly>@elseif ($isEditingDetails)<input class="document-inline-field" wire:model.live.debounce.500ms="documentDetailsForm.returned_from" aria-label="Returned From">@else{{ $documentRecord->returned_from ?: 'Not returned' }}@endif</dd></div>
                             <div class="document-detail-row"><dt>Date Returned</dt><dd>@if ($isEditingDetails)<input class="document-inline-field" type="date" wire:model.live="documentDetailsForm.date_returned" aria-label="Date Returned">@else{{ $documentRecord->date_returned?->format('F d, Y') ?? 'Not returned' }}@endif</dd></div>
                         @endif
                     </dl>
@@ -105,41 +127,60 @@
                             @endif
                         </dl>
                     </details>
+                    @endif
 
                     <section class="document-files-section">
                         <div class="document-files-heading">
                             <h2>Document Files</h2>
                         </div>
 
-                        <div class="document-file-group">
-                            <h3>Transmittal / Endorsement</h3>
-                            @if ($transmittalFileName)
-                                <div class="document-file-row">
-                                    <button type="button" wire:click="selectTransmittal" wire:loading.attr="disabled" class="document-file-select {{ $isTransmittalSelected ? 'is-selected' : '' }}" title="Preview transmittal">
-                                        <span class="document-file-badge">{{ strtoupper(pathinfo($transmittalFileName, PATHINFO_EXTENSION)) ?: 'FILE' }}</span>
-                                        <span class="document-file-name">{{ $transmittalFileName }}</span>
-                                    </button>
-                                    <div class="relative shrink-0" x-data="{ menuOpen: false }">
-                                        <button type="button" class="document-file-menu-button" aria-label="Transmittal options" aria-haspopup="menu" @click.stop="menuOpen = !menuOpen">
-                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.6" d="M12 6.5h.01M12 12h.01M12 17.5h.01" /></svg>
+                        @if (! $softCopyRequest)
+                            <div class="document-file-group">
+                                <h3>Transmittal / Endorsement</h3>
+                                @if ($transmittalFiles->isNotEmpty())
+                                    @foreach ($transmittalFiles as $transmittalFile)
+                                        @php
+                                            $transmittalFileName = basename($transmittalFile['path']);
+                                            $transmittalAttachmentId = $transmittalFile['id'];
+                                            $transmittalIsSelected = $isTransmittalSelected
+                                                && $selectedTransmittalId === $transmittalAttachmentId;
+                                            $transmittalPreviewRoute = $transmittalAttachmentId === null
+                                                ? route('admin.documents.transmittal.preview', ['document' => $documentRecord->public_id])
+                                                : route('admin.documents.transmittal-attachment.preview', ['document' => $documentRecord->public_id, 'attachment' => $transmittalAttachmentId]);
+                                            $transmittalDownloadRoute = $transmittalAttachmentId === null
+                                                ? route('admin.documents.transmittal.download', ['document' => $documentRecord->public_id])
+                                                : route('admin.documents.transmittal-attachment.download', ['document' => $documentRecord->public_id, 'attachment' => $transmittalAttachmentId]);
+                                        @endphp
+                                    <div class="document-file-row">
+                                        <button type="button" wire:click="selectTransmittal({{ $transmittalAttachmentId ?? 'null' }})" wire:loading.attr="disabled" class="document-file-select {{ $transmittalIsSelected ? 'is-selected' : '' }}" title="Preview transmittal">
+                                            <span class="document-file-badge">{{ strtoupper(pathinfo($transmittalFileName, PATHINFO_EXTENSION)) ?: 'FILE' }}</span>
+                                            <span class="document-file-name">{{ $transmittalFileName }}</span>
                                         </button>
-                                        <div x-cloak x-show="menuOpen" x-on:click.outside="menuOpen = false" class="document-file-menu" role="menu">
-                                            <a href="{{ route('admin.documents.transmittal.download', ['document' => $documentRecord->public_id]) }}" role="menuitem">Download</a>
-                                            <button type="button" role="menuitem" data-print-url="{{ route('admin.documents.transmittal.preview', ['document' => $documentRecord->public_id]) }}" @click="menuOpen = false; printFile($event.currentTarget.dataset.printUrl)">Print</button>
+                                        <div class="relative shrink-0" x-data="{ menuOpen: false }">
+                                            <button type="button" class="document-file-menu-button" aria-label="Transmittal options" aria-haspopup="menu" @click.stop="menuOpen = !menuOpen">
+                                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.6" d="M12 6.5h.01M12 12h.01M12 17.5h.01" /></svg>
+                                            </button>
+                                            <div x-cloak x-show="menuOpen" x-on:click.outside="menuOpen = false" class="document-file-menu" role="menu">
+                                                <a href="{{ $transmittalDownloadRoute }}" role="menuitem">Download</a>
+                                                <button type="button" role="menuitem" data-print-url="{{ $transmittalPreviewRoute }}" @click="menuOpen = false; printFile($event.currentTarget.dataset.printUrl)">Print</button>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                            @else
-                                <p class="document-file-empty">No transmittal uploaded.</p>
-                            @endif
-                        </div>
+                                    @endforeach
+                                @else
+                                    <p class="document-file-empty">No transmittal uploaded.</p>
+                                @endif
+                            </div>
+                        @endif
 
                         <div class="document-file-group">
                             <div class="document-files-heading document-versions-heading">
                                 <h3>Document Version</h3>
-                                <div class="document-version-add-action">
-                                    {{ ($this->addVersionAction)(['document' => $documentRecord->document_id]) }}
-                                </div>
+                                @if (! $softCopyRequest)
+                                    <div class="document-version-add-action">
+                                        {{ ($this->addVersionAction)(['document' => $documentRecord->document_id]) }}
+                                    </div>
+                                @endif
                             </div>
 
                             @foreach ($versions as $version)
@@ -209,15 +250,12 @@
                         <h2>Document Preview</h2>
                         <p title="{{ $displayedFileName }}">{{ $displayedFileName }}</p>
                     </div>
-                    @if ($displayedVersionBadge !== null)
-                        <span class="document-version-badge">{{ $displayedVersionBadge }}</span>
-                    @endif
                     @if ($previewPageCount !== null)
                         <span class="document-version-badge document-page-count">{{ $previewPageCount }} {{ $previewPageCount === 1 ? 'page' : 'pages' }}</span>
                     @endif
-                    <a href="{{ \App\Filament\Pages\Document::getUrl(['section' => $documentTableSection]) }}" class="document-exit-button" aria-label="Close document preview" title="Close document preview">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M6 6l12 12M18 6 6 18" /></svg>
-                    </a>
+                    @if ($displayedVersionBadge !== null)
+                        <span class="document-version-badge">{{ $displayedVersionBadge }}</span>
+                    @endif
                 </div>
                 <div class="document-preview-frame">
                     @if ($previewUrl)
@@ -232,6 +270,7 @@
                 </div>
             </section>
 
+            @if (! $softCopyRequest)
             <aside class="document-panel-card document-activity-card" aria-label="Document notes and history">
                 <section class="document-notes-panel" aria-label="Notes">
                     @include('filament.pages.document-notes')
@@ -295,6 +334,7 @@
                     </div>
                 </section>
             </aside>
+            @endif
         </div>
     </div>
 
@@ -305,9 +345,20 @@
         .fi-page-content { width: 100% !important; max-width: none !important; gap: 0 !important; padding-bottom: 0 !important; }
         .document-version-upload-files .filepond--list-scroller { top: 0 !important; transform: translate3d(0, 0, 0) !important; margin-top: 0 !important; }
         .document-version-upload-files .filepond--drop-label { top: auto !important; bottom: 0 !important; }
+        .document-version-upload-files .filepond--item-panel { background-color: #e5e7eb !important; border: 1px solid #9ca3af !important; }
+        .document-version-upload-files .filepond--file-info-main,
+        .document-version-upload-files .filepond--file-info-sub,
+        .document-version-upload-files .filepond--file-status-main,
+        .document-version-upload-files .filepond--file-status-sub { color: #374151 !important; }
+        .document-version-upload-files .filepond--item[data-filepond-item-state="processing-complete"] .filepond--item-panel { background-color: #dcfce7 !important; border-color: #166534 !important; }
+        .document-version-upload-files .filepond--item[data-filepond-item-state="processing-complete"] .filepond--file-info-main,
+        .document-version-upload-files .filepond--item[data-filepond-item-state="processing-complete"] .filepond--file-info-sub,
+        .document-version-upload-files .filepond--item[data-filepond-item-state="processing-complete"] .filepond--file-status-main,
+        .document-version-upload-files .filepond--item[data-filepond-item-state="processing-complete"] .filepond--file-status-sub { color: #14532d !important; }
         .document-viewer-page { position: fixed; z-index: 10; inset: 4rem 0 0 var(--collapsed-sidebar-width); padding: 1rem; overflow: hidden; background: #f3f4f6; }
         .fi-body-has-topbar:has(#fi-main-sidebar.fi-sidebar-open) .document-viewer-page { inset-inline-start: var(--sidebar-width); }
         .document-viewer-layout { display: grid; width: 100%; height: 100%; min-height: 0; grid-template-columns: minmax(280px, 1.03fr) minmax(420px, 1.35fr) minmax(290px, 0.9fr); gap: 1.1rem; }
+        .document-viewer-layout.document-request-viewer-layout { grid-template-columns: minmax(280px, 1.03fr) minmax(420px, 1.35fr); }
         .document-panel-card { min-width: 0; min-height: 0; overflow: hidden; border: 1px solid #9ca3af; border-radius: 18px; background: #fff; }
         .document-details-card { display: flex; flex-direction: column; }
         .document-card-heading, .document-preview-heading { display: flex; min-height: 64px; align-items: center; justify-content: space-between; gap: 0.75rem; border-bottom: 1px solid #d1d5db; padding: 0.65rem 1rem; }
@@ -362,9 +413,9 @@
         .document-file-badge { display: inline-flex; width: 1.6rem; height: 1.7rem; flex-shrink: 0; align-items: center; justify-content: center; border-radius: 0.25rem; background: #ef3340; color: white; font-size: 0.52rem; font-weight: 700; }
         .document-file-name { min-width: 0; flex: 1; overflow: hidden; color: #737b8c; font-size: 0.75rem; font-weight: 550; text-overflow: ellipsis; white-space: nowrap; }
         .document-version-badge { display: inline-flex; flex-shrink: 0; align-items: center; border-radius: 999px; background: #f3f4f6; padding: 0.2rem 0.5rem; color: #4b5563; font-size: 0.68rem; font-weight: 600; }
-        .document-file-menu-button, .document-exit-button { display: inline-flex; width: 2rem; height: 2rem; flex-shrink: 0; align-items: center; justify-content: center; border: 0; border-radius: 999px; background: transparent; color: #111827; cursor: pointer; }
-        .document-file-menu-button:hover, .document-exit-button:hover { background: #f3f4f6; }
-        .document-file-menu-button svg, .document-exit-button svg { width: 1.2rem; height: 1.2rem; }
+        .document-file-menu-button { display: inline-flex; width: 2rem; height: 2rem; flex-shrink: 0; align-items: center; justify-content: center; border: 0; border-radius: 999px; background: transparent; color: #111827; cursor: pointer; }
+        .document-file-menu-button:hover { background: #f3f4f6; }
+        .document-file-menu-button svg { width: 1.2rem; height: 1.2rem; }
         .document-file-menu { position: absolute; top: calc(100% + 0.25rem); right: 0; z-index: 30; display: flex; width: 6rem; flex-direction: column; gap: 0.25rem; border: 1px solid #e5e7eb; border-radius: 0.375rem; background: #fff; padding: 0.25rem; box-shadow: 0 8px 18px rgb(15 23 42 / 0.12); }
         .document-file-menu a, .document-file-menu button { display: flex; width: 100%; align-items: center; border: 0; border-radius: 0.375rem; background: transparent; padding: 0.5rem 0.75rem; color: #374151; font-size: 0.75rem; line-height: 1rem; text-align: left; text-decoration: none; cursor: pointer; }
         .document-file-menu a:hover, .document-file-menu button:hover { background: #f3f4f6; }

@@ -319,7 +319,7 @@
 
 
                             <a
-                                href="{{ url('/admin/documents/' . $document->public_id) }}"
+                                href="{{ \App\Filament\Pages\ViewDocument::getUrl(['document' => $document->public_id, 'return_to' => \App\Filament\Pages\Dashboard::getUrl()]) }}"
                                 class="group relative flex aspect-square min-w-0 flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition duration-200 hover:-translate-y-1 hover:border-[#6366F1] hover:shadow-lg dark:border-gray-700 dark:bg-[#17181c] dark:hover:border-indigo-400"
                             >
 

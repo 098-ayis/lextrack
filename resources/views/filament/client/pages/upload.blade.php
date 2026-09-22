@@ -64,186 +64,93 @@
             border: none !important;
         }
 
-        .filepond--drop-label {
-            min-height: 140px !important;
+        .client-upload-page .filepond--drop-label {
             color: #4b5563 !important;
             transition: color 0.3s ease-in-out !important;
+        }
+
+        /* Keep FilePond's file list at the top, with the drop/browse target below it. */
+        .client-upload-page .filepond--root .filepond--list-scroller {
+            top: 0 !important;
+            transform: translate3d(0, 0, 0) !important;
+            margin-top: 0 !important;
+        }
+
+        .client-upload-page .filepond--root .filepond--drop-label {
+            top: auto !important;
+            bottom: 0 !important;
         }
 
         .dark .client-upload-page .filepond--drop-label {
             color: #d1d5db !important;
         }
 
-        .filepond--root.lextrack-has-files {
+        .client-upload-page .filepond--root.lextrack-has-files {
             background-color: #ffffff !important;
             border: 1px solid #d1d5db !important;
         }
 
-        .filepond--root.lextrack-has-files .filepond--drop-label,
-        .filepond--root.lextrack-has-files .filepond--label-action {
+        .client-upload-page .filepond--root.lextrack-has-files .filepond--drop-label,
+        .client-upload-page .filepond--root.lextrack-has-files .filepond--label-action {
             color: #4b5563 !important;
         }
 
-        /* Keep uploaded rows above the browse area instead of docking them at the bottom. */
-        .client-upload-page .filepond--root.lextrack-has-files {
-            display: flex !important;
-            flex-direction: column !important;
-            align-items: stretch !important;
-            justify-content: flex-start !important;
-            height: auto !important;
-            min-height: 0 !important;
-            overflow: hidden !important;
-        }
-
-        .client-upload-page .filepond--root.lextrack-has-files > .filepond--list-scroller,
-        .client-upload-page .filepond--root.lextrack-has-files .filepond--list-scroller {
-            position: relative !important;
-            top: auto !important;
-            right: auto !important;
-            bottom: auto !important;
-            left: auto !important;
-            order: 1 !important;
-            height: auto !important;
-            min-height: 0 !important;
-            max-height: none !important;
-            width: 100% !important;
-            margin: 0 !important;
-            overflow: visible !important;
-        }
-
-        .client-upload-page .filepond--root.lextrack-has-files > .filepond--list-scroller .filepond--list,
-        .client-upload-page .filepond--root.lextrack-has-files .filepond--list {
-            position: relative !important;
-            top: auto !important;
-            right: auto !important;
-            bottom: auto !important;
-            left: auto !important;
-            display: flex !important;
-            flex-direction: column !important;
-            gap: 0.25rem !important;
-            height: auto !important;
-            min-height: 0 !important;
-            transform: none !important;
-        }
-
-        .client-upload-page .filepond--root.lextrack-has-files .filepond--item {
-            position: relative !important;
-            top: auto !important;
-            right: auto !important;
-            bottom: auto !important;
-            left: auto !important;
-            flex: 0 0 auto !important;
-            width: 100% !important;
-            transform: none !important;
-            margin: 0 !important;
-        }
-
-        .client-upload-page .filepond--root.lextrack-has-files > .filepond--drop-label,
-        .client-upload-page .filepond--root.lextrack-has-files .filepond--drop-label {
-            position: relative !important;
-            order: 2 !important;
-            flex: 0 0 140px !important;
-            height: 140px !important;
-            min-height: 140px !important;
-            top: auto !important;
-            right: auto !important;
-            bottom: auto !important;
-            left: auto !important;
-            color: #4b5563 !important;
-        }
-
-        .client-upload-page .filepond--root.lextrack-has-files > .filepond--panel {
-            position: absolute !important;
-            inset: 0 !important;
-            height: 100% !important;
-            pointer-events: none !important;
-        }
-
-        .dark .client-upload-page .filepond--root.lextrack-has-files .filepond--drop-label,
-        .dark .client-upload-page .filepond--root.lextrack-has-files .filepond--label-action {
-            color: #d1d5db !important;
-        }
-
-        /* Final FilePond override: keep uploaded rows at the top of every box. */
-        .client-upload-page .filepond--root {
-            display: flex !important;
-            flex-direction: column !important;
-            align-items: stretch !important;
-            justify-content: flex-start !important;
-            height: auto !important;
-            min-height: 140px !important;
-            overflow: hidden !important;
-        }
-
-        .client-upload-page .filepond--root > .filepond--panel {
-            position: absolute !important;
-            inset: 0 !important;
-            height: 100% !important;
-            pointer-events: none !important;
-            z-index: 2 !important;
-        }
-
-        .client-upload-page .filepond--root > .filepond--list-scroller {
-            position: relative !important;
-            inset: auto !important;
-            order: 1 !important;
-            flex: 0 0 auto !important;
-            width: 100% !important;
-            height: auto !important;
-            min-height: 0 !important;
-            max-height: none !important;
-            margin: 0 !important;
-            overflow: visible !important;
-            z-index: 6 !important;
-        }
-
-        .client-upload-page .filepond--root > .filepond--list-scroller > .filepond--list,
-        .client-upload-page .filepond--root .filepond--list {
-            position: relative !important;
-            inset: auto !important;
-            display: flex !important;
-            flex-direction: column !important;
-            width: 100% !important;
-            height: auto !important;
-            min-height: 0 !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            gap: 0.25rem !important;
-            transform: none !important;
-        }
-
-        .client-upload-page .filepond--root .filepond--item {
-            position: relative !important;
-            inset: auto !important;
-            flex: 0 0 3.5rem !important;
-            width: 100% !important;
-            height: 3.5rem !important;
-            min-height: 3.5rem !important;
-            margin: 0 !important;
-            transform: none !important;
-        }
-
-        .client-upload-page .filepond--root > .filepond--drop-label {
-            position: relative !important;
-            inset: auto !important;
-            order: 2 !important;
-            flex: 0 0 140px !important;
-            width: 100% !important;
-            height: 140px !important;
-            min-height: 140px !important;
-            margin: 0 !important;
-            z-index: 5 !important;
-        }
-
-        .filepond--item-panel {
-            background-color: #379b68 !important;
+        .client-upload-page .filepond--item-panel {
+            background-color: #e5e7eb !important;
+            border: 1px solid #9ca3af !important;
         }
 
         .client-upload-page .filepond--file-info-main,
         .client-upload-page .filepond--file-info-sub,
         .client-upload-page .filepond--file-status-main,
         .client-upload-page .filepond--file-status-sub {
-            color: #ffffff !important;
+            color: #374151 !important;
+        }
+
+        .client-upload-page .filepond--item[data-filepond-item-state="processing-complete"] .filepond--item-panel {
+            background-color: #dcfce7 !important;
+            border-color: #166534 !important;
+        }
+
+        .client-upload-page .filepond--item[data-filepond-item-state="processing-complete"] .filepond--file-info-main,
+        .client-upload-page .filepond--item[data-filepond-item-state="processing-complete"] .filepond--file-info-sub,
+        .client-upload-page .filepond--item[data-filepond-item-state="processing-complete"] .filepond--file-status-main,
+        .client-upload-page .filepond--item[data-filepond-item-state="processing-complete"] .filepond--file-status-sub {
+            color: #14532d !important;
+        }
+
+        .dark .client-upload-page .filepond--item-panel {
+            background-color: #374151 !important;
+            border-color: #6b7280 !important;
+        }
+
+        .dark .client-upload-page .filepond--item[data-filepond-item-state="processing-complete"] .filepond--item-panel {
+            background-color: #14532d !important;
+            border-color: #4ade80 !important;
+        }
+
+        .dark .client-upload-page .filepond--file-info-main,
+        .dark .client-upload-page .filepond--file-info-sub,
+        .dark .client-upload-page .filepond--file-status-main,
+        .dark .client-upload-page .filepond--file-status-sub {
+            color: #f3f4f6 !important;
+        }
+
+        .dark .client-upload-page .filepond--item[data-filepond-item-state="processing-complete"] .filepond--file-info-main,
+        .dark .client-upload-page .filepond--item[data-filepond-item-state="processing-complete"] .filepond--file-info-sub,
+        .dark .client-upload-page .filepond--item[data-filepond-item-state="processing-complete"] .filepond--file-status-main,
+        .dark .client-upload-page .filepond--item[data-filepond-item-state="processing-complete"] .filepond--file-status-sub {
+            color: #dcfce7 !important;
+        }
+
+        .client-upload-page .lextrack-duplicate-file-message {
+            margin-top: 0.5rem;
+            color: #b91c1c;
+            font-size: 0.875rem;
+        }
+
+        .dark .client-upload-page .lextrack-duplicate-file-message {
+            color: #fca5a5;
         }
 
         .client-upload-page .filepond--file-status-main {
@@ -315,31 +222,31 @@
             color: #f3f4f6 !important;
         }
 
-        .filepond--label-action {
-            color: #374151 !important;
+        .client-upload-page .filepond--label-action {
+            color: #6366F1 !important;
             text-decoration: none !important;
             font-weight: 600 !important;
             background: transparent !important;
             padding: 0 !important;
         }
 
-        .filepond--label-action:hover {
-            color: #111827 !important;
+        .client-upload-page .filepond--label-action:hover {
+            color: #4f46e5 !important;
             text-decoration: underline !important;
         }
 
         .dark .client-upload-page .filepond--label-action {
-            color: #d1d5db !important;
+            color: #6366F1 !important;
         }
 
         .btn-custom-primary {
-            background-color: #623BE7 !important;
+            background-color: #6366F1 !important;
             color: white !important;
             border: none !important;
         }
         
         .btn-custom-primary:hover {
-            background-color: #502ec3 !important; 
+            background-color: #4f46e5 !important;
         }
     </style>
 
@@ -351,8 +258,8 @@
                 }
 
                 document.querySelectorAll('.client-upload-page .filepond--root').forEach((root) => {
-                    if (typeof root.__lexTrackSyncUploadLayout === 'function') {
-                        root.__lexTrackSyncUploadLayout();
+                    if (typeof root.__lexTrackSyncUploadState === 'function') {
+                        root.__lexTrackSyncUploadState();
                         return;
                     }
 
@@ -365,25 +272,87 @@
 
                     root.dataset.lexTrackProgressBound = 'true';
 
-                    const syncUploadLayout = () => {
+                    const duplicateMessage = document.createElement('p');
+                    duplicateMessage.className = 'lextrack-duplicate-file-message';
+                    duplicateMessage.setAttribute('role', 'alert');
+                    duplicateMessage.textContent = 'Duplicate file skipped. This file is already selected.';
+                    duplicateMessage.hidden = true;
+                    root.insertAdjacentElement('afterend', duplicateMessage);
+
+                    const selectedHashes = new Map();
+                    const selectedFileSignatures = new Map();
+
+                    const showDuplicateError = () => {
+                        duplicateMessage.hidden = false;
+                        window.clearTimeout(duplicateMessage.hideTimer);
+                        duplicateMessage.hideTimer = window.setTimeout(() => {
+                            duplicateMessage.hidden = true;
+                        }, 5000);
+                    };
+
+                    const hashFile = async (file) => {
+                        if (!window.crypto?.subtle) {
+                            return null;
+                        }
+
+                        const digest = await window.crypto.subtle.digest('SHA-256', await file.arrayBuffer());
+
+                        return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
+                    };
+
+                    pond.setOptions({
+                        beforeAddFile: (fileItem) => {
+                            const file = fileItem.file;
+
+                            if (!(file instanceof File)) {
+                                return true;
+                            }
+
+                            const signature = JSON.stringify([file.name.toLocaleLowerCase(), file.size, file.lastModified]);
+
+                            if (Array.from(selectedFileSignatures.values()).includes(signature)) {
+                                showDuplicateError();
+
+                                return false;
+                            }
+
+                            selectedFileSignatures.set(fileItem.id, signature);
+
+                            return hashFile(file).then((hash) => {
+                                if (hash && Array.from(selectedHashes.values()).includes(hash)) {
+                                    selectedFileSignatures.delete(fileItem.id);
+                                    showDuplicateError();
+
+                                    return false;
+                                }
+
+                                if (hash) {
+                                    selectedHashes.set(fileItem.id, hash);
+                                }
+
+                                return true;
+                            }).catch(() => {
+                                // Keep name/size/timestamp duplicate detection active if hashing fails.
+                                return true;
+                            });
+                        },
+                    });
+
+                    pond.on('removefile', (_error, fileItem) => {
+                        selectedHashes.delete(fileItem.id);
+                        selectedFileSignatures.delete(fileItem.id);
+                    });
+
+                    const syncUploadState = () => {
                         const hasFiles = pond.getFiles().length > 0 || Boolean(
                             root.querySelector('.filepond--item[data-filepond-item-state]'),
                         );
-                        const listScroller = root.querySelector('.filepond--list-scroller');
-                        const dropLabel = root.querySelector('.filepond--drop-label');
 
                         root.classList.toggle('lextrack-has-files', hasFiles);
-
-                        // FilePond normally docks the list at the bottom of the
-                        // integrated panel. Keep the real file list before the
-                        // browse/drop label so uploaded rows appear at the top.
-                        if (hasFiles && listScroller && dropLabel) {
-                            root.insertBefore(listScroller, dropLabel);
-                        }
                     };
 
-                    root.__lexTrackSyncUploadLayout = syncUploadLayout;
-                    syncUploadLayout();
+                    root.__lexTrackSyncUploadState = syncUploadState;
+                    syncUploadState();
 
                     const updateStatus = (file, mainText, subText = '') => {
                         const item = document.getElementById(`filepond--item-${file.id}`);
@@ -404,12 +373,12 @@
                         }
                     };
 
-                    pond.on('addfilestart', syncUploadLayout);
-                    pond.on('updatefiles', syncUploadLayout);
-                    pond.on('removefile', syncUploadLayout);
+                    pond.on('addfilestart', syncUploadState);
+                    pond.on('updatefiles', syncUploadState);
+                    pond.on('removefile', syncUploadState);
 
                     pond.on('processfilestart', (file) => {
-                        syncUploadLayout();
+                        syncUploadState();
                         window.requestAnimationFrame(() => updateStatus(file, 'Uploading 0%', '0%'));
                     });
 
@@ -467,8 +436,15 @@
                         Clear
                     </x-filament::button>
 
-                    <x-filament::button type="submit" size="lg" class="btn-custom-primary">
-                        Submit
+                    <x-filament::button
+                        type="submit"
+                        size="lg"
+                        class="btn-custom-primary"
+                        wire:loading.attr="disabled"
+                        wire:target="submit"
+                    >
+                        <span wire:loading.remove wire:target="submit">Submit</span>
+                        <span wire:loading wire:target="submit" role="status" aria-live="polite">Submitting...</span>
                     </x-filament::button>
                     
                 </div>

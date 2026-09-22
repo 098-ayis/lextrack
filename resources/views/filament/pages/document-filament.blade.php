@@ -5,6 +5,29 @@
             $statusCounts = $this->getStatusCounts();
         @endphp
 
+        {{-- Page actions --}}
+        <div class="mb-3 flex w-full items-center justify-end gap-2">
+            <a
+                href="{{ route('admin.documents.export', [
+                    'section' => $activeSection,
+                    'search' => $search,
+                    'type' => $typeFilter,
+                    'action' => $actionTypeFilter,
+                    'office' => $officeUnitFilter,
+                    'date' => $dateFilter,
+                ]) }}"
+                target="_blank"
+                rel="noopener"
+                class="documents-export-button inline-flex h-9 items-center gap-1 rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs font-semibold text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-white/10"
+            >
+                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 3v12m0 0 4-4m-4 4-4-4M5 18v3h14v-3" />
+                </svg>
+                Export Excel
+            </a>
+            {{ $this->addDocumentAction }}
+        </div>
+
         {{-- STATUS HEADER --}}
         <div class="mb-0 w-full overflow-x-auto border border-gray-300 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
             <nav class="flex w-full min-w-[720px] items-stretch justify-start gap-2 px-3 py-2" aria-label="Document status">
@@ -100,27 +123,6 @@
                 </svg>
             </div>
 
-            <div class="ml-auto flex items-center gap-2">
-                <a
-                    href="{{ route('admin.documents.export', [
-                        'section' => $activeSection,
-                        'search' => $search,
-                        'type' => $typeFilter,
-                        'action' => $actionTypeFilter,
-                        'office' => $officeUnitFilter,
-                        'date' => $dateFilter,
-                    ]) }}"
-                    target="_blank"
-                    rel="noopener"
-                    class="documents-export-button inline-flex h-9 items-center gap-1 rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs font-semibold text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-white/10"
-                >
-                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M12 3v12m0 0 4-4m-4 4-4-4M5 18v3h14v-3" />
-                    </svg>
-                    Export Excel
-                </a>
-                {{ $this->addDocumentAction }}
-            </div>
         </div>
 
         {{-- FILAMENT DOCUMENT TABLE --}}
@@ -135,6 +137,131 @@
         <style>
             .fi-page-content {
                 gap: 0 !important;
+            }
+
+            /* Keep selected files at the top and the browse/drop target below. */
+            .admin-document-upload-files .filepond--root .filepond--list-scroller {
+                top: 0 !important;
+                transform: translate3d(0, 0, 0) !important;
+                margin-top: 0 !important;
+            }
+
+            .admin-document-upload-files .filepond--root .filepond--drop-label {
+                top: auto !important;
+                bottom: 0 !important;
+            }
+
+            .admin-document-upload-files .filepond--root .filepond--item-panel {
+                background-color: #e5e7eb !important;
+                border: 1px solid #9ca3af !important;
+            }
+
+            .admin-document-upload-files .filepond--root .filepond--file-info-main,
+            .admin-document-upload-files .filepond--root .filepond--file-info-sub,
+            .admin-document-upload-files .filepond--root .filepond--file-status-main,
+            .admin-document-upload-files .filepond--root .filepond--file-status-sub {
+                color: #374151 !important;
+            }
+
+            .admin-document-upload-files .filepond--root .filepond--item[data-filepond-item-state="processing-complete"] .filepond--item-panel {
+                background-color: #dcfce7 !important;
+                border-color: #166534 !important;
+            }
+
+            .admin-document-upload-files .filepond--root .filepond--item[data-filepond-item-state="processing-complete"] .filepond--file-info-main,
+            .admin-document-upload-files .filepond--root .filepond--item[data-filepond-item-state="processing-complete"] .filepond--file-info-sub,
+            .admin-document-upload-files .filepond--root .filepond--item[data-filepond-item-state="processing-complete"] .filepond--file-status-main,
+            .admin-document-upload-files .filepond--root .filepond--item[data-filepond-item-state="processing-complete"] .filepond--file-status-sub {
+                color: #14532d !important;
+            }
+
+            /* The action modal is teleported outside the page wrapper, so also
+             * target the integrated FilePond roots directly. */
+            .filepond--root[data-style-panel-layout~="integrated"] .filepond--item-panel,
+            .filepond--root[data-style-panel-layout~="integrated"] .filepond--item > .filepond--panel {
+                background-color: #e5e7eb !important;
+                border: 1px solid #9ca3af !important;
+            }
+
+            .filepond--root[data-style-panel-layout~="integrated"] .filepond--file-info-main,
+            .filepond--root[data-style-panel-layout~="integrated"] .filepond--file-info-sub,
+            .filepond--root[data-style-panel-layout~="integrated"] .filepond--file-status-main,
+            .filepond--root[data-style-panel-layout~="integrated"] .filepond--file-status-sub {
+                color: #374151 !important;
+            }
+
+            .filepond--root[data-style-panel-layout~="integrated"] .filepond--item[data-filepond-item-state="processing-complete"] .filepond--item-panel,
+            .filepond--root[data-style-panel-layout~="integrated"] .filepond--item[data-filepond-item-state="processing-complete"] > .filepond--panel {
+                background-color: #dcfce7 !important;
+                border-color: #166534 !important;
+            }
+
+            .filepond--root[data-style-panel-layout~="integrated"] .filepond--item[data-filepond-item-state="processing-complete"] .filepond--file-info-main,
+            .filepond--root[data-style-panel-layout~="integrated"] .filepond--item[data-filepond-item-state="processing-complete"] .filepond--file-info-sub,
+            .filepond--root[data-style-panel-layout~="integrated"] .filepond--item[data-filepond-item-state="processing-complete"] .filepond--file-status-main,
+            .filepond--root[data-style-panel-layout~="integrated"] .filepond--item[data-filepond-item-state="processing-complete"] .filepond--file-status-sub {
+                color: #14532d !important;
+            }
+
+            .filepond--root[data-style-panel-layout~="integrated"] .filepond--item[data-filepond-item-state*="error"] .filepond--item-panel,
+            .filepond--root[data-style-panel-layout~="integrated"] .filepond--item[data-filepond-item-state*="error"] > .filepond--panel,
+            .filepond--root[data-style-panel-layout~="integrated"] .filepond--item[data-filepond-item-state*="invalid"] .filepond--item-panel,
+            .filepond--root[data-style-panel-layout~="integrated"] .filepond--item[data-filepond-item-state*="invalid"] > .filepond--panel {
+                background-color: #fee2e2 !important;
+                border-color: #991b1b !important;
+            }
+
+            .filepond--root[data-style-panel-layout~="integrated"] .filepond--item[data-filepond-item-state*="error"] .filepond--file-info-main,
+            .filepond--root[data-style-panel-layout~="integrated"] .filepond--item[data-filepond-item-state*="error"] .filepond--file-info-sub,
+            .filepond--root[data-style-panel-layout~="integrated"] .filepond--item[data-filepond-item-state*="error"] .filepond--file-status-main,
+            .filepond--root[data-style-panel-layout~="integrated"] .filepond--item[data-filepond-item-state*="error"] .filepond--file-status-sub,
+            .filepond--root[data-style-panel-layout~="integrated"] .filepond--item[data-filepond-item-state*="invalid"] .filepond--file-info-main,
+            .filepond--root[data-style-panel-layout~="integrated"] .filepond--item[data-filepond-item-state*="invalid"] .filepond--file-info-sub,
+            .filepond--root[data-style-panel-layout~="integrated"] .filepond--item[data-filepond-item-state*="invalid"] .filepond--file-status-main,
+            .filepond--root[data-style-panel-layout~="integrated"] .filepond--item[data-filepond-item-state*="invalid"] .filepond--file-status-sub {
+                color: #991b1b !important;
+            }
+
+            /* Match the client upload appearance on both admin upload boxes. */
+            .filepond--item-panel {
+                background-color: #e5e7eb !important;
+                border: 1px solid #9ca3af !important;
+            }
+
+            .filepond--file-info-main,
+            .filepond--file-info-sub,
+            .filepond--file-status-main,
+            .filepond--file-status-sub {
+                color: #374151 !important;
+            }
+
+            .filepond--item[data-filepond-item-state="processing-complete"] .filepond--item-panel {
+                background-color: #dcfce7 !important;
+                border-color: #166534 !important;
+            }
+
+            .filepond--item[data-filepond-item-state="processing-complete"] .filepond--file-info-main,
+            .filepond--item[data-filepond-item-state="processing-complete"] .filepond--file-info-sub,
+            .filepond--item[data-filepond-item-state="processing-complete"] .filepond--file-status-main,
+            .filepond--item[data-filepond-item-state="processing-complete"] .filepond--file-status-sub {
+                color: #14532d !important;
+            }
+
+            .filepond--item[data-filepond-item-state*="error"] .filepond--item-panel,
+            .filepond--item[data-filepond-item-state*="invalid"] .filepond--item-panel {
+                background-color: #fee2e2 !important;
+                border-color: #991b1b !important;
+            }
+
+            .filepond--item[data-filepond-item-state*="error"] .filepond--file-info-main,
+            .filepond--item[data-filepond-item-state*="error"] .filepond--file-info-sub,
+            .filepond--item[data-filepond-item-state*="error"] .filepond--file-status-main,
+            .filepond--item[data-filepond-item-state*="error"] .filepond--file-status-sub,
+            .filepond--item[data-filepond-item-state*="invalid"] .filepond--file-info-main,
+            .filepond--item[data-filepond-item-state*="invalid"] .filepond--file-info-sub,
+            .filepond--item[data-filepond-item-state*="invalid"] .filepond--file-status-main,
+            .filepond--item[data-filepond-item-state*="invalid"] .filepond--file-status-sub {
+                color: #991b1b !important;
             }
 
             .admin-documents-page .fi-ta {

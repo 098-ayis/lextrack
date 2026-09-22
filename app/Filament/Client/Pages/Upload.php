@@ -18,6 +18,7 @@ use Filament\Notifications\Notification;
 use Filament\Support\Icons\Heroicon;
 use App\Models\Document;
 use App\Models\DocumentVersion;
+use App\Models\DocumentTransmittal;
 use App\Models\DocumentType;
 use App\Models\OfficeUnit;
 use App\Services\AdminDocumentNotificationService;
@@ -166,6 +167,7 @@ class Upload extends Page implements HasForms
                 FileUpload::make('transmittal')
                     ->label('Transmittal/Endorsement')
                     ->multiple()
+                    ->appendFiles()
                     ->panelLayout('compact')
                     ->acceptedFileTypes([
                         'application/pdf',
@@ -189,6 +191,7 @@ class Upload extends Page implements HasForms
                 FileUpload::make('file_path')
                     ->label('Document File')
                     ->multiple()
+                    ->appendFiles()
                     ->panelLayout('compact')
                     ->acceptedFileTypes([
                         'application/pdf',
@@ -240,6 +243,25 @@ class Upload extends Page implements HasForms
                 ->danger()
                 ->title('Transmittal/endorsement could not be verified')
                 ->body('One or more transmittal/endorsement files could not be read. Please select the files again and try again.')
+                ->send();
+
+            return;
+        }
+
+        $transmittalHashes = array_column($transmittalUploads, 'hash');
+
+        if (
+            count($transmittalHashes) !== count(array_unique($transmittalHashes))
+            || ($transmittalHashes !== [] && DocumentTransmittal::query()
+                ->whereIn('file_hash', $transmittalHashes)
+                ->exists())
+        ) {
+            $this->cleanupUploads([...$uploads, ...$transmittalUploads]);
+
+            Notification::make()
+                ->danger()
+                ->title('Duplicate transmittal/endorsement detected')
+                ->body('One or more transmittal/endorsement files have already been uploaded. Please choose different files.')
                 ->send();
 
             return;
@@ -312,7 +334,7 @@ class Upload extends Page implements HasForms
         }
 
         try {
-            $documents = DB::transaction(function () use ($data, $officeUnit, $uploadedFiles, $filePaths, $transmittalPaths, $uploads, $userId): array {
+            $documents = DB::transaction(function () use ($data, $officeUnit, $uploadedFiles, $filePaths, $transmittalPaths, $uploads, $transmittalUploads, $userId): array {
                 $createdDocuments = [];
 
                 foreach ($filePaths as $index => $filePath) {
@@ -330,6 +352,17 @@ class Upload extends Page implements HasForms
                         'transmittal' => $transmittalPath,
                         'status' => 'pending',
                     ]);
+
+                    if ($transmittalPath !== null) {
+                        $transmittalIndex = count($transmittalPaths) === 1 ? 0 : $index;
+
+                        DocumentTransmittal::create([
+                            'document_id' => $document->document_id,
+                            'user_id' => $userId,
+                            'file_path' => $transmittalPath,
+                            'file_hash' => $transmittalUploads[$transmittalIndex]['hash'],
+                        ]);
+                    }
 
                     DocumentVersion::create([
                         'user_id' => $userId,

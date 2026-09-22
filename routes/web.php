@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use App\Models\Document;
 use App\Models\DocumentVersion;
+use App\Models\DocumentTransmittal;
 use App\Models\Message;
 use App\Models\MessageAttachment;
 use App\Http\Controllers\Auth\GoogleAuthController;
@@ -367,6 +368,53 @@ Route::get('/admin/documents/{document}/transmittal-download', function (string 
 })
     ->middleware(['auth', AdminMiddleware::class])
     ->name('admin.documents.transmittal.download');
+
+Route::get('/admin/documents/{document}/transmittals/{attachment}/preview', function (
+    string $document,
+    int $attachment,
+) {
+    $documentRecord = Document::findForRoute($document);
+    $attachmentRecord = DocumentTransmittal::query()
+        ->where('document_id', $documentRecord->document_id)
+        ->findOrFail($attachment);
+    $disk = Storage::disk('local');
+
+    if (! $disk->exists($attachmentRecord->file_path)) {
+        $disk = Storage::disk('public');
+    }
+
+    abort_unless($disk->exists($attachmentRecord->file_path), 404);
+
+    return app(\App\Services\DocumentPreviewService::class)->preview(
+        $disk->path($attachmentRecord->file_path)
+    );
+})
+    ->middleware(['auth', AdminMiddleware::class])
+    ->name('admin.documents.transmittal-attachment.preview');
+
+Route::get('/admin/documents/{document}/transmittals/{attachment}/download', function (
+    string $document,
+    int $attachment,
+) {
+    $documentRecord = Document::findForRoute($document);
+    $attachmentRecord = DocumentTransmittal::query()
+        ->where('document_id', $documentRecord->document_id)
+        ->findOrFail($attachment);
+    $disk = Storage::disk('local');
+
+    if (! $disk->exists($attachmentRecord->file_path)) {
+        $disk = Storage::disk('public');
+    }
+
+    abort_unless($disk->exists($attachmentRecord->file_path), 404);
+
+    return $disk->download(
+        $attachmentRecord->file_path,
+        basename($attachmentRecord->file_path),
+    );
+})
+    ->middleware(['auth', AdminMiddleware::class])
+    ->name('admin.documents.transmittal-attachment.download');
 
 Route::get('/admin/documents/{document}/download', function (string $document) {
     $documentRecord = Document::findForRoute($document);

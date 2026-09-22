@@ -60,6 +60,9 @@ class ReviseDocument extends Page implements HasForms
             ->schema([
                 FileUpload::make('file_path')
                     ->label('Revised Document')
+                    ->multiple()
+                    ->appendFiles()
+                    ->panelLayout('compact')
                     ->acceptedFileTypes([
                         'application/pdf',
                         'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -84,57 +87,87 @@ class ReviseDocument extends Page implements HasForms
     public function submit(): void
     {
         $data = $this->form->getState();
-        $filePath = $data['file_path'] ?? null;
+        $filePaths = array_values(array_filter(
+            (array) ($data['file_path'] ?? []),
+            static fn (mixed $filePath): bool => is_string($filePath) && filled($filePath),
+        ));
 
-        if (blank($filePath) || ! $this->documentRecord) {
+        if ($filePaths === [] || ! $this->documentRecord) {
             return;
         }
 
-        $fileHash = DocumentVersion::hashForUpload($filePath);
+        $uploads = [];
+        $duplicateFiles = [];
+        $unreadableFiles = [];
 
-        if ($fileHash === null) {
-            DocumentVersion::removeUnreferencedUpload($filePath);
+        foreach ($filePaths as $filePath) {
+            $fileHash = DocumentVersion::hashForUpload($filePath);
+
+            if ($fileHash === null) {
+                DocumentVersion::removeUnreferencedUpload($filePath);
+                $unreadableFiles[] = basename($filePath);
+
+                continue;
+            }
+
+            if (
+                isset($uploads[$fileHash])
+                || DocumentVersion::existsForDocumentOrUserHash(
+                    $this->documentRecord->document_id,
+                    $fileHash,
+                    auth()->id(),
+                )
+            ) {
+                DocumentVersion::removeUnreferencedUpload($filePath);
+                $duplicateFiles[] = basename($filePath);
+
+                continue;
+            }
+
+            $uploads[$fileHash] = $filePath;
+        }
+
+        if ($duplicateFiles !== [] || $unreadableFiles !== []) {
+            foreach ($uploads as $filePath) {
+                DocumentVersion::removeUnreferencedUpload($filePath);
+            }
+
+            $messages = [];
+            if ($duplicateFiles !== []) {
+                $messages[] = 'Already uploaded: ' . implode(', ', $duplicateFiles) . '.';
+            }
+            if ($unreadableFiles !== []) {
+                $messages[] = 'Could not read: ' . implode(', ', $unreadableFiles) . '.';
+            }
 
             Notification::make()
                 ->danger()
-                ->title('Revision could not be verified')
-                ->body('The uploaded file could not be read. Please select the file again and try again.')
+                ->title($duplicateFiles !== [] ? 'Duplicate document detected' : 'Revision could not be verified')
+                ->body(implode(' ', $messages))
                 ->send();
 
             return;
         }
 
-        if (DocumentVersion::existsForDocumentOrUserHash(
-            $this->documentRecord->document_id,
-            $fileHash,
-            auth()->id(),
-        )) {
-            DocumentVersion::removeUnreferencedUpload($filePath);
-
-            Notification::make()
-                ->danger()
-                ->title('Duplicate document detected')
-                ->body('This exact file has already been uploaded for this document. Please select a different file.')
-                ->send();
-
-            return;
-        }
-
-        $versionNumber = null;
+        $fileHashes = array_keys($uploads);
+        $filePaths = array_values($uploads);
+        $versionNumbers = [];
         $duplicate = false;
 
-        DB::transaction(function () use ($filePath, $fileHash, &$versionNumber, &$duplicate): void {
+        DB::transaction(function () use ($filePaths, $fileHashes, &$versionNumbers, &$duplicate): void {
             $document = Document::query()
                 ->where('document_id', $this->documentRecord->document_id)
                 ->where('user_id', auth()->id())
                 ->lockForUpdate()
                 ->firstOrFail();
 
-            if (DocumentVersion::existsForDocumentOrUserHash(
-                $document->document_id,
-                $fileHash,
-                auth()->id(),
-            )) {
+            if (DocumentVersion::query()
+                ->whereIn('file_hash', $fileHashes)
+                ->where(function ($query) use ($document): void {
+                    $query->where('document_id', $document->document_id)
+                        ->orWhere('user_id', auth()->id());
+                })
+                ->exists()) {
                 $duplicate = true;
 
                 return;
@@ -146,18 +179,23 @@ class ReviseDocument extends Page implements HasForms
                 'This revision request has already been completed or is no longer available.'
             );
 
-            $versionNumber = ($document->versions()
+            $highestVersion = ($document->versions()
                 ->get()
                 ->map(fn (DocumentVersion $version): int => (int) $version->version_number)
-                ->max() ?? 0) + 1;
+                ->max() ?? 0);
 
-            DocumentVersion::create([
-                'document_id' => $document->document_id,
-                'user_id' => auth()->id(),
-                'version_number' => (string) $versionNumber,
-                'file_path' => $filePath,
-                'file_hash' => $fileHash,
-            ]);
+            foreach ($filePaths as $index => $filePath) {
+                $versionNumber = $highestVersion + $index + 1;
+                $versionNumbers[] = $versionNumber;
+
+                DocumentVersion::create([
+                    'document_id' => $document->document_id,
+                    'user_id' => auth()->id(),
+                    'version_number' => (string) $versionNumber,
+                    'file_path' => $filePath,
+                    'file_hash' => $fileHashes[$index],
+                ]);
+            }
 
             // A revision belongs to the existing document. Keep its LAO number
             // unchanged. Keep it in the existing incoming workflow instead of
@@ -174,7 +212,9 @@ class ReviseDocument extends Page implements HasForms
                 Message::create([
                     'conversation_id' => $conversation->id,
                     'sender_id' => auth()->id(),
-                    'body' => "A revised document was uploaded (version {$versionNumber}) and is ready for review.",
+                    'body' => count($filePaths) === 1
+                        ? 'A revised document was uploaded as version ' . $versionNumbers[0] . ' and is ready for review.'
+                        : 'Revised documents were uploaded as versions ' . implode(', ', $versionNumbers) . ' and are ready for review.',
                 ]);
 
                 $conversation->touch();
@@ -182,7 +222,9 @@ class ReviseDocument extends Page implements HasForms
         });
 
         if ($duplicate) {
-            DocumentVersion::removeUnreferencedUpload($filePath);
+            foreach ($filePaths as $filePath) {
+                DocumentVersion::removeUnreferencedUpload($filePath);
+            }
 
             Notification::make()
                 ->danger()
@@ -195,8 +237,10 @@ class ReviseDocument extends Page implements HasForms
 
         Notification::make()
             ->success()
-            ->title('Revised document uploaded')
-            ->body('Your revised document was sent to the Legal Affairs Office for review.')
+            ->title(count($filePaths) === 1 ? 'Revised document uploaded' : 'Revised documents uploaded')
+            ->body(count($filePaths) === 1
+                ? 'Your revised document was sent to the Legal Affairs Office for review.'
+                : count($filePaths) . ' revised documents were uploaded as new versions and sent to the Legal Affairs Office for review.')
             ->send();
 
         $this->revisionRequestClosed = true;

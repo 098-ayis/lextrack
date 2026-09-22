@@ -64,6 +64,8 @@ class ViewDocument extends Page
 
     public bool $isTransmittalSelected = false;
 
+    public ?int $selectedTransmittalId = null;
+
     public bool $isEditingDetails = false;
 
     public array $documentDetailsForm = [];
@@ -99,6 +101,8 @@ class ViewDocument extends Page
             'notes.user',
             'versions',
             'latestVersion',
+            'transmittalAttachments',
+            'documentRequests.user',
             'rejections',
             'activityLogs.user',
         ]);
@@ -130,7 +134,9 @@ class ViewDocument extends Page
             'outgoing_date' => $this->documentRecord->outgoing_date?->format('Y-m-d'),
             'sent_date' => $this->documentRecord->sent_date?->format('Y-m-d'),
             'sent_to' => $this->documentRecord->sent_to,
-            'returned_from' => $this->documentRecord->returned_from,
+            'returned_from' => $this->documentRecord->status === 'outgoing'
+                ? $this->documentRecord->sent_to
+                : $this->documentRecord->returned_from,
             'date_returned' => $this->documentRecord->date_returned?->format('Y-m-d'),
         ];
 
@@ -297,6 +303,11 @@ class ViewDocument extends Page
             $data['document_type'] = trim($data['document_type_other']);
         }
         unset($data['document_type_other']);
+
+        if ($document->status === 'outgoing') {
+            $data['returned_from'] = $data['sent_to'] ?? null;
+        }
+
         $data['lao_number'] = $document->lao_number;
         $oldValues = $document->only(array_keys($data));
 
@@ -608,7 +619,13 @@ class ViewDocument extends Page
                         ->label('Upload New Document Version')
                         ->disk('local')
                         ->directory('documents/versions')
-                        ->preserveFilenames(),
+                        ->preserveFilenames()
+                        ->multiple()
+                        ->appendFiles()
+                        ->acceptedFileTypes([
+                            'application/pdf',
+                            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                        ]),
                 ];
             })
             ->fillForm(function (): array {
@@ -644,41 +661,39 @@ class ViewDocument extends Page
                     return;
                 }
 
-                $filePath = $data['file_path'] ?? null;
+                $filePaths = array_values(array_filter(
+                    (array) ($data['file_path'] ?? []),
+                    static fn (mixed $path): bool => is_string($path) && filled($path),
+                ));
+                $uploadHashes = [];
+                $duplicateFiles = [];
+                $unreadableFiles = [];
 
-                $fileHash = filled($filePath)
-                    ? DocumentVersion::hashForUpload($filePath)
-                    : null;
+                foreach ($filePaths as $filePath) {
+                    $fileHash = DocumentVersion::hashForUpload($filePath);
 
-                if (filled($filePath) && $fileHash === null) {
-                    DocumentVersion::removeUnreferencedUpload($filePath);
+                    if ($fileHash === null) {
+                        DocumentVersion::removeUnreferencedUpload($filePath);
+                        $unreadableFiles[] = basename($filePath);
 
-                    Notification::make()
-                        ->danger()
-                        ->title('Upload could not be verified')
-                        ->body('The uploaded file could not be read. Please select the file again and try again.')
-                        ->send();
+                        continue;
+                    }
 
-                    return;
-                }
+                    if (
+                        isset($uploadHashes[$fileHash])
+                        || DocumentVersion::existsForDocumentOrUserHash(
+                            $this->documentRecord->document_id,
+                            $fileHash,
+                            auth()->id(),
+                        )
+                    ) {
+                        DocumentVersion::removeUnreferencedUpload($filePath);
+                        $duplicateFiles[] = basename($filePath);
 
-                if (
-                    filled($filePath)
-                    && DocumentVersion::existsForDocumentOrUserHash(
-                        $this->documentRecord->document_id,
-                        $fileHash,
-                        auth()->id(),
-                    )
-                ) {
-                    DocumentVersion::removeUnreferencedUpload($filePath);
+                        continue;
+                    }
 
-                    Notification::make()
-                        ->danger()
-                        ->title('Duplicate document detected')
-                        ->body('This exact file has already been uploaded for this document. Please select a different file.')
-                        ->send();
-
-                    return;
+                    $uploadHashes[$fileHash] = $filePath;
                 }
 
                 unset($data['file_path']);
@@ -689,7 +704,9 @@ class ViewDocument extends Page
                 $updatedFields = array_keys($document->getDirty());
                 $document->save();
 
-                if (filled($filePath)) {
+                $uploadedNames = [];
+
+                foreach ($uploadHashes as $fileHash => $filePath) {
                     DocumentVersion::create([
                         'document_id' => $document->document_id,
                         'user_id' => auth()->id(),
@@ -698,6 +715,10 @@ class ViewDocument extends Page
                         'file_hash' => $fileHash,
                     ]);
 
+                    $uploadedNames[] = basename($filePath);
+                }
+
+                if ($uploadedNames !== []) {
                     $updatedFields[] = 'Document File';
                 }
 
@@ -705,9 +726,9 @@ class ViewDocument extends Page
                     $newValues = $document->only(array_keys($data));
                     $changeDetails = implode("\n", $this->formatDocumentDetailsChanges($oldValues, $newValues));
 
-                    if (filled($filePath)) {
+                    if ($uploadedNames !== []) {
                         $changeDetails .= ($changeDetails !== '' ? "\n" : '')
-                            . 'Document File: uploaded ' . basename($filePath) . '.';
+                            . 'Document File: uploaded ' . implode(', ', $uploadedNames) . '.';
                     }
 
                     $this->logDocumentActivity(
@@ -726,10 +747,25 @@ class ViewDocument extends Page
                     'activityLogs.user',
                 ]);
 
-                Notification::make()
+                $uploadMessages = [];
+
+                if ($duplicateFiles !== []) {
+                    $uploadMessages[] = 'Skipped duplicate files: ' . implode(', ', $duplicateFiles) . '.';
+                }
+
+                if ($unreadableFiles !== []) {
+                    $uploadMessages[] = 'Could not read: ' . implode(', ', $unreadableFiles) . '.';
+                }
+
+                $notification = Notification::make()
                     ->success()
-                    ->title('Document details updated successfully')
-                    ->send();
+                    ->title('Document details updated successfully');
+
+                if ($uploadMessages !== []) {
+                    $notification->body(implode(' ', $uploadMessages));
+                }
+
+                $notification->send();
 
                 $this->redirect(static::getUrl([
                     'document' => $document->getPublicRouteKey(),
@@ -1391,21 +1427,32 @@ JS;
     {
         $this->selectedVersionId = null;
         $this->isTransmittalSelected = false;
+        $this->selectedTransmittalId = null;
         $this->previewUrl = $this->generatePreview();
         $this->previewPageCount = $this->pageCountForVersion($this->documentRecord->latestVersion);
     }
 
-    public function selectTransmittal(): void
+    public function selectTransmittal(?int $attachmentId = null): void
     {
-        $filePath = (string) $this->documentRecord->transmittal;
+        $filePath = $attachmentId === null
+            ? (string) $this->documentRecord->transmittal
+            : (string) $this->documentRecord->transmittalAttachments()
+                ->whereKey($attachmentId)
+                ->value('file_path');
 
         abort_unless(filled($filePath), 404, 'No transmittal is available.');
 
         $this->selectedVersionId = null;
         $this->isTransmittalSelected = true;
-        $this->previewUrl = route('admin.documents.transmittal.preview', [
-            'document' => $this->documentRecord->getPublicRouteKey(),
-        ]);
+        $this->selectedTransmittalId = $attachmentId;
+        $this->previewUrl = $attachmentId === null
+            ? route('admin.documents.transmittal.preview', [
+                'document' => $this->documentRecord->getPublicRouteKey(),
+            ])
+            : route('admin.documents.transmittal-attachment.preview', [
+                'document' => $this->documentRecord->getPublicRouteKey(),
+                'attachment' => $attachmentId,
+            ]);
         $this->previewPageCount = $this->pageCountForStoredFile($filePath);
     }
 

@@ -3,6 +3,79 @@
 @source '../../../../app/Filament/**/*';
 @source '../../../../resources/views/filament/**/*';
 
+/* Shared FilePond upload states, including action modals teleported outside
+ * the page wrapper. */
+.filepond--root .filepond--item-panel,
+.filepond--root .filepond--item > .filepond--panel {
+    background-color: #e5e7eb !important;
+    border: 1px solid #9ca3af !important;
+}
+
+/* Integrated FilePond layouts hide the item panel, so style the visible file
+ * row as well. */
+.filepond--root .filepond--file {
+    background-color: #e5e7eb !important;
+    border: 1px solid #9ca3af !important;
+    border-radius: 0.5em !important;
+    color: #374151 !important;
+}
+
+.filepond--root .filepond--file-wrapper {
+    background-color: transparent !important;
+}
+
+.filepond--root .filepond--file-info-main,
+.filepond--root .filepond--file-info-sub,
+.filepond--root .filepond--file-status-main,
+.filepond--root .filepond--file-status-sub {
+    color: #374151 !important;
+}
+
+.filepond--root .filepond--item[data-filepond-item-state="processing-complete"] .filepond--item-panel,
+.filepond--root .filepond--item[data-filepond-item-state="processing-complete"] > .filepond--panel {
+    background-color: #dcfce7 !important;
+    border-color: #166534 !important;
+}
+
+.filepond--root .filepond--item[data-filepond-item-state="processing-complete"] .filepond--file {
+    background-color: #dcfce7 !important;
+    border-color: #166534 !important;
+    color: #14532d !important;
+}
+
+.filepond--root .filepond--item[data-filepond-item-state="processing-complete"] .filepond--file-info-main,
+.filepond--root .filepond--item[data-filepond-item-state="processing-complete"] .filepond--file-info-sub,
+.filepond--root .filepond--item[data-filepond-item-state="processing-complete"] .filepond--file-status-main,
+.filepond--root .filepond--item[data-filepond-item-state="processing-complete"] .filepond--file-status-sub {
+    color: #14532d !important;
+}
+
+.filepond--root .filepond--item[data-filepond-item-state*="error"] .filepond--item-panel,
+.filepond--root .filepond--item[data-filepond-item-state*="error"] > .filepond--panel,
+.filepond--root .filepond--item[data-filepond-item-state*="invalid"] .filepond--item-panel,
+.filepond--root .filepond--item[data-filepond-item-state*="invalid"] > .filepond--panel {
+    background-color: #fee2e2 !important;
+    border-color: #991b1b !important;
+}
+
+.filepond--root .filepond--item[data-filepond-item-state*="error"] .filepond--file,
+.filepond--root .filepond--item[data-filepond-item-state*="invalid"] .filepond--file {
+    background-color: #fee2e2 !important;
+    border-color: #991b1b !important;
+    color: #991b1b !important;
+}
+
+.filepond--root .filepond--item[data-filepond-item-state*="error"] .filepond--file-info-main,
+.filepond--root .filepond--item[data-filepond-item-state*="error"] .filepond--file-info-sub,
+.filepond--root .filepond--item[data-filepond-item-state*="error"] .filepond--file-status-main,
+.filepond--root .filepond--item[data-filepond-item-state*="error"] .filepond--file-status-sub,
+.filepond--root .filepond--item[data-filepond-item-state*="invalid"] .filepond--file-info-main,
+.filepond--root .filepond--item[data-filepond-item-state*="invalid"] .filepond--file-info-sub,
+.filepond--root .filepond--item[data-filepond-item-state*="invalid"] .filepond--file-status-main,
+.filepond--root .filepond--item[data-filepond-item-state*="invalid"] .filepond--file-status-sub {
+    color: #991b1b !important;
+}
+
 /* Shared admin and client notification drawer. */
 .fi-no-database {
     --notification-surface: #ffffff;
@@ -737,7 +810,7 @@
     box-sizing: border-box !important;
     height: 36px !important;
     min-height: 36px !important;
-    background: linear-gradient(135deg, #6366F1 0%, #4F46E5 100%) !important;
+    background: #6366F1 !important;
     color: #ffffff !important;
     border: none !important;
     border-radius: 8px !important;
@@ -751,6 +824,13 @@
     min-height: 36px !important;
     padding-top: 0.5rem !important;
     padding-bottom: 0.5rem !important;
+}
+
+.documents-export-button,
+.add-document-button {
+    width: 144px !important;
+    min-width: 144px !important;
+    justify-content: center !important;
 }
 
 /* Make label use same color */
@@ -767,7 +847,7 @@
 
 /* Hover */
 .add-document-button:hover {
-    background: linear-gradient(135deg, #4F46E5 0%, #4338CA 100%) !important;
+    background: #6366F1 !important;
     box-shadow: 0 2px 4px rgba(15, 23, 42, 0.15), 0 4px 8px rgba(99, 102, 241, 0.3) !important;
     transform: translateY(-1px) !important;
 }
@@ -833,7 +913,7 @@ Edit-Button
 }
 
 .outgoing-document-button:hover {
-    background-color: #4F46E5 !important;
+    background-color: #6366F1 !important;
     color: #ffffff !important;
 }
 
@@ -862,7 +942,7 @@ Edit-Button
 }
 
 .return-document-button:hover {
-    background-color: #4F46E5 !important;
+    background-color: #6366F1 !important;
     color: #ffffff !important;
 }
 
@@ -879,7 +959,7 @@ Edit-Button
 }
 
 .complete-document-button:hover {
-    background-color: #4F46E5 !important;
+    background-color: #6366F1 !important;
     color: #ffffff !important;
 }
 
@@ -911,12 +991,12 @@ Edit-Button
 
 .message-document-button:hover {
     background-color: #E0E7FF !important;
-    border-color: #4F46E5 !important;
-    color: #4F46E5 !important;
+    border-color: #6366F1 !important;
+    color: #6366F1 !important;
 }
 
 .message-document-button:hover svg {
-    color: #4F46E5 !important;
+    color: #6366F1 !important;
 } 
 
 /* ================================
@@ -2026,6 +2106,11 @@ Edit-Button
     color: #374151 !important;
 }
 
+.fi-panel-client .fi-topbar .fi-topbar-item.fi-active .fi-topbar-item-label,
+.fi-panel-client .fi-topbar .fi-topbar-item.fi-active .fi-topbar-group-toggle-icon {
+    color: #6366F1 !important;
+}
+
 .fi-body-has-topbar .fi-topbar .fi-topbar-item-btn > .fi-icon,
 .fi-body-has-topbar .fi-topbar .fi-topbar-database-notifications-btn > .fi-icon {
     color: #6b7280 !important;
@@ -2656,10 +2741,15 @@ Edit-Button
 .fi-panel-client .fi-topbar .lextrack-brand-office,
 .fi-panel-client .fi-topbar .fi-topbar-item-label,
 .fi-panel-client .fi-topbar .fi-topbar-item:hover .fi-topbar-item-label,
-.fi-panel-client .fi-topbar .fi-topbar-item.fi-active .fi-topbar-item-label,
 .fi-panel-client .fi-topbar .fi-topbar-group-toggle-icon,
-.fi-panel-client .fi-topbar .fi-topbar-item:hover .fi-topbar-group-toggle-icon,
-.fi-panel-client .fi-topbar .fi-topbar-item.fi-active .fi-topbar-group-toggle-icon {
+.fi-panel-client .fi-topbar .fi-topbar-item:hover .fi-topbar-group-toggle-icon {
+    color: #ffffff !important;
+}
+
+/* Keep the selected client navigation label white. */
+.fi-panel-client.fi-body-has-topbar .fi-topbar .fi-topbar-item.fi-active > .fi-topbar-item-btn,
+.fi-panel-client.fi-body-has-topbar .fi-topbar .fi-topbar-item.fi-active > .fi-topbar-item-btn .fi-topbar-item-label,
+.fi-panel-client.fi-body-has-topbar .fi-topbar .fi-topbar-item.fi-active .fi-topbar-group-toggle-icon {
     color: #ffffff !important;
 }
 

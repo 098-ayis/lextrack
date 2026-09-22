@@ -25,7 +25,7 @@
                 </h2>
 
                 <p class="mt-2 text-sm text-gray-500">
-                    Complete the CAPTCHA and your file picker will open automatically.
+                    Security verification runs automatically before the file picker opens.
                 </p>
 
                 <div ref="turnstileContainer" class="mt-5 flex justify-center"></div>
@@ -404,6 +404,10 @@ const renderTurnstile = async () => {
 
         turnstileWidgetId = window.turnstile.render(turnstileContainer.value, {
             sitekey: window.LexTrack.turnstileSiteKey,
+            execution: 'render',
+            appearance: 'interaction-only',
+            retry: 'auto',
+            'refresh-expired': 'auto',
             callback: (token) => {
                 turnstileResponse.value = token
                 turnstileError.value = ''
