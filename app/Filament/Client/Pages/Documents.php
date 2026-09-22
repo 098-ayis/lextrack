@@ -319,7 +319,7 @@ class Documents extends Page implements HasTable
                             default => '—',
                         }
                     )
-                    ->alignCenter(),
+                    ->alignLeft(),
 
                 TextColumn::make('pickup_at')
                     ->label('PICKUP')
@@ -475,10 +475,12 @@ class Documents extends Page implements HasTable
                     )
                     ->alignCenter(),
 
-                TextColumn::make('document_type')
+                
+                ViewColumn::make('document_type')
                     ->label('TYPE')
-                    ->placeholder('—')
+                    ->view('filament.tables.columns.document-type')
                     ->alignCenter(),
+
 
                 TextColumn::make('particulars')
                     ->label('DOCUMENT DESCRIPTION')
