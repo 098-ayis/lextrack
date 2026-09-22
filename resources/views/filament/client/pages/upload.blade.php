@@ -171,6 +171,12 @@
             background-color: #166534 !important;
         }
 
+        .dark .client-upload-page .filepond--item[data-filepond-item-state*="invalid"] .filepond--item-panel,
+        .dark .client-upload-page .filepond--item[data-filepond-item-state*="error"] .filepond--item-panel {
+            background-color: #7f1d1d !important;
+            border-color: #f87171 !important;
+        }
+
         .dark .client-upload-page .filepond--root.lextrack-has-files {
             background-color: #111827 !important;
             border-color: #4b5563 !important;
@@ -185,7 +191,8 @@
 
         .client-upload-page .filepond--item[data-filepond-item-state*="invalid"] .filepond--item-panel,
         .client-upload-page .filepond--item[data-filepond-item-state*="error"] .filepond--item-panel {
-            background-color: #dc2626 !important;
+            background-color: #fee2e2 !important;
+            border-color: #991b1b !important;
         }
 
         .client-upload-page .filepond--item[data-filepond-item-state*="invalid"] .filepond--file-info,
@@ -194,8 +201,42 @@
         .client-upload-page .filepond--item[data-filepond-item-state*="error"] .filepond--file-info,
         .client-upload-page .filepond--item[data-filepond-item-state*="error"] .filepond--file-status-main,
         .client-upload-page .filepond--item[data-filepond-item-state*="error"] .filepond--file-status-sub {
-            color: #ffffff !important;
+            color: #991b1b !important;
             font-weight: 600 !important;
+        }
+
+        .client-upload-page .filepond--item[data-filepond-item-state*="invalid"] .filepond--action-remove-item,
+        .client-upload-page .filepond--item[data-filepond-item-state*="error"] .filepond--action-remove-item {
+            right: 0.5625em !important;
+            left: auto !important;
+            background-color: #991b1b !important;
+            color: #ffffff !important;
+        }
+
+        .client-upload-page .filepond--item[data-filepond-item-state*="invalid"] .filepond--file-info,
+        .client-upload-page .filepond--item[data-filepond-item-state*="error"] .filepond--file-info {
+            min-width: 0 !important;
+            margin-left: 0 !important;
+            margin-right: 0.5em !important;
+        }
+
+        .client-upload-page .filepond--item[data-filepond-item-state*="invalid"] .filepond--file-status,
+        .client-upload-page .filepond--item[data-filepond-item-state*="error"] .filepond--file-status {
+            min-width: 0 !important;
+            max-width: 45% !important;
+            margin-left: auto !important;
+            margin-right: 2.25em !important;
+            overflow: hidden !important;
+        }
+
+        .client-upload-page .filepond--item[data-filepond-item-state*="invalid"] .filepond--file-status-main,
+        .client-upload-page .filepond--item[data-filepond-item-state*="invalid"] .filepond--file-status-sub,
+        .client-upload-page .filepond--item[data-filepond-item-state*="error"] .filepond--file-status-main,
+        .client-upload-page .filepond--item[data-filepond-item-state*="error"] .filepond--file-status-sub {
+            max-width: 100% !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            white-space: nowrap !important;
         }
 
         .client-upload-page .fi-fo-file-upload-error-message {
@@ -208,6 +249,21 @@
         .dark .client-upload-page .filepond--root:has(.filepond--item[data-filepond-item-state*="error"]) {
             background-color: #450a0a !important;
             border-color: #f87171 !important;
+        }
+
+        .dark .client-upload-page .filepond--item[data-filepond-item-state*="invalid"] .filepond--file-info,
+        .dark .client-upload-page .filepond--item[data-filepond-item-state*="invalid"] .filepond--file-status-main,
+        .dark .client-upload-page .filepond--item[data-filepond-item-state*="invalid"] .filepond--file-status-sub,
+        .dark .client-upload-page .filepond--item[data-filepond-item-state*="error"] .filepond--file-info,
+        .dark .client-upload-page .filepond--item[data-filepond-item-state*="error"] .filepond--file-status-main,
+        .dark .client-upload-page .filepond--item[data-filepond-item-state*="error"] .filepond--file-status-sub {
+            color: #fecaca !important;
+        }
+
+        .dark .client-upload-page .filepond--item[data-filepond-item-state*="invalid"] .filepond--action-remove-item,
+        .dark .client-upload-page .filepond--item[data-filepond-item-state*="error"] .filepond--action-remove-item {
+            background-color: #991b1b !important;
+            color: #ffffff !important;
         }
 
         .dark .client-upload-page .fi-fo-file-upload-error-message {
