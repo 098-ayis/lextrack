@@ -4,15 +4,20 @@ namespace App\Filament\Pages;
 
 use App\Models\Calendar as CalendarModel;
 use App\Models\Document;
+use App\Models\DocumentRequest;
 use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Select;
+use Filament\Schemas\Components\Grid;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
+use Livewire\Attributes\Url;
+use Filament\Support\Enums\Alignment;
 use UnitEnum;
 // use BezhanSalleh\FilamentShield\Traits\HasPageShield;
 
@@ -39,6 +44,13 @@ class Calendar extends Page
 
     public ?string $selectedDate = null;
 
+    #[Url(as: 'show_all', history: true)]
+    public bool $showAllEvents = false;
+
+    public string $calendarView = 'month';
+
+    public string $search = '';
+
 
     /*
     |--------------------------------------------------------------------------
@@ -51,7 +63,9 @@ class Calendar extends Page
         $now = now();
         $this->year = $now->year;
         $this->month = $now->month;
-        $this->selectedDate = $now->toDateString();
+        $this->selectedDate = $this->showAllEvents
+            ? null
+            : $now->toDateString();
 
         $requestedDate = request()->query('date');
 
@@ -69,7 +83,9 @@ class Calendar extends Page
                 return;
             }
 
-            $this->selectedDate = $requestedDate;
+            if (! $this->showAllEvents) {
+                $this->selectedDate = $requestedDate;
+            }
             $this->year = $calendarDate->year;
             $this->month = $calendarDate->month;
         } catch (\Throwable) {
@@ -96,6 +112,7 @@ class Calendar extends Page
         $this->month = $date->month;
 
         $this->selectedDate = null;
+        $this->showAllEvents = true;
     }
 
     public function nextMonth(): void
@@ -110,6 +127,61 @@ class Calendar extends Page
         $this->month = $date->month;
 
         $this->selectedDate = null;
+        $this->showAllEvents = true;
+    }
+
+    public function setCalendarView(string $view): void
+    {
+        if (! in_array($view, ['month', 'week', 'day'], true)) {
+            return;
+        }
+
+        $this->calendarView = $view;
+        $this->showAllEvents = false;
+
+        if ($view !== 'month' && ! $this->selectedDate) {
+            $this->selectedDate = Carbon::create(
+                $this->year,
+                $this->month,
+                1
+            )->toDateString();
+        }
+    }
+
+    public function previousCalendarPeriod(): void
+    {
+        if ($this->calendarView === 'month') {
+            $this->previousMonth();
+
+            return;
+        }
+
+        $anchor = Carbon::parse($this->selectedDate ?? now()->toDateString());
+        $anchor = $this->calendarView === 'week'
+            ? $anchor->subWeek()
+            : $anchor->subDay();
+
+        $this->selectedDate = $anchor->toDateString();
+        $this->year = $anchor->year;
+        $this->month = $anchor->month;
+    }
+
+    public function nextCalendarPeriod(): void
+    {
+        if ($this->calendarView === 'month') {
+            $this->nextMonth();
+
+            return;
+        }
+
+        $anchor = Carbon::parse($this->selectedDate ?? now()->toDateString());
+        $anchor = $this->calendarView === 'week'
+            ? $anchor->addWeek()
+            : $anchor->addDay();
+
+        $this->selectedDate = $anchor->toDateString();
+        $this->year = $anchor->year;
+        $this->month = $anchor->month;
     }
 
     public function goToToday(): void
@@ -119,6 +191,7 @@ class Calendar extends Page
         $this->year = $today->year;
         $this->month = $today->month;
         $this->selectedDate = $today->format('Y-m-d');
+        $this->showAllEvents = false;
     }
 
 
@@ -131,6 +204,7 @@ class Calendar extends Page
     public function selectDate(string $date): void
     {
         $this->selectedDate = $date;
+        $this->showAllEvents = false;
     }
 
     public function changeMonth(string $value): void
@@ -145,21 +219,26 @@ class Calendar extends Page
         $this->year = $year;
         $this->month = $month;
         $this->selectedDate = null;
+        $this->showAllEvents = true;
     }
 
     public function clearSelectedDate(): void
     {
         $this->selectedDate = null;
+        $this->showAllEvents = true;
     }
 
     public function openDocumentDeadline(int $documentId): void
     {
         $document = Document::findOrFail($documentId);
+        $returnTo = $this->showAllEvents
+            ? static::getUrl(['show_all' => '1'])
+            : static::getUrl();
 
         $this->redirect(
             ViewDocument::getUrl([
                 'document' => $document->public_id,
-                'return_to' => static::getUrl(),
+                'return_to' => $returnTo,
             ])
         );
     }
@@ -203,21 +282,25 @@ class Calendar extends Page
     /**
      * Events shown in the right sidebar.
      *
-     * If a date is selected, only events from
-     * that date will be returned.
+     * If a date is selected and no search is active,
+     * only events from that date will be returned.
      *
      * Otherwise all events for the displayed month
      * will be returned.
      */
     public function getEvents(): Collection
     {
+        $filterDate = trim($this->search) === ''
+            ? $this->selectedDate
+            : null;
+
         $calendarEvents = CalendarModel::query()
             ->with('user')
             ->when(
-                $this->selectedDate,
+                $filterDate,
                 fn ($query) => $query->whereDate(
                     'date',
-                    $this->selectedDate
+                    $filterDate
                 ),
                 fn ($query) => $query->whereBetween(
                     'date',
@@ -231,12 +314,12 @@ class Calendar extends Page
             ->orderBy('time')
             ->get();
 
-        return $this->sortEvents(
-            $calendarEvents->concat(
-                $this->getDocumentDeadlineEvents(
-                    $this->selectedDate
-                )
-            )->concat($this->getHolidayEvents($this->selectedDate))
+        return $this->filterEvents(
+            $this->sortEvents(
+                $calendarEvents->concat(
+                    $this->getDocumentDeadlineEvents($filterDate)
+                )->concat($this->getHolidayEvents($filterDate))
+            )
         );
     }
 
@@ -266,10 +349,12 @@ class Calendar extends Page
             ->orderBy('time')
             ->get();
 
-        return $this->sortEvents(
-            $calendarEvents->concat(
-                $this->getDocumentDeadlineEvents()
-            )->concat($this->getHolidayEvents())
+        return $this->filterEvents(
+            $this->sortEvents(
+                $calendarEvents->concat(
+                    $this->getDocumentDeadlineEvents()
+                )->concat($this->getHolidayEvents())
+            )
         );
     }
 
@@ -285,11 +370,46 @@ class Calendar extends Page
             ->orderBy('time')
             ->get();
 
-        return $this->sortEvents(
-            $calendarEvents->concat(
-                $this->getDocumentDeadlineEvents($date)
-            )->concat($this->getHolidayEvents($date))
+        return $this->filterEvents(
+            $this->sortEvents(
+                $calendarEvents->concat(
+                    $this->getDocumentDeadlineEvents($date)
+                )->concat($this->getHolidayEvents($date))
+            )
         );
+    }
+
+    protected function filterEvents(Collection $events): Collection
+    {
+        $search = mb_strtolower(trim($this->search), 'UTF-8');
+
+        if ($search === '') {
+            return $events;
+        }
+
+        return $events
+            ->filter(function ($event) use ($search): bool {
+                $category = $this->getEventCategory($event);
+                $categoryLabel = $this->getEventCategories()[$category] ?? $category;
+
+                $searchableText = collect([
+                    $event->event ?? null,
+                    $event->details ?? null,
+                    $categoryLabel,
+                    $event->user?->name ?? null,
+                    $event->date ?? null,
+                    $event->time ?? null,
+                    ($event->is_document_deadline ?? false) ? 'document deadline' : null,
+                ])
+                    ->filter(fn ($value): bool => filled($value))
+                    ->implode(' ');
+
+                return str_contains(
+                    mb_strtolower($searchableText, 'UTF-8'),
+                    $search
+                );
+            })
+            ->values();
     }
 
 
@@ -334,6 +454,7 @@ class Calendar extends Page
 
                 $details = collect([
                     'Document deadline',
+                    $document->action_type,
                     $document->office_unit,
                     $document->lao_number,
                 ])->filter()->implode(' · ');
@@ -398,6 +519,7 @@ class Calendar extends Page
     public const EVENT_CATEGORIES = [
         'holiday' => 'Holidays',
         'meeting' => 'Meetings',
+        'pickup' => 'Document Pickup',
         'deadline' => 'Deadlines',
     ];
 
@@ -418,6 +540,11 @@ class Calendar extends Page
         if ($event->is_document_deadline ?? false) {
             return 'deadline';
         }
+
+        if (preg_match('/^document pickup\b/i', (string) ($event->event ?? ''))) {
+            return 'pickup';
+        }
+
         $category = $event->category ?? 'meeting';
         if (isset(self::EVENT_CATEGORIES[$category])) {
             return $category;
@@ -426,52 +553,121 @@ class Calendar extends Page
         return $this->customCategories()->contains('key', $category) ? $category : 'meeting';
     }
 
+    public function getEventTitle(object $event): string
+    {
+        $title = trim((string) ($event->event ?? ''));
+
+        if ($this->getEventCategory($event) === 'pickup') {
+            $title = preg_replace('/^document pickup\s*:\s*/i', '', $title) ?? $title;
+            $title = preg_replace('/\s+pickup\b.*$/i', '', $title) ?? $title;
+
+            return 'Document pickup: ' . $this->getPickupPurposeLabel($title);
+        }
+
+        return $title !== '' ? $title : 'Untitled event';
+    }
+
+    public function getEventDetails(object $event): ?string
+    {
+        $details = trim((string) ($event->details ?? ''));
+        $details = preg_replace('/\.\s+Details:/i', ".\nDetails:", $details) ?? $details;
+
+        return $details !== '' ? $details : null;
+    }
+
+    protected function getPickupPurposeLabel(?string $purpose): string
+    {
+        $purpose = strtolower(trim(str_replace(['_', '-'], ' ', (string) $purpose)));
+
+        return match ($purpose) {
+            'certificate', 'certificate request' => 'Certificate',
+            'template', 'template request' => 'Template',
+            'document', 'document request' => 'Document',
+            default => $purpose !== '' ? ucwords($purpose) : 'Document',
+        };
+    }
+
+    protected function findPickupRequest(
+        CalendarModel $event,
+        ?string $oldDate,
+        ?string $oldTime
+    ): ?DocumentRequest {
+        if ($event->document_request_id) {
+            return $event->documentRequest;
+        }
+
+        if (
+            $this->getEventCategory($event) !== 'pickup'
+            || blank($oldDate)
+            || blank($oldTime)
+        ) {
+            return null;
+        }
+
+        $oldPickupAt = Carbon::parse($oldDate . ' ' . $oldTime);
+        $eventPurpose = preg_replace(
+            '/^document pickup\s*:\s*/i',
+            '',
+            $this->getEventTitle($event)
+        ) ?? '';
+        $eventPurpose = strtolower(trim($eventPurpose));
+        $requesterName = '';
+
+        if (preg_match(
+            '/^document pickup for\s+(.+?)\.\s*(?:details:|$)/is',
+            trim((string) $event->details),
+            $matches
+        )) {
+            $requesterName = trim($matches[1]);
+        }
+
+        $matches = DocumentRequest::query()
+            ->with('user')
+            ->where('status', 'accepted')
+            ->whereNotNull('pickup_at')
+            ->where('pickup_at', $oldPickupAt->format('Y-m-d H:i:s'))
+            ->where(function ($query): void {
+                $query
+                    ->where('copy_type', '!=', 'soft_copy')
+                    ->orWhereNull('copy_type');
+            })
+            ->get()
+            ->filter(function (DocumentRequest $request) use ($eventPurpose, $requesterName): bool {
+                if (
+                    strtolower($this->getPickupPurposeLabel($request->purpose))
+                    !== $eventPurpose
+                ) {
+                    return false;
+                }
+
+                return $requesterName === ''
+                    || strcasecmp($request->user?->name ?? '', $requesterName) === 0;
+            })
+            ->values();
+
+        return $matches->count() === 1 ? $matches->first() : null;
+    }
+
     public function getEventColor(object $event): string
     {
         return match ($category = $this->getEventCategory($event)) {
             'holiday' => '#c9362b',
             'meeting' => '#0f766e',
+            'pickup' => '#0891b2',
             'deadline' => '#6366f1',
             default => $this->customCategories()->firstWhere('key', $category)->color,
         };
-    }
-
-    public function addEventCategory(array $data): string
-    {
-        \Illuminate\Support\Facades\Validator::make($data, [
-            'name' => ['required', 'string', 'max:100', 'unique:calendar_categories,name',
-                function ($attribute, $value, $fail) {
-                    if (in_array(strtolower(trim($value)), array_map('strtolower', self::EVENT_CATEGORIES))) {
-                        $fail('This category already exists.');
-                    }
-                }],
-            'color' => ['required', 'regex:/^#[0-9a-fA-F]{6}$/'],
-        ])->validate();
-
-        $category = \App\Models\CalendarCategory::create([
-            'key' => 'category-'.\Illuminate\Support\Str::uuid(),
-            'name' => trim($data['name']), 'color' => $data['color'],
-        ]);
-        $this->customCategories = null;
-
-        return $category->key;
     }
 
     protected function eventCategoryField(): Select
     {
         return Select::make('category')
             ->label('Category')
+            ->placeholder('Select a category')
             ->options(fn () => $this->getEventCategories())
             ->native(false)
-            ->searchable()
-            ->default('meeting')
             ->required()
-            ->in(fn () => array_keys($this->getEventCategories()))
-            ->createOptionForm([
-                TextInput::make('name')->label('Category name')->required()->maxLength(100),
-                \Filament\Forms\Components\ColorPicker::make('color')->label('Color')->default('#6366f1')->required(),
-            ])
-            ->createOptionUsing(fn (array $data): string => $this->addEventCategory($data));
+            ->in(fn () => array_keys($this->getEventCategories()));
     }
 
     public function getUserColor(?int $userId): string
@@ -534,32 +730,23 @@ class Calendar extends Page
     |--------------------------------------------------------------------------
     */
 
-    protected function eventTimeField(): Select
+    protected function eventTimeField(): TextInput
     {
-        return Select::make('time')
+        return TextInput::make('time')
             ->label('Time')
-            ->placeholder('Select a time')
+            ->placeholder('08:00 AM')
+            ->type('time')
             ->prefixIcon('heroicon-o-clock')
-            ->native(false)
-            ->searchable()
-            ->searchPrompt('Search a time, e.g. 09:30 AM')
-            ->optionsLimit(300)
-            ->options(function (?string $state): array {
-                $options = [];
-
-                for ($minutes = 0; $minutes < 24 * 60; $minutes += 5) {
-                    $time = sprintf('%02d:%02d', intdiv($minutes, 60), $minutes % 60);
-                    $options[$time] = Carbon::createFromFormat('H:i', $time)->format('h:i A');
-                }
-
-                // Preserve existing event times that are not on a five-minute interval.
-                if ($state && preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $state)) {
-                    $options[$state] = Carbon::createFromFormat('H:i', $state)->format('h:i A');
-                    ksort($options);
-                }
-
-                return $options;
-            })
+            ->extraInputAttributes([
+                'min' => '08:00',
+                'max' => '17:00',
+                'step' => '300',
+            ])
+            ->rules([
+                'date_format:H:i',
+                'after_or_equal:08:00',
+                'before_or_equal:17:00',
+            ])
             ->required();
     }
 
@@ -569,9 +756,13 @@ class Calendar extends Page
             ->label('Add Event')
             ->icon('heroicon-o-plus')
             ->modalHeading('Add Event')
+            ->modalSubmitAction(fn (Action $action): Action => $action
+                ->extraAttributes([
+                    'style' => 'background-color: #6366F1; border-color: #6366F1; color: #ffffff;',
+                ]))
+            ->modalFooterActionsAlignment(Alignment::End)
             ->fillForm(fn (): array => [
                 'date' => $this->selectedDate ?? now()->toDateString(),
-                'category' => 'meeting',
             ])
             ->form([
                 $this->eventCategoryField(),
@@ -588,14 +779,17 @@ class Calendar extends Page
                     ->rows(3)
                     ->required(),
 
-                DatePicker::make('date')
-                    ->label('Date')
-                    ->native(false)
-                    ->displayFormat('M d, Y')
-                    ->default(now()->toDateString())
-                    ->required(),
+                Grid::make(2)
+                    ->schema([
+                        DatePicker::make('date')
+                            ->label('Date')
+                            ->native(false)
+                            ->displayFormat('M d, Y')
+                            ->default(now()->toDateString())
+                            ->required(),
 
-                $this->eventTimeField(),
+                        $this->eventTimeField(),
+                    ]),
             ])
             ->action(function (array $data): void {
 
@@ -627,11 +821,19 @@ class Calendar extends Page
     public function editEventAction(): Action
     {
         return Action::make('editEvent')
-            ->label('')
+            ->label('Edit')
             ->icon('heroicon-o-pencil')
             ->tooltip('Edit event')
             ->color('gray')
+            ->extraAttributes([
+                'class' => 'calendar-event-menu-edit w-full justify-start rounded-md px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-100',
+            ])
             ->modalHeading('Edit Event')
+            ->modalSubmitAction(fn (Action $action): Action => $action
+                ->extraAttributes([
+                    'style' => 'background-color: #6366F1; border-color: #6366F1; color: #ffffff;',
+                ]))
+            ->modalFooterActionsAlignment(Alignment::End)
             ->fillForm(function (array $arguments): array {
                 $event = CalendarModel::findOrFail($arguments['eventId']);
 
@@ -658,14 +860,17 @@ class Calendar extends Page
                     ->rows(3)
                     ->required(),
 
-                DatePicker::make('date')
-                    ->label('Date')
-                    ->native(false)
-                    ->displayFormat('M d, Y')
-                    ->default(now()->toDateString())
-                    ->required(),
+                Grid::make(2)
+                    ->schema([
+                        DatePicker::make('date')
+                            ->label('Date')
+                            ->native(false)
+                            ->displayFormat('M d, Y')
+                            ->default(now()->toDateString())
+                            ->required(),
 
-                $this->eventTimeField(),
+                        $this->eventTimeField(),
+                    ]),
             ])
             ->action(
                 function (array $data, array $arguments): void {
@@ -711,6 +916,12 @@ class Calendar extends Page
                     $timeChanged =
                         $oldTime !== $newTime;
 
+                    $pickupRequest = $this->findPickupRequest(
+                        $event,
+                        $oldDate,
+                        $oldTime
+                    );
+
 
                     /*
                      * user_id is NOT changed.
@@ -718,27 +929,42 @@ class Calendar extends Page
                      * The original creator stays as
                      * the event owner.
                      */
-                    $event->update($data);
+                    DB::transaction(function () use (
+                        $event,
+                        $data,
+                        $dateChanged,
+                        $timeChanged,
+                        $pickupRequest,
+                        $newDate,
+                        $newTime,
+                    ): void {
+                        $event->update($data);
 
+                        if ($pickupRequest && ($dateChanged || $timeChanged)) {
+                            $pickupRequest->update([
+                                'pickup_at' => Carbon::parse(
+                                    $newDate . ' ' . $newTime
+                                )->format('Y-m-d H:i:s'),
+                            ]);
 
-                    /*
-                     * Reset reminders if schedule changes.
-                     */
-                    if ($dateChanged || $timeChanged) {
+                            if (! $event->document_request_id) {
+                                $event->forceFill([
+                                    'document_request_id' => $pickupRequest->request_id,
+                                ])->save();
+                            }
+                        }
 
-                        $event->forceFill([
-
-                            'reminder_3_days_sent_at'
-                                => null,
-
-                            'reminder_1_day_sent_at'
-                                => null,
-
-                            'reminder_1_hour_sent_at'
-                                => null,
-
-                        ])->save();
-                    }
+                        /*
+                         * Reset reminders if schedule changes.
+                         */
+                        if ($dateChanged || $timeChanged) {
+                            $event->forceFill([
+                                'reminder_3_days_sent_at' => null,
+                                'reminder_1_day_sent_at' => null,
+                                'reminder_1_hour_sent_at' => null,
+                            ])->save();
+                        }
+                    });
 
 
                     Notification::make()

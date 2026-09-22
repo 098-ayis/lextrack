@@ -609,18 +609,28 @@ class DocumentRequests extends Page implements HasTable
             if ($request->copy_type !== 'soft_copy' && $pickupAt) {
                 $pickupDateTime = \Carbon\Carbon::parse($pickupAt);
                 $requesterName = $request->user?->name ?? 'Client';
+                $pickupPurpose = strtolower(trim((string) $request->purpose));
+                $pickupPurpose = match ($pickupPurpose) {
+                    'certificate', 'certificate_request' => 'Certificate',
+                    'template', 'template_request' => 'Template',
+                    'document', 'document_request' => 'Document',
+                    default => $pickupPurpose !== ''
+                        ? ucwords(str_replace(['_', '-'], ' ', $pickupPurpose))
+                        : 'Document',
+                };
                 $details = 'Document pickup for ' . $requesterName . '.';
 
                 if (filled($request->purpose_details)) {
-                    $details .= ' Details: ' . $request->purpose_details;
+                    $details .= "\nDetails: " . $request->purpose_details;
                 }
 
                 CalendarModel::create([
                     'user_id' => auth()->id(),
+                    'document_request_id' => $request->request_id,
                     'date' => $pickupDateTime->toDateString(),
                     'time' => $pickupDateTime->format('H:i:s'),
-                    'event' => 'Document pickup: ' . $request->purpose,
-                    'category' => 'meeting',
+                    'event' => 'Document pickup: ' . $pickupPurpose,
+                    'category' => 'pickup',
                     'details' => $details,
                 ]);
             }
