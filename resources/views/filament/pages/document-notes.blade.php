@@ -92,13 +92,13 @@
                     @endif
 
                     <div class="flex min-w-0 flex-col">
-                        <span class="truncate text-xs font-bold text-gray-950">
+                        <span class="document-note-author truncate text-xs font-bold text-gray-950">
                             {{ $note->user->name ?? 'User' }}
                         </span>
                         @if ($note->created_at)
                             <time
                                 datetime="{{ $note->created_at->toIso8601String() }}"
-                                class="text-[10px] font-medium text-gray-500"
+                                class="document-note-timestamp text-[10px] font-medium text-gray-500"
                             >{{ $note->created_at->format('m/d/Y | g:i A') }}</time>
                         @endif
                     </div>
@@ -183,7 +183,7 @@
                         </div>
                     </form>
                 @else
-                    <p class="text-xs leading-5 text-gray-600">
+                    <p class="document-note-content text-xs leading-5 text-gray-600">
                         {{ $note->body ?? $note->note ?? '' }}
                     </p>
                 @endif
@@ -195,7 +195,7 @@
                 class="rounded-lg border border-dashed border-gray-300
                        px-3 py-5 text-center"
             >
-                <p class="text-xs text-gray-400">
+                <p class="document-note-empty text-xs text-gray-400">
                     No notes for this document.
                 </p>
             </div>

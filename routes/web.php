@@ -9,9 +9,11 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use App\Models\Document;
 use App\Models\DocumentVersion;
+use App\Models\DocumentTransmittal;
 use App\Models\Message;
 use App\Models\MessageAttachment;
 use App\Http\Controllers\Auth\GoogleAuthController;
+use App\Http\Controllers\Auth\VerifyUserEmailController;
 use App\Http\Controllers\UserExportController;
 use App\Http\Controllers\DocumentExportController;
 use App\Http\Middleware\AdminMiddleware;
@@ -21,6 +23,11 @@ use App\Services\DocumentStatusTimeline;
 use Spatie\Honeypot\Honeypot;
 use Spatie\Honeypot\ProtectAgainstSpam;
 use RyanChandler\LaravelCloudflareTurnstile\Rules\Turnstile;
+use App\Http\Middleware\EnsureLegalStaff;
+
+
+Route::view('/ai-test', 'ai-test');
+
 Route::post('/chatbot/message', [
     ChatbotController::class,
     'reply',
@@ -36,6 +43,10 @@ Route::get('/auth/google', [GoogleAuthController::class, 'redirect'])
     ->name('google.login');
 
 Route::get('/auth/google/callback', [GoogleAuthController::class, 'callback']);
+
+Route::get('/email/verify/{id}/{hash}', VerifyUserEmailController::class)
+    ->middleware(['signed', 'throttle:6,1'])
+    ->name('verification.verify');
 
 Route::get('/api/user', function (Request $request) {
     return response()->json([
@@ -272,7 +283,7 @@ Route::get('/admin/document-temp-preview/{file}', function (string $file) {
     ]);
 })
     ->where('file', '[a-f0-9]{32}\.pdf')
-    ->middleware(['auth', AdminMiddleware::class])
+    ->middleware(['auth', AdminMiddleware::class, EnsureLegalStaff::class])
     ->name('admin.document.temp-preview');
 
 Route::get('/admin/documents/{document}/preview', function (string $document) {
@@ -301,7 +312,7 @@ Route::get('/admin/documents/{document}/preview', function (string $document) {
 
     return app(\App\Services\DocumentPreviewService::class)->preview($path);
 })
-    ->middleware(['auth', AdminMiddleware::class])
+    ->middleware(['auth', AdminMiddleware::class, EnsureLegalStaff::class])
     ->name('admin.documents.preview');
 
 Route::get('/admin/documents/{document}/thumbnail', function (string $document) {
@@ -345,7 +356,7 @@ Route::get('/admin/documents/{document}/transmittal-preview', function (string $
         $disk->path($filePath)
     );
 })
-    ->middleware(['auth', AdminMiddleware::class])
+    ->middleware(['auth', AdminMiddleware::class, EnsureLegalStaff::class])
     ->name('admin.documents.transmittal.preview');
 
 Route::get('/admin/documents/{document}/transmittal-download', function (string $document) {
@@ -365,8 +376,55 @@ Route::get('/admin/documents/{document}/transmittal-download', function (string 
 
     return $disk->download($filePath, basename($filePath));
 })
-    ->middleware(['auth', AdminMiddleware::class])
+    ->middleware(['auth', AdminMiddleware::class, EnsureLegalStaff::class])
     ->name('admin.documents.transmittal.download');
+
+Route::get('/admin/documents/{document}/transmittals/{attachment}/preview', function (
+    string $document,
+    int $attachment,
+) {
+    $documentRecord = Document::findForRoute($document);
+    $attachmentRecord = DocumentTransmittal::query()
+        ->where('document_id', $documentRecord->document_id)
+        ->findOrFail($attachment);
+    $disk = Storage::disk('local');
+
+    if (! $disk->exists($attachmentRecord->file_path)) {
+        $disk = Storage::disk('public');
+    }
+
+    abort_unless($disk->exists($attachmentRecord->file_path), 404);
+
+    return app(\App\Services\DocumentPreviewService::class)->preview(
+        $disk->path($attachmentRecord->file_path)
+    );
+})
+    ->middleware(['auth', AdminMiddleware::class])
+    ->name('admin.documents.transmittal-attachment.preview');
+
+Route::get('/admin/documents/{document}/transmittals/{attachment}/download', function (
+    string $document,
+    int $attachment,
+) {
+    $documentRecord = Document::findForRoute($document);
+    $attachmentRecord = DocumentTransmittal::query()
+        ->where('document_id', $documentRecord->document_id)
+        ->findOrFail($attachment);
+    $disk = Storage::disk('local');
+
+    if (! $disk->exists($attachmentRecord->file_path)) {
+        $disk = Storage::disk('public');
+    }
+
+    abort_unless($disk->exists($attachmentRecord->file_path), 404);
+
+    return $disk->download(
+        $attachmentRecord->file_path,
+        basename($attachmentRecord->file_path),
+    );
+})
+    ->middleware(['auth', AdminMiddleware::class])
+    ->name('admin.documents.transmittal-attachment.download');
 
 Route::get('/admin/documents/{document}/download', function (string $document) {
     $documentRecord = Document::findForRoute($document);
@@ -392,7 +450,7 @@ Route::get('/admin/documents/{document}/download', function (string $document) {
 
     return app(DocumentDownloadService::class)->download($documentRecord, $versionRecord);
 })
-    ->middleware(['auth', AdminMiddleware::class])
+    ->middleware(['auth', AdminMiddleware::class,  EnsureLegalStaff::class])
     ->name('admin.documents.download');
 
 Route::get('/admin/documents/{document}/versions/{version}/preview', function (
@@ -415,7 +473,7 @@ Route::get('/admin/documents/{document}/versions/{version}/preview', function (
 
     return app(\App\Services\DocumentPreviewService::class)->preview($path);
 })
-    ->middleware(['auth', AdminMiddleware::class])
+    ->middleware(['auth', AdminMiddleware::class, EnsureLegalStaff::class])
     ->name('admin.document.version.preview');
 
 Route::get('/admin/documents/{document}/versions/{version}/download', function (
@@ -435,26 +493,8 @@ Route::get('/admin/documents/{document}/versions/{version}/download', function (
 
     return app(DocumentDownloadService::class)->download($documentRecord, $versionRecord);
 })
-    ->middleware(['auth', AdminMiddleware::class])
+    ->middleware(['auth', AdminMiddleware::class, EnsureLegalStaff::class])
     ->name('admin.document.version.download');
-
-Route::get('/admin/document-temp-preview/{file}', function (string $file) {
-    abort_unless(
-        preg_match('/^[a-f0-9]{32}\.pdf$/', $file) === 1,
-        404
-    );
-
-    $path = storage_path('app/private/temp-previews/' . $file);
-
-    abort_unless(is_file($path), 404);
-
-    return response()->file($path, [
-        'Content-Type' => 'application/pdf',
-        'Content-Disposition' => 'inline; filename="' . $file . '"',
-    ]);
-})
-    ->middleware(['auth', AdminMiddleware::class])
-    ->name('admin.document.temp-preview');
 
 
 Route::get('/api/honeypot', function (Honeypot $honeypot) {

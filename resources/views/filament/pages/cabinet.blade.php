@@ -1222,7 +1222,26 @@
 
                         @if($selectedDocument)
 
-                            @if(str_ends_with(strtolower($selectedDocument['name']), '.pdf'))
+                            @if(auth()->user()->hasRole('Super Admin'))
+
+                                <div class="flex h-full w-full flex-col items-center justify-center text-center">
+
+                                    <x-heroicon-o-lock-closed
+                                        class="h-12 w-12 text-gray-400"
+                                    />
+
+                                    <h4 class="mt-4 text-base font-semibold text-gray-800">
+                                        Preview Restricted
+                                    </h4>
+
+                                    <p class="mt-2 max-w-xs text-sm text-gray-500">
+                                        Only authorized Legal Staff can preview
+                                        original documents.
+                                    </p>
+
+                                </div>
+
+                            @elseif(str_ends_with(strtolower($selectedDocument['name']), '.pdf'))
 
                                 <iframe
                                     src="{{ route('admin.documents.preview', ['document' => $selectedDocument['public_id']]) }}"

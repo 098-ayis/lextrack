@@ -11,6 +11,8 @@ use App\Notifications\DocumentAcceptedNotification;
 use Filament\Notifications\DatabaseNotification;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Contracts\View\View;
+use Livewire\Livewire;
 use Mockery;
 use Symfony\Component\Mailer\Exception\TransportException;
 use Tests\TestCase;
@@ -45,10 +47,9 @@ class DocumentAcceptanceNotificationTest extends TestCase
             'accepted' => true,
         ]);
 
-        $page = new DocumentPage;
-        $page->acceptDocument(1);
-
-        $this->assertStringContainsString('section=incoming', \Livewire\store($page)->get('redirect'));
+        Livewire::test(DocumentAcceptancePageHarness::class)
+            ->call('acceptDocument', 1)
+            ->assertRedirect(DocumentPage::getUrl(['section' => 'incoming']));
         $notification = collect(session('filament.notifications'))->last();
         $this->assertSame('Document accepted, but email failed', $notification['title']);
         $this->assertSame('warning', $notification['status']);
@@ -81,11 +82,15 @@ class DocumentAcceptanceNotificationTest extends TestCase
             'accepted' => true,
         ]);
 
-        $page = new DocumentPage;
-        $page->acceptDocument(1);
+        Livewire::test(DocumentAcceptancePageHarness::class)
+            ->call('acceptDocument', 1)
+            ->assertRedirect(DocumentPage::getUrl(['section' => 'incoming']));
+        $notificationTitles = collect(session('filament.notifications', []))
+            ->pluck('title')
+            ->all();
 
-        $this->assertStringContainsString('section=incoming', \Livewire\store($page)->get('redirect'));
-        $this->assertEmpty(session('filament.notifications', []));
+        $this->assertContains('Document accepted', $notificationTitles);
+        $this->assertNotContains('Document accepted, but email failed', $notificationTitles);
     }
 
     public function test_mail_failure_still_sends_bell_notification_and_redirects_with_warning(): void
@@ -119,15 +124,33 @@ class DocumentAcceptanceNotificationTest extends TestCase
             'document' => $document,
         ]);
 
-        $page = new DocumentRequests;
-
-        $page->acceptRequest(1);
-
-        $this->assertStringContainsString('section=accepted', \Livewire\store($page)->get('redirect'));
+        Livewire::test(DocumentRequestsAcceptancePageHarness::class)
+            ->call('acceptRequest', 1)
+            ->assertRedirect(DocumentRequests::getUrl(['section' => 'accepted']));
 
         $notification = collect(session('filament.notifications'))->last();
         $this->assertSame('Document accepted, but email failed', $notification['title']);
         $this->assertSame('warning', $notification['status']);
         $this->assertStringContainsString('LAO-26-001', $notification['body']);
     }
+}
+
+trait RendersAcceptanceTestView
+{
+    public function render(): View
+    {
+        return view()->file(__DIR__ . '/../Fixtures/empty.blade.php');
+    }
+}
+
+class DocumentAcceptancePageHarness extends DocumentPage
+{
+    use RendersAcceptanceTestView;
+}
+
+class DocumentRequestsAcceptancePageHarness extends DocumentRequests
+{
+    use RendersAcceptanceTestView;
+
+    protected static ?string $slug = 'document-requests';
 }

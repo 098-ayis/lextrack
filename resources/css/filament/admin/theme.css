@@ -3,6 +3,79 @@
 @source '../../../../app/Filament/**/*';
 @source '../../../../resources/views/filament/**/*';
 
+/* Shared FilePond upload states, including action modals teleported outside
+ * the page wrapper. */
+.filepond--root .filepond--item-panel,
+.filepond--root .filepond--item > .filepond--panel {
+    background-color: #e5e7eb !important;
+    border: 1px solid #9ca3af !important;
+}
+
+/* Integrated FilePond layouts hide the item panel, so style the visible file
+ * row as well. */
+.filepond--root .filepond--file {
+    background-color: #e5e7eb !important;
+    border: 1px solid #9ca3af !important;
+    border-radius: 0.5em !important;
+    color: #374151 !important;
+}
+
+.filepond--root .filepond--file-wrapper {
+    background-color: transparent !important;
+}
+
+.filepond--root .filepond--file-info-main,
+.filepond--root .filepond--file-info-sub,
+.filepond--root .filepond--file-status-main,
+.filepond--root .filepond--file-status-sub {
+    color: #374151 !important;
+}
+
+.filepond--root .filepond--item[data-filepond-item-state="processing-complete"] .filepond--item-panel,
+.filepond--root .filepond--item[data-filepond-item-state="processing-complete"] > .filepond--panel {
+    background-color: #dcfce7 !important;
+    border-color: #166534 !important;
+}
+
+.filepond--root .filepond--item[data-filepond-item-state="processing-complete"] .filepond--file {
+    background-color: #dcfce7 !important;
+    border-color: #166534 !important;
+    color: #14532d !important;
+}
+
+.filepond--root .filepond--item[data-filepond-item-state="processing-complete"] .filepond--file-info-main,
+.filepond--root .filepond--item[data-filepond-item-state="processing-complete"] .filepond--file-info-sub,
+.filepond--root .filepond--item[data-filepond-item-state="processing-complete"] .filepond--file-status-main,
+.filepond--root .filepond--item[data-filepond-item-state="processing-complete"] .filepond--file-status-sub {
+    color: #14532d !important;
+}
+
+.filepond--root .filepond--item[data-filepond-item-state*="error"] .filepond--item-panel,
+.filepond--root .filepond--item[data-filepond-item-state*="error"] > .filepond--panel,
+.filepond--root .filepond--item[data-filepond-item-state*="invalid"] .filepond--item-panel,
+.filepond--root .filepond--item[data-filepond-item-state*="invalid"] > .filepond--panel {
+    background-color: #fee2e2 !important;
+    border-color: #991b1b !important;
+}
+
+.filepond--root .filepond--item[data-filepond-item-state*="error"] .filepond--file,
+.filepond--root .filepond--item[data-filepond-item-state*="invalid"] .filepond--file {
+    background-color: #fee2e2 !important;
+    border-color: #991b1b !important;
+    color: #991b1b !important;
+}
+
+.filepond--root .filepond--item[data-filepond-item-state*="error"] .filepond--file-info-main,
+.filepond--root .filepond--item[data-filepond-item-state*="error"] .filepond--file-info-sub,
+.filepond--root .filepond--item[data-filepond-item-state*="error"] .filepond--file-status-main,
+.filepond--root .filepond--item[data-filepond-item-state*="error"] .filepond--file-status-sub,
+.filepond--root .filepond--item[data-filepond-item-state*="invalid"] .filepond--file-info-main,
+.filepond--root .filepond--item[data-filepond-item-state*="invalid"] .filepond--file-info-sub,
+.filepond--root .filepond--item[data-filepond-item-state*="invalid"] .filepond--file-status-main,
+.filepond--root .filepond--item[data-filepond-item-state*="invalid"] .filepond--file-status-sub {
+    color: #991b1b !important;
+}
+
 /* Shared admin and client notification drawer. */
 .fi-no-database {
     --notification-surface: #ffffff;
@@ -411,6 +484,98 @@
     flex-shrink: 1;
 }
 
+.fi-panel-admin .fi-topbar .fi-admin-document-context {
+    display: flex;
+    min-width: 0;
+    max-width: min(55vw, 48rem);
+    flex: 0 1 auto;
+    align-items: center;
+    gap: 0.75rem;
+    margin-inline-end: auto;
+}
+
+/* TOPBAR_START is the marked upper-left slot, outside Filament's hidden sidebar area. */
+.fi-panel-admin .fi-topbar > .fi-admin-document-context {
+    display: flex !important;
+    position: relative;
+    z-index: 1;
+}
+
+.fi-panel-admin .fi-topbar .fi-admin-document-back {
+    display: inline-flex;
+    width: 3rem;
+    height: 3rem;
+    flex: 0 0 3rem;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 0;
+    border-radius: 0.625rem;
+    background: #ffffff;
+    color: #4b5563;
+    cursor: pointer;
+    transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease;
+}
+
+.fi-panel-admin .fi-topbar .fi-admin-document-back:hover,
+.fi-panel-admin .fi-topbar .fi-admin-document-back:focus-visible {
+    border-color: #cbd5e1;
+    background: #f8fafc;
+    color: #111827;
+    outline: none;
+}
+
+.fi-panel-admin .fi-topbar .fi-admin-document-back svg {
+    width: 1.6rem;
+    height: 1.6rem;
+}
+
+.fi-panel-admin .fi-topbar .fi-admin-document-context-copy {
+    min-width: 0;
+}
+
+.fi-panel-admin .fi-topbar .fi-admin-document-context-copy h1 {
+    overflow: hidden;
+    margin: 0;
+    color: #111827;
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1.25;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.fi-panel-admin .fi-topbar .fi-admin-document-context-copy p {
+    overflow: hidden;
+    margin: 0.15rem 0 0;
+    color: #6b7280;
+    font-size: 0.75rem;
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dark .fi-panel-admin .fi-topbar .fi-admin-document-back {
+    border-color: #374151;
+    background: #111827;
+    color: #d1d5db;
+}
+
+.dark .fi-panel-admin .fi-topbar .fi-admin-document-back:hover,
+.dark .fi-panel-admin .fi-topbar .fi-admin-document-back:focus-visible {
+    border-color: #4b5563;
+    background: #1f2937;
+    color: #ffffff;
+}
+
+.dark .fi-panel-admin .fi-topbar .fi-admin-document-context-copy h1 {
+    color: #f9fafb;
+}
+
+.dark .fi-panel-admin .fi-topbar .fi-admin-document-context-copy p {
+    color: #9ca3af;
+}
+
 /* On compact screens, place the title immediately after the sidebar toggle. */
 @media (max-width: 63.99rem) {
     .fi-panel-admin .fi-topbar > .fi-topbar-open-sidebar-btn,
@@ -422,6 +587,12 @@
         order: 2;
         margin-inline-start: 0.75rem;
         padding-inline-start: 0;
+    }
+
+    .fi-panel-admin .fi-topbar > .fi-admin-document-context {
+        order: 2;
+        max-width: calc(100vw - 9rem);
+        margin-inline-start: 0.75rem;
     }
 
     .fi-panel-admin .fi-topbar > .fi-topbar-end {
@@ -639,7 +810,7 @@
     box-sizing: border-box !important;
     height: 36px !important;
     min-height: 36px !important;
-    background: linear-gradient(135deg, #6366F1 0%, #4F46E5 100%) !important;
+    background: #6366F1 !important;
     color: #ffffff !important;
     border: none !important;
     border-radius: 8px !important;
@@ -653,6 +824,13 @@
     min-height: 36px !important;
     padding-top: 0.5rem !important;
     padding-bottom: 0.5rem !important;
+}
+
+.documents-export-button,
+.add-document-button {
+    width: 144px !important;
+    min-width: 144px !important;
+    justify-content: center !important;
 }
 
 /* Make label use same color */
@@ -669,7 +847,7 @@
 
 /* Hover */
 .add-document-button:hover {
-    background: linear-gradient(135deg, #4F46E5 0%, #4338CA 100%) !important;
+    background: #6366F1 !important;
     box-shadow: 0 2px 4px rgba(15, 23, 42, 0.15), 0 4px 8px rgba(99, 102, 241, 0.3) !important;
     transform: translateY(-1px) !important;
 }
@@ -735,7 +913,7 @@ Edit-Button
 }
 
 .outgoing-document-button:hover {
-    background-color: #4F46E5 !important;
+    background-color: #6366F1 !important;
     color: #ffffff !important;
 }
 
@@ -764,7 +942,7 @@ Edit-Button
 }
 
 .return-document-button:hover {
-    background-color: #4F46E5 !important;
+    background-color: #6366F1 !important;
     color: #ffffff !important;
 }
 
@@ -781,7 +959,7 @@ Edit-Button
 }
 
 .complete-document-button:hover {
-    background-color: #4F46E5 !important;
+    background-color: #6366F1 !important;
     color: #ffffff !important;
 }
 
@@ -813,12 +991,12 @@ Edit-Button
 
 .message-document-button:hover {
     background-color: #E0E7FF !important;
-    border-color: #4F46E5 !important;
-    color: #4F46E5 !important;
+    border-color: #6366F1 !important;
+    color: #6366F1 !important;
 }
 
 .message-document-button:hover svg {
-    color: #4F46E5 !important;
+    color: #6366F1 !important;
 } 
 
 /* ================================
@@ -1928,6 +2106,11 @@ Edit-Button
     color: #374151 !important;
 }
 
+.fi-panel-client .fi-topbar .fi-topbar-item.fi-active .fi-topbar-item-label,
+.fi-panel-client .fi-topbar .fi-topbar-item.fi-active .fi-topbar-group-toggle-icon {
+    color: #6366F1 !important;
+}
+
 .fi-body-has-topbar .fi-topbar .fi-topbar-item-btn > .fi-icon,
 .fi-body-has-topbar .fi-topbar .fi-topbar-database-notifications-btn > .fi-icon {
     color: #6b7280 !important;
@@ -2545,6 +2728,20 @@ Edit-Button
     display: flex !important;
 }
 
+/* Keep the client-only form pages comfortable on wide screens. */
+.fi-panel-client .client-request-page,
+.fi-panel-client .client-upload-page {
+    width: auto !important;
+    margin-inline: 2in;
+}
+
+@media (max-width: 63.99rem) {
+    .fi-panel-client .client-request-page,
+    .fi-panel-client .client-upload-page {
+        margin-inline: 1rem;
+    }
+}
+
 @media (min-width: 64rem) {
     .fi-panel-client .fi-topbar-open-sidebar-btn,
     .fi-panel-client .fi-topbar-close-sidebar-btn {
@@ -2558,10 +2755,15 @@ Edit-Button
 .fi-panel-client .fi-topbar .lextrack-brand-office,
 .fi-panel-client .fi-topbar .fi-topbar-item-label,
 .fi-panel-client .fi-topbar .fi-topbar-item:hover .fi-topbar-item-label,
-.fi-panel-client .fi-topbar .fi-topbar-item.fi-active .fi-topbar-item-label,
 .fi-panel-client .fi-topbar .fi-topbar-group-toggle-icon,
-.fi-panel-client .fi-topbar .fi-topbar-item:hover .fi-topbar-group-toggle-icon,
-.fi-panel-client .fi-topbar .fi-topbar-item.fi-active .fi-topbar-group-toggle-icon {
+.fi-panel-client .fi-topbar .fi-topbar-item:hover .fi-topbar-group-toggle-icon {
+    color: #ffffff !important;
+}
+
+/* Keep the selected client navigation label white. */
+.fi-panel-client.fi-body-has-topbar .fi-topbar .fi-topbar-item.fi-active > .fi-topbar-item-btn,
+.fi-panel-client.fi-body-has-topbar .fi-topbar .fi-topbar-item.fi-active > .fi-topbar-item-btn .fi-topbar-item-label,
+.fi-panel-client.fi-body-has-topbar .fi-topbar .fi-topbar-item.fi-active .fi-topbar-group-toggle-icon {
     color: #ffffff !important;
 }
 
@@ -2627,5 +2829,297 @@ Edit-Button
     .dashboard-today-footer {
         flex-wrap: wrap;
         gap: 16px;
+    }
+}
+
+/* Keep admin resource tables readable when the panel is in dark mode. */
+.dark .fi-page.fi-resource-users .fi-ta-ctn,
+.dark .fi-page.fi-resource-users .fi-ta-header-ctn,
+.dark .fi-page.fi-resource-users .fi-ta-header-toolbar,
+.dark .fi-page.fi-resource-users .fi-ta-content,
+.dark .fi-page.fi-resource-users .fi-ta-footer,
+.dark .fi-page.fi-resource-roles .fi-ta-ctn,
+.dark .fi-page.fi-resource-roles .fi-ta-header-ctn,
+.dark .fi-page.fi-resource-roles .fi-ta-header-toolbar,
+.dark .fi-page.fi-resource-roles .fi-ta-content,
+.dark .fi-page.fi-resource-roles .fi-ta-footer {
+    border-color: #374151 !important;
+    background-color: #171717 !important;
+    color: #e5e7eb !important;
+    box-shadow: none !important;
+}
+
+.dark .fi-page.fi-resource-users .users-management-toolbar,
+.dark .fi-page.fi-resource-users .users-toolbar-search,
+.dark .fi-page.fi-resource-users .users-toolbar-select,
+.dark .fi-page.fi-resource-users .users-toolbar-export {
+    border-color: #4b5563 !important;
+    background-color: #1f2937 !important;
+    color: #e5e7eb !important;
+}
+
+.dark .fi-page.fi-resource-users .users-toolbar-search input,
+.dark .fi-page.fi-resource-users .users-toolbar-search input::placeholder,
+.dark .fi-page.fi-resource-users .users-toolbar-select select,
+.dark .fi-page.fi-resource-users .users-toolbar-export .fi-btn-label,
+.dark .fi-page.fi-resource-users .users-toolbar-export svg {
+    color: #e5e7eb !important;
+}
+
+.dark .fi-page.fi-resource-users .fi-ta-table,
+.dark .fi-page.fi-resource-roles .fi-ta-table,
+.dark .fi-page.fi-resource-users .fi-ta-table thead,
+.dark .fi-page.fi-resource-users .fi-ta-table tbody,
+.dark .fi-page.fi-resource-roles .fi-ta-table thead,
+.dark .fi-page.fi-resource-roles .fi-ta-table tbody {
+    background-color: #171717 !important;
+    color: #e5e7eb !important;
+}
+
+.dark .fi-page.fi-resource-users .fi-ta-table thead tr,
+.dark .fi-page.fi-resource-users .fi-ta-table thead .fi-ta-header-cell,
+.dark .fi-page.fi-resource-users .fi-ta-table thead .fi-ta-actions-header-cell,
+.dark .fi-page.fi-resource-users .fi-ta-table thead .fi-ta-header-cell button,
+.dark .fi-page.fi-resource-roles .fi-ta-table thead tr,
+.dark .fi-page.fi-resource-roles .fi-ta-table thead .fi-ta-header-cell,
+.dark .fi-page.fi-resource-roles .fi-ta-table thead .fi-ta-actions-header-cell,
+.dark .fi-page.fi-resource-roles .fi-ta-table thead .fi-ta-header-cell button {
+    border-color: #374151 !important;
+    background-color: #262626 !important;
+    color: #f3f4f6 !important;
+}
+
+.dark .fi-page.fi-resource-users .fi-ta-table tbody tr,
+.dark .fi-page.fi-resource-roles .fi-ta-table tbody tr {
+    border-color: #374151 !important;
+    background-color: #171717 !important;
+}
+
+.dark .fi-page.fi-resource-users .fi-ta-table tbody tr:nth-child(even),
+.dark .fi-page.fi-resource-roles .fi-ta-table tbody tr:nth-child(even) {
+    background-color: #1f2937 !important;
+}
+
+.dark .fi-page.fi-resource-users .fi-ta-table tbody tr:hover,
+.dark .fi-page.fi-resource-roles .fi-ta-table tbody tr:hover {
+    background-color: #374151 !important;
+}
+
+.dark .fi-page.fi-resource-users .fi-ta-table tbody .fi-ta-cell,
+.dark .fi-page.fi-resource-users .fi-ta-table tbody .fi-ta-text,
+.dark .fi-page.fi-resource-users .fi-ta-table tbody .fi-ta-text-item,
+.dark .fi-page.fi-resource-users .fi-ta-table tbody .fi-ta-text-item a,
+.dark .fi-page.fi-resource-roles .fi-ta-table tbody .fi-ta-cell,
+.dark .fi-page.fi-resource-roles .fi-ta-table tbody .fi-ta-text,
+.dark .fi-page.fi-resource-roles .fi-ta-table tbody .fi-ta-text-item,
+.dark .fi-page.fi-resource-roles .fi-ta-table tbody .fi-ta-text-item a,
+.dark .fi-page.fi-resource-users .fi-ta-pagination,
+.dark .fi-page.fi-resource-users .fi-ta-pagination *,
+.dark .fi-page.fi-resource-roles .fi-ta-pagination,
+.dark .fi-page.fi-resource-roles .fi-ta-pagination * {
+    border-color: #374151 !important;
+    color: #e5e7eb !important;
+}
+
+.dark .fi-page.fi-resource-users .users-edit-action,
+.dark .fi-page.fi-resource-roles .fi-ta-table .fi-btn,
+.dark .fi-page.fi-resource-roles .fi-ta-table .fi-icon-btn {
+    color: #a5b4fc !important;
+}
+
+.dark .fi-page.fi-resource-users .users-delete-action {
+    color: #fca5a5 !important;
+}
+
+/* Keep the Settings resource tables readable in dark mode as well. */
+.dark .fi-page:is(.fi-resource-action-types, .fi-resource-document-types, .fi-resource-office-units) .fi-ta-ctn,
+.dark .fi-page:is(.fi-resource-action-types, .fi-resource-document-types, .fi-resource-office-units) .fi-ta-header-ctn,
+.dark .fi-page:is(.fi-resource-action-types, .fi-resource-document-types, .fi-resource-office-units) .fi-ta-header-toolbar,
+.dark .fi-page:is(.fi-resource-action-types, .fi-resource-document-types, .fi-resource-office-units) .fi-ta-content,
+.dark .fi-page:is(.fi-resource-action-types, .fi-resource-document-types, .fi-resource-office-units) .fi-ta-footer {
+    border-color: #374151 !important;
+    background-color: #171717 !important;
+    color: #e5e7eb !important;
+    box-shadow: none !important;
+}
+
+.dark .fi-page:is(.fi-resource-action-types, .fi-resource-document-types, .fi-resource-office-units) .fi-ta-header-toolbar input,
+.dark .fi-page:is(.fi-resource-action-types, .fi-resource-document-types, .fi-resource-office-units) .fi-ta-header-toolbar input::placeholder,
+.dark .fi-page:is(.fi-resource-action-types, .fi-resource-document-types, .fi-resource-office-units) .fi-ta-header-toolbar .fi-btn,
+.dark .fi-page:is(.fi-resource-action-types, .fi-resource-document-types, .fi-resource-office-units) .fi-ta-header-toolbar .fi-btn-label,
+.dark .fi-page:is(.fi-resource-action-types, .fi-resource-document-types, .fi-resource-office-units) .fi-ta-header-toolbar svg {
+    border-color: #4b5563 !important;
+    color: #e5e7eb !important;
+}
+
+.dark .fi-page:is(.fi-resource-action-types, .fi-resource-document-types, .fi-resource-office-units) .fi-ta-table,
+.dark .fi-page:is(.fi-resource-action-types, .fi-resource-document-types, .fi-resource-office-units) .fi-ta-table thead,
+.dark .fi-page:is(.fi-resource-action-types, .fi-resource-document-types, .fi-resource-office-units) .fi-ta-table tbody {
+    background-color: #171717 !important;
+    color: #e5e7eb !important;
+}
+
+.dark .fi-page:is(.fi-resource-action-types, .fi-resource-document-types, .fi-resource-office-units) .fi-ta-table thead tr,
+.dark .fi-page:is(.fi-resource-action-types, .fi-resource-document-types, .fi-resource-office-units) .fi-ta-table thead .fi-ta-header-cell,
+.dark .fi-page:is(.fi-resource-action-types, .fi-resource-document-types, .fi-resource-office-units) .fi-ta-table thead .fi-ta-actions-header-cell,
+.dark .fi-page:is(.fi-resource-action-types, .fi-resource-document-types, .fi-resource-office-units) .fi-ta-table thead .fi-ta-header-cell button {
+    border-color: #374151 !important;
+    background-color: #262626 !important;
+    color: #f3f4f6 !important;
+}
+
+.dark .fi-page:is(.fi-resource-action-types, .fi-resource-document-types, .fi-resource-office-units) .fi-ta-table tbody tr {
+    border-color: #374151 !important;
+    background-color: #171717 !important;
+}
+
+.dark .fi-page:is(.fi-resource-action-types, .fi-resource-document-types, .fi-resource-office-units) .fi-ta-table tbody tr:nth-child(even) {
+    background-color: #1f2937 !important;
+}
+
+.dark .fi-page:is(.fi-resource-action-types, .fi-resource-document-types, .fi-resource-office-units) .fi-ta-table tbody tr:hover {
+    background-color: #374151 !important;
+}
+
+.dark .fi-page:is(.fi-resource-action-types, .fi-resource-document-types, .fi-resource-office-units) .fi-ta-table tbody .fi-ta-cell,
+.dark .fi-page:is(.fi-resource-action-types, .fi-resource-document-types, .fi-resource-office-units) .fi-ta-table tbody .fi-ta-text,
+.dark .fi-page:is(.fi-resource-action-types, .fi-resource-document-types, .fi-resource-office-units) .fi-ta-table tbody .fi-ta-text-item,
+.dark .fi-page:is(.fi-resource-action-types, .fi-resource-document-types, .fi-resource-office-units) .fi-ta-table tbody .fi-ta-text-item a,
+.dark .fi-page:is(.fi-resource-action-types, .fi-resource-document-types, .fi-resource-office-units) .fi-ta-pagination,
+.dark .fi-page:is(.fi-resource-action-types, .fi-resource-document-types, .fi-resource-office-units) .fi-ta-pagination * {
+    border-color: #374151 !important;
+    color: #e5e7eb !important;
+}
+
+.dark .fi-page:is(.fi-resource-action-types, .fi-resource-document-types, .fi-resource-office-units) .fi-ta-table .fi-btn,
+.dark .fi-page:is(.fi-resource-action-types, .fi-resource-document-types, .fi-resource-office-units) .fi-ta-table .fi-icon-btn {
+    color: #a5b4fc !important;
+}
+
+/* Filament Shield uses the `shield/roles` resource slug. */
+.dark .fi-page.fi-resource-shield-roles .fi-ta-ctn,
+.dark .fi-page.fi-resource-shield-roles .fi-ta-header-ctn,
+.dark .fi-page.fi-resource-shield-roles .fi-ta-header-toolbar,
+.dark .fi-page.fi-resource-shield-roles .fi-ta-content,
+.dark .fi-page.fi-resource-shield-roles .fi-ta-footer,
+.dark .fi-page.fi-resource-shield-roles .fi-ta-table,
+.dark .fi-page.fi-resource-shield-roles .fi-ta-table thead,
+.dark .fi-page.fi-resource-shield-roles .fi-ta-table tbody {
+    border-color: #374151 !important;
+    background-color: #171717 !important;
+    color: #e5e7eb !important;
+    box-shadow: none !important;
+}
+
+.dark .fi-page.fi-resource-shield-roles .fi-ta-table thead tr,
+.dark .fi-page.fi-resource-shield-roles .fi-ta-table thead .fi-ta-header-cell,
+.dark .fi-page.fi-resource-shield-roles .fi-ta-table thead .fi-ta-actions-header-cell,
+.dark .fi-page.fi-resource-shield-roles .fi-ta-table thead .fi-ta-header-cell button {
+    border-color: #374151 !important;
+    background-color: #262626 !important;
+    color: #f3f4f6 !important;
+}
+
+.dark .fi-page.fi-resource-shield-roles .fi-ta-table tbody tr {
+    border-color: #374151 !important;
+    background-color: #171717 !important;
+}
+
+.dark .fi-page.fi-resource-shield-roles .fi-ta-table tbody tr:nth-child(even) {
+    background-color: #1f2937 !important;
+}
+
+.dark .fi-page.fi-resource-shield-roles .fi-ta-table tbody tr:hover {
+    background-color: #374151 !important;
+}
+
+.dark .fi-page.fi-resource-shield-roles .fi-ta-table tbody .fi-ta-cell,
+.dark .fi-page.fi-resource-shield-roles .fi-ta-table tbody .fi-ta-text,
+.dark .fi-page.fi-resource-shield-roles .fi-ta-table tbody .fi-ta-text-item,
+.dark .fi-page.fi-resource-shield-roles .fi-ta-table tbody .fi-ta-text-item a,
+.dark .fi-page.fi-resource-shield-roles .fi-ta-pagination,
+.dark .fi-page.fi-resource-shield-roles .fi-ta-pagination * {
+    border-color: #374151 !important;
+    color: #e5e7eb !important;
+}
+
+.dark .fi-page.fi-resource-shield-roles .fi-ta-table .fi-btn,
+.dark .fi-page.fi-resource-shield-roles .fi-ta-table .fi-icon-btn {
+    color: #a5b4fc !important;
+}
+
+/* Match the Roles toolbar to the rounded search treatment used on Documents. */
+.fi-page.fi-resource-shield-roles .fi-header-actions-ctn {
+    margin-inline-start: auto !important;
+}
+
+.fi-page.fi-resource-shield-roles .fi-ta-header-toolbar {
+    align-items: center !important;
+    padding-inline-start: 0.75rem !important;
+}
+
+.fi-page.fi-resource-shield-roles .fi-ta-header-toolbar > :first-child {
+    order: 2;
+    margin-inline-start: auto !important;
+}
+
+.fi-page.fi-resource-shield-roles .fi-ta-header-toolbar > :last-child {
+    order: 1;
+    margin-inline-start: 0 !important;
+}
+
+.fi-page.fi-resource-shield-roles .fi-ta-search-field {
+    width: min(30rem, 100%) !important;
+}
+
+.fi-page.fi-resource-shield-roles .fi-ta-search-field .fi-input-wrp {
+    height: 2.25rem;
+    width: 100%;
+    border: 1px solid #d1d5db !important;
+    border-radius: 9999px !important;
+    background-color: #ffffff !important;
+    box-shadow: none !important;
+}
+
+.fi-page.fi-resource-shield-roles .fi-ta-search-field .fi-input-wrp-prefix {
+    order: 2;
+    padding-inline: 0.75rem !important;
+    border: 0 !important;
+}
+
+.fi-page.fi-resource-shield-roles .fi-ta-search-field .fi-input-wrp-content-ctn {
+    order: 1;
+}
+
+.fi-page.fi-resource-shield-roles .fi-ta-search-field input {
+    padding-inline-start: 0.75rem !important;
+    padding-inline-end: 0 !important;
+    font-size: 0.75rem !important;
+    color: #111827 !important;
+}
+
+.fi-page.fi-resource-shield-roles .fi-ta-search-field input::placeholder {
+    color: #6b7280 !important;
+    opacity: 1;
+}
+
+.dark .fi-page.fi-resource-shield-roles .fi-ta-search-field .fi-input-wrp {
+    border-color: #4b5563 !important;
+    background-color: #1f2937 !important;
+}
+
+.dark .fi-page.fi-resource-shield-roles .fi-ta-search-field input {
+    color: #f3f4f6 !important;
+}
+
+.dark .fi-page.fi-resource-shield-roles .fi-ta-search-field input::placeholder,
+.dark .fi-page.fi-resource-shield-roles .fi-ta-search-field .fi-input-wrp-prefix .fi-icon {
+    color: #9ca3af !important;
+}
+
+@media (max-width: 640px) {
+    .fi-page.fi-resource-shield-roles .fi-ta-header-toolbar > :last-child,
+    .fi-page.fi-resource-shield-roles .fi-ta-search-field {
+        width: 100% !important;
     }
 }

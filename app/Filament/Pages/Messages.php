@@ -6,6 +6,7 @@ use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\MessageAttachment;
 use App\Models\MessageReaction;
+use App\Support\RoleSecurity;
 use Filament\Pages\Page;
 use Filament\Notifications\Notification;
 use Filament\Support\Enums\Width;
@@ -55,7 +56,11 @@ class Messages extends Page
 
     public static function canAccess(): bool
     {
-        return auth()->user()?->can('view_shared_messages') ?? false;
+        $user = auth()->user();
+
+        return $user !== null
+            && ! $user->hasRole(RoleSecurity::SUPER_ADMIN)
+            && $user->can('view_shared_messages');
     }
 
     /**

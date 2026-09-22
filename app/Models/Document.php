@@ -154,6 +154,15 @@ class Document extends Model
         );
     }
 
+    public function transmittalAttachments(): HasMany
+    {
+        return $this->hasMany(
+            DocumentTransmittal::class,
+            'document_id',
+            'document_id'
+        )->orderBy('transmittal_id');
+    }
+
     public function latestVersion(): HasOne
     {
         return $this->hasOne(
@@ -243,6 +252,7 @@ class Document extends Model
         return match ($this->status) {
             'pending' => 'bg-yellow-100 text-yellow-700',
             'in_progress' => 'bg-blue-100 text-blue-700',
+            'outgoing' => 'border border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-800 dark:bg-violet-950 dark:text-violet-300',
             'completed' => 'bg-green-100 text-green-700',
             'rejected' => 'bg-red-100 text-red-700',
             default => 'bg-gray-100 text-gray-700',

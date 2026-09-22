@@ -25,11 +25,13 @@ class DocumentPreviewTest extends TestCase
         $this->assertSame($hash, hash_file('sha256', $source));
     }
 
-    private function signIn(bool $admin): void
+    private function signIn(bool $admin, bool $superAdmin = false): void
     {
         $user = Mockery::mock(User::class)->makePartial();
         $user->forceFill(['user_id' => 1]);
         $user->shouldReceive('isAdmin')->andReturn($admin);
+        $user->shouldReceive('hasRole')->with('Admin')->andReturn($admin);
+        $user->shouldReceive('hasRole')->with('Super Admin')->andReturn($superAdmin);
         $this->actingAs($user);
     }
 
@@ -58,6 +60,15 @@ class DocumentPreviewTest extends TestCase
         $this->get($url)->assertRedirect('/login');
         $this->signIn(false);
         $this->get($url)->assertForbidden();
+    }
+
+    public function test_super_admin_cannot_open_legal_staff_original_file_preview(): void
+    {
+        $this->signIn(true, true);
+
+        $this->get(route('admin.document.temp-preview', [
+            'file' => str_repeat('a', 32) . '.pdf',
+        ]))->assertForbidden();
     }
 
     public function test_missing_preview_returns_not_found_and_invalid_filename_is_not_served(): void

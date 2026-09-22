@@ -3,7 +3,10 @@
 namespace App\Filament\Client\Pages;
 
 use App\Models\Document;
+use App\Models\DocumentRequest;
+use App\Services\DocumentStatusTimeline;
 use Filament\Pages\Page;
+use Filament\Support\Enums\Width;
 
 class ViewDocument extends Page
 {
@@ -17,6 +20,13 @@ class ViewDocument extends Page
 
     public ?string $requestStatus = null;
 
+    public ?DocumentRequest $requestRecord = null;
+
+    /**
+     * @var array<int, array{status: string, title: string, description: string, time: string, date: string}>
+     */
+    public array $statusTimeline = [];
+
     public ?string $previewUrl = null;
 
     public ?string $downloadUrl = null;
@@ -24,6 +34,11 @@ class ViewDocument extends Page
     public string $returnTab = 'all';
 
     public string $returnPage = 'documents';
+
+    public function getMaxContentWidth(): Width
+    {
+        return Width::Full;
+    }
 
     public function mount($document): void
     {
@@ -65,6 +80,9 @@ class ViewDocument extends Page
             })
             ->with([
                 'latestVersion',
+                'activityLogs' => fn ($query) => $query
+                    ->oldest('created_at')
+                    ->oldest('log_id'),
                 'rejections' => fn ($query) => $query
                     ->latest('created_at')
                     ->latest('rejected_id'),
@@ -77,6 +95,17 @@ class ViewDocument extends Page
             ->latest('created_at')
             ->latest('request_id')
             ->value('status');
+
+        $this->requestRecord = $this->documentRecord
+            ->documentRequests()
+            ->with('user')
+            ->where('user_id', auth()->id())
+            ->latest('date_of_request')
+            ->latest('request_id')
+            ->first();
+
+        $this->statusTimeline = app(DocumentStatusTimeline::class)
+            ->build($this->documentRecord);
 
         if (! $hasValidReturnTab && $this->requestStatus !== null) {
             $this->returnTab = 'requested';

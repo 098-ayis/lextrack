@@ -178,9 +178,6 @@ class DocumentRequests extends Page implements HasTable
             ->recordActions($this->getDocumentRequestTableActions())
             ->recordActionsColumnLabel('ACTION')
             ->recordActionsAlignment('end')
-            ->recordUrl(fn (DocumentRequest $record): string => ViewDocument::getUrl([
-                'document' => $record->document->public_id,
-            ]))
             ->groups([
                 Group::make('date_of_request')
                     ->date()
@@ -197,9 +194,10 @@ class DocumentRequests extends Page implements HasTable
             ->groupingSettingsHidden()
             ->recordActionsAlignment('center')
             ->recordUrl(
-                fn (DocumentRequest $record): ?string => $record->document_id
+                fn (DocumentRequest $record): ?string => $record->copy_type !== 'original' && $record->document_id
                     ? ViewDocument::getUrl([
                         'document' => $record->document_id,
+                        'return_to' => static::getUrl(['section' => $this->activeSection]),
                     ])
                     : null
             )
@@ -354,7 +352,6 @@ class DocumentRequests extends Page implements HasTable
     {
         return Action::make('acceptRequest')
             ->label('Accept')
-            ->icon('heroicon-o-check-circle')
             ->color('success')
             ->button()
             ->modalHeading(
@@ -385,6 +382,9 @@ class DocumentRequests extends Page implements HasTable
                     ? [
                         FileUpload::make('file_path')
                             ->label('Requested document')
+                            ->multiple()
+                            ->appendFiles()
+                            ->panelLayout('compact')
                             ->disk('local')
                             ->directory('documents/requested')
                             ->preserveFilenames()
@@ -413,7 +413,7 @@ class DocumentRequests extends Page implements HasTable
                     ]
             )
             ->extraAttributes([
-                'class' => 'inline-flex h-9 w-32 items-center justify-center gap-1.5 rounded-md bg-green-600 px-3 text-xs font-semibold !text-white transition hover:bg-green-700 [&_svg]:!text-white',
+                'class' => 'inline-flex h-9 w-24 items-center justify-center rounded-md border !border-green-200 !bg-green-100 px-3 text-xs font-semibold !text-green-800 transition hover:!bg-green-200 dark:!border-green-800 dark:!bg-green-900/30 dark:!text-green-300 dark:hover:!bg-green-900/50',
             ])
             ->action(function (array $data, ?DocumentRequest $record = null): void {
                 if ($record) {
@@ -421,7 +421,7 @@ class DocumentRequests extends Page implements HasTable
                     $pickupAt = null;
 
                     if ($record->copy_type === 'soft_copy') {
-                        $filePath = $data['file_path'] ?? null;
+                        $filePath = $data['file_path'] ?? [];
                     } else {
                         $pickupAt = \Carbon\Carbon::createFromFormat(
                             'Y-m-d H:i',
@@ -448,7 +448,6 @@ class DocumentRequests extends Page implements HasTable
     {
         return Action::make('rejectRequest')
             ->label('Reject')
-            ->icon('heroicon-o-x-circle')
             ->color('danger')
             ->button()
             ->modalHeading('Reject Document Request')
@@ -468,7 +467,7 @@ class DocumentRequests extends Page implements HasTable
                     ->maxLength(1000),
             ])
             ->extraAttributes([
-                'class' => 'inline-flex h-9 w-32 items-center justify-center gap-1.5 rounded-md bg-red-600 px-3 text-xs font-semibold !text-white transition hover:bg-red-700 [&_svg]:!text-white',
+                'class' => 'inline-flex h-9 w-24 items-center justify-center rounded-md border !border-red-200 !bg-red-100 px-3 text-xs font-semibold !text-red-800 transition hover:!bg-red-200 dark:!border-red-800 dark:!bg-red-900/30 dark:!text-red-300 dark:hover:!bg-red-900/50',
             ])
             ->action(function (array $data, ?DocumentRequest $record = null): void {
                 if ($record) {
@@ -495,11 +494,38 @@ class DocumentRequests extends Page implements HasTable
 
     public function fulfillRequest(
         int $requestId,
-        ?string $filePath = null,
+        string|array|null $filePath = null,
         ?string $pickupAt = null
     ): void
     {
-        $result = DB::transaction(function () use ($requestId, $filePath, $pickupAt): ?array {
+        $filePaths = array_values(array_filter(
+            is_array($filePath) ? $filePath : [$filePath],
+            static fn (mixed $path): bool => is_string($path) && filled($path),
+        ));
+        $fileHashes = array_map(
+            static fn (string $path): ?string => DocumentVersion::hashForUpload($path),
+            $filePaths,
+        );
+
+        if ($filePaths !== [] && (
+            in_array(null, $fileHashes, true)
+            || count($fileHashes) !== count(array_unique($fileHashes))
+        )) {
+            foreach ($filePaths as $path) {
+                DocumentVersion::removeUnreferencedUpload($path);
+            }
+
+            Notification::make()
+                ->title('Upload could not be verified')
+                ->body('One or more selected files could not be read or are duplicates. Please remove the invalid files and try again.')
+                ->danger()
+                ->send();
+
+            return;
+        }
+
+        $duplicateUpload = false;
+        $result = DB::transaction(function () use ($requestId, $filePaths, $fileHashes, $pickupAt, &$duplicateUpload): ?array {
             $request = DocumentRequest::query()
                 ->with(['document', 'user'])
                 ->lockForUpdate()
@@ -509,11 +535,20 @@ class DocumentRequests extends Page implements HasTable
                 return null;
             }
 
-            if ($request->copy_type === 'soft_copy' && blank($filePath)) {
+            if ($request->copy_type === 'soft_copy' && $filePaths === []) {
                 return null;
             }
 
             if ($request->copy_type !== 'soft_copy' && blank($pickupAt)) {
+                return null;
+            }
+
+            if ($request->copy_type === 'soft_copy' && DocumentVersion::query()
+                ->whereIn('file_hash', $fileHashes)
+                ->where('user_id', auth()->id())
+                ->exists()) {
+                $duplicateUpload = true;
+
                 return null;
             }
 
@@ -533,22 +568,39 @@ class DocumentRequests extends Page implements HasTable
                 ]);
             }
 
+            if ($request->copy_type === 'soft_copy' && DocumentVersion::query()
+                ->whereIn('file_hash', $fileHashes)
+                ->where('document_id', $document->document_id)
+                ->exists()) {
+                $duplicateUpload = true;
+
+                return null;
+            }
+
             $document->status = 'in_progress';
             $document->deadline = Document::deadlineForType($document->document_type);
 
-            if ($filePath) {
-                $document->document_name = basename($filePath);
+            if ($filePaths !== []) {
+                $document->document_name = basename($filePaths[0]);
             }
 
             $document->save();
 
-            if ($filePath && ! $document->versions()->where('file_path', $filePath)->exists()) {
-                DocumentVersion::create([
-                    'document_id' => $document->document_id,
-                    'user_id' => auth()->id(),
-                    'version_number' => '1',
-                    'file_path' => $filePath,
-                ]);
+            if ($request->copy_type === 'soft_copy') {
+                $highestVersion = $document->versions()
+                    ->get()
+                    ->map(fn (DocumentVersion $version): int => (int) $version->version_number)
+                    ->max() ?? 0;
+
+                foreach ($filePaths as $index => $path) {
+                    DocumentVersion::create([
+                        'document_id' => $document->document_id,
+                        'user_id' => auth()->id(),
+                        'version_number' => (string) ($highestVersion + $index + 1),
+                        'file_path' => $path,
+                        'file_hash' => $fileHashes[$index],
+                    ]);
+                }
             }
 
             $request->update([
@@ -594,6 +646,20 @@ class DocumentRequests extends Page implements HasTable
         });
 
         if (! $result) {
+            foreach ($filePaths as $path) {
+                DocumentVersion::removeUnreferencedUpload($path);
+            }
+
+            if ($duplicateUpload) {
+                Notification::make()
+                    ->title('Duplicate document detected')
+                    ->body('One or more selected files have already been uploaded. Please choose different files.')
+                    ->danger()
+                    ->send();
+
+                return;
+            }
+
             Notification::make()
                 ->title('Unable to fulfill request')
                 ->danger()

@@ -4,6 +4,7 @@ namespace App\Providers\Filament;
 
 use App\Filament\Pages\Dashboard;
 use App\Filament\Widgets\DocumentStats;
+use App\Http\Middleware\EnsureLegalStaff;
 use App\Http\Middleware\FilamentAuthenticate;
 use App\Http\Middleware\IdleTimeout;
 use App\Livewire\DatabaseNotifications;
@@ -29,7 +30,7 @@ class AdminPanelProvider extends PanelProvider
 {
     public function boot(): void
     {
-        Route::middleware(['web', 'auth', 'admin'])
+        Route::middleware(['web', 'auth', 'admin',  EnsureLegalStaff::class])
             ->get('/admin/documents/{document}/file/{filename}', function (
                 Document $document,
                 string $filename,
@@ -97,6 +98,11 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->spa()
+            ->spaUrlExceptions([
+                '*/admin/documents/*/download',
+                '*/admin/documents/*/versions/*/download',
+                '*/admin/documents/*/transmittal-download',
+            ])
             ->maxContentWidth(\Filament\Support\Enums\Width::Full)
             ->sidebarWidth('15rem')
             ->sidebarCollapsibleOnDesktop()
@@ -116,7 +122,26 @@ class AdminPanelProvider extends PanelProvider
             )
             ->renderHook(
                 PanelsRenderHook::TOPBAR_START,
-                fn () => view('filament.admin.page-title'),
+                function () {
+                    $route = request()->route();
+                    $documentIdentifier = $route?->parameter('document');
+
+                    if (request()->routeIs('filament.admin.pages.documents.*')) {
+                        $document = $documentIdentifier instanceof Document
+                            ? $documentIdentifier
+                            : ((is_string($documentIdentifier) || is_int($documentIdentifier))
+                                ? Document::findForRoute($documentIdentifier)
+                                : null);
+
+                        if ($document) {
+                            return view('filament.admin.document-page-title', [
+                                'document' => $document,
+                            ]);
+                        }
+                    }
+
+                    return view('filament.admin.page-title');
+                },
             )
             ->globalSearch(false)
             ->databaseNotifications(true, DatabaseNotifications::class)

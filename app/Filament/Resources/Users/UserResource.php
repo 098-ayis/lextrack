@@ -8,6 +8,8 @@ use App\Filament\Resources\Users\Pages\ListUsers;
 use App\Filament\Resources\Users\Schemas\UserForm;
 use App\Filament\Resources\Users\Tables\UsersTable;
 use App\Models\User;
+use App\Support\RoleSecurity;
+use Illuminate\Database\Eloquent\Model;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
@@ -52,11 +54,26 @@ class UserResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return auth()->user()?->hasRole('Super Admin') ?? false;
+        return auth()->user()?->hasRole(RoleSecurity::SUPER_ADMIN) ?? false;
     }
 
     public static function canAccess(): bool
     {
-        return auth()->user()?->hasRole('Super Admin') ?? false;
+        return auth()->user()?->hasRole(RoleSecurity::SUPER_ADMIN) ?? false;
+    }
+
+    public static function canEdit(Model $record): bool
+    {
+        $actor = auth()->user();
+
+        return $actor instanceof User
+            && $actor->hasRole(RoleSecurity::SUPER_ADMIN)
+            && $record instanceof User
+            && ! $actor->is($record);
+    }
+
+    public static function canDelete(Model $record): bool
+    {
+        return static::canEdit($record);
     }
 }

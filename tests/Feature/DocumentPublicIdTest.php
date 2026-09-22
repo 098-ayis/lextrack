@@ -47,6 +47,7 @@ class DocumentPublicIdTest extends TestCase
             $table->unsignedBigInteger('document_id');
             $table->unsignedBigInteger('user_id')->nullable();
             $table->string('file_path');
+            $table->string('file_hash', 64)->nullable();
             $table->string('version_number')->nullable();
             $table->timestamps();
         });

@@ -159,6 +159,7 @@ class Calendar extends Page
         $this->redirect(
             ViewDocument::getUrl([
                 'document' => $document->public_id,
+                'return_to' => static::getUrl(),
             ])
         );
     }

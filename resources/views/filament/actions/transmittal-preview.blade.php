@@ -11,7 +11,7 @@
             <button
                 type="button"
                 x-on:click.stop.prevent="transmittalPreviewOpen = true"
-                class="inline-flex h-7 items-center justify-center rounded-md px-2 text-xs font-medium text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white"
+                class="inline-flex h-7 items-center justify-center rounded-md px-2 text-xs font-semibold text-indigo-600 transition hover:bg-indigo-50 hover:text-indigo-700 dark:text-indigo-400 dark:hover:bg-indigo-950/40 dark:hover:text-indigo-300"
                 aria-label="Preview transmittal/endorsement"
                 title="Preview transmittal/endorsement"
             >

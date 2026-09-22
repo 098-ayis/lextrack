@@ -319,13 +319,41 @@
 
 
                             <a
-                                href="{{ url('/admin/documents/' . $document->public_id) }}"
+                                href="{{ \App\Filament\Pages\ViewDocument::getUrl(['document' => $document->public_id, 'return_to' => \App\Filament\Pages\Dashboard::getUrl()]) }}"
                                 class="group relative flex aspect-square min-w-0 flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition duration-200 hover:-translate-y-1 hover:border-[#6366F1] hover:shadow-lg dark:border-gray-700 dark:bg-[#17181c] dark:hover:border-indigo-400"
                             >
 
+
                                 {{-- DOCUMENT PREVIEW --}}
+
                                 <div class="dashboard-document-preview relative aspect-video shrink-0 overflow-hidden border-b border-gray-200 bg-gray-100 dark:border-gray-700 dark:bg-gray-900">
-                                    @if ($thumbnailUrl)
+
+                                    @if (auth()->user()->hasRole('Super Admin'))
+
+                                        {{-- Super Admin: Preview restricted --}}
+                                        <div class="flex h-full w-full flex-col items-center justify-center gap-2 p-4 text-center">
+
+                                            <x-heroicon-o-lock-closed
+                                                class="h-8 w-8 text-gray-400"
+                                            />
+
+                                            <p class="text-sm font-semibold text-gray-600 dark:text-gray-300">
+                                                Preview Restricted
+                                            </p>
+
+                                        </div>
+
+                                    @elseif (
+                                        $document->latestVersion?->file_path &&
+                                        in_array(
+                                            strtolower(pathinfo($document->latestVersion->file_path, PATHINFO_EXTENSION)),
+                                            ['pdf', 'doc', 'docx'],
+                                            true
+                                        ) &&
+                                        !empty($thumbnailUrl)
+                                    )
+
+                                        {{-- Thumbnail preview --}}
                                         <img
                                             src="{{ $thumbnailUrl }}"
                                             alt="{{ $document->particulars ?: 'Document preview' }}"
@@ -333,15 +361,30 @@
                                             loading="lazy"
                                             draggable="false"
                                         >
-                                    @elseif ($documentPreviewUrl)
+
+                                    @elseif (
+                                        $document->latestVersion?->file_path &&
+                                        in_array(
+                                            strtolower(pathinfo($document->latestVersion->file_path, PATHINFO_EXTENSION)),
+                                            ['pdf', 'doc', 'docx'],
+                                            true
+                                        ) &&
+                                        !empty($documentPreviewUrl)
+                                    )
+
+                                        {{-- Iframe preview --}}
                                         <iframe
                                             src="{{ $documentPreviewUrl }}"
                                             title="{{ $document->particulars ?: 'Document preview' }}"
                                             class="pointer-events-none h-full w-full border-0"
                                             loading="lazy"
                                         ></iframe>
+
                                     @else
+
+                                        {{-- Fallback document icon --}}
                                         <div class="flex h-full items-center justify-center text-gray-400 dark:text-gray-500">
+
                                             <svg
                                                 class="h-16 w-16"
                                                 fill="none"
@@ -352,11 +395,14 @@
                                                 <path
                                                     stroke-linecap="round"
                                                     stroke-linejoin="round"
-                                                    d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V9.75M10.5 2.25V7.125c0 .621.504 1.125 1.125 1.125h4.875"
+                                                    d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-1.125 1.125-1.125V9.75M10.5 2.25V7.125c0 .621.504 1.125 1.125 1.125h4.875"
                                                 />
                                             </svg>
+
                                         </div>
+
                                     @endif
+
                                 </div>
 
 
