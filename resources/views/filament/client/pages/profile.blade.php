@@ -31,26 +31,31 @@
             </div>
         </div>
 
-        <div class="space-y-7 p-6">
+        <form wire:submit="save" class="space-y-7 p-6">
             <div>
-                <label for="admin-profile-name" class="profile-field-label">
-                    Full Name
+                <label for="office" class="profile-field-label">
+                    Office / Unit <span class="text-red-500">*</span>
                 </label>
                 <input
-                    id="admin-profile-name"
+                    id="office"
                     type="text"
-                    value="{{ $name }}"
-                    readonly
-                    class="profile-field-input profile-field-input-readonly"
+                    wire:model="office"
+                    maxlength="255"
+                    required
+                    placeholder="Enter your office or unit"
+                    class="profile-field-input"
                 >
+                @error('office')
+                    <p class="profile-error">{{ $message }}</p>
+                @enderror
             </div>
 
             <div>
-                <label for="admin-profile-email" class="profile-field-label">
+                <label for="email" class="profile-field-label">
                     Email Address
                 </label>
                 <input
-                    id="admin-profile-email"
+                    id="email"
                     type="email"
                     value="{{ $email }}"
                     readonly
@@ -58,22 +63,18 @@
                 >
             </div>
 
-            <div>
-                <label for="admin-profile-role" class="profile-field-label">
-                    Role
-                </label>
-                <input
-                    id="admin-profile-role"
-                    type="text"
-                    value="{{ auth()->user()->getRoleNames()->join(', ') ?: 'User' }}"
-                    readonly
-                    class="profile-field-input profile-field-input-readonly"
+            <div class="flex justify-end">
+                <button
+                    type="submit"
+                    wire:loading.attr="disabled"
+                    wire:target="save"
+                    class="profile-primary-button"
                 >
-                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                    Your account role cannot be changed here.
-                </p>
+                    <span wire:loading.remove wire:target="save">Save Information</span>
+                    <span wire:loading wire:target="save">Saving...</span>
+                </button>
             </div>
-        </div>
+        </form>
     </div>
 
     @include('filament.partials.profile-styles')

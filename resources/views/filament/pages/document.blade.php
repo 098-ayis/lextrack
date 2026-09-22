@@ -399,16 +399,10 @@
                                         @endif
 
                                         {{-- User Information --}}
-                                        <div class="flex flex-col min-w-0">
-
+                                        <div class="flex min-w-0 flex-col">
                                             <span class="text-xs font-semibold text-gray-900">
                                                 {{ $document->user->name }}
                                             </span>
-
-                                            <span class="text-xs text-gray-500 truncate">
-                                                {{ $document->user->email }}
-                                            </span>
-
                                         </div>
 
                                     </div>

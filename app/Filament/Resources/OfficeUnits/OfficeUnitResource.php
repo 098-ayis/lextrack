@@ -33,6 +33,7 @@ class OfficeUnitResource extends Resource
                 ->label('Office / Unit')
                 ->required()
                 ->maxLength(255)
+                ->columnSpanFull()
                 ->unique(ignoreRecord: true)
                 ->validationMessages([
                     'unique' => 'This office/unit already exists. Please enter a new unique office/unit name.',
@@ -63,6 +64,8 @@ class OfficeUnitResource extends Resource
             ])
             ->toolbarActions([
                 \Filament\Actions\CreateAction::make()
+                    ->modal()
+                    ->modalWidth('lg')
                     ->createAnother(false)
                     ->successNotificationTitle('Office/unit created successfully')
                     ->successRedirectUrl(fn (): string => OfficeUnitResource::getUrl('index')),
