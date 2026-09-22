@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class DocumentRequest extends Model
 {
@@ -12,6 +13,10 @@ class DocumentRequest extends Model
     protected $fillable = [
         'document_id',
         'purpose',
+        'purpose_details',
+        'copy_type',
+        'pickup_at',
+        'rejection_reason',
         'attachment_path',
         'user_id',
         'status',
@@ -24,6 +29,7 @@ class DocumentRequest extends Model
         return [
             'date_of_request' => 'date',
             'date_processed' => 'date',
+            'pickup_at' => 'datetime',
         ];
     }
 
@@ -35,5 +41,10 @@ class DocumentRequest extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');
+    }
+
+    public function conversation(): HasOne
+    {
+        return $this->hasOne(Conversation::class, 'document_request_id', 'request_id');
     }
 }

@@ -7,7 +7,7 @@ import vue from '@vitejs/plugin-vue';
 export default defineConfig({
     plugins: [
         laravel({
-            input: ['resources/js/public.js', 'resources/js/docx-preview.js', 'resources/css/filament/admin/theme.css'],
+            input: ['resources/js/public.js', 'resources/js/client-chatbot.js', 'resources/js/docx-preview.js', 'resources/css/filament/admin/theme.css'],
             refresh: true,
             fonts: [
                 bunny('Instrument Sans', {

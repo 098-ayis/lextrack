@@ -28,34 +28,24 @@
 
 <button
     type="button"
-    class="sidebar-collapse-floating"
+    class="sidebar-expand-below-logo"
     aria-controls="fi-main-sidebar"
     x-data="{}"
     x-cloak
+    x-show="! $store.sidebar.isOpen"
     x-bind:aria-expanded="$store.sidebar.isOpen"
-    x-bind:aria-label="$store.sidebar.isOpen ? 'Collapse sidebar' : 'Expand sidebar'"
-    x-on:click="$store.sidebar.isOpen ? $store.sidebar.close() : $store.sidebar.open()"
+    aria-label="Expand sidebar"
+    x-on:click="$store.sidebar.open()"
 >
     <svg
-        x-show="$store.sidebar.isOpen"
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"
-        stroke-width="2"
+        stroke-width="1.8"
         aria-hidden="true"
     >
-        <path stroke-linecap="round" stroke-linejoin="round" d="m15 19-7-7 7-7" />
-    </svg>
-
-    <svg
-        x-show="! $store.sidebar.isOpen"
-        x-cloak
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        aria-hidden="true"
-    >
-        <path stroke-linecap="round" stroke-linejoin="round" d="m9 5 7 7-7 7" />
+        <rect x="3.5" y="4.5" width="17" height="15" rx="2" />
+        <path stroke-linecap="round" d="M9 4.5v15" />
+        <path stroke-linecap="round" stroke-linejoin="round" d="m13 9 3 3-3 3" />
     </svg>
 </button>

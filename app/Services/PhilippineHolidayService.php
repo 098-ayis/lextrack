@@ -17,13 +17,24 @@ class PhilippineHolidayService
             $holidays = $this->feedHolidays();
         }
 
+        $simeonOlaDay = sprintf('%04d-09-02', $year);
+        $existingHoliday = $holidays[$simeonOlaDay] ?? null;
+        if ($existingHoliday === null) {
+            $holidays[$simeonOlaDay] = 'Simeon Ola Day';
+        } elseif (! str_contains($existingHoliday, 'Simeon Ola Day')) {
+            $holidays[$simeonOlaDay] = $existingHoliday.' / Simeon Ola Day';
+        }
+
         $prefix = sprintf('%04d-%02d-', $year, $month);
 
         return collect($holidays)->filter(fn ($name, $day) => $date ? $day === $date : str_starts_with($day, $prefix))
             ->map(fn ($name, $day) => (object) [
                 'sched_id' => 'ph-holiday-'.$day.'-'.substr(sha1($name), 0, 8),
                 'event' => $name, 'date' => $day, 'time' => null,
-                'details' => 'Philippine holiday', 'category' => 'holiday',
+                'details' => str_contains($name, 'Simeon Ola Day')
+                    ? 'Special non-working holiday in Albay (Republic Act No. 11136)'
+                    : 'Philippine holiday',
+                'category' => 'holiday',
                 'is_automatic_holiday' => true, 'is_document_deadline' => false,
                 'is_completed' => Carbon::parse($day)->endOfDay()->lt(now()),
                 'user_id' => null, 'user' => null,

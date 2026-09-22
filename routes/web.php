@@ -9,9 +9,9 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use App\Models\Document;
 use App\Models\DocumentVersion;
+use App\Models\DocumentTransmittal;
 use App\Models\Message;
 use App\Models\MessageAttachment;
-use App\Http\Controllers\AIController;
 use App\Http\Controllers\Auth\GoogleAuthController;
 use App\Http\Controllers\Auth\VerifyUserEmailController;
 use App\Http\Controllers\UserExportController;
@@ -19,6 +19,7 @@ use App\Http\Controllers\DocumentExportController;
 use App\Http\Middleware\AdminMiddleware;
 use App\Services\DocumentDownloadService;
 use App\Services\DocumentQrToken;
+use App\Services\DocumentStatusTimeline;
 use Spatie\Honeypot\Honeypot;
 use Spatie\Honeypot\ProtectAgainstSpam;
 use RyanChandler\LaravelCloudflareTurnstile\Rules\Turnstile;
@@ -30,9 +31,7 @@ Route::view('/ai-test', 'ai-test');
 Route::post('/chatbot/message', [
     ChatbotController::class,
     'reply',
-])->middleware('throttle:10,1');
-
-Route::post('/ask-ai', [AIController::class, 'ask']);
+])->middleware(['auth', 'throttle:10,1'])->name('chatbot.message');
 
 Route::get('/', function () {
     return view('home');
@@ -107,20 +106,17 @@ Route::get('/document-status/{document}', function (int $document) {
 
 Route::get('/client/document-preview/{document}', function (string $document) {
 
-    $documentRecord = Document::query()
-        ->where('public_id', $document)
-        ->where(function ($query) {
-            $query
-                ->where('user_id', auth()->id())
-                ->orWhereHas(
-                    'documentRequests',
-                    fn ($requestQuery) => $requestQuery->where(
-                        'user_id',
-                        auth()->id()
-                    )->where('status', 'accepted')
-                );
-        })
-        ->firstOrFail();
+    $documentRecord = Document::findForRoute($document);
+
+    abort_unless(
+        (int) $documentRecord->user_id === (int) auth()->id()
+        || $documentRecord
+            ->documentRequests()
+            ->where('user_id', auth()->id())
+            ->where('status', 'accepted')
+            ->exists(),
+        404
+    );
 
     $versionRecord = DocumentVersion::query()
         ->where('document_id', $documentRecord->document_id)
@@ -147,21 +143,51 @@ Route::get('/client/document-preview/{document}', function (string $document) {
     ->middleware('auth')
     ->name('client.document.preview');
 
+Route::get('/client/document-thumbnail/{document}', function (string $document) {
+    $documentRecord = Document::findForRoute($document);
+
+    abort_unless(
+        (int) $documentRecord->user_id === (int) auth()->id()
+        || $documentRecord
+            ->documentRequests()
+            ->where('user_id', auth()->id())
+            ->where('status', 'accepted')
+            ->exists(),
+        404
+    );
+
+    $versionRecord = DocumentVersion::query()
+        ->where('document_id', $documentRecord->document_id)
+        ->latest('created_at')
+        ->latest('version_id')
+        ->first();
+
+    $disk = Storage::disk('local');
+    $filePath = $versionRecord?->file_path;
+
+    if ($filePath && ! $disk->exists($filePath)) {
+        $disk = Storage::disk('public');
+    }
+
+    abort_unless($filePath && $disk->exists($filePath), 404);
+
+    return app(\App\Services\DocumentPreviewService::class)->thumbnail($disk->path($filePath));
+})
+    ->middleware('auth')
+    ->name('client.document.thumbnail');
+
 Route::get('/client/document-download/{document}', function (string $document) {
-    $documentRecord = Document::query()
-        ->where('public_id', $document)
-        ->where(function ($query) {
-            $query
-                ->where('user_id', auth()->id())
-                ->orWhereHas(
-                    'documentRequests',
-                    fn ($requestQuery) => $requestQuery->where(
-                        'user_id',
-                        auth()->id()
-                    )->where('status', 'accepted')
-                );
-        })
-        ->firstOrFail();
+    $documentRecord = Document::findForRoute($document);
+
+    abort_unless(
+        (int) $documentRecord->user_id === (int) auth()->id()
+        || $documentRecord
+            ->documentRequests()
+            ->where('user_id', auth()->id())
+            ->where('status', 'accepted')
+            ->exists(),
+        404
+    );
 
     $versionRecord = DocumentVersion::query()
         ->where('document_id', $documentRecord->document_id)
@@ -289,6 +315,28 @@ Route::get('/admin/documents/{document}/preview', function (string $document) {
     ->middleware(['auth', AdminMiddleware::class, EnsureLegalStaff::class])
     ->name('admin.documents.preview');
 
+Route::get('/admin/documents/{document}/thumbnail', function (string $document) {
+    $documentRecord = Document::findForRoute($document);
+    $versionRecord = DocumentVersion::query()
+        ->where('document_id', $documentRecord->document_id)
+        ->latest('created_at')
+        ->latest('version_id')
+        ->first();
+
+    $disk = Storage::disk('local');
+    $filePath = $versionRecord?->file_path;
+
+    if ($filePath && ! $disk->exists($filePath)) {
+        $disk = Storage::disk('public');
+    }
+
+    abort_unless($filePath && $disk->exists($filePath), 404);
+
+    return app(\App\Services\DocumentPreviewService::class)->thumbnail($disk->path($filePath));
+})
+    ->middleware(['auth', AdminMiddleware::class])
+    ->name('admin.documents.thumbnail');
+
 Route::get('/admin/documents/{document}/transmittal-preview', function (string $document) {
     $documentRecord = Document::findForRoute($document);
     $filePath = $documentRecord->transmittal;
@@ -330,6 +378,53 @@ Route::get('/admin/documents/{document}/transmittal-download', function (string 
 })
     ->middleware(['auth', AdminMiddleware::class, EnsureLegalStaff::class])
     ->name('admin.documents.transmittal.download');
+
+Route::get('/admin/documents/{document}/transmittals/{attachment}/preview', function (
+    string $document,
+    int $attachment,
+) {
+    $documentRecord = Document::findForRoute($document);
+    $attachmentRecord = DocumentTransmittal::query()
+        ->where('document_id', $documentRecord->document_id)
+        ->findOrFail($attachment);
+    $disk = Storage::disk('local');
+
+    if (! $disk->exists($attachmentRecord->file_path)) {
+        $disk = Storage::disk('public');
+    }
+
+    abort_unless($disk->exists($attachmentRecord->file_path), 404);
+
+    return app(\App\Services\DocumentPreviewService::class)->preview(
+        $disk->path($attachmentRecord->file_path)
+    );
+})
+    ->middleware(['auth', AdminMiddleware::class])
+    ->name('admin.documents.transmittal-attachment.preview');
+
+Route::get('/admin/documents/{document}/transmittals/{attachment}/download', function (
+    string $document,
+    int $attachment,
+) {
+    $documentRecord = Document::findForRoute($document);
+    $attachmentRecord = DocumentTransmittal::query()
+        ->where('document_id', $documentRecord->document_id)
+        ->findOrFail($attachment);
+    $disk = Storage::disk('local');
+
+    if (! $disk->exists($attachmentRecord->file_path)) {
+        $disk = Storage::disk('public');
+    }
+
+    abort_unless($disk->exists($attachmentRecord->file_path), 404);
+
+    return $disk->download(
+        $attachmentRecord->file_path,
+        basename($attachmentRecord->file_path),
+    );
+})
+    ->middleware(['auth', AdminMiddleware::class])
+    ->name('admin.documents.transmittal-attachment.download');
 
 Route::get('/admin/documents/{document}/download', function (string $document) {
     $documentRecord = Document::findForRoute($document);
@@ -412,8 +507,24 @@ Route::post('/api/track/qr', function (Request $request) {
         'qr_token' => [
             'required',
             'string',
-            'max:512',
-            'regex:/^LEXTRACK-QR-1\.[A-Za-z0-9_-]+$/',
+            'max:2048',
+            function (string $attribute, mixed $value, \Closure $fail): void {
+                $value = trim((string) $value);
+                $isEncryptedToken = preg_match(
+                    '/^LEXTRACK-QR-1\.[A-Za-z0-9_-]+$/',
+                    $value,
+                ) === 1;
+                $isSignedStatusUrl = filter_var($value, FILTER_VALIDATE_URL)
+                    && preg_match(
+                        '#/document-status/[1-9][0-9]*$#',
+                        (string) parse_url($value, PHP_URL_PATH),
+                    ) === 1
+                    && str_contains((string) parse_url($value, PHP_URL_QUERY), 'signature=');
+
+                if (! $isEncryptedToken && ! $isSignedStatusUrl) {
+                    $fail('The QR token format is invalid.');
+                }
+            },
         ],
         'qr_source' => [
             'sometimes',
@@ -427,7 +538,8 @@ Route::post('/api/track/qr', function (Request $request) {
         ],
     ]);
 
-    $documentId = DocumentQrToken::decode($validated['qr_token']);
+    $documentId = DocumentQrToken::decode($validated['qr_token'])
+        ?? DocumentQrToken::decodeSignedStatusUrl($validated['qr_token']);
 
     if ($documentId === null) {
         return response()
@@ -436,6 +548,11 @@ Route::post('/api/track/qr', function (Request $request) {
     }
 
     $document = Document::query()
+        ->with([
+            'activityLogs' => fn ($query) => $query
+                ->oldest('created_at')
+                ->oldest('log_id'),
+        ])
         ->whereKey($documentId)
         ->first();
 
@@ -454,6 +571,7 @@ Route::post('/api/track/qr', function (Request $request) {
                 'particulars' => $document->particulars,
                 'date_submitted' => $document->created_at?->format('F d, Y'),
                 'status' => $document->status,
+                'timeline' => app(DocumentStatusTimeline::class)->build($document),
             ],
         ])
         ->header('Cache-Control', 'no-store, private');

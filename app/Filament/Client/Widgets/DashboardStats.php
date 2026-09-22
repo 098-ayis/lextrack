@@ -41,11 +41,21 @@ class DashboardStats extends Widget
         return Document::query()
             ->where(function (Builder $query) use ($userId): void {
                 $query
-                    ->where('user_id', $userId)
+                    ->where(function (Builder $ownedQuery) use ($userId): void {
+                        $ownedQuery
+                            ->where('user_id', $userId)
+                            ->whereDoesntHave(
+                                'documentRequests',
+                                fn (Builder $requestQuery) => $requestQuery
+                                    ->where('user_id', $userId)
+                                    ->where('copy_type', 'original')
+                            );
+                    })
                     ->orWhereHas(
                         'documentRequests',
                         fn (Builder $requestQuery) => $requestQuery
                             ->where('user_id', $userId)
+                            ->where('copy_type', 'soft_copy')
                     );
             });
     }

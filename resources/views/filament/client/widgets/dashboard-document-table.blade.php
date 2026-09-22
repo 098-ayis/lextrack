@@ -1,6 +1,20 @@
 <x-filament-widgets::widget>
 
-    <div class="client-dashboard-documents space-y-4">
+    <div class="client-dashboard-documents space-y-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+
+        {{-- RECENT DOCUMENTS TITLE --}}
+        <div class="flex items-center justify-between">
+            <h2 class="text-lg font-bold text-gray-900 dark:text-gray-100">
+                Recent Documents
+            </h2>
+
+            <a
+                href="{{ \App\Filament\Client\Pages\Documents::getUrl() }}"
+                class="text-sm font-semibold text-[#6366F1] transition hover:underline dark:text-indigo-400"
+            >
+                View all
+            </a>
+        </div>
 
         {{-- SEARCH / FILTERS / ACTIONS --}}
         <div class="flex w-full flex-col gap-4">
@@ -55,16 +69,9 @@
 
                             <select
                                 wire:model.live="documentType"
-                                class="appearance-none w-full rounded-lg border-2
-                                       {{ $documentType
-                                            ? 'bg-[#F0F1FF] border-[#6366F1] dark:bg-indigo-950 dark:border-indigo-400'
-                                            : 'bg-white border-gray-300 dark:bg-gray-800 dark:border-gray-600'
-                                       }}
-                                       py-2 pl-3 pr-9
-                                       text-xs font-semibold text-gray-900 dark:text-gray-100
-                                       focus:outline-none focus:ring-0"
+                                class="h-10 w-full appearance-none rounded-full border border-gray-300 bg-white pl-3 pr-9 text-xs font-semibold text-gray-900 focus:outline-none focus:ring-0 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
                             >
-                                <option value="">Type</option>
+                                <option value="">Document Type</option>
                                 @foreach (\App\Models\DocumentType::orderBy('type_name')->get() as $type)
                                     <option value="{{ $type->type_name }}">{{ $type->type_name }}</option>
                                 @endforeach
@@ -72,11 +79,7 @@
 
                             <svg
                                 class="pointer-events-none absolute right-2.5 top-1/2
-                                       h-3.5 w-3.5 -translate-y-1/2
-                                       {{ $documentType
-                                            ? 'text-[#6366F1] dark:text-indigo-400'
-                                            : 'text-gray-500 dark:text-gray-400'
-                                       }}"
+                                       h-3.5 w-3.5 -translate-y-1/2 text-gray-500 dark:text-gray-400"
                                 viewBox="0 0 20 20"
                                 fill="currentColor"
                             >
@@ -97,12 +100,7 @@
                             <button
                                 type="button"
                                 wire:click="clearType"
-                                class="flex h-[34px] w-[34px]
-                                       items-center justify-center
-                                       rounded-lg border-2 border-[#6366F1]
-                                       bg-[#F0F1FF] text-[#6366F1]
-                                       dark:bg-indigo-950 dark:text-indigo-400
-                                       hover:bg-[#E4E5FF] dark:hover:bg-indigo-900"
+                                class="flex h-[34px] w-[34px] items-center justify-center rounded-full border border-gray-300 bg-white text-gray-500 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
                             >
                                 <svg
                                     class="w-4 h-4"
@@ -130,14 +128,7 @@
 
                             <select
                                 wire:model.live="documentStatus"
-                                class="appearance-none w-full rounded-lg border-2
-                                       {{ $documentStatus
-                                            ? 'bg-[#F0F1FF] border-[#6366F1] dark:bg-indigo-950 dark:border-indigo-400'
-                                            : 'bg-white border-gray-300 dark:bg-gray-800 dark:border-gray-600'
-                                       }}
-                                       py-2 pl-3 pr-9
-                                       text-xs font-semibold text-gray-900 dark:text-gray-100
-                                       focus:outline-none focus:ring-0"
+                                class="h-10 w-full appearance-none rounded-full border border-gray-300 bg-white pl-3 pr-9 text-xs font-semibold text-gray-900 focus:outline-none focus:ring-0 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
                             >
                                 <option value="">Status</option>
                                 <option value="pending">Pending</option>
@@ -147,11 +138,7 @@
 
                             <svg
                                 class="pointer-events-none absolute right-2.5 top-1/2
-                                       h-3.5 w-3.5 -translate-y-1/2
-                                       {{ $documentStatus
-                                            ? 'text-[#6366F1] dark:text-indigo-400'
-                                            : 'text-gray-500 dark:text-gray-400'
-                                       }}"
+                                       h-3.5 w-3.5 -translate-y-1/2 text-gray-500 dark:text-gray-400"
                                 viewBox="0 0 20 20"
                                 fill="currentColor"
                             >
@@ -172,12 +159,7 @@
                             <button
                                 type="button"
                                 wire:click="clearStatus"
-                                class="flex h-[34px] w-[34px]
-                                       items-center justify-center
-                                       rounded-lg border-2 border-[#6366F1]
-                                       bg-[#F0F1FF] text-[#6366F1]
-                                       dark:bg-indigo-950 dark:text-indigo-400
-                                       hover:bg-[#E4E5FF] dark:hover:bg-indigo-900"
+                                class="flex h-[34px] w-[34px] items-center justify-center rounded-full border border-gray-300 bg-white text-gray-500 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
                             >
                                 <svg
                                     class="w-4 h-4"
@@ -202,90 +184,8 @@
             </div>
 
 
-            {{-- RIGHT SIDE --}}
-            <div class="order-1 flex w-full items-center justify-end gap-3">
-
-                {{-- REQUEST --}}
-                <a
-                    href="/client/request-document"
-                    class="inline-flex items-center justify-center gap-2
-                           w-36 px-5 py-2.5 text-sm font-semibold
-                           text-[#6366F1] bg-white dark:bg-gray-800 dark:text-indigo-400
-                           border border-[#6366F1]
-                           dark:border-indigo-400
-                           rounded-full"
-                >
-                    <svg
-                        class="w-5 h-5"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        stroke-width="2"
-                    >
-                        <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            d="M9 12h6m-6 4h6m2 5H7
-                               a2 2 0 01-2-2V5
-                               a2 2 0 012-2h5.586
-                               a1 1 0 01.707.293
-                               l3.414 3.414
-                               A1 1 0 0117 7.414V19
-                               a2 2 0 01-2 2z"
-                        />
-                    </svg>
-
-                    Request
-                </a>
-
-                {{-- UPLOAD --}}
-                <a
-                    href="/client/upload"
-                    class="inline-flex items-center justify-center gap-2
-                           w-36 px-5 py-2.5 text-sm font-semibold
-                           text-white bg-[#6366F1]
-                           border border-[#6366F1]
-                           rounded-full"
-                >
-                    <svg
-                        class="w-5 h-5"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        stroke-width="2"
-                    >
-                        <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3
-                               M6.75 19.5a4.5 4.5 0 01-1.41-8.775
-                               5.25 5.25 0 0110.233-2.33
-                               3 3 0 013.758 3.848
-                               A3.752 3.752 0 0118 19.5H6.75z"
-                        />
-                    </svg>
-
-                    Submit
-                </a>
-
-            </div>
-
         </div>
 
-
-        {{-- RECENT DOCUMENTS TITLE --}}
-        <div class="flex items-center justify-between">
-            <h2 class="text-lg font-bold text-gray-900 dark:text-gray-100">
-                Recent Documents
-            </h2>
-
-            <a
-                href="{{ \App\Filament\Client\Pages\Documents::getUrl() }}"
-                class="text-sm font-semibold text-[#6366F1] transition hover:underline dark:text-indigo-400"
-            >
-                View all
-            </a>
-        </div>
 
         {{-- DOCUMENT CARDS --}}
         @php
@@ -293,12 +193,13 @@
         @endphp
 
         @if ($documents->isNotEmpty())
-            <div class="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
+            <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
                 @foreach ($documents as $document)
                     @php
-                        $isRequested = (int) $document->user_id !== (int) auth()->id();
+                        $requestedDocument = $document->documentRequests->first();
+                        $isRequested = $requestedDocument !== null;
                         $cardStatus = $isRequested
-                            ? ($document->documentRequests->first()?->status ?? $document->status)
+                            ? ($requestedDocument->status ?? $document->status)
                             : $document->status;
 
                         $statusLabel = match ($cardStatus) {
@@ -319,19 +220,23 @@
                             default => 'border-gray-200 bg-gray-50 text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300',
                         };
 
-                        $previewUrl = $document->latestVersion?->file_path
-                            ? route('client.document.preview', ['document' => $document->public_id])
-                            : null;
-
+                        $documentRouteKey = $document->getPublicRouteKey();
+                        $filePath = (string) $document->latestVersion?->file_path;
                         $extension = strtolower(pathinfo(
-                            (string) $document->latestVersion?->file_path,
+                            $filePath,
                             PATHINFO_EXTENSION
                         ));
+                        $thumbnailUrl = $filePath && in_array($extension, ['jpg', 'jpeg', 'png', 'webp', 'pdf'], true)
+                            ? route('client.document.thumbnail', ['document' => $documentRouteKey])
+                            : null;
+                        $docxPreviewUrl = $filePath && $extension === 'docx'
+                            ? route('client.document.preview', ['document' => $documentRouteKey])
+                            : null;
                     @endphp
 
                     <a
                         href="{{ \App\Filament\Client\Pages\ViewDocument::getUrl([
-                            'document' => $document->public_id,
+                            'document' => $documentRouteKey,
                             'from' => 'dashboard',
                         ]) }}"
                         class="group relative flex aspect-square min-h-0 flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition duration-200 hover:-translate-y-1 hover:border-[#6366F1] hover:shadow-lg dark:border-gray-700 dark:bg-[#17181c] dark:hover:border-indigo-400"
@@ -343,18 +248,21 @@
                         </span>
 
                         {{-- PREVIEW --}}
-                        <div class="relative aspect-[4/3] overflow-hidden border-b border-gray-200 bg-gray-100 dark:border-gray-700 dark:bg-gray-900">
-                            @if ($previewUrl && in_array($extension, ['jpg', 'jpeg', 'png', 'webp']))
+                        <div class="dashboard-document-preview relative aspect-video shrink-0 overflow-hidden border-b border-gray-200 bg-gray-100 dark:border-gray-700 dark:bg-gray-900">
+                            @if ($thumbnailUrl)
                                 <img
-                                    src="{{ $previewUrl }}"
+                                    src="{{ $thumbnailUrl }}"
                                     alt="{{ $document->particulars ?: 'Document preview' }}"
-                                    class="h-full w-full object-cover object-top transition duration-300 group-hover:scale-105"
+                                    class="h-full w-full object-cover object-top"
+                                    loading="lazy"
+                                    draggable="false"
                                 >
-                            @elseif ($previewUrl && in_array($extension, ['pdf', 'doc', 'docx'], true))
+                            @elseif ($docxPreviewUrl)
                                 <iframe
-                                    src="{{ $previewUrl }}"
+                                    src="{{ $docxPreviewUrl }}"
                                     title="{{ $document->particulars ?: 'Document preview' }}"
                                     class="pointer-events-none h-full w-full border-0"
+                                    loading="lazy"
                                 ></iframe>
                             @else
                                 <div class="flex h-full items-center justify-center text-gray-400 dark:text-gray-500">
@@ -381,16 +289,15 @@
                                 {{ $document->particulars ?: $document->description ?: 'Untitled document' }}
                             </h3>
 
-                            <p class="mt-2 text-xs font-medium text-gray-500 dark:text-gray-400">
-                                {{ $document->lao_number ?: 'LAO number not assigned' }}
+                            <p class="mt-1 text-xs font-medium text-gray-500 dark:text-gray-400">
+                                {{ $document->lao_number ?: '—' }}
                             </p>
 
-                            <div class="mt-auto flex items-center justify-between gap-3 pt-5">
-                                <span class="inline-flex items-center rounded-lg border px-3 py-1 text-xs font-semibold {{ $statusClasses }}">
+                            <div class="mt-auto flex items-center justify-between gap-2 pt-3">
+                                <span class="inline-flex w-fit shrink-0 items-center whitespace-nowrap rounded-lg border px-3 py-1 text-xs font-semibold {{ $statusClasses }}">
                                     {{ $statusLabel }}
                                 </span>
-
-                                <span class="text-xs text-gray-400 dark:text-gray-500">
+                                <span class="whitespace-nowrap text-right text-xs text-gray-400 dark:text-gray-500">
                                     {{ $document->created_at?->diffForHumans() }}
                                 </span>
                             </div>

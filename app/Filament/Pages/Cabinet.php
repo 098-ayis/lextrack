@@ -12,6 +12,7 @@ use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
+use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Pages\Page;
@@ -635,6 +636,9 @@ class Cabinet extends Page
 
                         return 'documents/versions/cabinet/'.($segments ?: 'root');
                     })
+                    ->multiple()
+                    ->appendFiles()
+                    ->panelLayout('integrated')
                     ->preserveFilenames()
                     ->acceptedFileTypes([
                         'application/pdf',
@@ -648,11 +652,56 @@ class Cabinet extends Page
                     }),
             ])
             ->action(function (array $data): void {
-                $filePath = $data['file_path'];
+                $filePaths = array_values(array_filter(
+                    (array) ($data['file_path'] ?? []),
+                    static fn (mixed $path): bool => is_string($path) && filled($path),
+                ));
+                $fileHashes = array_map(
+                    static fn (string $path): ?string => DocumentVersion::hashForUpload($path),
+                    $filePaths,
+                );
+
+                if ($filePaths === [] || in_array(null, $fileHashes, true)) {
+                    foreach ($filePaths as $filePath) {
+                        DocumentVersion::removeUnreferencedUpload($filePath);
+                    }
+
+                    Notification::make()
+                        ->danger()
+                        ->title('Upload could not be verified')
+                        ->body('One or more document files could not be read. Please select the files again and try again.')
+                        ->send();
+
+                    return;
+                }
+
+                $hasDuplicates = count($fileHashes) !== count(array_unique($fileHashes));
+
+                foreach ($fileHashes as $fileHash) {
+                    if (DocumentVersion::existsForDocumentOrUserHash(0, $fileHash, auth()->id())) {
+                        $hasDuplicates = true;
+
+                        break;
+                    }
+                }
+
+                if ($hasDuplicates) {
+                    foreach ($filePaths as $filePath) {
+                        DocumentVersion::removeUnreferencedUpload($filePath);
+                    }
+
+                    Notification::make()
+                        ->danger()
+                        ->title('Duplicate document detected')
+                        ->body('One or more selected files have already been uploaded. Please remove duplicates and try again.')
+                        ->send();
+
+                    return;
+                }
 
                 $destinationType = $this->currentType;
                 $destinationOffice = $this->currentOffice;
-                DB::transaction(function () use ($data, $filePath, $destinationType, $destinationOffice): void {
+                DB::transaction(function () use ($data, $filePaths, $fileHashes, $destinationType, $destinationOffice): void {
                     $document = Document::create([
                         'user_id' => auth()->id(),
 
@@ -662,7 +711,7 @@ class Cabinet extends Page
                             $data['office_unit'],
 
                         'document_name' =>
-                            $this->uploadedDocumentName($filePath),
+                            $this->uploadedDocumentName($filePaths[0]),
 
                         // Generate at save time so an old form value cannot
                         // reuse a LAO number assigned by another upload.
@@ -679,12 +728,15 @@ class Cabinet extends Page
                             'in_progress',
                     ]);
 
-                    DocumentVersion::create([
-                        'user_id' => auth()->id(),
-                        'document_id' => $document->document_id,
-                        'version_number' => '1',
-                        'file_path' => $filePath,
-                    ]);
+                    foreach ($filePaths as $index => $filePath) {
+                        DocumentVersion::create([
+                            'user_id' => auth()->id(),
+                            'document_id' => $document->document_id,
+                            'version_number' => (string) ($index + 1),
+                            'file_path' => $filePath,
+                            'file_hash' => $fileHashes[$index],
+                        ]);
+                    }
                     if ($destinationType !== '' && $destinationType !== 'Recycle Bin') {
                         $folderId = DB::table('cabinet_folders')->where('name', $destinationType)->value('id');
                         DB::table('cabinet_document_locations')->updateOrInsert(
@@ -906,6 +958,10 @@ class Cabinet extends Page
 
     protected function uploadedDocumentName(mixed $file): ?string
     {
+        if (is_array($file)) {
+            return $this->uploadedDocumentName(reset($file) ?: null);
+        }
+
         if ($file instanceof TemporaryUploadedFile || $file instanceof UploadedFile) {
             $originalName = basename($file->getClientOriginalName());
 

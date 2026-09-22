@@ -4,6 +4,7 @@ namespace App\Filament\Pages;
 
 use App\Models\Document as DocumentModel;
 use App\Models\DocumentVersion;
+use App\Models\DocumentTransmittal;
 use App\Models\RejectedDocument;
 use Carbon\Carbon;
 use App\Notifications\DocumentRejectedNotification;
@@ -224,6 +225,7 @@ class Document extends Page implements HasTable
                 'rejected',
                 'archived',
             ])
+            ->whereDoesntHave('documentRequests')
             ->groupBy('status')
             ->pluck('count', 'status');
 
@@ -422,6 +424,10 @@ class Document extends Page implements HasTable
         return DocumentModel::query()
             ->with(['user', 'rejections', 'latestVersion'])
             ->where('status', $status)
+            // Requests are managed on the Document Requests page. Once a
+            // request is fulfilled it is linked through document_requests,
+            // so it must not also appear in the regular Documents tables.
+            ->whereDoesntHave('documentRequests')
             ->when(trim($this->search) !== '', function (Builder $query): void {
                 $search = '%' . trim($this->search) . '%';
 
@@ -457,6 +463,7 @@ class Document extends Page implements HasTable
             ->recordActionsAlignment('fi-align-center')
             ->recordUrl(fn (DocumentModel $record): string => ViewDocument::getUrl([
                 'document' => $record->getPublicRouteKey(),
+                'return_to' => static::getUrl(['section' => $this->activeSection]),
             ]))
             ->recordClasses(
                 fn (DocumentModel $record): string => $this->highlightedDocumentId !== null &&
@@ -613,6 +620,7 @@ class Document extends Page implements HasTable
                 ->icon('heroicon-o-eye')
                 ->url(fn (DocumentModel $record): string => ViewDocument::getUrl([
                     'document' => $record->getPublicRouteKey(),
+                    'return_to' => static::getUrl(['section' => $this->activeSection]),
                 ])),
             Action::make('downloadDocument')
                 ->label('Download')
@@ -742,6 +750,11 @@ class Document extends Page implements HasTable
         $this->resetPage();
     }
 
+    public function clearTypeFilter(): void
+    {
+        $this->typeFilter = '';
+    }
+
     public function updatedDateFilter(): void
     {
         $this->resetPage();
@@ -809,6 +822,12 @@ class Document extends Page implements HasTable
             ->icon('heroicon-o-plus')
             ->size('xs')
             ->modalHeading('Add New Document')
+            ->modalSubmitAction(fn (Action $action): Action => $this->styleDocumentPrimarySubmitAction($action))
+            ->modalFooterActions(fn (Action $action): array => [
+                $action->getModalSubmitAction(),
+                $action->getModalCancelAction(),
+            ])
+            ->modalFooterActionsAlignment(Alignment::End)
             ->extraAttributes([
                 'class' => 'add-document-button',
             ])
@@ -972,8 +991,29 @@ class Document extends Page implements HasTable
                     ->label('Particulars')
                     ->required(),
 
+                FileUpload::make('transmittal')
+                    ->label('Transmittal / Endorsement')
+                    ->disk('local')
+                    ->directory('documents/transmittals')
+                    ->multiple()
+                    ->appendFiles()
+                    ->panelLayout('integrated')
+                    ->maxSize(5120)
+                    ->acceptedFileTypes([
+                        'application/pdf',
+                        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                    ])
+                    ->rules(['mimes:pdf,docx'])
+                    ->helperText('Optional. PDF or DOCX only, up to 5 MB each.')
+                    ->preserveFilenames()
+                    ->extraAttributes(['class' => 'admin-document-upload-files'])
+                    ->columnSpanFull(),
+
                 FileUpload::make('file_path')
-                    ->label('Document File')
+                    ->label('Document File(s)')
+                    ->multiple()
+                    ->appendFiles()
+                    ->panelLayout('integrated')
                     ->disk('local')
                     ->directory('documents')
                     ->maxSize(5120)
@@ -982,73 +1022,142 @@ class Document extends Page implements HasTable
                         'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
                     ])
                     ->rules(['mimes:pdf,docx'])
-                    ->helperText('Only PDF and DOCX files are accepted. Maximum file size: 5 MB.')
+                    ->helperText('Select one or more PDF or DOCX files. Maximum file size: 5 MB each; each file is added as a document version.')
                     ->preserveFilenames()
+                    ->extraAttributes(['class' => 'admin-document-upload-files'])
                     ->live()
                     ->afterStateUpdated(function ($state, Set $set): void {
                         $set('document_name', $this->uploadedDocumentName($state));
                     }),
             ])
             ->action(function (array $data) {
-                $filePath = $data['file_path'] ?? null;
-                $fileHash = filled($filePath)
-                    ? DocumentVersion::hashForUpload($filePath)
-                    : null;
+                $filePaths = array_values(array_filter(
+                    (array) ($data['file_path'] ?? []),
+                    static fn (mixed $path): bool => is_string($path) && filled($path),
+                ));
+                $transmittalPaths = array_values(array_filter(
+                    (array) ($data['transmittal'] ?? []),
+                    static fn (mixed $path): bool => is_string($path) && filled($path),
+                ));
+                $cleanupUploads = function () use ($filePaths, $transmittalPaths): void {
+                    foreach ([...$filePaths, ...$transmittalPaths] as $path) {
+                        if (is_string($path) && filled($path)) {
+                            DocumentVersion::removeUnreferencedUpload($path);
+                        }
+                    }
+                };
 
-                if (filled($filePath) && $fileHash === null) {
-                    DocumentVersion::removeUnreferencedUpload($filePath);
+                $fileHashes = array_map(
+                    static fn (string $path): ?string => DocumentVersion::hashForUpload($path),
+                    $filePaths,
+                );
+
+                if ($filePaths === [] || in_array(null, $fileHashes, true)) {
+                    $cleanupUploads();
 
                     Notification::make()
                         ->danger()
                         ->title('Upload could not be verified')
-                        ->body('The uploaded file could not be read. Please select the file again and try again.')
+                        ->body('One or more document files could not be read. Please select the files again and try again.')
                         ->send();
 
                     return;
                 }
 
-                if (
-                    filled($filePath)
-                    && DocumentVersion::existsForDocumentOrUserHash(
+                $hasDuplicateFiles = count($fileHashes) !== count(array_unique($fileHashes));
+
+                foreach ($fileHashes as $fileHash) {
+                    if (DocumentVersion::existsForDocumentOrUserHash(
                         0,
                         $fileHash,
                         auth()->id(),
-                    )
-                ) {
-                    DocumentVersion::removeUnreferencedUpload($filePath);
+                    )) {
+                        $hasDuplicateFiles = true;
+
+                        break;
+                    }
+                }
+
+                if ($hasDuplicateFiles) {
+                    $cleanupUploads();
 
                     Notification::make()
                         ->danger()
                         ->title('Duplicate document detected')
-                        ->body('This exact file has already been uploaded. Please select a different file.')
+                        ->body('One or more selected files have already been uploaded. Please remove duplicates and try again.')
                         ->send();
 
                     return;
                 }
 
-                unset($data['file_path']);
+                $transmittalHashes = array_map(
+                    static fn (string $path): ?string => DocumentVersion::hashForUpload($path),
+                    $transmittalPaths,
+                );
+
+                if (
+                    in_array(null, $transmittalHashes, true)
+                    || count($transmittalHashes) !== count(array_unique($transmittalHashes))
+                    || ($transmittalHashes !== [] && DocumentTransmittal::query()
+                        ->whereIn('file_hash', $transmittalHashes)
+                        ->exists())
+                ) {
+                    $cleanupUploads();
+
+                    Notification::make()
+                        ->danger()
+                        ->title('Transmittal upload could not be verified')
+                        ->body('One or more transmittal/endorsement files could not be read or are duplicated. Please select the files again and try again.')
+                        ->send();
+
+                    return;
+                }
+
+                unset($data['file_path'], $data['transmittal']);
 
                 $data['user_id'] = auth()->id();
+                $data['transmittal'] = $transmittalPaths[0] ?? null;
                 $data['deadline'] ??= DocumentModel::deadlineForType($data['document_type'] ?? null);
-                $data['document_name'] = $this->uploadedDocumentName($filePath)
+                $data['document_name'] = $this->uploadedDocumentName($filePaths[0])
                     ?? ($data['document_name'] ?? null);
+                $targetStatus = match ($this->activeSection) {
+                    'pending' => 'pending',
+                    'incoming' => 'in_progress',
+                    'outgoing' => 'outgoing',
+                    'completed' => 'completed',
+                    'rejected' => 'rejected',
+                    'archived' => 'archived',
+                    default => 'in_progress',
+                };
 
-                $document = DB::transaction(function () use ($data, $filePath, $fileHash): DocumentModel {
+                $document = DB::transaction(function () use ($data, $filePaths, $fileHashes, $transmittalPaths, $transmittalHashes, $targetStatus): DocumentModel {
                     // Generate again at save time so the number is always the
                     // latest available one, even if the form stayed open.
                     $data['lao_number'] = DocumentModel::generateLaoNumber(now());
-                    // Documents added by staff are already in processing;
-                    // pending is reserved for client submissions awaiting acceptance.
-                    $data['status'] = 'in_progress';
+                    $data['status'] = $targetStatus;
+
+                    if ($targetStatus === 'archived') {
+                        $data['archived_at'] = now();
+                    }
+
                     $document = DocumentModel::create($data);
 
-                    if (filled($filePath)) {
+                    foreach ($transmittalPaths as $index => $transmittalPath) {
+                        DocumentTransmittal::create([
+                            'document_id' => $document->document_id,
+                            'user_id' => auth()->id(),
+                            'file_path' => $transmittalPath,
+                            'file_hash' => $transmittalHashes[$index],
+                        ]);
+                    }
+
+                    foreach ($filePaths as $index => $filePath) {
                         DocumentVersion::create([
                             'document_id' => $document->document_id,
                             'user_id' => auth()->id(),
-                            'version_number' => '1',
+                            'version_number' => (string) ($index + 1),
                             'file_path' => $filePath,
-                            'file_hash' => $fileHash,
+                            'file_hash' => $fileHashes[$index],
                         ]);
                     }
 
@@ -1061,15 +1170,20 @@ class Document extends Page implements HasTable
                     'Created a new document.'
                 );
 
-                if ($this->activeSection === 'incoming') {
-                    $this->markDocumentSectionAsViewed('incoming');
-                }
+                $this->markDocumentSectionAsViewed($this->activeSection);
             });
     }
 
     protected function resolveDocumentActionRecord(array $arguments, ?DocumentModel $record = null): DocumentModel
     {
         return $record ?? DocumentModel::findOrFail($arguments['document'] ?? null);
+    }
+
+    protected function styleDocumentPrimarySubmitAction(Action $action): Action
+    {
+        return $action->extraAttributes([
+            'style' => 'background-color: #6366F1; border-color: #6366F1; color: #ffffff;',
+        ]);
     }
 
 
@@ -1080,6 +1194,7 @@ class Document extends Page implements HasTable
             ->label($asMenuItem ? 'Edit' : '')
             ->icon('heroicon-o-pencil-square')
             ->tooltip('Edit')
+            ->modalSubmitAction(fn (Action $action): Action => $this->styleDocumentPrimarySubmitAction($action))
             ->extraAttributes($asMenuItem ? [] : [
                 'class' => 'edit-document-button',
             ])
@@ -1151,11 +1266,15 @@ class Document extends Page implements HasTable
                                         if ($state === self::OTHER_SENT_TO) {
                                             $set('sent_to_mode', self::OTHER_SENT_TO);
                                             $set('sent_to', null);
+                                            $set('returned_from_mode', self::OTHER_RETURNED_FROM);
+                                            $set('returned_from', null);
 
                                             return;
                                         }
 
                                         $set('sent_to_mode', 'select');
+                                        $set('returned_from_mode', 'select');
+                                        $set('returned_from', $state);
                                     })
                                     ->required(),
 
@@ -1163,6 +1282,11 @@ class Document extends Page implements HasTable
                                     ->label('Sent To')
                                     ->placeholder('Enter the destination')
                                     ->maxLength(255)
+                                    ->live()
+                                    ->afterStateUpdated(function (Set $set, ?string $state): void {
+                                        $set('returned_from_mode', self::OTHER_RETURNED_FROM);
+                                        $set('returned_from', $state);
+                                    })
                                     ->suffixAction(
                                         Action::make('chooseListedSentTo')
                                             ->icon(Heroicon::ChevronDown)
@@ -1170,6 +1294,8 @@ class Document extends Page implements HasTable
                                             ->action(function (Set $set): void {
                                                 $set('sent_to_mode', 'select');
                                                 $set('sent_to', null);
+                                                $set('returned_from_mode', 'select');
+                                                $set('returned_from', null);
                                             }),
                                     )
                                     ->visible(fn (Get $get): bool => $get('sent_to_mode') === self::OTHER_SENT_TO)
@@ -1193,33 +1319,16 @@ class Document extends Page implements HasTable
                                     ->searchable()
                                     ->preload()
                                     ->live()
+                                    ->disabled()
                                     ->visible(fn (Get $get): bool => $get('returned_from_mode') !== self::OTHER_RETURNED_FROM)
                                     ->dehydrated(fn (Get $get): bool => $get('returned_from_mode') !== self::OTHER_RETURNED_FROM)
-                                    ->afterStateUpdated(function (Set $set, ?string $state): void {
-                                        if ($state === self::OTHER_RETURNED_FROM) {
-                                            $set('returned_from_mode', self::OTHER_RETURNED_FROM);
-                                            $set('returned_from', null);
-
-                                            return;
-                                        }
-
-                                        $set('returned_from_mode', 'select');
-                                    })
                                     ->required(),
 
                                 TextInput::make('returned_from')
                                     ->label('Returned From')
-                                    ->placeholder('Enter the originating office/unit')
+                                    ->placeholder('Matches Sent To')
                                     ->maxLength(255)
-                                    ->suffixAction(
-                                        Action::make('chooseListedReturnedFrom')
-                                            ->icon(Heroicon::ChevronDown)
-                                            ->tooltip('Choose from listed offices/units')
-                                            ->action(function (Set $set): void {
-                                                $set('returned_from_mode', 'select');
-                                                $set('returned_from', null);
-                                            }),
-                                    )
+                                    ->readOnly()
                                     ->visible(fn (Get $get): bool => $get('returned_from_mode') === self::OTHER_RETURNED_FROM)
                                     ->dehydrated(fn (Get $get): bool => $get('returned_from_mode') === self::OTHER_RETURNED_FROM)
                                     ->required(fn (Get $get): bool => $get('returned_from_mode') === self::OTHER_RETURNED_FROM),
@@ -1282,7 +1391,7 @@ class Document extends Page implements HasTable
                                 ->label('Status')
                                 ->options([
                                     'pending' => 'Pending',
-                                    'in_progress' => 'In Progress',
+                                    'in_progress' => 'Incoming',
                                     'completed' => 'Completed',
                                     'returned' => 'Returned',
                                     'outgoing' => 'Outgoing',
@@ -1304,6 +1413,12 @@ class Document extends Page implements HasTable
                         ->disk('local')
                         ->directory('documents/versions')
                         ->preserveFilenames()
+                        ->multiple()
+                        ->appendFiles()
+                        ->acceptedFileTypes([
+                            'application/pdf',
+                            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                        ])
                         ->columnSpanFull(),
                 ];
             })
@@ -1324,8 +1439,8 @@ class Document extends Page implements HasTable
                         ? self::OTHER_SENT_TO
                         : 'select',
 
-                    'returned_from_mode' => filled($document->returned_from) && ! OfficeUnit::query()
-                        ->where('name', $document->returned_from)
+                    'returned_from_mode' => filled($document->sent_to) && ! OfficeUnit::query()
+                        ->where('name', $document->sent_to)
                         ->exists()
                         ? self::OTHER_RETURNED_FROM
                         : 'select',
@@ -1340,13 +1455,21 @@ class Document extends Page implements HasTable
                     'outgoing_date' => $document->outgoing_date,
                     'sent_to' => $document->sent_to,
                     'sent_date' => $document->sent_date,
-                    'returned_from' => $document->returned_from,
+                    'returned_from' => $document->sent_to,
                     'date_returned' => $document->date_returned,
                 ];
             })
             ->action(function (array $data, array $arguments, ?DocumentModel $record = null): void {
                 $document = $this->resolveDocumentActionRecord($arguments, $record);
-                $filePath = $data['file_path'] ?? null;
+
+                if ($document->status === 'outgoing') {
+                    $data['returned_from'] = $data['sent_to'] ?? null;
+                }
+
+                $filePaths = array_values(array_filter(
+                    (array) ($data['file_path'] ?? []),
+                    static fn (mixed $path): bool => is_string($path) && filled($path),
+                ));
                 unset($data['file_path']);
                 $oldValues = $document->only(array_keys($data));
 
@@ -1375,14 +1498,51 @@ class Document extends Page implements HasTable
 
                 $document->save();
 
-                if (filled($filePath)) {
+                $uploadedNames = [];
+                $duplicateNames = [];
+                $unreadableNames = [];
+                $acceptedHashes = [];
+
+                foreach ($filePaths as $filePath) {
+                    $fileHash = DocumentVersion::hashForUpload($filePath);
+
+                    if ($fileHash === null) {
+                        DocumentVersion::removeUnreferencedUpload($filePath);
+                        $unreadableNames[] = basename($filePath);
+
+                        continue;
+                    }
+
+                    if (
+                        isset($acceptedHashes[$fileHash])
+                        || DocumentVersion::existsForDocumentOrUserHash(
+                            $document->document_id,
+                            $fileHash,
+                            auth()->id(),
+                        )
+                    ) {
+                        DocumentVersion::removeUnreferencedUpload($filePath);
+                        $duplicateNames[] = basename($filePath);
+
+                        continue;
+                    }
+
+                    $acceptedHashes[$fileHash] = $filePath;
+                }
+
+                foreach ($acceptedHashes as $fileHash => $filePath) {
                     DocumentVersion::create([
                         'document_id' => $document->document_id,
                         'user_id' => auth()->id(),
                         'version_number' => (string) $this->getNextVersionNumber($document),
                         'file_path' => $filePath,
+                        'file_hash' => $fileHash,
                     ]);
 
+                    $uploadedNames[] = basename($filePath);
+                }
+
+                if ($uploadedNames !== []) {
                     $updatedFields[] = 'Document File';
                 }
 
@@ -1393,7 +1553,9 @@ class Document extends Page implements HasTable
                 $this->recordDocumentActivity(
                     $document->document_id,
                     'Document updated',
-                    $updatedSummary,
+                    $updatedSummary . ($uploadedNames !== []
+                        ? ': ' . implode(', ', $uploadedNames)
+                        : ''),
                     (string) json_encode($oldValues),
                     (string) json_encode($document->only(array_keys($data)))
                 );
@@ -1519,7 +1681,7 @@ class Document extends Page implements HasTable
             ->modalSubmitActionLabel('Accept document')
             ->modalCancelActionLabel('Cancel')
             ->extraAttributes([
-                'class' => 'inline-flex h-9 items-center justify-center rounded-md bg-green-600 px-3 text-xs font-semibold text-white transition hover:bg-green-700',
+                'class' => 'inline-flex h-9 items-center justify-center rounded-md border !border-green-200 !bg-green-100 px-3 text-xs font-semibold !text-green-800 transition hover:!bg-green-200 dark:!border-green-800 dark:!bg-green-900/30 dark:!text-green-300 dark:hover:!bg-green-900/50',
             ])
             ->action(function (array $arguments, array $data, ?DocumentModel $record = null): void {
                 $document = $this->resolveDocumentActionRecord($arguments, $record);
@@ -1567,6 +1729,7 @@ class Document extends Page implements HasTable
             ->modalDescription('Provide the destination and sent date for this document.')
             ->modalAlignment(Alignment::Center)
             ->modalFooterActionsAlignment(Alignment::Center)
+            ->modalSubmitAction(fn (Action $action): Action => $this->styleDocumentPrimarySubmitAction($action))
             ->modalSubmitActionLabel('Add to outgoing')
             ->modalCancelActionLabel('Cancel')
             ->extraAttributes([
@@ -1649,7 +1812,7 @@ class Document extends Page implements HasTable
             ->modalSubmitActionLabel('Reject document')
             ->modalCancelActionLabel('Cancel')
             ->extraAttributes([
-                'class' => 'inline-flex h-9 items-center justify-center rounded-md bg-red-600 px-3 text-xs font-semibold text-white transition hover:bg-red-700',
+                'class' => 'inline-flex h-9 items-center justify-center rounded-md border !border-red-200 !bg-red-100 px-3 text-xs font-semibold !text-red-800 transition hover:!bg-red-200 dark:!border-red-800 dark:!bg-red-900/30 dark:!text-red-300 dark:hover:!bg-red-900/50',
             ])
             ->schema([
                 Select::make('reason')
@@ -1843,6 +2006,7 @@ class Document extends Page implements HasTable
             ->modalIconColor('gray')
             ->modalAlignment(Alignment::Center)
             ->modalFooterActionsAlignment(Alignment::Center)
+            ->modalSubmitAction(fn (Action $action): Action => $this->styleDocumentPrimarySubmitAction($action))
             ->modalSubmitActionLabel('Complete document')
             ->modalCancelActionLabel('Cancel')
             ->extraAttributes([
@@ -1867,6 +2031,7 @@ class Document extends Page implements HasTable
             ->modalIconColor('gray')
             ->modalAlignment(Alignment::Center)
             ->modalFooterActionsAlignment(Alignment::Center)
+            ->modalSubmitAction(fn (Action $action): Action => $this->styleDocumentPrimarySubmitAction($action))
             ->modalSubmitActionLabel('Archive document')
             ->modalCancelActionLabel('Cancel')
             ->action(function (array $arguments, ?DocumentModel $record = null): void {
@@ -1985,6 +2150,10 @@ class Document extends Page implements HasTable
 
     protected function uploadedDocumentName(mixed $file): ?string
     {
+        if (is_array($file)) {
+            return $this->uploadedDocumentName(reset($file) ?: null);
+        }
+
         if ($file instanceof TemporaryUploadedFile || $file instanceof UploadedFile) {
             $originalName = basename($file->getClientOriginalName());
 

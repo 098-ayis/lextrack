@@ -1793,10 +1793,13 @@
                      * For the staff inbox, show the client who
                      * originally owns/created the conversation.
                      */
-                    $client = $conversation?->document?->user;
+                    $client = $conversation?->document?->user
+                        ?? $conversation?->documentRequest?->user;
                     $clientName = $client?->name ?? 'Unknown Client';
                     $documentTitle = $conversation->document?->particulars
-                    ?? 'Untitled Document';
+                        ?? $conversation->documentRequest?->purpose_details
+                        ?? $conversation->documentRequest?->purpose
+                        ?? 'Untitled Document';
 
                     $latestMessage = $conversation
                         ->messages
@@ -1853,6 +1856,10 @@
                             @if ($conversation->document?->lao_number)
 
                                 {{ $conversation->document->lao_number }}
+
+                            @elseif ($conversation->documentRequest)
+
+                                Request #{{ $conversation->documentRequest->request_id }}
 
                             @else
 
@@ -1965,11 +1972,14 @@
                 $activeConversation = $activeConversationRecord
                     ?? $conversations->firstWhere('id', $selectedConversation);
 
-                $client = $activeConversation?->document?->user;
+                $client = $activeConversation?->document?->user
+                    ?? $activeConversation?->documentRequest?->user;
 
                 $clientName = $client?->name ?? 'Unknown Client';
 
                 $documentTitle = $activeConversation?->document?->particulars
+                    ?? $activeConversation?->documentRequest?->purpose_details
+                    ?? $activeConversation?->documentRequest?->purpose
                     ?? 'Untitled Document';
 
                 $documentSection = match ((string) $activeConversation?->document?->status) {
@@ -2024,6 +2034,10 @@
                         @if ($activeConversation?->document?->lao_number)
 
                             {{ $activeConversation->document->lao_number }}
+
+                        @elseif ($activeConversation?->documentRequest)
+
+                            Request #{{ $activeConversation->documentRequest->request_id }}
 
                         @elseif ($activeConversation?->document_id)
 

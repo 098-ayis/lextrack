@@ -3,7 +3,10 @@
 namespace App\Filament\Client\Pages;
 
 use App\Models\Document;
+use App\Models\DocumentRequest;
+use App\Services\DocumentStatusTimeline;
 use Filament\Pages\Page;
+use Filament\Support\Enums\Width;
 
 class ViewDocument extends Page
 {
@@ -17,6 +20,13 @@ class ViewDocument extends Page
 
     public ?string $requestStatus = null;
 
+    public ?DocumentRequest $requestRecord = null;
+
+    /**
+     * @var array<int, array{status: string, title: string, description: string, time: string, date: string}>
+     */
+    public array $statusTimeline = [];
+
     public ?string $previewUrl = null;
 
     public ?string $downloadUrl = null;
@@ -25,27 +35,40 @@ class ViewDocument extends Page
 
     public string $returnPage = 'documents';
 
+    public function getMaxContentWidth(): Width
+    {
+        return Width::Full;
+    }
+
     public function mount($document): void
     {
-        $id = $document;
+        $id = (string) $document;
 
         $this->returnPage = request()->query('from') === 'dashboard'
             ? 'dashboard'
             : 'documents';
 
-        $tab = request()->query('tab', 'all');
+        $tab = request()->query('tab');
 
-        $this->returnTab = in_array($tab, [
+        $hasValidReturnTab = in_array($tab, [
             'all',
             'pending',
             'in_progress',
             'completed',
             'rejected',
             'requested',
-        ], true) ? $tab : 'all';
+        ], true);
+
+        $this->returnTab = $hasValidReturnTab ? $tab : 'all';
 
         $this->documentRecord = Document::query()
-            ->where('public_id', $id)
+            ->where(function ($query) use ($id): void {
+                $query->where('public_id', $id);
+
+                if (ctype_digit($id)) {
+                    $query->orWhereKey((int) $id);
+                }
+            })
             ->where(function ($query): void {
                 $query
                     ->where('user_id', auth()->id())
@@ -57,6 +80,9 @@ class ViewDocument extends Page
             })
             ->with([
                 'latestVersion',
+                'activityLogs' => fn ($query) => $query
+                    ->oldest('created_at')
+                    ->oldest('log_id'),
                 'rejections' => fn ($query) => $query
                     ->latest('created_at')
                     ->latest('rejected_id'),
@@ -69,6 +95,21 @@ class ViewDocument extends Page
             ->latest('created_at')
             ->latest('request_id')
             ->value('status');
+
+        $this->requestRecord = $this->documentRecord
+            ->documentRequests()
+            ->with('user')
+            ->where('user_id', auth()->id())
+            ->latest('date_of_request')
+            ->latest('request_id')
+            ->first();
+
+        $this->statusTimeline = app(DocumentStatusTimeline::class)
+            ->build($this->documentRecord);
+
+        if (! $hasValidReturnTab && $this->requestStatus !== null) {
+            $this->returnTab = 'requested';
+        }
 
         $canAccessFile =
             (int) $this->documentRecord->user_id === (int) auth()->id()
@@ -83,11 +124,11 @@ class ViewDocument extends Page
             $this->documentRecord->latestVersion?->file_path
         ) {
             $this->previewUrl = route('client.document.preview', [
-                'document' => $this->documentRecord->public_id,
+                'document' => $this->documentRecord->getPublicRouteKey(),
             ]);
 
             $this->downloadUrl = route('client.document.download', [
-                'document' => $this->documentRecord->public_id,
+                'document' => $this->documentRecord->getPublicRouteKey(),
             ]);
         }
     }

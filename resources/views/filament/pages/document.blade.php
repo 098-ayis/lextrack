@@ -61,11 +61,7 @@
         </defs>
     </svg>
 
-<<<<<<< ours
-=======
     <div class="admin-documents-page">
-
->>>>>>> theirs
     @php
         $activeSection = $this->activeSection;
         $statusCounts = $this->getStatusCounts();
@@ -303,7 +299,7 @@
                         @endif
 
                         <tr
-                            data-view-url="{{ \App\Filament\Pages\ViewDocument::getUrl(['document' => $document->public_id]) }}"
+                            data-view-url="{{ \App\Filament\Pages\ViewDocument::getUrl(['document' => $document->public_id, 'return_to' => \App\Filament\Pages\Document::getUrl(['section' => $activeSection])]) }}"
                             onclick="if (!event.target.closest('button, a, input, select, textarea, summary, details')) window.location.href = this.dataset.viewUrl"
                             class="border-b border-gray-300
                                    {{ $loop->odd ? 'bg-[#F2F2F2]' : 'bg-white' }} cursor-pointer hover:bg-blue-50"
@@ -357,12 +353,7 @@
                             <td class="px-4 py-4 align-middle">
 
                                 @if ($document->document_type)
-
-                                    <span
-                                        class="inline-flex items-center px-3 py-1
-                                               rounded-full text-xs font-semibold text-white"
-                                        style="background-color: #059669;"
-                                    >
+                                    <span class="text-sm font-medium text-gray-800">
                                         {{ $document->document_type }}
                                     </span>
 
@@ -453,7 +444,7 @@
 
                                         <div class="absolute bottom-full right-0 z-50 mb-2 w-32 rounded-md border border-gray-200 bg-white p-1 text-left shadow-lg">
                                             <a
-                                                href="{{ \App\Filament\Pages\ViewDocument::getUrl(['document' => $document->public_id]) }}"
+                                                href="{{ \App\Filament\Pages\ViewDocument::getUrl(['document' => $document->public_id, 'return_to' => \App\Filament\Pages\Document::getUrl(['section' => $activeSection])]) }}"
                                                 class="flex items-center gap-2 rounded px-3 py-2 text-xs text-gray-700 hover:bg-gray-100"
                                             >
                                                 <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
@@ -587,7 +578,7 @@
                         @endif
 
                         <tr
-                            data-view-url="{{ \App\Filament\Pages\ViewDocument::getUrl(['document' => $document->public_id]) }}"
+                            data-view-url="{{ \App\Filament\Pages\ViewDocument::getUrl(['document' => $document->public_id, 'return_to' => \App\Filament\Pages\Document::getUrl(['section' => $activeSection])]) }}"
                             onclick="if (!event.target.closest('button, a, input, select, textarea, summary, details')) window.location.href = this.dataset.viewUrl"
                             class="border-b border-gray-300
                                    {{ $loop->odd ? 'bg-[#F2F2F2]' : 'bg-white' }} cursor-pointer hover:bg-blue-50"
@@ -642,12 +633,7 @@
                             <td class="px-4 py-4 align-middle">
 
                                 @if ($document->document_type)
-
-                                    <span
-                                        class="inline-flex items-center px-3 py-1
-                                               rounded-full text-xs font-semibold text-white"
-                                        style="background-color: #059669;"
-                                    >
+                                    <span class="text-sm font-medium text-gray-800">
                                         {{ $document->document_type }}
                                     </span>
 
@@ -739,7 +725,7 @@
 
                                         <div class="absolute bottom-full right-0 z-50 mb-2 w-32 rounded-md border border-gray-200 bg-white p-1 text-left shadow-lg">
                                             <a
-                                                href="{{ \App\Filament\Pages\ViewDocument::getUrl(['document' => $document->public_id]) }}"
+                                                href="{{ \App\Filament\Pages\ViewDocument::getUrl(['document' => $document->public_id, 'return_to' => \App\Filament\Pages\Document::getUrl(['section' => $activeSection])]) }}"
                                                 class="flex items-center gap-2 rounded px-3 py-2 text-xs text-gray-700 hover:bg-gray-100"
                                             >
                                                 <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
@@ -790,13 +776,10 @@
                                                bg-white
                                                hover:bg-[#0F172A]
                                                hover:text-white
-<<<<<<< ours
-=======
                                                dark:border-gray-300
                                                dark:bg-gray-900
                                                dark:text-white
                                                dark:hover:bg-gray-700
->>>>>>> theirs
                                                transition"
                                         title="Message"
                                     >
@@ -913,7 +896,7 @@
                         @endif
 
                     <tr 
-                            data-view-url="{{ \App\Filament\Pages\ViewDocument::getUrl(['document' => $document->public_id]) }}"
+                            data-view-url="{{ \App\Filament\Pages\ViewDocument::getUrl(['document' => $document->public_id, 'return_to' => \App\Filament\Pages\Document::getUrl(['section' => $activeSection])]) }}"
                             onclick="if (!event.target.closest('button, a, input, select, textarea, summary, details')) window.location.href = this.dataset.viewUrl"
                             class="border-b border-gray-300 
                                 {{ $loop->odd ? 'bg-[#F2F2F2]' : 'bg-white' }} cursor-pointer hover:bg-blue-50"
@@ -963,28 +946,15 @@
                             {{-- DOCUMENT TYPE --}}
                             <td class="px-4 py-4 align-middle text-center">
 
-                                {{-- BADGES --}}
-                                <div class="flex flex-wrap items-center gap-2 mb-3">
-
-                                    @if ($document->document_type)
-
-                                        <span
-                                            class="inline-flex items-center px-3 py-1
-                                                rounded-full text-xs font-semibold text-white"
-                                            style="background-color: #059669;"
-                                        >
-                                            {{ $document->document_type }}
+                                @if ($document->document_type)
+                                    <span class="text-sm font-medium text-gray-800">
+                                        {{ $document->document_type }}
                                     </span>
-
-                                    @else
-
-                                        <span class="text-xs italic text-gray-500">
-                                            Unknown Document Type
-                                        </span>
-
-                                    @endif
-
-                                </div>
+                                @else
+                                    <span class="text-xs italic text-gray-500">
+                                        Unknown Document Type
+                                    </span>
+                                @endif
 
                             </td>
 
@@ -1121,7 +1091,7 @@
 
                                         <div class="absolute bottom-full right-0 z-50 mb-2 w-32 rounded-md border border-gray-200 bg-white p-1 text-left shadow-lg">
                                             <a
-                                                href="{{ \App\Filament\Pages\ViewDocument::getUrl(['document' => $document->public_id]) }}"
+                                                href="{{ \App\Filament\Pages\ViewDocument::getUrl(['document' => $document->public_id, 'return_to' => \App\Filament\Pages\Document::getUrl(['section' => $activeSection])]) }}"
                                                 class="flex items-center gap-2 rounded px-3 py-2 text-xs text-gray-700 hover:bg-gray-100"
                                             >
                                                 <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
@@ -1182,12 +1152,9 @@
                                                 text-[#0F172A]
                                                 hover:bg-[#0F172A]
                                                 hover:text-white
-<<<<<<< ours
-=======
                                                 dark:border-gray-300
                                                 dark:text-white
                                                 dark:hover:bg-gray-700
->>>>>>> theirs
                                                 transition-colors duration-150"
                                             title="Message"
                                         >
@@ -1244,8 +1211,6 @@
         .fi-page-content {
             gap: 0 !important;
         }
-<<<<<<< ours
-=======
 
         /* Keep the custom document tables and their controls readable in dark mode. */
         .dark .admin-documents-page .bg-white {
@@ -1311,7 +1276,6 @@
         .dark .admin-documents-page [class*="hover:bg-blue-50"]:hover {
             background-color: rgb(30 64 175 / 0.35) !important;
         }
->>>>>>> theirs
     </style>
 
     @if ($showAcceptedModal)
@@ -1412,11 +1376,7 @@
         </div>
     @endif
 
-<<<<<<< ours
-=======
     </div>
-
->>>>>>> theirs
     <script>
         document.addEventListener('click', (event) => {
             const clickedMenu = event.target.closest('.document-options-menu');

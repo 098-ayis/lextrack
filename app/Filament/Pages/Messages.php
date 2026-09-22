@@ -76,6 +76,7 @@ class Messages extends Page
         $allConversations = Conversation::query()
             ->with([
                 'document.user',
+                'documentRequest.user',
                 'creator',
                 'participants',
                 'messages.sender',
@@ -93,10 +94,14 @@ class Messages extends Page
                         });
                 },
             ])
-            ->whereHas(
-                'document',
-                fn ($query) => $query->availableForMessaging()
-            )
+            ->where(function ($query): void {
+                $query
+                    ->whereHas(
+                        'document',
+                        fn ($documentQuery) => $documentQuery->availableForMessaging()
+                    )
+                    ->orWhereHas('documentRequest');
+            })
             ->latest('conversations.updated_at')
             ->get();
 
@@ -123,9 +128,12 @@ class Messages extends Page
     {
         return $this->normalizeSearch(implode(' ', [
             $conversation->document?->user?->name,
+            $conversation->documentRequest?->user?->name,
             $conversation->document?->lao_number,
             $conversation->document?->particulars,
             $conversation->document?->document_name,
+            $conversation->documentRequest?->purpose,
+            $conversation->documentRequest?->purpose_details,
             $conversation->messages->pluck('body')->filter()->implode(' '),
         ]));
     }
@@ -157,6 +165,46 @@ class Messages extends Page
 
         $this->markMessagesAsRead();
 
+        $this->dispatch('conversation-opened');
+    }
+
+    public function openRequestConversation(int $requestId): void
+    {
+        $request = \App\Models\DocumentRequest::query()
+            ->with('user')
+            ->findOrFail($requestId);
+
+        $conversation = DB::transaction(function () use ($request): Conversation {
+            $conversation = Conversation::firstOrCreate(
+                [
+                    'document_request_id' => $request->request_id,
+                ],
+                [
+                    'created_by' => auth()->id(),
+                    'status' => 'active',
+                ]
+            );
+
+            $conversation->participants()->syncWithoutDetaching([
+                $request->user_id => [
+                    'joined_at' => now(),
+                ],
+                auth()->id() => [
+                    'joined_at' => now(),
+                ],
+            ]);
+
+            return $conversation;
+        });
+
+        Gate::authorize('view', $conversation);
+
+        $this->selectedConversation = $conversation->id;
+        $this->attachments = [];
+        $this->attachmentKind = '';
+        $this->cancelReply();
+        $this->loadMessages();
+        $this->markMessagesAsRead();
         $this->dispatch('conversation-opened');
     }
 
@@ -532,10 +580,16 @@ class Messages extends Page
             ->whereHas('conversation.participants', function ($query) use ($userId) {
                 $query->where('users.id', $userId);
             })
-            ->whereHas(
-                'conversation.document',
-                fn ($query) => $query->availableForMessaging()
-            )
+            ->whereHas('conversation', function ($conversationQuery): void {
+                $conversationQuery->where(function ($query): void {
+                    $query
+                        ->whereHas(
+                            'document',
+                            fn ($documentQuery) => $documentQuery->availableForMessaging()
+                        )
+                        ->orWhereHas('documentRequest');
+                });
+            })
             ->whereDoesntHave('readers', function ($query) use ($userId) {
                 $query->where('users.id', $userId);
             })
@@ -553,6 +607,14 @@ class Messages extends Page
 
     public function mount(): void
     {
+        $requestId = request()->query('request');
+
+        if ($requestId) {
+            $this->openRequestConversation((int) $requestId);
+
+            return;
+        }
+
         $documentId = request()->query('document');
 
         if (! $documentId) {

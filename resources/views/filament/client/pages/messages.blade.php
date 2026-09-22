@@ -1845,6 +1845,8 @@
                         );
 
                         $displayName = $conversation->document?->particulars
+                            ?: $conversation->documentRequest?->purpose_details
+                            ?: $conversation->documentRequest?->purpose
                             ?: 'General Conversation';
 
                     @endphp
@@ -1883,6 +1885,8 @@
 
                                 @if ($conversation->document)
                                     {{ $conversation->document->lao_number ?? 'Not assigned' }}
+                                @elseif ($conversation->documentRequest)
+                                    Request #{{ $conversation->documentRequest->request_id }}
                                 @else
                                     General Conversation
                                 @endif
@@ -1981,6 +1985,8 @@
                     ?? $conversations->firstWhere('id', $selectedConversation);
 
                 $threadName = $activeConversation?->document?->particulars
+                    ?: $activeConversation?->documentRequest?->purpose_details
+                    ?: $activeConversation?->documentRequest?->purpose
                     ?: 'Untitled Document';
                 
             @endphp
@@ -2021,6 +2027,8 @@
 
                             @if ($activeConversation?->document)
                                 {{ $activeConversation->document->lao_number ?? 'Not assigned' }}
+                            @elseif ($activeConversation?->documentRequest)
+                                Request #{{ $activeConversation->documentRequest->request_id }}
                             @endif
 
                         </div>

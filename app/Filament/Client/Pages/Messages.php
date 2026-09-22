@@ -52,6 +52,7 @@ class Messages extends Page
             ->conversations()
             ->with([
                 'document',
+                'documentRequest.user',
                 'participants',
                 'messages.sender',
                 'messages.attachments',
@@ -68,10 +69,17 @@ class Messages extends Page
                         });
                 },
             ])
-            ->whereHas(
-                'document',
-                fn ($query) => $query->availableForMessaging()
-            )
+            ->where(function ($query) use ($userId): void {
+                $query
+                    ->whereHas(
+                        'document',
+                        fn ($documentQuery) => $documentQuery->availableForMessaging()
+                    )
+                    ->orWhereHas(
+                        'documentRequest',
+                        fn ($requestQuery) => $requestQuery->where('user_id', $userId)
+                    );
+            })
             ->latest('conversations.updated_at')
             ->get();
 
@@ -100,6 +108,8 @@ class Messages extends Page
             $conversation->document?->lao_number,
             $conversation->document?->particulars,
             $conversation->document?->document_name,
+            $conversation->documentRequest?->purpose,
+            $conversation->documentRequest?->purpose_details,
             $conversation->messages->pluck('body')->filter()->implode(' '),
         ]));
     }
@@ -126,6 +136,51 @@ class Messages extends Page
 
         $this->loadMessages();
 
+        $this->markMessagesAsRead();
+    }
+
+    public function openRequestConversation(int $requestId): void
+    {
+        $request = \App\Models\DocumentRequest::query()
+            ->where('user_id', auth()->id())
+            ->findOrFail($requestId);
+
+        $conversation = DB::transaction(function () use ($request): Conversation {
+            $conversation = Conversation::firstOrCreate(
+                [
+                    'document_request_id' => $request->request_id,
+                ],
+                [
+                    'created_by' => auth()->id(),
+                    'status' => 'active',
+                ]
+            );
+
+            $conversation->participants()->syncWithoutDetaching([
+                auth()->id() => [
+                    'joined_at' => now(),
+                ],
+            ]);
+
+            $staffIds = User::permission('view_shared_messages')->pluck('id');
+
+            foreach ($staffIds as $staffId) {
+                $conversation->participants()->syncWithoutDetaching([
+                    $staffId => [
+                        'joined_at' => now(),
+                    ],
+                ]);
+            }
+
+            return $conversation;
+        });
+
+        Gate::authorize('view', $conversation);
+
+        $this->selectedConversation = $conversation->id;
+        $this->clearAttachment();
+        $this->cancelReply();
+        $this->loadMessages();
         $this->markMessagesAsRead();
     }
 
@@ -579,6 +634,15 @@ class Messages extends Page
     public function mount(): void
     {
         $documentPublicId = request()->query('document');
+        $requestId = request()->query('request');
+
+        if ($requestId) {
+            $this->openRequestConversation((int) $requestId);
+
+            return;
+        }
+
+        $documentId = request()->query('document');
 
         if (! $documentPublicId) {
             return;

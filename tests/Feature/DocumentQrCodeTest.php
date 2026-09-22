@@ -64,6 +64,16 @@ class DocumentQrCodeTest extends TestCase
             $table->string('document_type')->nullable();
             $table->text('particulars')->nullable();
             $table->string('status')->nullable();
+            $table->string('sent_to')->nullable();
+            $table->timestamps();
+        });
+        Schema::create('activity_logs', function (Blueprint $table) {
+            $table->id('log_id');
+            $table->unsignedBigInteger('document_id');
+            $table->string('action_type');
+            $table->text('action_details');
+            $table->text('old_value')->nullable();
+            $table->text('new_value')->nullable();
             $table->timestamps();
         });
 
@@ -71,7 +81,26 @@ class DocumentQrCodeTest extends TestCase
             'lao_number' => 'LAO-26-001',
             'document_type' => 'Legal Document',
             'particulars' => 'Test document',
-            'status' => 'pending',
+            'status' => 'outgoing',
+            'sent_to' => 'Office of the President',
+        ]);
+
+        DB::table('activity_logs')->insert([
+            'document_id' => $document->document_id,
+            'action_type' => 'Document moved to outgoing',
+            'action_details' => 'Sent to Office of the President on 2026-09-16.',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        DB::table('activity_logs')->insert([
+            'document_id' => $document->document_id,
+            'action_type' => 'Document updated',
+            'action_details' => 'Returned From changed',
+            'old_value' => json_encode(['returned_from' => null]),
+            'new_value' => json_encode(['returned_from' => 'Office of the President']),
+            'created_at' => now()->addMinute(),
+            'updated_at' => now()->addMinute(),
         ]);
 
         Turnstile::fake();
@@ -81,7 +110,12 @@ class DocumentQrCodeTest extends TestCase
             'qr_token' => DocumentQrToken::encode($document),
             'cf-turnstile-response' => Turnstile::dummy(),
         ])->assertOk()
-            ->assertJsonPath('document.tracking_number', 'LAO-26-001');
+            ->assertJsonPath('document.tracking_number', 'LAO-26-001')
+            ->assertJsonPath('document.timeline.0.title', 'Pending')
+            ->assertJsonPath('document.timeline.1.title', 'Sent to Office of the President')
+            ->assertJsonPath('document.timeline.1.description', 'Your document was sent to Office of the President.')
+            ->assertJsonPath('document.timeline.2.title', 'Returned from Office of the President')
+            ->assertJsonPath('document.timeline.2.description', 'Your document was returned from Office of the President.');
     }
 
     public function test_valid_turnstile_token_and_invalid_qr_image_payload_use_existing_validation(): void

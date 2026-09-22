@@ -113,12 +113,35 @@ class AdminPanelProvider extends PanelProvider
                 fn () => view('filament.admin.sidebar-default-state'),
             )
             ->renderHook(
+                PanelsRenderHook::SIDEBAR_LOGO_AFTER,
+                fn () => view('filament.admin.sidebar-collapse-button'),
+            )
+            ->renderHook(
                 PanelsRenderHook::SIDEBAR_FOOTER,
                 fn () => view('filament.admin.sidebar-logout'),
             )
             ->renderHook(
                 PanelsRenderHook::TOPBAR_START,
-                fn () => view('filament.admin.page-title'),
+                function () {
+                    $route = request()->route();
+                    $documentIdentifier = $route?->parameter('document');
+
+                    if (request()->routeIs('filament.admin.pages.documents.*')) {
+                        $document = $documentIdentifier instanceof Document
+                            ? $documentIdentifier
+                            : ((is_string($documentIdentifier) || is_int($documentIdentifier))
+                                ? Document::findForRoute($documentIdentifier)
+                                : null);
+
+                        if ($document) {
+                            return view('filament.admin.document-page-title', [
+                                'document' => $document,
+                            ]);
+                        }
+                    }
+
+                    return view('filament.admin.page-title');
+                },
             )
             ->globalSearch(false)
             ->databaseNotifications(true, DatabaseNotifications::class)
