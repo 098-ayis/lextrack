@@ -28,15 +28,20 @@
             : 'v1';
         $isSoftCopyRequest = $requestRecord?->copy_type === 'soft_copy';
         $statusValue = $documentRecord->status;
-        $statusLabel = match ($statusValue) {
-            'in_progress' => 'In Progress',
-            'completed' => 'Completed',
-            'pending' => 'Pending',
-            'rejected' => 'Rejected',
-            'outgoing' => 'Outgoing',
-            'returned' => 'Returned',
-            'archived' => 'Archived',
-            default => ucfirst(str_replace('_', ' ', (string) $statusValue)),
+        $statusLabel = blank($statusValue)
+            ? '—'
+            : match (strtolower((string) $statusValue)) {
+                'archived' => 'Completed',
+                'outgoing' => 'In Progress',
+                'accepted' => 'Accepted',
+                default => ucwords(str_replace('_', ' ', (string) $statusValue)),
+            };
+        $statusBadgeColor = match (strtolower((string) $statusValue)) {
+            'pending', 'for filing' => '#f59e0b',
+            'accepted', 'completed', 'archived' => '#16a34a',
+            'rejected' => '#dc2626',
+            'active', 'in_progress', 'outgoing' => '#2563eb',
+            default => '#6b7280',
         };
         $rejectionReason = $documentRecord->rejections->first()?->reason
             ?? $documentRecord->rejection_reason;
@@ -188,13 +193,10 @@
                                     @if ($statusValue !== 'rejected')
                                         <div class="client-document-detail-row"><dt>LAO Number</dt><dd>{{ $documentRecord->lao_number ?: '—' }}</dd></div>
                                     @endif
-                                    <div class="client-document-detail-row"><dt>Status</dt><dd><span class="client-document-badge client-document-status-badge {{ $statusValue === 'rejected' ? 'is-rejected' : '' }}">{{ $statusLabel }}</span></dd></div>
-                                    <div class="client-document-detail-row"><dt>Document Type</dt><dd><span class="client-document-badge client-document-type-badge">{{ $documentRecord->document_type ?: '—' }}</span></dd></div>
+                                    <div class="client-document-detail-row"><dt>Status</dt><dd><span class="client-document-table-status" style="--badge-color: {{ $statusBadgeColor }};">{{ $statusLabel }}</span></dd></div>
+                                    <div class="client-document-detail-row"><dt>Document Type</dt><dd>{{ $documentRecord->document_type ?: '—' }}</dd></div>
                                     <div class="client-document-detail-row"><dt>Office / Unit</dt><dd>{{ $documentRecord->office_unit ?: '—' }}</dd></div>
                                     <div class="client-document-detail-row"><dt>Particulars</dt><dd>{{ $documentSubject ?: '—' }}</dd></div>
-                                    @if (filled($documentRecord->action_type))
-                                        <div class="client-document-detail-row"><dt>Action Taken</dt><dd><span class="client-document-badge client-document-action-badge">{{ $documentRecord->action_type }}</span></dd></div>
-                                    @endif
                                     @if ($documentRecord->deadline)
                                         <div class="client-document-detail-row"><dt>Deadline</dt><dd>{{ $documentRecord->deadline->format('F d, Y') }}</dd></div>
                                     @endif
@@ -434,10 +436,7 @@
         .client-document-detail-row dt { color: #8a94a6; font-size: 0.85rem; font-weight: 600; }
         .client-document-detail-row dd { min-width: 0; margin: 0; color: #374151; font-size: 0.85rem; font-weight: 700; overflow-wrap: anywhere; }
         .client-document-badge { display: inline-flex; align-items: center; border: 1px solid transparent; border-radius: 0.4rem; padding: 0.28rem 0.55rem; font-size: 0.75rem; font-weight: 700; line-height: 1.1; }
-        .client-document-status-badge { border-color: #b9d0ff; background: #e0ecff; color: #3568d4; }
-        .client-document-status-badge.is-rejected { border-color: #fecaca; background: #fee2e2; color: #dc2626; }
-        .client-document-type-badge { border-color: #c4b5fd; background: #ede9fe; color: #6366f1; }
-        .client-document-action-badge { border-color: #f0abf0; background: #fce7f3; color: #e855db; }
+        .client-document-table-status { color: var(--badge-color); font-size: 0.85rem; font-weight: 700; }
         .is-rejected-label, .is-rejected-value { color: #dc2626 !important; }
         .client-document-file-group + .client-document-file-group { margin-top: 1.75rem; }
         .client-document-file-group h3 { margin: 0 0 0.8rem; color: #4b5563; font-size: 0.95rem; font-weight: 700; }

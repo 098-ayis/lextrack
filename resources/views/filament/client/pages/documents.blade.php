@@ -272,18 +272,87 @@
 
         .client-documents-page .fi-ta-table th:last-child {
             text-align: center;
-            padding-right: 2rem;
+            padding-left: 1rem;
+            padding-right: 1rem;
         }
 
         .client-documents-page .fi-ta-table td:has(> .fi-ta-actions) {
-            padding-left: 2rem;
-            padding-right: 2rem;
+            padding-left: 1rem;
+            padding-right: 1rem;
             white-space: nowrap;
         }
 
         .client-documents-page .fi-ta-table td:has(> .fi-ta-actions) > .fi-ta-actions {
+            display: flex !important;
+            flex-wrap: nowrap !important;
+            align-items: center !important;
             width: 100%;
-            justify-content: flex-end !important;
+            margin-left: 0;
+            justify-content: center !important;
+            gap: 0.5rem;
+            white-space: nowrap;
+        }
+
+        .client-documents-page .fi-ta-table td:has(> .fi-ta-actions) > .fi-ta-actions > * {
+            width: auto !important;
+            min-width: 0 !important;
+            flex: 0 0 auto !important;
+            flex-shrink: 0 !important;
+            margin: 0 !important;
+        }
+
+        .client-documents-page .fi-ta-cell-particulars > .fi-ta-col {
+            padding-left: 0 !important;
+            padding-right: 0 !important;
+        }
+
+        .client-documents-page .documents-table-track-action {
+            background-color: #6366f1 !important;
+            color: #ffffff !important;
+            box-shadow: 0 1px 2px rgb(0 0 0 / 0.08);
+            text-decoration: none !important;
+            text-decoration-line: none !important;
+            transition: background-color 150ms ease-in-out, box-shadow 150ms ease-in-out;
+        }
+
+        .client-documents-page .documents-table-track-action:hover,
+        .client-documents-page .documents-table-track-action:focus,
+        .client-documents-page .documents-table-track-action:focus-visible,
+        .client-documents-page .documents-table-track-action:active {
+            background-color: #4f46e5 !important;
+            color: #ffffff !important;
+            box-shadow: 0 2px 5px rgb(0 0 0 / 0.12);
+            text-decoration: none !important;
+            text-decoration-line: none !important;
+        }
+
+        .client-documents-page .documents-table-track-action .fi-icon {
+            color: #ffffff !important;
+        }
+
+        .dark .client-documents-page .documents-table-track-action {
+            background-color: #6366f1 !important;
+            color: #ffffff !important;
+        }
+
+        .dark .client-documents-page .documents-table-track-action:hover,
+        .dark .client-documents-page .documents-table-track-action:focus,
+        .dark .client-documents-page .documents-table-track-action:focus-visible,
+        .dark .client-documents-page .documents-table-track-action:active {
+            background-color: #818cf8 !important;
+            color: #ffffff !important;
+        }
+
+        /* Keep descriptions on one line and reveal the full text through the
+         * table tooltip when the truncated value is hovered. */
+        .client-documents-page .fi-ta-cell-particulars > .fi-ta-col,
+        .client-documents-page .fi-ta-cell-particulars .fi-ta-text,
+        .client-documents-page .fi-ta-cell-particulars .fi-ta-text-item {
+            min-width: 0 !important;
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap !important;
         }
 
         .client-documents-page .client-documents-table-rejected .fi-ta-table th:first-child,
@@ -301,8 +370,110 @@
         .client-documents-page .client-documents-table-all .fi-ta-table,
         .client-documents-page .client-documents-table-pending .fi-ta-table,
         .client-documents-page .client-documents-table-in_progress .fi-ta-table,
-        .client-documents-page .client-documents-table-completed .fi-ta-table {
+        .client-documents-page .client-documents-table-completed .fi-ta-table,
+        .client-documents-page .client-documents-table-rejected .fi-ta-table {
+            width: 100%;
+            min-width: 0;
             table-layout: fixed;
+        }
+
+        /* Keep the standard document columns balanced across the table. */
+        @media (min-width: 64rem) {
+            .client-documents-page .client-documents-table-all .fi-ta-table th:nth-child(1),
+            .client-documents-page .client-documents-table-all .fi-ta-table td:nth-child(1),
+            .client-documents-page .client-documents-table-pending .fi-ta-table th:nth-child(1),
+            .client-documents-page .client-documents-table-pending .fi-ta-table td:nth-child(1),
+            .client-documents-page .client-documents-table-in_progress .fi-ta-table th:nth-child(1),
+            .client-documents-page .client-documents-table-in_progress .fi-ta-table td:nth-child(1),
+            .client-documents-page .client-documents-table-completed .fi-ta-table th:nth-child(1),
+            .client-documents-page .client-documents-table-completed .fi-ta-table td:nth-child(1) {
+                width: 16% !important;
+            }
+
+            .client-documents-page .client-documents-table-all .fi-ta-table th:nth-child(2),
+            .client-documents-page .client-documents-table-all .fi-ta-table td:nth-child(2),
+            .client-documents-page .client-documents-table-pending .fi-ta-table th:nth-child(2),
+            .client-documents-page .client-documents-table-pending .fi-ta-table td:nth-child(2),
+            .client-documents-page .client-documents-table-in_progress .fi-ta-table th:nth-child(2),
+            .client-documents-page .client-documents-table-in_progress .fi-ta-table td:nth-child(2),
+            .client-documents-page .client-documents-table-completed .fi-ta-table th:nth-child(2),
+            .client-documents-page .client-documents-table-completed .fi-ta-table td:nth-child(2) {
+                width: 15% !important;
+            }
+
+            .client-documents-page .client-documents-table-all .fi-ta-table th:nth-child(3),
+            .client-documents-page .client-documents-table-all .fi-ta-table td:nth-child(3),
+            .client-documents-page .client-documents-table-pending .fi-ta-table th:nth-child(3),
+            .client-documents-page .client-documents-table-pending .fi-ta-table td:nth-child(3),
+            .client-documents-page .client-documents-table-in_progress .fi-ta-table th:nth-child(3),
+            .client-documents-page .client-documents-table-in_progress .fi-ta-table td:nth-child(3),
+            .client-documents-page .client-documents-table-completed .fi-ta-table th:nth-child(3),
+            .client-documents-page .client-documents-table-completed .fi-ta-table td:nth-child(3) {
+                width: 22% !important;
+            }
+
+            .client-documents-page .client-documents-table-all .fi-ta-table th:nth-child(4),
+            .client-documents-page .client-documents-table-all .fi-ta-table td:nth-child(4),
+            .client-documents-page .client-documents-table-pending .fi-ta-table th:nth-child(4),
+            .client-documents-page .client-documents-table-pending .fi-ta-table td:nth-child(4),
+            .client-documents-page .client-documents-table-in_progress .fi-ta-table th:nth-child(4),
+            .client-documents-page .client-documents-table-in_progress .fi-ta-table td:nth-child(4),
+            .client-documents-page .client-documents-table-completed .fi-ta-table th:nth-child(4),
+            .client-documents-page .client-documents-table-completed .fi-ta-table td:nth-child(4) {
+                width: 20% !important;
+            }
+
+            .client-documents-page .client-documents-table-all .fi-ta-table th:nth-child(5),
+            .client-documents-page .client-documents-table-all .fi-ta-table td:nth-child(5),
+            .client-documents-page .client-documents-table-pending .fi-ta-table th:nth-child(5),
+            .client-documents-page .client-documents-table-pending .fi-ta-table td:nth-child(5),
+            .client-documents-page .client-documents-table-in_progress .fi-ta-table th:nth-child(5),
+            .client-documents-page .client-documents-table-in_progress .fi-ta-table td:nth-child(5),
+            .client-documents-page .client-documents-table-completed .fi-ta-table th:nth-child(5),
+            .client-documents-page .client-documents-table-completed .fi-ta-table td:nth-child(5) {
+                width: 15% !important;
+            }
+
+            .client-documents-page .client-documents-table-all .fi-ta-table th:nth-child(6),
+            .client-documents-page .client-documents-table-all .fi-ta-table td:nth-child(6),
+            .client-documents-page .client-documents-table-pending .fi-ta-table th:nth-child(6),
+            .client-documents-page .client-documents-table-pending .fi-ta-table td:nth-child(6),
+            .client-documents-page .client-documents-table-in_progress .fi-ta-table th:nth-child(6),
+            .client-documents-page .client-documents-table-in_progress .fi-ta-table td:nth-child(6),
+            .client-documents-page .client-documents-table-completed .fi-ta-table th:nth-child(6),
+            .client-documents-page .client-documents-table-completed .fi-ta-table td:nth-child(6) {
+                width: 12% !important;
+            }
+
+            .client-documents-page .client-documents-table-rejected .fi-ta-table .fi-ta-header-cell-document-type,
+            .client-documents-page .client-documents-table-rejected .fi-ta-table .fi-ta-cell-document-type {
+                width: 17% !important;
+            }
+
+            .client-documents-page .client-documents-table-rejected .fi-ta-table .fi-ta-header-cell-particulars,
+            .client-documents-page .client-documents-table-rejected .fi-ta-table .fi-ta-cell-particulars {
+                width: 31% !important;
+            }
+
+            .client-documents-page .client-documents-table-rejected .fi-ta-table .fi-ta-header-cell-created-at,
+            .client-documents-page .client-documents-table-rejected .fi-ta-table .fi-ta-cell-created-at {
+                width: 17% !important;
+            }
+
+            .client-documents-page .client-documents-table-rejected .fi-ta-table .fi-ta-header-cell-status,
+            .client-documents-page .client-documents-table-rejected .fi-ta-table .fi-ta-cell-status {
+                width: 14% !important;
+            }
+
+            .client-documents-page .client-documents-table-rejected .fi-ta-table .fi-ta-header-cell-rejection-reason,
+            .client-documents-page .client-documents-table-rejected .fi-ta-table .fi-ta-cell-rejection-reason {
+                width: 11% !important;
+            }
+
+            .client-documents-page .client-documents-table-rejected .fi-ta-table > thead > tr:last-child > th:last-child,
+            .client-documents-page .client-documents-table-rejected .fi-ta-table > tbody > tr > td:last-child {
+                width: 10% !important;
+            }
         }
 
         .client-documents-page .client-documents-table-all .fi-ta-table th:nth-child(1),
@@ -324,7 +495,7 @@
         .client-documents-page .client-documents-table-in_progress .fi-ta-table td:nth-child(2),
         .client-documents-page .client-documents-table-completed .fi-ta-table th:nth-child(2),
         .client-documents-page .client-documents-table-completed .fi-ta-table td:nth-child(2) {
-            width: 13%;
+            width: 15%;
         }
 
         .client-documents-page .client-documents-table-all .fi-ta-table th:nth-child(3),
@@ -335,7 +506,7 @@
         .client-documents-page .client-documents-table-in_progress .fi-ta-table td:nth-child(3),
         .client-documents-page .client-documents-table-completed .fi-ta-table th:nth-child(3),
         .client-documents-page .client-documents-table-completed .fi-ta-table td:nth-child(3) {
-            width: 28%;
+            width: 22%;
         }
 
         .client-documents-page .client-documents-table-all .fi-ta-table th:nth-child(4),
@@ -346,7 +517,7 @@
         .client-documents-page .client-documents-table-in_progress .fi-ta-table td:nth-child(4),
         .client-documents-page .client-documents-table-completed .fi-ta-table th:nth-child(4),
         .client-documents-page .client-documents-table-completed .fi-ta-table td:nth-child(4) {
-            width: 19%;
+            width: 20%;
         }
 
         .client-documents-page .client-documents-table-all .fi-ta-table th:nth-child(5),
@@ -357,7 +528,7 @@
         .client-documents-page .client-documents-table-in_progress .fi-ta-table td:nth-child(5),
         .client-documents-page .client-documents-table-completed .fi-ta-table th:nth-child(5),
         .client-documents-page .client-documents-table-completed .fi-ta-table td:nth-child(5) {
-            width: 14%;
+            width: 15%;
         }
 
         .client-documents-page .client-documents-table-all .fi-ta-table th:nth-child(6),
@@ -368,7 +539,7 @@
         .client-documents-page .client-documents-table-in_progress .fi-ta-table td:nth-child(6),
         .client-documents-page .client-documents-table-completed .fi-ta-table th:nth-child(6),
         .client-documents-page .client-documents-table-completed .fi-ta-table td:nth-child(6) {
-            width: 10%;
+            width: 12%;
         }
 
         .client-documents-page .fi-ta-cell.fi-align-center > .fi-ta-col {

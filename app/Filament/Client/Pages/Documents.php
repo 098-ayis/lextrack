@@ -8,6 +8,7 @@ use App\Filament\Client\Pages\ViewDocument;
 use App\Models\Document;
 use App\Models\DocumentRequest;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Pages\Page;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Concerns\InteractsWithTable;
@@ -268,6 +269,58 @@ class Documents extends Page implements HasTable
 
     protected function requestedTable(Table $table): Table
     {
+        $moreActions = ActionGroup::make([
+            Action::make('print')
+                ->label('Print')
+                ->icon('heroicon-o-printer')
+                ->color('gray')
+                ->tooltip('Print')
+                ->url(
+                    fn (DocumentRequest $record): string => route(
+                        'client.document.preview',
+                        ['document' => $record->document?->getPublicRouteKey() ?: $record->document_id]
+                    )
+                )
+                ->visible(
+                    fn (DocumentRequest $record): bool => $record->status === 'accepted'
+                        && $record->copy_type === 'soft_copy'
+                        && filled($record->document?->latestVersion?->file_path)
+                )
+                ->openUrlInNewTab(),
+
+            Action::make('download')
+                ->label('Download')
+                ->icon('heroicon-o-arrow-down-tray')
+                ->color('gray')
+                ->tooltip('Download')
+                ->url(
+                    fn (DocumentRequest $record): string => route(
+                        'client.document.download',
+                        ['document' => $record->document?->getPublicRouteKey() ?: $record->document_id]
+                    )
+                )
+                ->visible(
+                    fn (DocumentRequest $record): bool => $record->status === 'accepted'
+                        && $record->copy_type === 'soft_copy'
+                        && filled($record->document?->latestVersion?->file_path)
+                )
+                ->openUrlInNewTab(),
+
+            Action::make('message')
+                ->label('Message')
+                ->icon('heroicon-o-chat-bubble-left-right')
+                ->color('gray')
+                ->tooltip('Message')
+                ->url(
+                    fn (DocumentRequest $record): string => ClientMessages::getUrl([
+                        'request' => $record->request_id,
+                    ])
+                ),
+        ])
+            ->icon('heroicon-m-ellipsis-vertical')
+            ->tooltip('More options')
+            ->color('gray');
+
         return $table
             ->query($this->requestedDocumentsQuery())
             ->recordUrl(
@@ -375,10 +428,9 @@ class Documents extends Page implements HasTable
             ->recordActions([
                 Action::make('track')
                     ->label('Track')
-                    ->icon('heroicon-o-clock')
-                    ->color('gray')
-                    ->extraAttributes(['class' => 'documents-table-action'])
-                    ->tooltip('Track status')
+                    ->color('primary')
+                    ->button()
+                    ->extraAttributes(['class' => 'documents-table-action documents-table-track-action'])
                     ->url(
                         fn (DocumentRequest $record): ?string => $record->document
                             ? DocumentTimeline::getUrl([
@@ -388,64 +440,73 @@ class Documents extends Page implements HasTable
                             : null
                     ),
 
-                Action::make('print')
-                    ->label('Print')
-                    ->icon('heroicon-o-printer')
-                    ->color('gray')
-                    ->iconButton()
-                    ->extraAttributes(['class' => 'documents-table-action'])
-                    ->tooltip('Print')
-                    ->url(
-                        fn (DocumentRequest $record): string => route(
-                            'client.document.preview',
-                            ['document' => $record->document?->getPublicRouteKey() ?: $record->document_id]
-                        )
-                    )
-                    ->visible(
-                        fn (DocumentRequest $record): bool => $record->status === 'accepted'
-                            && $record->copy_type === 'soft_copy'
-                            && filled($record->document?->latestVersion?->file_path)
-                    )
-                    ->openUrlInNewTab(),
-
-                Action::make('download')
-                    ->label('Download')
-                    ->icon('heroicon-o-arrow-down-tray')
-                    ->color('gray')
-                    ->iconButton()
-                    ->extraAttributes(['class' => 'documents-table-action'])
-                    ->tooltip('Download')
-                    ->url(
-                        fn (DocumentRequest $record): string => route(
-                            'client.document.download',
-                            ['document' => $record->document?->getPublicRouteKey() ?: $record->document_id]
-                        )
-                    )
-                    ->visible(
-                        fn (DocumentRequest $record): bool => $record->status === 'accepted'
-                            && $record->copy_type === 'soft_copy'
-                            && filled($record->document?->latestVersion?->file_path)
-                    )
-                    ->openUrlInNewTab(),
-
-                Action::make('message')
-                    ->label('Message')
-                    ->icon('heroicon-o-chat-bubble-left-right')
-                    ->color('gray')
-                    ->iconButton()
-                    ->extraAttributes(['class' => 'documents-table-action'])
-                    ->tooltip('Message')
-                    ->url(
-                        fn (DocumentRequest $record): string => ClientMessages::getUrl([
-                            'request' => $record->request_id,
-                        ])
-                    ),
+                $moreActions,
             ])
             ->recordActionsColumnLabel('ACTIONS');
     }
 
     protected function documentsTable(Table $table): Table
     {
+        $moreActions = ActionGroup::make([
+            Action::make('message')
+                ->label('Message')
+                ->icon('heroicon-o-chat-bubble-left-right')
+                ->color('gray')
+                ->tooltip(
+                    fn (Document $record): string =>
+                        ! $record->isAvailableForMessaging()
+                            ? 'Messaging unavailable for rejected documents.'
+                            : 'Message'
+                )
+                ->disabled(
+                    fn (Document $record): bool => ! $record->isAvailableForMessaging()
+                )
+                ->visible(fn (Document $record): bool => $this->activeTab !== 'rejected')
+                ->url(
+                    fn (Document $record): ?string =>
+                        $record->isAvailableForMessaging()
+                            ? ClientMessages::getUrl([
+                                'document' => $record->getPublicRouteKey(),
+                            ])
+                            : null
+                ),
+
+            Action::make('download')
+                ->label('Download')
+                ->icon('heroicon-o-arrow-down-tray')
+                ->color('gray')
+                ->tooltip('Download')
+                ->url(
+                    fn (Document $record): string => route(
+                        'client.document.download',
+                        ['document' => $record->getPublicRouteKey()]
+                    )
+                )
+                ->visible(fn (Document $record): bool =>
+                    $this->clientCanAccessFile($record) && filled($record->file_path)
+                )
+                ->openUrlInNewTab(),
+
+            Action::make('print')
+                ->label('Print')
+                ->icon('heroicon-o-printer')
+                ->color('gray')
+                ->tooltip('Print')
+                ->url(
+                    fn (Document $record): string => route(
+                        'client.document.preview',
+                        ['document' => $record->getPublicRouteKey()]
+                    )
+                )
+                ->visible(fn (Document $record): bool =>
+                    $this->clientCanAccessFile($record) && filled($record->file_path)
+                )
+                ->openUrlInNewTab(),
+        ])
+            ->icon('heroicon-m-ellipsis-vertical')
+            ->tooltip('More options')
+            ->color('gray');
+
         return $table
             ->query(
                 $this->documentsQuery()
@@ -487,6 +548,10 @@ class Documents extends Page implements HasTable
                     ->state(fn (Document $record): string => (string) (
                         $record->particulars ?: $record->description ?: '—'
                     ))
+                    ->limit(32)
+                    ->tooltip(fn (Document $record): ?string => filled($record->particulars ?: $record->description)
+                        ? (string) ($record->particulars ?: $record->description)
+                        : null)
                     ->alignStart(),
 
                 TextColumn::make('created_at')
@@ -558,10 +623,9 @@ class Documents extends Page implements HasTable
             ->recordActions([
                 Action::make('track')
                     ->label('Track')
-                    ->icon('heroicon-o-clock')
-                    ->color('gray')
-                    ->extraAttributes(['class' => 'documents-table-action'])
-                    ->tooltip('Track status')
+                    ->color('primary')
+                    ->button()
+                    ->extraAttributes(['class' => 'documents-table-action documents-table-track-action'])
                     ->url(
                         fn (Document $record): string => DocumentTimeline::getUrl([
                             'document' => $record->getPublicRouteKey(),
@@ -569,66 +633,7 @@ class Documents extends Page implements HasTable
                         ])
                     ),
 
-                Action::make('message')
-                    ->label('Message')
-                    ->icon('heroicon-o-chat-bubble-left-right')
-                    ->color('gray')
-                    ->iconButton()
-                    ->extraAttributes(['class' => 'documents-table-action'])
-                    ->tooltip(
-                        fn (Document $record): string =>
-                            ! $record->isAvailableForMessaging()
-                                ? 'Messaging unavailable for rejected documents.'
-                                : 'Message'
-                    )
-                    ->disabled(
-                        fn (Document $record): bool => ! $record->isAvailableForMessaging()
-                    )
-                    ->visible(fn (Document $record): bool => $this->activeTab !== 'rejected')
-                    ->url(
-                        fn (Document $record): ?string =>
-                            $record->isAvailableForMessaging()
-                                ? ClientMessages::getUrl([
-                                    'document' => $record->getPublicRouteKey(),
-                                ])
-                                : null
-                    ),
-
-                Action::make('download')
-                    ->label('Download')
-                    ->icon('heroicon-o-arrow-down-tray')
-                    ->color('gray')
-                    ->iconButton()
-                    ->extraAttributes(['class' => 'documents-table-action'])
-                    ->tooltip('Download')
-                    ->url(
-                        fn (Document $record): string => route(
-                            'client.document.download',
-                            ['document' => $record->getPublicRouteKey()]
-                        )
-                    )
-                    ->visible(fn (Document $record): bool =>
-                        $this->clientCanAccessFile($record) && filled($record->file_path)
-                    )
-                    ->openUrlInNewTab(),
-
-                Action::make('print')
-                    ->label('Print')
-                    ->icon('heroicon-o-printer')
-                    ->color('gray')
-                    ->iconButton()
-                    ->extraAttributes(['class' => 'documents-table-action'])
-                    ->tooltip('Print')
-                    ->url(
-                        fn (Document $record): string => route(
-                            'client.document.preview',
-                            ['document' => $record->getPublicRouteKey()]
-                        )
-                    )
-                    ->visible(fn (Document $record): bool =>
-                        $this->clientCanAccessFile($record) && filled($record->file_path)
-                    )
-                    ->openUrlInNewTab(),
+                $moreActions,
             ])
             ->recordActionsColumnLabel('ACTIONS');
     }
