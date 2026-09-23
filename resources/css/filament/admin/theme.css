@@ -3047,6 +3047,21 @@ Edit-Button
     box-shadow: none !important;
 }
 
+.dark .fi-page:is(.fi-resource-action-types, .fi-resource-document-types, .fi-resource-office-units) .fi-ta-search-field .fi-input-wrp {
+    border-color: #4b5563 !important;
+    background-color: #1f2937 !important;
+}
+
+.dark .fi-page:is(.fi-resource-action-types, .fi-resource-document-types, .fi-resource-office-units) .fi-ta-search-field input {
+    color: #f3f4f6 !important;
+}
+
+.dark .fi-page:is(.fi-resource-action-types, .fi-resource-document-types, .fi-resource-office-units) .fi-ta-search-field input::placeholder,
+.dark .fi-page:is(.fi-resource-action-types, .fi-resource-document-types, .fi-resource-office-units) .fi-ta-search-field .fi-input-wrp-prefix .fi-icon {
+    color: #9ca3af !important;
+    opacity: 1;
+}
+
 @media (max-width: 640px) {
     .fi-page:is(.fi-resource-action-types, .fi-resource-document-types, .fi-resource-office-units) .fi-ta-header-toolbar > :last-child,
     .fi-page:is(.fi-resource-action-types, .fi-resource-document-types, .fi-resource-office-units) .fi-ta-search-field {

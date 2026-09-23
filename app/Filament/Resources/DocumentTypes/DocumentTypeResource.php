@@ -4,7 +4,6 @@ namespace App\Filament\Resources\DocumentTypes;
 
 use App\Filament\Clusters\SettingsCluster;
 use App\Filament\Resources\DocumentTypes\Pages\CreateDocumentType;
-use App\Filament\Resources\DocumentTypes\Pages\EditDocumentType;
 use App\Filament\Resources\DocumentTypes\Pages\ListDocumentTypes;
 use App\Models\DocumentType;
 use Filament\Forms\Components\Textarea;
@@ -90,6 +89,8 @@ class DocumentTypeResource extends Resource
             ])
             ->recordActions([
                 \Filament\Actions\EditAction::make()
+                    ->modal()
+                    ->modalWidth('md')
                     ->successNotificationTitle('Document type updated successfully')
                     ->successRedirectUrl(fn (): string => DocumentTypeResource::getUrl('index')),
                 \Filament\Actions\DeleteAction::make(),
@@ -118,7 +119,6 @@ class DocumentTypeResource extends Resource
         return [
             'index' => ListDocumentTypes::route('/'),
             'create' => CreateDocumentType::route('/create'),
-            'edit' => EditDocumentType::route('/{record}/edit'),
         ];
     }
 }
