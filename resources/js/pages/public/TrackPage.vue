@@ -21,11 +21,11 @@
                 </button>
 
                 <h2 id="qr-captcha-title" class="text-lg font-bold text-[#174f78]">
-                    Verify before uploading
+                    Verify before {{ qrCaptchaPurpose === 'camera' ? 'scanning' : 'uploading' }}
                 </h2>
 
                 <p class="mt-2 text-sm text-gray-500">
-                    Security verification runs automatically before the file picker opens.
+                    Security verification runs automatically before {{ qrCaptchaPurpose === 'camera' ? 'the camera opens' : 'the file picker opens' }}.
                 </p>
 
                 <div ref="turnstileContainer" class="mt-5 flex justify-center"></div>
@@ -151,7 +151,7 @@
                                     class="flex h-10 items-center justify-center rounded-xl border px-4 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50"
                                     :class="qrActionColorClasses"
                                     :disabled="qrLoading"
-                                    @click="startScanner"
+                                    @click="openQrCamera"
                                 >
                                     Scan with camera
                                 </button>
@@ -302,7 +302,7 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref } from 'vue'
 
 const hasSearched = ref(false)
 const document = ref(null)
@@ -325,10 +325,6 @@ const qrActionColorClasses = computed(() => ({
     error: 'border-red-600 text-red-600 hover:bg-red-600 hover:text-white',
 }[qrActionState.value]))
 
-const honeypot = ref(null)
-const honeypotName = ref('')
-const honeypotValidFrom = ref('')
-
 const scanning = ref(false)
 const qrLoading = ref(false)
 const qrVerified = ref(false)
@@ -340,6 +336,7 @@ const turnstileContainer = ref(null)
 const turnstileResponse = ref('')
 const qrCaptchaOpen = ref(false)
 const turnstileError = ref('')
+const qrCaptchaPurpose = ref('upload')
 
 let qrReader = null
 let qrControls = null
@@ -411,7 +408,17 @@ const renderTurnstile = async () => {
             callback: (token) => {
                 turnstileResponse.value = token
                 turnstileError.value = ''
-                nextTick(openQrPhotoPicker)
+                nextTick(() => {
+                    if (qrCaptchaPurpose.value === 'camera') {
+                        qrCaptchaOpen.value = false
+                        turnstileWidgetId = null
+                        startScanner()
+
+                        return
+                    }
+
+                    openQrPhotoPicker()
+                })
             },
             'expired-callback': () => {
                 turnstileResponse.value = ''
@@ -433,16 +440,27 @@ const renderTurnstile = async () => {
 }
 
 
-const openQrPhotoUpload = () => {
+const openQrCaptcha = (purpose) => {
     if (turnstileResponse.value) {
         resetTurnstile()
     }
 
     qrMessage.value = ''
     turnstileError.value = ''
+    qrCaptchaPurpose.value = purpose
     qrCaptchaOpen.value = true
 
     nextTick(renderTurnstile)
+}
+
+
+const openQrPhotoUpload = () => {
+    openQrCaptcha('upload')
+}
+
+
+const openQrCamera = () => {
+    openQrCaptcha('camera')
 }
 
 
@@ -531,18 +549,6 @@ const getQrReader = async () => {
     qrReader ??= new window.ZXingBrowser.BrowserQRCodeReader()
 
     return qrReader
-}
-
-
-const honeypotPayload = () => {
-    const payload = {}
-
-    if (honeypot.value?.enabled) {
-        payload[honeypot.value.nameFieldName] = honeypotName.value
-        payload[honeypot.value.validFromFieldName] = honeypotValidFrom.value
-    }
-
-    return payload
 }
 
 
@@ -636,8 +642,8 @@ const resolveQrValue = async (value, fromImage = false) => {
         return
     }
 
-    if (fromImage && !turnstileResponse.value) {
-        qrMessage.value = 'Please complete the CAPTCHA verification before uploading the QR code.'
+    if (!turnstileResponse.value) {
+        qrMessage.value = 'Please complete the CAPTCHA verification before scanning the QR code.'
         hasSearched.value = true
         document.value = null
 
@@ -664,13 +670,8 @@ const resolveQrValue = async (value, fromImage = false) => {
             signal: controller.signal,
             body: JSON.stringify({
                 qr_token: qrToken,
-                ...(fromImage ? {
-                    qr_source: 'image',
-                    'cf-turnstile-response': turnstileResponse.value,
-                } : {
-                    qr_source: 'camera',
-                }),
-                ...honeypotPayload(),
+                qr_source: fromImage ? 'image' : 'camera',
+                'cf-turnstile-response': turnstileResponse.value,
             }),
         })
 
@@ -686,11 +687,11 @@ const resolveQrValue = async (value, fromImage = false) => {
             return
         }
 
-        if (fromImage && response.status === 422) {
+        if (response.status === 422) {
             const data = await response.json().catch(() => ({}))
 
             if (data.errors?.['cf-turnstile-response']) {
-                qrMessage.value = 'Please complete the CAPTCHA verification before uploading the QR code.'
+                qrMessage.value = 'Please complete the CAPTCHA verification before scanning the QR code.'
 
                 return
             }
@@ -730,6 +731,10 @@ const resolveQrValue = async (value, fromImage = false) => {
         window.clearTimeout(timeoutId)
         qrRequestController = null
         qrLoading.value = false
+
+        if (!fromImage) {
+            resetTurnstile()
+        }
         hasSearched.value = true
     }
 }
@@ -799,6 +804,12 @@ const handlePaste = async (event) => {
 const startScanner = async () => {
     clearQrState()
 
+    if (!turnstileResponse.value) {
+        qrMessage.value = 'Please complete the CAPTCHA verification before scanning the QR code.'
+
+        return
+    }
+
     if (!navigator.mediaDevices?.getUserMedia) {
         scannerError.value = 'Camera access is unavailable. Open this page on localhost or HTTPS, then try again.'
 
@@ -834,6 +845,7 @@ const startScanner = async () => {
         )
     } catch (error) {
         stopScanner()
+        resetTurnstile()
 
         scannerError.value = error?.name === 'NotAllowedError'
             ? 'Camera permission was denied. Allow camera access and try again.'
@@ -842,43 +854,6 @@ const startScanner = async () => {
 }
 
 
-/*
-|--------------------------------------------------------------------------
-| Load Honeypot
-|--------------------------------------------------------------------------
-*/
-
-const loadHoneypot = async () => {
-    try {
-        const response = await fetch('/api/honeypot', {
-            headers: {
-                Accept: 'application/json',
-            },
-        })
-
-        if (!response.ok) {
-            console.error('Unable to load honeypot.')
-            return
-        }
-
-        const data = await response.json()
-
-        honeypot.value = data
-
-        honeypotName.value = ''
-
-        honeypotValidFrom.value =
-            data.encryptedValidFrom ?? ''
-
-    } catch (error) {
-        console.error('Honeypot error:', error)
-    }
-}
-
-
-onMounted(() => {
-    loadHoneypot()
-})
 onBeforeUnmount(stopScanner)
 
 

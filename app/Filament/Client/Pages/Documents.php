@@ -258,6 +258,20 @@ class Documents extends Page implements HasTable
             ->exists();
     }
 
+    protected function documentActionsUnavailable(Document $record): bool
+    {
+        return in_array(strtolower((string) $record->status), ['pending', 'rejected'], true);
+    }
+
+    protected function documentActionTooltip(Document $record, string $action): string
+    {
+        return match (strtolower((string) $record->status)) {
+            'pending' => "{$action} unavailable for pending documents.",
+            'rejected' => "{$action} unavailable for rejected documents.",
+            default => $action,
+        };
+    }
+
     public function table(Table $table): Table
     {
         if ($this->activeTab === 'requested') {
@@ -454,14 +468,15 @@ class Documents extends Page implements HasTable
                 ->color('gray')
                 ->tooltip(
                     fn (Document $record): string =>
-                        ! $record->isAvailableForMessaging()
-                            ? 'Messaging unavailable for rejected documents.'
+                        $this->documentActionsUnavailable($record)
+                            ? $this->documentActionTooltip($record, 'Messaging')
                             : 'Message'
                 )
                 ->disabled(
-                    fn (Document $record): bool => ! $record->isAvailableForMessaging()
+                    fn (Document $record): bool =>
+                        $this->documentActionsUnavailable($record)
+                        || ! $record->isAvailableForMessaging()
                 )
-                ->visible(fn (Document $record): bool => $this->activeTab !== 'rejected')
                 ->url(
                     fn (Document $record): ?string =>
                         $record->isAvailableForMessaging()
@@ -475,7 +490,12 @@ class Documents extends Page implements HasTable
                 ->label('Download')
                 ->icon('heroicon-o-arrow-down-tray')
                 ->color('gray')
-                ->tooltip('Download')
+                ->tooltip(
+                    fn (Document $record): string => $this->documentActionTooltip($record, 'Download')
+                )
+                ->disabled(
+                    fn (Document $record): bool => $this->documentActionsUnavailable($record)
+                )
                 ->url(
                     fn (Document $record): string => route(
                         'client.document.download',
@@ -491,7 +511,12 @@ class Documents extends Page implements HasTable
                 ->label('Print')
                 ->icon('heroicon-o-printer')
                 ->color('gray')
-                ->tooltip('Print')
+                ->tooltip(
+                    fn (Document $record): string => $this->documentActionTooltip($record, 'Print')
+                )
+                ->disabled(
+                    fn (Document $record): bool => $this->documentActionsUnavailable($record)
+                )
                 ->url(
                     fn (Document $record): string => route(
                         'client.document.preview',

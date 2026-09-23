@@ -95,7 +95,7 @@ class Document extends Page implements HasTable
 
     public string $dateFilter = '';
 
-    public string $activeSection = 'incoming';
+    public string $activeSection = 'pending';
 
     public ?int $highlightedDocumentId = null;
 
@@ -123,7 +123,7 @@ class Document extends Page implements HasTable
 
     public function mount(): void
     {
-        $section = request()->query('section', 'incoming');
+        $section = request()->query('section', 'pending');
         $document = request()->query('document');
 
         $this->activeSection = in_array($section, [
@@ -133,7 +133,7 @@ class Document extends Page implements HasTable
             'completed',
             'rejected',
             'archived',
-        ], true) ? $section : 'incoming';
+        ], true) ? $section : 'pending';
 
         $this->highlightedDocumentId = filled($document)
             ? DocumentModel::findForRoute($document)->document_id
@@ -1237,8 +1237,7 @@ class Document extends Page implements HasTable
 
                             DatePicker::make('deadline')
                                 ->label('Deadline')
-                                ->default(now()->toDateString())
-                                ->helperText('Preselected to today; calculated from the document type when configured.'),
+                                ->default(now()->toDateString()),
                         ]),
 
 
@@ -1399,8 +1398,7 @@ class Document extends Page implements HasTable
 
                             DatePicker::make('deadline')
                                 ->label('Deadline')
-                                ->default(now()->toDateString())
-                                ->helperText('Preselected to today; calculated from the document type when configured.'),
+                                ->default(now()->toDateString()),
 
                             Textarea::make('particulars')
                                 ->label('Particulars')

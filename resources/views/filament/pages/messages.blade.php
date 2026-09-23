@@ -198,8 +198,16 @@
         color: #111827;
 
         display: flex;
+        align-items: center;
         justify-content: space-between;
         gap: 8px;
+    }
+
+    .m-name > span:first-child {
+        min-width: 0;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
     }
 
     .m-time {

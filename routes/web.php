@@ -20,8 +20,6 @@ use App\Http\Middleware\AdminMiddleware;
 use App\Services\DocumentDownloadService;
 use App\Services\DocumentQrToken;
 use App\Services\DocumentStatusTimeline;
-use Spatie\Honeypot\Honeypot;
-use Spatie\Honeypot\ProtectAgainstSpam;
 use RyanChandler\LaravelCloudflareTurnstile\Rules\Turnstile;
 use App\Http\Middleware\EnsureLegalStaff;
 
@@ -126,10 +124,21 @@ Route::get('/client/document-preview/{document}', function (string $document) {
         ->first();
 
     $disk = Storage::disk('local');
-    $filePath = $versionRecord?->file_path;
+    $filePath = $documentRecord->transmittalAttachments()->value('file_path')
+        ?: $documentRecord->transmittal
+        ?: $versionRecord?->file_path;
 
     if ($filePath && ! $disk->exists($filePath)) {
         $disk = Storage::disk('public');
+    }
+
+    if ((! $filePath || ! $disk->exists($filePath)) && $versionRecord?->file_path) {
+        $filePath = $versionRecord->file_path;
+        $disk = Storage::disk('local');
+
+        if (! $disk->exists($filePath)) {
+            $disk = Storage::disk('public');
+        }
     }
 
     abort_unless(
@@ -164,10 +173,21 @@ Route::get('/client/document-thumbnail/{document}', function (string $document) 
         ->first();
 
     $disk = Storage::disk('local');
-    $filePath = $versionRecord?->file_path;
+    $filePath = $documentRecord->transmittalAttachments()->value('file_path')
+        ?: $documentRecord->transmittal
+        ?: $versionRecord?->file_path;
 
     if ($filePath && ! $disk->exists($filePath)) {
         $disk = Storage::disk('public');
+    }
+
+    if ((! $filePath || ! $disk->exists($filePath)) && $versionRecord?->file_path) {
+        $filePath = $versionRecord->file_path;
+        $disk = Storage::disk('local');
+
+        if (! $disk->exists($filePath)) {
+            $disk = Storage::disk('public');
+        }
     }
 
     abort_unless($filePath && $disk->exists($filePath), 404);
@@ -711,11 +731,6 @@ Route::get('/admin/documents/{document}/versions/{version}/download', function (
     ->name('admin.document.version.download');
 
 
-Route::get('/api/honeypot', function (Honeypot $honeypot) {
-    return response()->json($honeypot->toArray());
-})->name('public.honeypot');
-
-
 Route::post('/api/track/qr', function (Request $request) {
     $validated = $request->validate([
         'qr_token' => [
@@ -746,7 +761,6 @@ Route::post('/api/track/qr', function (Request $request) {
             Rule::in(['camera', 'image']),
         ],
         'cf-turnstile-response' => [
-            'exclude_unless:qr_source,image',
             'required',
             new Turnstile(),
         ],
@@ -791,7 +805,6 @@ Route::post('/api/track/qr', function (Request $request) {
         ->header('Cache-Control', 'no-store, private');
 })
     ->middleware([
-        ProtectAgainstSpam::class,
         'throttle:qr-tracking',
     ])
     ->name('public.track.qr');

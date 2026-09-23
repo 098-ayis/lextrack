@@ -41,6 +41,7 @@ class DashboardDocumentTable extends Widget
         return $this->documentsQuery()
             ->with([
                 'latestVersion',
+                'transmittalAttachments',
                 'documentRequests' => fn ($query) => $query
                     ->where('user_id', auth()->id())
                     ->where('copy_type', 'soft_copy')

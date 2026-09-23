@@ -2,9 +2,12 @@
     @php
         $latestVersion = $documentRecord->latestVersion;
         $latestFilePath = $latestVersion?->file_path;
+        $previewFilePath = $documentRecord->transmittalAttachments->first()?->file_path
+            ?: $documentRecord->transmittal
+            ?: $latestFilePath;
         $documentSubject = $documentRecord->particulars ?: $documentRecord->description;
-        $displayedFileName = filled($latestFilePath)
-            ? basename((string) $latestFilePath)
+        $displayedFileName = filled($previewFilePath)
+            ? basename((string) $previewFilePath)
             : 'Preview unavailable';
         $displayedFileExtension = strtolower((string) pathinfo($displayedFileName, PATHINFO_EXTENSION));
         $displayedFileTypeLabel = match ($displayedFileExtension) {
@@ -20,12 +23,15 @@
             'doc', 'docx' => 'client-document-file-icon-docx',
             default => 'client-document-file-icon-default',
         };
-        $versionNumber = trim((string) ($latestVersion?->version_number ?? '1'));
+        $allVersions = $documentRecord->versions;
+        $latestAdminRevision = $allVersions
+            ->first(fn ($version): bool => $version->source === 'admin');
+        $versionNumber = trim((string) ($latestAdminRevision?->version_number ?? ''));
         $versionBadge = $versionNumber !== ''
             ? (str_contains(strtolower($versionNumber), 'version') || str_starts_with(strtolower($versionNumber), 'v')
                 ? $versionNumber
                 : 'v' . $versionNumber)
-            : 'v1';
+            : '';
         $isSoftCopyRequest = $requestRecord?->copy_type === 'soft_copy';
         $statusValue = $documentRecord->status;
         $statusLabel = blank($statusValue)
@@ -78,13 +84,10 @@
                 'path' => (string) $documentRecord->transmittal,
             ]);
         }
-        $allVersions = $documentRecord->versions;
         $submittedFiles = $allVersions
             ->filter(fn ($version): bool => $version->source === 'client')
             ->sortByDesc('created_at')
             ->values();
-        $latestAdminRevision = $allVersions
-            ->first(fn ($version): bool => $version->source === 'admin');
         $versions = $latestAdminRevision ? collect([$latestAdminRevision]) : collect();
     @endphp
 

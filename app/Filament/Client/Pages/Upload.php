@@ -2,20 +2,14 @@
 
 namespace App\Filament\Client\Pages;
 
-use Filament\Actions\Action;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Pages\Page;
 use Filament\Schemas\Schema; 
-use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\FileUpload;
-use Filament\Schemas\Components\Utilities\Get;
-use Filament\Schemas\Components\Utilities\Set;
 use Filament\Notifications\Notification;
-use Filament\Support\Icons\Heroicon;
 use App\Models\Document;
 use App\Models\DocumentVersion;
 use App\Models\DocumentTransmittal;
@@ -27,15 +21,12 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Illuminate\Support\Facades\RateLimiter;
 
 class Upload extends Page implements HasForms
 {
-    private const string OTHER_OFFICE_UNIT = '__other__';
-
-    private const string OTHER_DOCUMENT_TYPE = '__other_document_type__';
-
     use InteractsWithForms;
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-arrow-up-tray';
@@ -77,106 +68,39 @@ class Upload extends Page implements HasForms
                     ->columnSpan('full')
                     ->required(),
 
-                Hidden::make('office_unit_mode')
-                    ->default('select')
-                    ->dehydrated(false),
-
-                Hidden::make('document_type_mode')
-                    ->default('select')
-                    ->dehydrated(false),
-                
                 Select::make('office_unit')
                     ->label('Office From')
                     ->options(fn () => OfficeUnit::query()
                         ->orderBy('name')
                         ->pluck('name', 'name')
-                        ->prepend('Others', self::OTHER_OFFICE_UNIT)
+                        ->prepend('Others', 'Others')
                         ->toArray())
                     ->searchable()
                     ->preload()
                     ->live()
-                    ->visible(fn (Get $get): bool => $get('office_unit_mode') !== self::OTHER_OFFICE_UNIT)
-                    ->dehydrated(fn (Get $get): bool => $get('office_unit_mode') !== self::OTHER_OFFICE_UNIT)
-                    ->afterStateUpdated(function (Set $set, ?string $state): void {
-                        if ($state === self::OTHER_OFFICE_UNIT) {
-                            $set('office_unit_mode', self::OTHER_OFFICE_UNIT);
-                            $set('office_unit', null);
-
-                            return;
-                        }
-
-                        $set('office_unit_mode', 'select');
-                    })
                     ->required(),
-
-                TextInput::make('office_unit')
-                    ->label('Office From')
-                    ->placeholder('e.g. College of Science')
-                    ->maxLength(255)
-                    ->suffixAction(
-                        Action::make('chooseListedOffice')
-                            ->icon(Heroicon::ChevronDown)
-                            ->tooltip('Choose from listed offices')
-                            ->action(function (Set $set): void {
-                                $set('office_unit_mode', 'select');
-                                $set('office_unit', null);
-                            }),
-                    )
-                    ->visible(fn (Get $get): bool => $get('office_unit_mode') === self::OTHER_OFFICE_UNIT)
-                    ->dehydrated(fn (Get $get): bool => $get('office_unit_mode') === self::OTHER_OFFICE_UNIT)
-                    ->required(fn (Get $get): bool => $get('office_unit_mode') === self::OTHER_OFFICE_UNIT),
 
                 Select::make('document_type')
                     ->label('Document Type')
                     ->options(fn () => DocumentType::query()
                         ->orderBy('type_name')
                         ->pluck('type_name', 'type_name')
-                        ->prepend('Others', self::OTHER_DOCUMENT_TYPE)
+                        ->prepend('Others', 'Others')
                         ->toArray())
                     ->searchable()
                     ->preload()
                     ->live()
-                    ->visible(fn (Get $get): bool => $get('document_type_mode') !== self::OTHER_DOCUMENT_TYPE)
-                    ->dehydrated(fn (Get $get): bool => $get('document_type_mode') !== self::OTHER_DOCUMENT_TYPE)
-                    ->afterStateUpdated(function (Set $set, ?string $state): void {
-                        if ($state === self::OTHER_DOCUMENT_TYPE) {
-                            $set('document_type_mode', self::OTHER_DOCUMENT_TYPE);
-                            $set('document_type', null);
-
-                            return;
-                        }
-
-                        $set('document_type_mode', 'select');
-                    })
                     ->required(),
-
-                TextInput::make('document_type')
-                    ->label('Document Type')
-                    ->placeholder('Enter the document type')
-                    ->maxLength(255)
-                    ->suffixAction(
-                        Action::make('chooseListedDocumentType')
-                            ->icon(Heroicon::ChevronDown)
-                            ->tooltip('Choose from listed document types')
-                            ->action(function (Set $set): void {
-                                $set('document_type_mode', 'select');
-                                $set('document_type', null);
-                            }),
-                    )
-                    ->visible(fn (Get $get): bool => $get('document_type_mode') === self::OTHER_DOCUMENT_TYPE)
-                    ->dehydrated(fn (Get $get): bool => $get('document_type_mode') === self::OTHER_DOCUMENT_TYPE)
-                    ->required(fn (Get $get): bool => $get('document_type_mode') === self::OTHER_DOCUMENT_TYPE),
                     
                 FileUpload::make('transmittal')
                     ->label('Transmittal/Endorsement')
-                    ->multiple()
-                    ->appendFiles()
                     // Store the file once in submit(), after it has been
                     // verified and hashed. This keeps the temporary upload
                     // available to the custom validation below.
                     ->storeFiles(false)
                     ->extraFieldWrapperAttributes(['data-upload-field' => 'transmittal'])
                     ->panelLayout('compact')
+                    ->maxFiles(1)
                     ->removeUploadedFileButtonPosition('right')
                     ->acceptedFileTypes([
                         'application/pdf',
@@ -193,34 +117,35 @@ class Upload extends Page implements HasForms
                     ->disk('local')
                     ->directory('client-transmittals')
                     ->preserveFilenames()
-                    ->helperText('Accepted files: PDF or DOCX. Maximum file size: 5 MB each.')
+                    ->helperText('Accepted files: PDF or DOCX. Upload 1 file, maximum 5 MB.')
                     ->columnSpan('full')
                     ->required(),
 
                 FileUpload::make('file_path')
-                    ->label('Document File')
+                    ->label('Document File/s')
                     ->multiple()
                     ->appendFiles()
                     ->storeFiles(false)
                     ->extraFieldWrapperAttributes(['data-upload-field' => 'file_path'])
                     ->panelLayout('compact')
+                    ->maxFiles(5)
                     ->removeUploadedFileButtonPosition('right')
                     ->acceptedFileTypes([
                         'application/pdf',
                         'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
                     ])
                     ->maxSize(5120)
-                    ->validationAttribute('document file')
+                    ->validationAttribute('document file/s')
                     ->validationMessages([
-                        'required' => 'Please select a document file before submitting.',
+                        'required' => 'Please select at least one document file before submitting.',
                         'mimetypes' => 'This file type is not supported. Please upload a PDF or DOCX file.',
-                        'max' => 'The document file is too large. Please choose a file up to 5 MB.',
-                        'file' => 'The selected document could not be uploaded. Please choose a valid file.',
+                        'max' => 'A document file is too large. Please choose a file up to 5 MB.',
+                        'file' => 'A selected document file could not be uploaded. Please choose a valid file.',
                     ])
                     ->disk('local')
                     ->directory('client-documents')
                     ->preserveFilenames()
-                    ->helperText('Accepted files: PDF or DOCX. Maximum file size: 5 MB each.')
+                    ->helperText('Accepted files: PDF or DOCX. Upload up to 5 files, maximum 5 MB each.')
                     ->columnSpan('full')
                     ->required(),
                             ])
@@ -252,11 +177,21 @@ class Upload extends Page implements HasForms
         $uploadedFiles = $this->normalizeUploadedFiles($data['file_path'] ?? null);
         $transmittalFiles = $this->normalizeUploadedFiles($data['transmittal'] ?? null);
 
+        if (count($uploadedFiles) > 5 || count($transmittalFiles) > 1) {
+            Notification::make()
+                ->danger()
+                ->title('Too many files')
+                ->body('You can upload up to 5 document files and only 1 transmittal/endorsement file.')
+                ->send();
+
+            return;
+        }
+
         if ($uploadedFiles === []) {
             Notification::make()
                 ->danger()
-                ->title('Document file required')
-                ->body('Please select a document file before submitting.')
+                ->title('Document file/s required')
+                ->body('Please select at least one document file before submitting.')
                 ->send();
 
             return;
@@ -328,19 +263,8 @@ class Upload extends Page implements HasForms
             return;
         }
 
-        if (count($transmittalUploads) !== 1 && count($transmittalUploads) !== count($uploads)) {
-            $this->cleanupUploads([...$uploads, ...$transmittalUploads]);
-
-            Notification::make()
-                ->danger()
-                ->title('File counts do not match')
-                ->body('Upload one transmittal/endorsement file to share with all document files, or upload one for each document file.')
-                ->send();
-
-            return;
-        }
-
         $officeUnit = trim((string) ($data['office_unit'] ?? ''));
+        $documentType = trim((string) ($data['document_type'] ?? ''));
         $fileHashes = array_column($uploads, 'hash');
         $existingDocumentHashes = DocumentVersion::query()
             ->where('user_id', $userId)
@@ -366,10 +290,15 @@ class Upload extends Page implements HasForms
             return;
         }
 
+        $submissionKey = (string) Str::ulid();
         $filePaths = [];
 
         foreach ($uploadedFiles as $index => $uploadedFile) {
-            $filePath = $this->storeUpload($uploadedFile, $uploads[$index], 'client-documents');
+            $filePath = $this->storeUpload(
+                $uploadedFile,
+                $uploads[$index],
+                'client-documents/' . $submissionKey . '/documents/' . ($index + 1),
+            );
 
             if ($filePath === null) {
                 $this->cleanupUploads([...$uploads, ...$transmittalUploads]);
@@ -389,7 +318,11 @@ class Upload extends Page implements HasForms
         $transmittalPaths = [];
 
         foreach ($transmittalFiles as $index => $transmittalFile) {
-            $transmittalPath = $this->storeUpload($transmittalFile, $transmittalUploads[$index], 'client-transmittals');
+            $transmittalPath = $this->storeUpload(
+                $transmittalFile,
+                $transmittalUploads[$index],
+                'client-transmittals/' . $submissionKey,
+            );
 
             if ($transmittalPath === null) {
                 $this->cleanupUploads([...$uploads, ...$transmittalUploads]);
@@ -407,49 +340,40 @@ class Upload extends Page implements HasForms
         }
 
         try {
-            $documents = DB::transaction(function () use ($data, $officeUnit, $uploadedFiles, $filePaths, $transmittalPaths, $uploads, $transmittalUploads, $userId): array {
-                $createdDocuments = [];
+            $documents = DB::transaction(function () use ($data, $officeUnit, $documentType, $uploadedFiles, $filePaths, $transmittalPaths, $uploads, $transmittalUploads, $userId): array {
+                $transmittalPath = $transmittalPaths[0] ?? null;
+                $document = Document::create([
+                    'user_id' => $userId,
+                    'particulars' => null,
+                    'description' => $data['description'],
+                    'document_name' => $this->uploadedFileName($uploadedFiles[0] ?? null, $filePaths[0] ?? ''),
+                    'office_unit' => $officeUnit,
+                    'document_type' => $documentType,
+                    'transmittal' => $transmittalPath,
+                    'status' => 'pending',
+                ]);
+
+                if ($transmittalPath !== null) {
+                    DocumentTransmittal::create([
+                        'document_id' => $document->document_id,
+                        'user_id' => $userId,
+                        'file_path' => $transmittalPath,
+                        'file_hash' => $transmittalUploads[0]['hash'],
+                    ]);
+                }
 
                 foreach ($filePaths as $index => $filePath) {
-                    $transmittalPath = count($transmittalPaths) === 1
-                        ? $transmittalPaths[0]
-                        : $transmittalPaths[$index];
-
-                    $document = Document::create([
-                        'user_id' => $userId,
-                        'particulars' => null,
-                        'description' => $data['description'],
-                        'document_name' => $this->uploadedFileName($uploadedFiles[$index] ?? null, $filePath),
-                        'office_unit' => $officeUnit,
-                        'document_type' => $data['document_type'],
-                        'transmittal' => $transmittalPath,
-                        'status' => 'pending',
-                    ]);
-
-                    if ($transmittalPath !== null) {
-                        $transmittalIndex = count($transmittalPaths) === 1 ? 0 : $index;
-
-                        DocumentTransmittal::create([
-                            'document_id' => $document->document_id,
-                            'user_id' => $userId,
-                            'file_path' => $transmittalPath,
-                            'file_hash' => $transmittalUploads[$transmittalIndex]['hash'],
-                        ]);
-                    }
-
                     DocumentVersion::create([
                         'user_id' => $userId,
                         'document_id' => $document->document_id,
-                        'version_number' => '1',
+                        'version_number' => (string) ($index + 1),
                         'file_path' => $filePath,
                         'file_hash' => $uploads[$index]['hash'],
                         'source' => 'client',
                     ]);
-
-                    $createdDocuments[] = $document;
                 }
 
-                return $createdDocuments;
+                return [$document];
             });
         } catch (QueryException $exception) {
             if (! $this->isFileHashUniqueViolation($exception)) {
@@ -462,10 +386,8 @@ class Upload extends Page implements HasForms
             return;
         }
 
-        foreach ($documents as $document) {
-            app(AdminDocumentNotificationService::class)
-                ->notifyDocumentSubmitted($document);
-        }
+        app(AdminDocumentNotificationService::class)
+            ->notifyDocumentSubmitted($documents[0]);
 
         Notification::make()
             ->title('Document submitted successfully!')
@@ -585,7 +507,13 @@ class Upload extends Page implements HasForms
     private function storeUpload(mixed $file, array &$upload, string $directory): ?string
     {
         if ($file instanceof TemporaryUploadedFile || $file instanceof UploadedFile) {
-            $filePath = $file->store($directory, 'local');
+            $originalName = $this->uploadedFileName($file, '');
+
+            if ($originalName === '') {
+                return null;
+            }
+
+            $filePath = $file->storeAs($directory, $originalName, 'local');
 
             if (! is_string($filePath) || $filePath === '') {
                 return null;
@@ -603,7 +531,7 @@ class Upload extends Page implements HasForms
     private function uploadedFileName(mixed $file, string $storedPath): string
     {
         if ($file instanceof TemporaryUploadedFile || $file instanceof UploadedFile) {
-            $originalName = basename($file->getClientOriginalName());
+            $originalName = basename(str_replace('\\', '/', $file->getClientOriginalName()));
 
             if ($originalName !== '') {
                 return $originalName;
