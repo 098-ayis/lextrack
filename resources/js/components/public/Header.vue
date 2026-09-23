@@ -21,7 +21,7 @@
               <span class="text-[#9DD9FB] font-bold">Bicol </span>
               <span class="text-orange-500 font-bold">University</span>
             </p>
-            <h1 class="truncate font-bold text-lg tracking-wide leading-tight sm:text-[26px]">
+            <h1 class="public-brand-title truncate text-lg leading-tight sm:text-[26px]">
               Legal Office
             </h1>
           </div>

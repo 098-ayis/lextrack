@@ -37,6 +37,8 @@ class ViewDocument extends Page
 
     private const string REVISION_UPLOAD_PREFIX = 'A revised document was uploaded';
 
+    private const string REVISION_UPLOADS_PREFIX = 'Revised documents were uploaded';
+
     private const string REVISION_DECISION_PREFIX = 'The revised document (';
 
     // use HasPageShield;
@@ -99,13 +101,23 @@ class ViewDocument extends Page
         $this->documentRecord->load([
             'user',
             'notes.user',
-            'versions',
             'latestVersion',
             'transmittalAttachments',
             'documentRequests.user',
             'rejections',
             'activityLogs.user',
         ]);
+
+        // Load every version explicitly by the document's internal key. This
+        // keeps the admin Document Version section tied to all rows belonging
+        // to this document, including revisions uploaded by the client.
+        $this->documentRecord->setRelation(
+            'versions',
+            DocumentVersion::query()
+                ->where('document_id', $this->documentRecord->document_id)
+                ->orderBy('version_id')
+                ->get(),
+        );
 
         $this->previewUrl = $this->generatePreview();
         $this->previewPageCount = $this->pageCountForVersion($this->documentRecord->latestVersion);
@@ -1176,7 +1188,7 @@ JS;
 
             if (
                 (int) $message->sender_id === (int) $this->documentRecord->user_id
-                && str_starts_with($body, self::REVISION_UPLOAD_PREFIX)
+                && $this->isRevisionUploadMessage($body)
             ) {
                 $pending = true;
 
@@ -1195,6 +1207,12 @@ JS;
         }
 
         return $pending;
+    }
+
+    private function isRevisionUploadMessage(string $body): bool
+    {
+        return str_starts_with($body, self::REVISION_UPLOAD_PREFIX)
+            || str_starts_with($body, self::REVISION_UPLOADS_PREFIX);
     }
 
     public function acceptRevisionAction(): Action

@@ -63,10 +63,10 @@
       </div>
         <!-- Title -->
         <div class="text-center mb-8">
-          <h1 class="text-2xl md:text-3xl font-black text-[#121722] tracking-tight mb-1">
+          <h1 class="login-brand-title mb-1 text-2xl text-[#121722] md:text-3xl">
             BU LEGAL AFFAIRS
           </h1>
-          <h2 class="text-2xl md:text-3xl font-black text-[#6b77ff] tracking-tight">
+          <h2 class="login-brand-title text-2xl text-[#6b77ff] md:text-3xl">
             OFFICE PORTAL
           </h2>
         </div>

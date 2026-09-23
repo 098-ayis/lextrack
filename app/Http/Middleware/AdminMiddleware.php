@@ -15,15 +15,19 @@ class AdminMiddleware
      */
     public function handle(Request $request, Closure $next): Response
     {
-        if (!auth()->check()) {
+        if (! auth()->check()) {
+            if (! $request->expectsJson()) {
+                return redirect()->guest(route('login'));
+            }
+
             return response()->json([
-                'message' => 'Unauthenticated.'
+                'message' => 'Unauthenticated.',
             ], 401);
         }
 
         if (! auth()->user()->isAdmin()) {
             return response()->json([
-                'message' => 'Forbidden.'
+                'message' => 'Forbidden.',
             ], 403);
         }
 
