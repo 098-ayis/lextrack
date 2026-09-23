@@ -15,28 +15,6 @@
                     <label for="request-purpose" class="request-field-label">
                         Purpose <span class="text-red-500">*</span>
                     </label>
-                    @if ($purpose === 'other')
-                        <div class="relative">
-                            <input
-                                id="request-purpose-other"
-                                type="text"
-                                wire:model.blur="purposeOther"
-                                placeholder="Type the purpose you need..."
-                                class="request-field-input pr-12"
-                                autofocus
-                            >
-                            <button
-                                type="button"
-                                wire:click="clearPurpose"
-                                class="request-select-clear absolute right-4 top-1/2 -translate-y-1/2"
-                                aria-label="Clear purpose"
-                            >
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                                    <path stroke-linecap="round" d="M6 6l12 12M18 6 6 18" />
-                                </svg>
-                            </button>
-                        </div>
-                    @else
                         <div
                             class="request-select-wrapper"
                             x-data="{ open: false, search: '' }"
@@ -111,18 +89,14 @@
                             </div>
                         </div>
                         </div>
-                    @endif
                     @error('purpose')
-                        <p class="request-error">{{ $message }}</p>
-                    @enderror
-                    @error('purposeOther')
                         <p class="request-error">{{ $message }}</p>
                     @enderror
                 </div>
 
                 <div>
                     <label for="request-purpose-details" class="request-field-label">
-                        Specify your purpose <span class="text-red-500">*</span>
+                        Specify your request <span class="text-red-500">*</span>
                     </label>
                     <textarea
                         id="request-purpose-details"

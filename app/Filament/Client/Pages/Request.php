@@ -22,8 +22,6 @@ class Request extends Page
 
     public string $purpose = '';
 
-    public string $purposeOther = '';
-
     public string $purposeDetails = '';
 
     public string $copyType = '';
@@ -36,23 +34,12 @@ class Request extends Page
     public function updatedPurpose(string $purpose): void
     {
         $this->resetValidation('purpose');
-
-        if ($purpose !== 'other') {
-            $this->purposeOther = '';
-            $this->resetValidation('purposeOther');
-        }
-    }
-
-    public function updatedPurposeOther(): void
-    {
-        $this->resetValidation('purposeOther');
     }
 
     public function clearPurpose(): void
     {
         $this->purpose = '';
-        $this->purposeOther = '';
-        $this->resetValidation(['purpose', 'purposeOther']);
+        $this->resetValidation('purpose');
     }
 
     public function updatedPurposeDetails(): void
@@ -90,12 +77,6 @@ class Request extends Page
                 'required',
                 Rule::in(array_keys($this->purposeOptions())),
             ],
-            'purposeOther' => [
-                'nullable',
-                'required_if:purpose,other',
-                'string',
-                'max:255',
-            ],
             'purposeDetails' => [
                 'required',
                 'string',
@@ -107,9 +88,7 @@ class Request extends Page
             ],
         ]);
 
-        $purpose = $this->purpose === 'other'
-            ? trim($this->purposeOther)
-            : $this->purposeOptions()[$this->purpose];
+        $purpose = $this->purposeOptions()[$this->purpose];
 
         $request = DocumentRequest::create([
             'purpose' => $purpose,
@@ -137,7 +116,6 @@ class Request extends Page
     {
         $this->reset([
             'purpose',
-            'purposeOther',
             'purposeDetails',
             'copyType',
         ]);
