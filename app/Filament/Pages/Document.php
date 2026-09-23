@@ -1020,7 +1020,7 @@ class Document extends Page implements HasTable
                         'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
                     ])
                     ->rules(['mimes:pdf,docx'])
-                    ->helperText('Select one or more PDF or DOCX files. Maximum file size: 5 MB each; each file is added as a document version.')
+                    ->helperText('Select one or more PDF or DOCX files. Maximum file size: 5 MB each; each file is added as a revision.')
                     ->preserveFilenames()
                     ->extraAttributes(['class' => 'admin-document-upload-files'])
                     ->live()
@@ -1156,6 +1156,7 @@ class Document extends Page implements HasTable
                             'version_number' => (string) ($index + 1),
                             'file_path' => $filePath,
                             'file_hash' => $fileHashes[$index],
+                            'source' => 'admin',
                         ]);
                     }
 
@@ -1407,7 +1408,7 @@ class Document extends Page implements HasTable
                         ]),
 
                     FileUpload::make('file_path')
-                        ->label('Upload New Document Version')
+                        ->label('Upload New Revision')
                         ->disk('local')
                         ->directory('documents/versions')
                         ->preserveFilenames()
@@ -1535,6 +1536,7 @@ class Document extends Page implements HasTable
                         'version_number' => (string) $this->getNextVersionNumber($document),
                         'file_path' => $filePath,
                         'file_hash' => $fileHash,
+                        'source' => 'admin',
                     ]);
 
                     $uploadedNames[] = basename($filePath);

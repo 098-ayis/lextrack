@@ -371,7 +371,9 @@ class DocumentRequests extends Page implements HasTable
                         ? 'Upload and accept'
                         : 'Accept and schedule'
             )
-            ->modalCancelActionLabel('Cancel')
+            ->modalCancelAction(false)
+            ->closeModalByClickingAway(false)
+            ->closeModalByEscaping(false)
             ->schema(
                 fn (DocumentRequest $record): array => $record->copy_type === 'soft_copy'
                     ? [
@@ -397,7 +399,7 @@ class DocumentRequests extends Page implements HasTable
                             ->native(false)
                             ->displayFormat('M d, Y')
                             ->minDate(today())
-                            ->default(today()->toDateString())
+                            ->default(today()->addDay()->toDateString())
                             ->required(),
                         Select::make('pickup_time')
                             ->label('Pickup time')
@@ -452,7 +454,9 @@ class DocumentRequests extends Page implements HasTable
             ->modalAlignment(\Filament\Support\Enums\Alignment::Center)
             ->modalFooterActionsAlignment(\Filament\Support\Enums\Alignment::Center)
             ->modalSubmitActionLabel('Reject request')
-            ->modalCancelActionLabel('Cancel')
+            ->modalCancelAction(false)
+            ->closeModalByClickingAway(false)
+            ->closeModalByEscaping(false)
             ->schema([
                 Textarea::make('rejection_reason')
                     ->label('Reason for rejection')
@@ -594,6 +598,7 @@ class DocumentRequests extends Page implements HasTable
                         'version_number' => (string) ($highestVersion + $index + 1),
                         'file_path' => $path,
                         'file_hash' => $fileHashes[$index],
+                        'source' => 'admin',
                     ]);
                 }
             }
@@ -732,12 +737,7 @@ class DocumentRequests extends Page implements HasTable
         }
 
         $notification->send();
-
-        $this->redirect(
-            self::getUrl([
-                'section' => 'accepted',
-            ])
-        );
+        $this->resetTable();
     }
 
     public function rejectRequest(int $requestId, string $reason): void
