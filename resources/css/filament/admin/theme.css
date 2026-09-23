@@ -3016,6 +3016,44 @@ Edit-Button
     color: #a5b4fc !important;
 }
 
+/* Match the dashboard search layout on Settings: search on the left and the
+ * action button on the right. */
+.fi-page:is(.fi-resource-action-types, .fi-resource-document-types, .fi-resource-office-units) .fi-ta-header-toolbar {
+    align-items: center !important;
+    gap: 0.75rem !important;
+    padding: 0.875rem 1.5rem !important;
+}
+
+.fi-page:is(.fi-resource-action-types, .fi-resource-document-types, .fi-resource-office-units) .fi-ta-header-toolbar > :first-child {
+    order: 2;
+    margin-inline-start: auto !important;
+}
+
+.fi-page:is(.fi-resource-action-types, .fi-resource-document-types, .fi-resource-office-units) .fi-ta-header-toolbar > :last-child {
+    order: 1;
+    margin-inline-start: 0 !important;
+}
+
+.fi-page:is(.fi-resource-action-types, .fi-resource-document-types, .fi-resource-office-units) .fi-ta-search-field {
+    width: min(19.125rem, 100%) !important;
+}
+
+.fi-page:is(.fi-resource-action-types, .fi-resource-document-types, .fi-resource-office-units) .fi-ta-search-field .fi-input-wrp {
+    height: 2.375rem !important;
+    min-height: 2.375rem !important;
+    border: 1px solid #d1d5db !important;
+    border-radius: 9999px !important;
+    background-color: #ffffff !important;
+    box-shadow: none !important;
+}
+
+@media (max-width: 640px) {
+    .fi-page:is(.fi-resource-action-types, .fi-resource-document-types, .fi-resource-office-units) .fi-ta-header-toolbar > :last-child,
+    .fi-page:is(.fi-resource-action-types, .fi-resource-document-types, .fi-resource-office-units) .fi-ta-search-field {
+        width: 100% !important;
+    }
+}
+
 /* Filament Shield uses the `shield/roles` resource slug. */
 .dark .fi-page.fi-resource-shield-roles .fi-ta-ctn,
 .dark .fi-page.fi-resource-shield-roles .fi-ta-header-ctn,
