@@ -392,6 +392,7 @@ class Upload extends Page implements HasForms
                         'version_number' => '1',
                         'file_path' => $filePath,
                         'file_hash' => $uploads[$index]['hash'],
+                        'source' => 'client',
                     ]);
 
                     $createdDocuments[] = $document;

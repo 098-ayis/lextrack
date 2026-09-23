@@ -1520,7 +1520,8 @@ Edit-Button
 ================================ */
 
 .sidebar-collapse-inline,
-.sidebar-expand-below-logo {
+.sidebar-collapsed-brand-toggle,
+.sidebar-expand-empty-space {
     display: none;
 }
 
@@ -1671,14 +1672,37 @@ Edit-Button
         height: 1.4rem;
     }
 
-    .sidebar-expand-below-logo {
+    .sidebar-collapsed-brand-toggle {
         position: fixed;
         z-index: 50;
-        top: 3.35rem;
+        top: 1.1rem;
         inset-inline-start: calc((var(--collapsed-sidebar-width) - 2rem) / 2);
         display: inline-flex;
         width: 2rem;
         height: 2rem;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .sidebar-collapsed-brand {
+        position: absolute;
+        inset: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        transition: opacity 150ms ease;
+    }
+
+    .sidebar-collapsed-brand-toggle img {
+        width: 2rem;
+        height: 2rem;
+        object-fit: contain;
+    }
+
+    .sidebar-expand-on-logo {
+        position: absolute;
+        inset: 0;
+        display: inline-flex;
         align-items: center;
         justify-content: center;
         padding: 0;
@@ -1687,19 +1711,52 @@ Edit-Button
         background: transparent;
         color: #cbd5e1;
         cursor: pointer;
-        transition: background-color 150ms ease, color 150ms ease;
+        opacity: 0;
+        transition: background-color 150ms ease, color 150ms ease, opacity 150ms ease;
     }
 
-    .sidebar-expand-below-logo:hover,
-    .sidebar-expand-below-logo:focus-visible {
+    .sidebar-collapsed-brand-toggle:hover .sidebar-collapsed-brand,
+    .sidebar-collapsed-brand-toggle:focus-within .sidebar-collapsed-brand {
+        opacity: 0;
+    }
+
+    .sidebar-collapsed-brand-toggle:hover .sidebar-expand-on-logo,
+    .sidebar-collapsed-brand-toggle:focus-within .sidebar-expand-on-logo,
+    .sidebar-expand-on-logo:focus-visible {
+        opacity: 1;
+    }
+
+    .sidebar-expand-on-logo:hover,
+    .sidebar-expand-on-logo:focus-visible {
         background-color: rgb(255 255 255 / 0.1);
         color: #ffffff;
         outline: none;
     }
 
-    .sidebar-expand-below-logo svg {
+    .sidebar-expand-on-logo svg {
         width: 1.4rem;
         height: 1.4rem;
+    }
+
+    .fi-body-has-topbar .fi-main-sidebar .fi-sidebar-nav {
+        position: relative;
+    }
+
+    .sidebar-expand-empty-space {
+        position: absolute;
+        z-index: 0;
+        inset: 0;
+        display: block;
+        width: 100%;
+        height: 100%;
+        border: 0;
+        background: transparent;
+        cursor: pointer;
+    }
+
+    .fi-body-has-topbar .fi-main-sidebar .fi-sidebar-nav-groups {
+        position: relative;
+        z-index: 1;
     }
 
     /* Keep the full navigation compact while retaining keyboard/mouse scrolling. */
@@ -1802,21 +1859,7 @@ Edit-Button
 
     /* Compact navigation treatment for the collapsed sidebar. */
     .sidebar-collapsed-brand {
-        position: fixed;
-        z-index: 45;
-        top: 1.1rem;
-        inset-inline-start: 0;
-        display: inline-flex;
-        width: var(--collapsed-sidebar-width);
-        align-items: center;
-        justify-content: center;
         pointer-events: none;
-    }
-
-    .sidebar-collapsed-brand img {
-        width: 2rem;
-        height: 2rem;
-        object-fit: contain;
     }
 
     .fi-body-has-topbar

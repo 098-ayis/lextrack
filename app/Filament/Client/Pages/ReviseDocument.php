@@ -220,6 +220,7 @@ class ReviseDocument extends Page implements HasForms
                     'version_number' => (string) $versionNumber,
                     'file_path' => $filePath,
                     'file_hash' => $fileHashes[$index],
+                    'source' => 'client',
                 ]);
             }
 

@@ -74,6 +74,10 @@ class ViewDocument extends Page
             })
             ->with([
                 'latestVersion',
+                'versions' => fn ($query) => $query
+                    ->latest('created_at')
+                    ->latest('version_id'),
+                'transmittalAttachments',
                 'activityLogs' => fn ($query) => $query
                     ->oldest('created_at')
                     ->oldest('log_id'),

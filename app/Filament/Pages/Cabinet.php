@@ -1269,6 +1269,7 @@ class Cabinet extends Page
                             'version_number' => (string) ($index + 1),
                             'file_path' => $filePath,
                             'file_hash' => $fileHashes[$index],
+                            'source' => 'admin',
                         ]);
                     }
                     if ($destinationFolderId) {
