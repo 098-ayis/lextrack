@@ -126,10 +126,21 @@ Route::get('/client/document-preview/{document}', function (string $document) {
         ->first();
 
     $disk = Storage::disk('local');
-    $filePath = $versionRecord?->file_path;
+    $filePath = $documentRecord->transmittalAttachments()->value('file_path')
+        ?: $documentRecord->transmittal
+        ?: $versionRecord?->file_path;
 
     if ($filePath && ! $disk->exists($filePath)) {
         $disk = Storage::disk('public');
+    }
+
+    if ((! $filePath || ! $disk->exists($filePath)) && $versionRecord?->file_path) {
+        $filePath = $versionRecord->file_path;
+        $disk = Storage::disk('local');
+
+        if (! $disk->exists($filePath)) {
+            $disk = Storage::disk('public');
+        }
     }
 
     abort_unless(
@@ -164,10 +175,21 @@ Route::get('/client/document-thumbnail/{document}', function (string $document) 
         ->first();
 
     $disk = Storage::disk('local');
-    $filePath = $versionRecord?->file_path;
+    $filePath = $documentRecord->transmittalAttachments()->value('file_path')
+        ?: $documentRecord->transmittal
+        ?: $versionRecord?->file_path;
 
     if ($filePath && ! $disk->exists($filePath)) {
         $disk = Storage::disk('public');
+    }
+
+    if ((! $filePath || ! $disk->exists($filePath)) && $versionRecord?->file_path) {
+        $filePath = $versionRecord->file_path;
+        $disk = Storage::disk('local');
+
+        if (! $disk->exists($filePath)) {
+            $disk = Storage::disk('public');
+        }
     }
 
     abort_unless($filePath && $disk->exists($filePath), 404);

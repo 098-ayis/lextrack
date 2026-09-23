@@ -221,7 +221,11 @@
                         };
 
                         $documentRouteKey = $document->getPublicRouteKey();
-                        $filePath = (string) $document->latestVersion?->file_path;
+                        $filePath = (string) (
+                            $document->transmittalAttachments->first()?->file_path
+                            ?: $document->transmittal
+                            ?: $document->latestVersion?->file_path
+                        );
                         $extension = strtolower(pathinfo(
                             $filePath,
                             PATHINFO_EXTENSION

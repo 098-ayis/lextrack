@@ -21,6 +21,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Illuminate\Support\Facades\RateLimiter;
 
@@ -262,18 +263,6 @@ class Upload extends Page implements HasForms
             return;
         }
 
-        if (count($transmittalUploads) !== 1 && count($transmittalUploads) !== count($uploads)) {
-            $this->cleanupUploads([...$uploads, ...$transmittalUploads]);
-
-            Notification::make()
-                ->danger()
-                ->title('File counts do not match')
-                ->body('Upload one transmittal/endorsement file to share with all document files, or upload one for each document file.')
-                ->send();
-
-            return;
-        }
-
         $officeUnit = trim((string) ($data['office_unit'] ?? ''));
         $documentType = trim((string) ($data['document_type'] ?? ''));
         $fileHashes = array_column($uploads, 'hash');
@@ -301,10 +290,15 @@ class Upload extends Page implements HasForms
             return;
         }
 
+        $submissionKey = (string) Str::ulid();
         $filePaths = [];
 
         foreach ($uploadedFiles as $index => $uploadedFile) {
-            $filePath = $this->storeUpload($uploadedFile, $uploads[$index], 'client-documents');
+            $filePath = $this->storeUpload(
+                $uploadedFile,
+                $uploads[$index],
+                'client-documents/' . $submissionKey . '/documents/' . ($index + 1),
+            );
 
             if ($filePath === null) {
                 $this->cleanupUploads([...$uploads, ...$transmittalUploads]);
@@ -324,7 +318,11 @@ class Upload extends Page implements HasForms
         $transmittalPaths = [];
 
         foreach ($transmittalFiles as $index => $transmittalFile) {
-            $transmittalPath = $this->storeUpload($transmittalFile, $transmittalUploads[$index], 'client-transmittals');
+            $transmittalPath = $this->storeUpload(
+                $transmittalFile,
+                $transmittalUploads[$index],
+                'client-transmittals/' . $submissionKey,
+            );
 
             if ($transmittalPath === null) {
                 $this->cleanupUploads([...$uploads, ...$transmittalUploads]);
@@ -343,48 +341,39 @@ class Upload extends Page implements HasForms
 
         try {
             $documents = DB::transaction(function () use ($data, $officeUnit, $documentType, $uploadedFiles, $filePaths, $transmittalPaths, $uploads, $transmittalUploads, $userId): array {
-                $createdDocuments = [];
+                $transmittalPath = $transmittalPaths[0] ?? null;
+                $document = Document::create([
+                    'user_id' => $userId,
+                    'particulars' => null,
+                    'description' => $data['description'],
+                    'document_name' => $this->uploadedFileName($uploadedFiles[0] ?? null, $filePaths[0] ?? ''),
+                    'office_unit' => $officeUnit,
+                    'document_type' => $documentType,
+                    'transmittal' => $transmittalPath,
+                    'status' => 'pending',
+                ]);
+
+                if ($transmittalPath !== null) {
+                    DocumentTransmittal::create([
+                        'document_id' => $document->document_id,
+                        'user_id' => $userId,
+                        'file_path' => $transmittalPath,
+                        'file_hash' => $transmittalUploads[0]['hash'],
+                    ]);
+                }
 
                 foreach ($filePaths as $index => $filePath) {
-                    $transmittalPath = count($transmittalPaths) === 1
-                        ? $transmittalPaths[0]
-                        : $transmittalPaths[$index];
-
-                    $document = Document::create([
-                        'user_id' => $userId,
-                        'particulars' => null,
-                        'description' => $data['description'],
-                        'document_name' => $this->uploadedFileName($uploadedFiles[$index] ?? null, $filePath),
-                        'office_unit' => $officeUnit,
-                        'document_type' => $documentType,
-                        'transmittal' => $transmittalPath,
-                        'status' => 'pending',
-                    ]);
-
-                    if ($transmittalPath !== null) {
-                        $transmittalIndex = count($transmittalPaths) === 1 ? 0 : $index;
-
-                        DocumentTransmittal::create([
-                            'document_id' => $document->document_id,
-                            'user_id' => $userId,
-                            'file_path' => $transmittalPath,
-                            'file_hash' => $transmittalUploads[$transmittalIndex]['hash'],
-                        ]);
-                    }
-
                     DocumentVersion::create([
                         'user_id' => $userId,
                         'document_id' => $document->document_id,
-                        'version_number' => '1',
+                        'version_number' => (string) ($index + 1),
                         'file_path' => $filePath,
                         'file_hash' => $uploads[$index]['hash'],
                         'source' => 'client',
                     ]);
-
-                    $createdDocuments[] = $document;
                 }
 
-                return $createdDocuments;
+                return [$document];
             });
         } catch (QueryException $exception) {
             if (! $this->isFileHashUniqueViolation($exception)) {
@@ -397,10 +386,8 @@ class Upload extends Page implements HasForms
             return;
         }
 
-        foreach ($documents as $document) {
-            app(AdminDocumentNotificationService::class)
-                ->notifyDocumentSubmitted($document);
-        }
+        app(AdminDocumentNotificationService::class)
+            ->notifyDocumentSubmitted($documents[0]);
 
         Notification::make()
             ->title('Document submitted successfully!')
@@ -520,7 +507,13 @@ class Upload extends Page implements HasForms
     private function storeUpload(mixed $file, array &$upload, string $directory): ?string
     {
         if ($file instanceof TemporaryUploadedFile || $file instanceof UploadedFile) {
-            $filePath = $file->store($directory, 'local');
+            $originalName = $this->uploadedFileName($file, '');
+
+            if ($originalName === '') {
+                return null;
+            }
+
+            $filePath = $file->storeAs($directory, $originalName, 'local');
 
             if (! is_string($filePath) || $filePath === '') {
                 return null;
@@ -538,7 +531,7 @@ class Upload extends Page implements HasForms
     private function uploadedFileName(mixed $file, string $storedPath): string
     {
         if ($file instanceof TemporaryUploadedFile || $file instanceof UploadedFile) {
-            $originalName = basename($file->getClientOriginalName());
+            $originalName = basename(str_replace('\\', '/', $file->getClientOriginalName()));
 
             if ($originalName !== '') {
                 return $originalName;

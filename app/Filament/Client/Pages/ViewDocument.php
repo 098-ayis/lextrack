@@ -114,10 +114,11 @@ class ViewDocument extends Page
                 ->where('status', 'accepted')
                 ->exists();
 
-        if (
-            $canAccessFile &&
-            $this->documentRecord->latestVersion?->file_path
-        ) {
+        $previewFilePath = $this->documentRecord->transmittalAttachments->first()?->file_path
+            ?: $this->documentRecord->transmittal
+            ?: $this->documentRecord->latestVersion?->file_path;
+
+        if ($canAccessFile && filled($previewFilePath)) {
             $this->previewUrl = route('client.document.preview', [
                 'document' => $this->documentRecord->getPublicRouteKey(),
             ]);
