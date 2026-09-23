@@ -1237,8 +1237,7 @@ class Document extends Page implements HasTable
 
                             DatePicker::make('deadline')
                                 ->label('Deadline')
-                                ->default(now()->toDateString())
-                                ->helperText('Preselected to today; calculated from the document type when configured.'),
+                                ->default(now()->toDateString()),
                         ]),
 
 
@@ -1399,8 +1398,7 @@ class Document extends Page implements HasTable
 
                             DatePicker::make('deadline')
                                 ->label('Deadline')
-                                ->default(now()->toDateString())
-                                ->helperText('Preselected to today; calculated from the document type when configured.'),
+                                ->default(now()->toDateString()),
 
                             Textarea::make('particulars')
                                 ->label('Particulars')
