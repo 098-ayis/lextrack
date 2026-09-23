@@ -171,6 +171,11 @@ class Upload extends Page implements HasForms
                     ->label('Transmittal/Endorsement')
                     ->multiple()
                     ->appendFiles()
+                    // Store the file once in submit(), after it has been
+                    // verified and hashed. This keeps the temporary upload
+                    // available to the custom validation below.
+                    ->storeFiles(false)
+                    ->extraFieldWrapperAttributes(['data-upload-field' => 'transmittal'])
                     ->panelLayout('compact')
                     ->removeUploadedFileButtonPosition('right')
                     ->acceptedFileTypes([
@@ -196,6 +201,8 @@ class Upload extends Page implements HasForms
                     ->label('Document File')
                     ->multiple()
                     ->appendFiles()
+                    ->storeFiles(false)
+                    ->extraFieldWrapperAttributes(['data-upload-field' => 'file_path'])
                     ->panelLayout('compact')
                     ->removeUploadedFileButtonPosition('right')
                     ->acceptedFileTypes([
@@ -244,6 +251,27 @@ class Upload extends Page implements HasForms
 
         $uploadedFiles = $this->normalizeUploadedFiles($data['file_path'] ?? null);
         $transmittalFiles = $this->normalizeUploadedFiles($data['transmittal'] ?? null);
+
+        if ($uploadedFiles === []) {
+            Notification::make()
+                ->danger()
+                ->title('Document file required')
+                ->body('Please select a document file before submitting.')
+                ->send();
+
+            return;
+        }
+
+        if ($transmittalFiles === []) {
+            Notification::make()
+                ->danger()
+                ->title('Transmittal/endorsement file required')
+                ->body('Please select a transmittal/endorsement file before submitting.')
+                ->send();
+
+            return;
+        }
+
         $uploads = $this->inspectUploadedFiles($uploadedFiles);
         $transmittalUploads = $this->inspectUploadedFiles($transmittalFiles);
 
@@ -272,19 +300,29 @@ class Upload extends Page implements HasForms
         }
 
         $transmittalHashes = array_column($transmittalUploads, 'hash');
+        $existingTransmittalHashes = DocumentTransmittal::query()
+            ->whereIn('file_hash', $transmittalHashes)
+            ->pluck('file_hash')
+            ->all();
+        $duplicateTransmittalNames = $this->duplicateUploadNames(
+            $transmittalFiles,
+            $transmittalUploads,
+            $existingTransmittalHashes,
+        );
 
-        if (
-            count($transmittalHashes) !== count(array_unique($transmittalHashes))
-            || ($transmittalHashes !== [] && DocumentTransmittal::query()
-                ->whereIn('file_hash', $transmittalHashes)
-                ->exists())
-        ) {
+        if ($duplicateTransmittalNames !== []) {
             $this->cleanupUploads([...$uploads, ...$transmittalUploads]);
+
+            $this->dispatch(
+                'duplicate-files-detected',
+                field: 'transmittal',
+                names: $duplicateTransmittalNames,
+            );
 
             Notification::make()
                 ->danger()
                 ->title('Duplicate transmittal/endorsement detected')
-                ->body('One or more transmittal/endorsement files have already been uploaded. Please choose different files.')
+                ->body('Duplicate file(s): ' . implode(', ', $duplicateTransmittalNames) . '. Please choose different files.')
                 ->send();
 
             return;
@@ -304,13 +342,26 @@ class Upload extends Page implements HasForms
 
         $officeUnit = trim((string) ($data['office_unit'] ?? ''));
         $fileHashes = array_column($uploads, 'hash');
+        $existingDocumentHashes = DocumentVersion::query()
+            ->where('user_id', $userId)
+            ->whereIn('file_hash', $fileHashes)
+            ->pluck('file_hash')
+            ->all();
+        $duplicateDocumentNames = $this->duplicateUploadNames(
+            $uploadedFiles,
+            $uploads,
+            $existingDocumentHashes,
+        );
 
-        if (count($fileHashes) !== count(array_unique($fileHashes))
-            || DocumentVersion::where('user_id', $userId)
-                ->whereIn('file_hash', $fileHashes)
-                ->exists()) {
+        if ($duplicateDocumentNames !== []) {
             $this->cleanupUploads([...$uploads, ...$transmittalUploads]);
-            $this->notifyDuplicateDocument();
+            $this->notifyDuplicateDocument($duplicateDocumentNames);
+
+            $this->dispatch(
+                'duplicate-files-detected',
+                field: 'file_path',
+                names: $duplicateDocumentNames,
+            );
 
             return;
         }
@@ -472,6 +523,15 @@ class Upload extends Page implements HasForms
 
         if ($file instanceof TemporaryUploadedFile || $file instanceof UploadedFile) {
             $realPath = $file->getRealPath();
+
+            if (! is_string($realPath) || ! is_file($realPath)) {
+                $fallbackPath = $file->getPathname();
+
+                if (is_string($fallbackPath) && is_file($fallbackPath)) {
+                    $realPath = $fallbackPath;
+                }
+            }
+
             $temporary = $file instanceof TemporaryUploadedFile;
         } elseif (is_string($file) && $file !== '') {
             foreach (['local', 'public'] as $candidateDisk) {
@@ -553,6 +613,40 @@ class Upload extends Page implements HasForms
     }
 
     /**
+     * Find duplicate files both within the current selection and against
+     * hashes that already exist in the database.
+     *
+     * @param list<mixed> $files
+     * @param list<array{hash: string, temporary: bool, disk: ?string, stored_path: ?string}> $uploads
+     * @param list<string> $existingHashes
+     * @return list<string>
+     */
+    private function duplicateUploadNames(array $files, array $uploads, array $existingHashes): array
+    {
+        $existingHashes = array_fill_keys($existingHashes, true);
+        $namesByHash = [];
+
+        foreach ($uploads as $index => $upload) {
+            $name = $this->uploadedFileName(
+                $files[$index] ?? null,
+                (string) ($upload['stored_path'] ?? ''),
+            );
+
+            $namesByHash[$upload['hash']][] = $name !== '' ? $name : 'Selected file';
+        }
+
+        $duplicateNames = [];
+
+        foreach ($namesByHash as $hash => $names) {
+            if (count($names) > 1 || isset($existingHashes[$hash])) {
+                $duplicateNames = [...$duplicateNames, ...$names];
+            }
+        }
+
+        return array_values(array_unique($duplicateNames));
+    }
+
+    /**
      * Remove a duplicate that Filament stored before submit, without deleting
      * a path already referenced by an existing document version.
      *
@@ -594,12 +688,17 @@ class Upload extends Page implements HasForms
             && str_contains($message, 'file_hash');
     }
 
-    private function notifyDuplicateDocument(): void
+    /**
+     * @param list<string> $duplicateNames
+     */
+    private function notifyDuplicateDocument(array $duplicateNames = []): void
     {
         Notification::make()
             ->danger()
             ->title('Duplicate document detected')
-            ->body('Duplicate document detected. This exact file has already been uploaded. Please check your previous submissions or select another file.')
+            ->body($duplicateNames === []
+                ? 'Duplicate document detected. This exact file has already been uploaded. Please check your previous submissions or select another file.'
+                : 'Duplicate file(s): ' . implode(', ', $duplicateNames) . '. Please select different files.')
             ->send();
     }
     
