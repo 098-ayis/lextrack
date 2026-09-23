@@ -93,15 +93,13 @@ class Upload extends Page implements HasForms
                     
                 FileUpload::make('transmittal')
                     ->label('Transmittal/Endorsement')
-                    ->multiple()
-                    ->appendFiles()
                     // Store the file once in submit(), after it has been
                     // verified and hashed. This keeps the temporary upload
                     // available to the custom validation below.
                     ->storeFiles(false)
                     ->extraFieldWrapperAttributes(['data-upload-field' => 'transmittal'])
                     ->panelLayout('compact')
-                    ->maxFiles(5)
+                    ->maxFiles(1)
                     ->removeUploadedFileButtonPosition('right')
                     ->acceptedFileTypes([
                         'application/pdf',
@@ -118,7 +116,7 @@ class Upload extends Page implements HasForms
                     ->disk('local')
                     ->directory('client-transmittals')
                     ->preserveFilenames()
-                    ->helperText('Accepted files: PDF or DOCX. Upload up to 5 files, maximum 5 MB each.')
+                    ->helperText('Accepted files: PDF or DOCX. Upload 1 file, maximum 5 MB.')
                     ->columnSpan('full')
                     ->required(),
 
@@ -178,11 +176,11 @@ class Upload extends Page implements HasForms
         $uploadedFiles = $this->normalizeUploadedFiles($data['file_path'] ?? null);
         $transmittalFiles = $this->normalizeUploadedFiles($data['transmittal'] ?? null);
 
-        if (count($uploadedFiles) > 5 || count($transmittalFiles) > 5) {
+        if (count($uploadedFiles) > 5 || count($transmittalFiles) > 1) {
             Notification::make()
                 ->danger()
                 ->title('Too many files')
-                ->body('You can upload up to 5 document files and 5 transmittal/endorsement files.')
+                ->body('You can upload up to 5 document files and only 1 transmittal/endorsement file.')
                 ->send();
 
             return;
