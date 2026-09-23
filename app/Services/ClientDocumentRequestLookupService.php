@@ -59,17 +59,14 @@ class ClientDocumentRequestLookupService
             return $this->result(self::NO_AUTHORIZED_MATCH);
         }
 
-        $status = (string) $request->status;
-        $requestLabel = 'Request #' . $request->request_id;
-
         $reply = match ($topic) {
-            'copy_type' => $this->copyTypeReply($requestLabel, $request, $language),
-            'pickup' => $this->pickupReply($requestLabel, $request, $language),
-            'download' => $this->downloadReply($user, $requestLabel, $request, $language),
+            'copy_type' => $this->copyTypeReply($request, $language),
+            'pickup' => $this->pickupReply($request, $language),
+            'download' => $this->downloadReply($user, $request, $language),
             default => $this->formatRequest($user, $request, $language),
         };
 
-        return $this->result($reply, (int) $request->request_id, $status);
+        return $this->result($reply, (int) $request->request_id, (string) $request->status);
     }
 
     /** @return array<string, int> */
@@ -92,6 +89,20 @@ class ClientDocumentRequestLookupService
         return $this->countsByStatus($user)[$status] ?? 0;
     }
 
+    /**
+     * Return the newest authorized request ID for internal, session-scoped
+     * context. The ID is never exposed in a chatbot response.
+     */
+    public function latestAuthorizedId(User $user): ?int
+    {
+        $requestId = $this->ownedRequests($user)
+            ->latest('date_of_request')
+            ->latest('request_id')
+            ->value('request_id');
+
+        return $requestId !== null ? (int) $requestId : null;
+    }
+
     public function statusLabelForChat(string $status): string
     {
         return match ($status) {
@@ -102,18 +113,20 @@ class ClientDocumentRequestLookupService
         };
     }
 
-    /** @return list<array{request_id: int, status: string, copy_type: ?string, requested_at: string}> */
+    /** @return list<array{request_id: int, status: string, copy_type: ?string, purpose: ?string, purpose_details: ?string, requested_at: string}> */
     public function authorizedChoices(User $user, int $limit = 10): array
     {
         return $this->ownedRequests($user)
             ->latest('date_of_request')
             ->latest('request_id')
             ->limit(max(1, min($limit, 10)))
-            ->get(['request_id', 'status', 'copy_type', 'date_of_request'])
+            ->get(['request_id', 'status', 'copy_type', 'purpose', 'purpose_details', 'date_of_request'])
             ->map(static fn (DocumentRequest $request): array => [
                 'request_id' => (int) $request->request_id,
                 'status' => (string) $request->status,
                 'copy_type' => filled($request->copy_type) ? (string) $request->copy_type : null,
+                'purpose' => filled($request->purpose) ? (string) $request->purpose : null,
+                'purpose_details' => filled($request->purpose_details) ? (string) $request->purpose_details : null,
                 'requested_at' => $request->date_of_request?->format('F j, Y') ?? 'date unavailable',
             ])
             ->all();
@@ -132,6 +145,8 @@ class ClientDocumentRequestLookupService
             'document_id',
             'status',
             'copy_type',
+            'purpose',
+            'purpose_details',
             'pickup_at',
             'date_of_request',
             'date_processed',
@@ -141,7 +156,7 @@ class ClientDocumentRequestLookupService
 
     private function formatRequest(User $user, DocumentRequest $request, string $language = 'english'): string
     {
-        $label = 'Request #' . $request->request_id;
+        $label = $this->requestLabel($request, $language);
         $status = $this->statusLabel((string) $request->status);
 
         if ($request->status === 'rejected') {
@@ -168,8 +183,9 @@ class ClientDocumentRequestLookupService
         return $reply;
     }
 
-    private function copyTypeReply(string $label, DocumentRequest $request, string $language = 'english'): string
+    private function copyTypeReply(DocumentRequest $request, string $language = 'english'): string
     {
+        $label = $this->requestLabel($request, $language);
         $copyType = match ($request->copy_type) {
             'soft_copy' => $language === 'filipino' ? 'Soft copy (digital)' : 'Soft copy (digital)',
             'original' => $language === 'filipino' ? 'Original copy (para sa pickup)' : 'Original copy (for pickup)',
@@ -181,8 +197,9 @@ class ClientDocumentRequestLookupService
             : "{$label} is {$this->statusLabel((string) $request->status)}. Copy type: {$copyType}.";
     }
 
-    private function pickupReply(string $label, DocumentRequest $request, string $language = 'english'): string
+    private function pickupReply(DocumentRequest $request, string $language = 'english'): string
     {
+        $label = $this->requestLabel($request, $language);
         if ($request->copy_type !== 'original') {
             return $language === 'filipino'
                 ? "{$label} ay hindi Original copy request. Ang pickup schedule ay para lamang sa original copies."
@@ -195,8 +212,9 @@ class ClientDocumentRequestLookupService
             . $this->pickupSentence($request, $language);
     }
 
-    private function downloadReply(User $user, string $label, DocumentRequest $request, string $language = 'english'): string
+    private function downloadReply(User $user, DocumentRequest $request, string $language = 'english'): string
     {
+        $label = $this->requestLabel($request, $language);
         if ($request->copy_type !== 'soft_copy') {
             return $language === 'filipino'
                 ? "{$label} ay hindi Soft copy request. Ang download availability ay para lamang sa accepted soft copies."
@@ -241,6 +259,32 @@ class ClientDocumentRequestLookupService
             : ($language === 'filipino'
                 ? 'Hindi pa available ang soft-copy download sa Documents.'
                 : 'The soft-copy download is not available yet in Documents.');
+    }
+
+    private function requestLabel(DocumentRequest $request, string $language): string
+    {
+        $details = $this->requestDetails($request);
+
+        if ($language === 'filipino') {
+            return $details === null
+                ? 'Ang document request mo'
+                : 'Ang document request mo para sa "' . $details . '"';
+        }
+
+        return $details === null
+            ? 'Your document request'
+            : 'Your document request for "' . $details . '"';
+    }
+
+    private function requestDetails(DocumentRequest $request): ?string
+    {
+        $details = collect([$request->purpose, $request->purpose_details])
+            ->map(static fn (mixed $value): string => trim((string) $value))
+            ->filter()
+            ->unique()
+            ->implode(' — ');
+
+        return $details !== '' ? $details : null;
     }
 
     private function statusLabel(string $status): string

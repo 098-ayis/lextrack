@@ -4,10 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Ai\Agents\LexTrackAssistant;
 use App\Models\User;
+use App\Services\ChatIntentNormalizer;
 use App\Services\ChatbotIntentRouter;
 use App\Services\ClientMessageAvailabilityService;
 use App\Services\ClientDocumentLookupService;
 use App\Services\ClientDocumentRequestLookupService;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -40,6 +42,7 @@ class ChatbotController extends Controller
         ClientDocumentRequestLookupService $documentRequests,
         ClientMessageAvailabilityService $messages,
         LexTrackAssistant $assistant,
+        ChatIntentNormalizer $normalizer,
         ChatbotIntentRouter $intents,
     ): JsonResponse {
         $user = $request->user();
@@ -65,6 +68,74 @@ class ChatbotController extends Controller
         $requestContext = $this->activePrivateRequestContext($request, $user, $conversationId);
         $hasPrivateDocumentContext = $documentContext !== null;
         $hasPrivateRequestContext = $requestContext !== null;
+
+        // Handle short conversational messages before pending selections or
+        // confirmations. Acknowledgments must not be interpreted as a record
+        // selection or repeat the previous private intent.
+        $quickIntent = $intents->classify(
+            $message,
+            hasPrivateContext: (bool) $request->session()->get(self::PRIVATE_CONTEXT_KEY, false),
+            hasDocumentChoices: is_array($choices) && $choices !== [],
+            hasPrivateDocumentContext: $hasPrivateDocumentContext,
+            hasPrivateMessageContext: (bool) $request->session()->get(self::PRIVATE_MESSAGE_CONTEXT_KEY, false),
+            hasRequestChoices: is_array($requestChoices) && $requestChoices !== [],
+            hasPrivateRequestContext: $hasPrivateRequestContext,
+        );
+
+        if (is_array($quickIntent)) {
+            $pendingResponse = $this->resolvePendingShortAnswer(
+                $request,
+                $user,
+                $conversationId,
+                $pendingAction,
+                $quickIntent,
+                $message,
+                $intents,
+            );
+
+            if ($pendingResponse !== null) {
+                return $pendingResponse;
+            }
+        }
+
+        if (is_array($quickIntent)
+            && in_array($quickIntent['intent'] ?? null, [
+                'greeting',
+                'acknowledgment',
+                'conversational_reply',
+                'clarification',
+                'unsupported',
+                'acceptance_definition',
+                'rejection_definition',
+                'request_scope_clarification',
+                'copy_type_clarification',
+            ], true)) {
+            $quickLanguage = is_string($quickIntent['language'] ?? null)
+                ? $quickIntent['language']
+                : 'english';
+
+            return match ($quickIntent['intent']) {
+                'greeting' => $this->greetingReply($quickLanguage),
+                'acknowledgment' => $this->acknowledgmentReply($quickLanguage),
+                'conversational_reply' => $this->conversationalReply($quickLanguage),
+                'acceptance_definition' => $this->acceptanceDefinitionReply($request, $quickLanguage),
+                'rejection_definition' => $this->rejectionDefinitionReply($request, $quickLanguage),
+                'request_scope_clarification' => $this->requestScopeClarificationReply(
+                    $request,
+                    $user,
+                    $conversationId,
+                    $quickLanguage,
+                ),
+                'copy_type_clarification' => $this->copyTypeClarificationReply(
+                    $request,
+                    $user,
+                    $conversationId,
+                    $quickLanguage,
+                ),
+                'unsupported' => $this->unsupportedReply($request),
+                default => $this->clarificationReply($quickLanguage),
+            };
+        }
 
         if (($pendingAction['type'] ?? null) === 'confirm_rejection_reason') {
             $confirmation = $intents->confirmationValue($message);
@@ -135,7 +206,7 @@ class ChatbotController extends Controller
 
             if ($selectionIndex === null && ! $intents->isClearTopicChange($message)) {
                 return response()->json([
-                    'reply' => 'Please choose a listed request by replying with its number, such as 1 or “request 1”. Reply no to cancel.',
+                    'reply' => 'Please choose a listed request by replying with its list number, such as 1. Reply no to cancel.',
                 ]);
             }
 
@@ -143,6 +214,74 @@ class ChatbotController extends Controller
                 $this->clearPendingAction($request);
                 $request->session()->forget(self::REQUEST_CHOICES_KEY);
             }
+        }
+
+        $interpretation = $normalizer->interpret($message, [
+            'hasDocumentChoices' => is_array($choices) && $choices !== [],
+            'hasRequestChoices' => is_array($requestChoices) && $requestChoices !== [],
+            'hasPrivateDocumentContext' => $hasPrivateDocumentContext,
+            'hasPrivateRequestContext' => $hasPrivateRequestContext,
+            'hasPrivateMessageContext' => (bool) $request->session()->get(self::PRIVATE_MESSAGE_CONTEXT_KEY, false),
+        ]);
+
+        $hasNonGeneralIntent = array_filter(
+            $interpretation['intents'],
+            static fn (array $intent): bool => ($intent['domain'] ?? 'general_knowledge') !== 'general_knowledge',
+        ) !== [];
+
+        if (count($interpretation['intents']) > 1 && $hasNonGeneralIntent) {
+            return $this->multiIntentReply(
+                $request,
+                $user,
+                $documents,
+                $documentRequests,
+                $messages,
+                $documentContext,
+                $requestContext,
+                $interpretation,
+            );
+        }
+
+        // A rejection-reason request is a status-filtered private lookup.
+        // Handle it before generic topic routing or OpenAI.
+        $normalizedIntent = $interpretation['intents'][0] ?? null;
+        if (($normalizedIntent['name'] ?? null) === 'rejection_reason_lookup') {
+            return $this->lookupRejectionReason(
+                $request,
+                $user,
+                $documents,
+                $documentContext,
+                $conversationId,
+                $normalizedIntent,
+            );
+        }
+
+        if (($normalizedIntent['name'] ?? null) === 'document_context_rejection_reason') {
+            return $this->documentContextReply(
+                $request,
+                fn (): array => $documents->rejectionReasonByDocumentIdResult(
+                    $user,
+                    $this->privateContextDocumentId($documentContext, $user) ?? 0,
+                ),
+            );
+        }
+
+        // A topic-specific document question has already been interpreted
+        // locally. Route it directly to the owner-scoped resolver instead of
+        // reclassifying it through the generic fallback path.
+        if (in_array($normalizedIntent['name'] ?? null, ['get_document_status', 'get_document_updates', 'get_document_type'], true)
+            && in_array($normalizedIntent['reference']['type'] ?? null, ['topic', 'search_text', 'document_type', 'submission_date'], true)
+            && filled($normalizedIntent['parameters']['document_name'] ?? null)) {
+            return $this->lookupByDocumentName(
+                $request,
+                $user,
+                $documents,
+                (string) $normalizedIntent['parameters']['document_name'],
+                $conversationId,
+                $normalizedIntent['reference']['field'] ?? null,
+                (string) $normalizedIntent['name'],
+                (string) ($interpretation['response_language'] ?? 'english'),
+            );
         }
 
         $intent = $intents->classify(
@@ -155,9 +294,50 @@ class ChatbotController extends Controller
             hasPrivateRequestContext: $hasPrivateRequestContext,
         );
 
+        if (! is_array($intent) || ! is_string($intent['intent'] ?? null) || $intent['intent'] === '') {
+            return $this->clarificationReply('filipino');
+        }
+
+        $intent = array_merge([
+            'language' => 'english',
+            'kind' => 'exists',
+            'status' => null,
+            'yes_no' => false,
+            'topic' => 'summary',
+            'lao_numbers' => [],
+            'document_name' => '',
+            'selection_index' => 0,
+        ], $intent);
+
+        $intent['language'] = is_string($intent['language']) && $intent['language'] !== ''
+            ? $intent['language']
+            : 'english';
+        $intent['kind'] = is_string($intent['kind']) ? $intent['kind'] : 'exists';
+        $intent['topic'] = is_string($intent['topic']) ? $intent['topic'] : 'summary';
+        $intent['lao_numbers'] = is_array($intent['lao_numbers']) ? $intent['lao_numbers'] : [];
+        $intent['selection_index'] = is_numeric($intent['selection_index'])
+            ? (int) $intent['selection_index']
+            : 0;
+
         return match ($intent['intent']) {
             'greeting' => $this->greetingReply($intent['language']),
             'acknowledgment' => $this->acknowledgmentReply($intent['language']),
+            'conversational_reply' => $this->conversationalReply($intent['language']),
+            'acceptance_definition' => $this->acceptanceDefinitionReply($request, $intent['language']),
+            'rejection_definition' => $this->rejectionDefinitionReply($request, $intent['language']),
+            'request_scope_clarification' => $this->requestScopeClarificationReply(
+                $request,
+                $user,
+                $conversationId,
+                $intent['language'],
+            ),
+            'copy_type_clarification' => $this->copyTypeClarificationReply(
+                $request,
+                $user,
+                $conversationId,
+                $intent['language'],
+            ),
+            'clarification' => $this->clarificationReply($intent['language']),
             'email_delivery' => $this->emailDeliveryReply($request, $intent['language']),
             'message_content' => $this->messageContentReply($request, $intent['language']),
             'message_metadata' => $this->messageMetadataReply(
@@ -273,6 +453,7 @@ class ChatbotController extends Controller
                 'Please provide one valid LAO number, such as LAO-26-009. Pending documents may not have an LAO number yet.',
             ),
             'latest_status' => $this->latestStatus($request, $user, $documents),
+            'latest_submission_date' => $this->latestSubmissionDate($request, $user, $documents),
             'compare_latest_documents' => $this->compareLatestDocuments($request, $user, $documents),
             'ambiguous_document' => $this->ambiguousDocumentReply($request, $user, $documents),
             'document_selection' => $this->documentSelection(
@@ -306,6 +487,84 @@ class ChatbotController extends Controller
         return $this->documentContextReply(
             $request,
             fn (): array => $documents->statusByLaoNumberResult($user, $laoNumbers[0]),
+        );
+    }
+
+    /**
+     * Resolve rejection-reason requests locally. A specific authorized
+     * document is checked directly; without a reference, only this client's
+     * currently Rejected documents are eligible for selection.
+     *
+     * @param array<string, mixed> $intent
+     */
+    private function lookupRejectionReason(
+        Request $request,
+        User $user,
+        ClientDocumentLookupService $documents,
+        mixed $documentContext,
+        string $conversationId,
+        array $intent,
+    ): JsonResponse {
+        $contextDocumentId = $this->privateContextDocumentId($documentContext, $user);
+        $documentName = $intent['parameters']['document_name'] ?? null;
+
+        if (! filled($documentName) && $contextDocumentId !== null) {
+            return $this->documentContextReply(
+                $request,
+                fn (): array => $documents->rejectionReasonByDocumentIdResult($user, $contextDocumentId),
+            );
+        }
+
+        try {
+            $choices = filled($documentName)
+                ? $documents->authorizedDocumentChoicesByName(
+                    $user,
+                    (string) $documentName,
+                    isset($intent['parameters']['reference_field'])
+                        ? (string) $intent['parameters']['reference_field']
+                        : null,
+                )
+                : $documents->authorizedDocumentChoicesByStatus($user, 'rejected');
+        } catch (Throwable $exception) {
+            return $this->safeDocumentFailure($exception);
+        }
+
+        if ($choices === []) {
+            $response = $this->privateReply(
+                $request,
+                'I checked your documents, and none are currently marked as Rejected. If you’re referring to a specific document, provide its name or LAO number.',
+            );
+            $this->putPendingAction(
+                $request,
+                $user,
+                $conversationId,
+                'rejection_reference',
+                'rejection_reason',
+                ['document_reference'],
+                'Provide the document name or LAO number whose rejection reason you want to check.',
+            );
+
+            return $response;
+        }
+
+        if (count($choices) > 1) {
+            return $this->ambiguousDocumentReply(
+                $request,
+                $user,
+                $documents,
+                $conversationId,
+                'rejection_reason',
+                $choices,
+                filled($documentName) ? (string) $documentName : null,
+            );
+        }
+
+        return $this->documentContextReply(
+            $request,
+            fn (): array => $documents->rejectionReasonByDocumentIdResult(
+                $user,
+                (int) $choices[0]['document_id'],
+            ),
         );
     }
 
@@ -354,6 +613,17 @@ class ChatbotController extends Controller
         );
     }
 
+    private function latestSubmissionDate(
+        Request $request,
+        User $user,
+        ClientDocumentLookupService $documents,
+    ): JsonResponse {
+        return $this->documentContextReply(
+            $request,
+            fn (): array => $documents->latestSubmissionDateResult($user),
+        );
+    }
+
     private function compareLatestDocuments(
         Request $request,
         User $user,
@@ -374,6 +644,102 @@ class ChatbotController extends Controller
         return response()->json(['reply' => $reply]);
     }
 
+    private function conversationalReply(string $language): JsonResponse
+    {
+        return response()->json([
+            'reply' => $language === 'filipino'
+                ? 'Mabuti! Nandito lang ako kung may kailangan ka tungkol sa LexTrack.'
+                : 'Glad to hear that. I’m here if you need help with LexTrack.',
+        ]);
+    }
+
+    private function acceptanceDefinitionReply(Request $request, string $language): JsonResponse
+    {
+        $this->clearPendingAction($request);
+        $request->session()->forget(self::PRIVATE_DOCUMENT_CONTEXT_KEY);
+        $request->session()->forget(self::PRIVATE_REQUEST_CONTEXT_KEY);
+        $request->session()->forget(self::DOCUMENT_CHOICES_KEY);
+        $request->session()->forget(self::REQUEST_CHOICES_KEY);
+
+        return response()->json([
+            'reply' => $language === 'filipino'
+                ? 'Ang acceptance ay nangyayari pagkatapos suriin ng Legal Affairs Office ang submission at makumpirmang kumpleto ito. Hindi garantisado ang pagtanggap.'
+                : 'Acceptance may happen after the Legal Affairs Office reviews the submission and confirms that it meets the requirements. Acceptance is not guaranteed.',
+        ]);
+    }
+
+    private function rejectionDefinitionReply(Request $request, string $language): JsonResponse
+    {
+        $this->clearPendingAction($request);
+        $request->session()->forget(self::PRIVATE_DOCUMENT_CONTEXT_KEY);
+        $request->session()->forget(self::PRIVATE_REQUEST_CONTEXT_KEY);
+        $request->session()->forget(self::DOCUMENT_CHOICES_KEY);
+        $request->session()->forget(self::REQUEST_CHOICES_KEY);
+
+        return response()->json([
+            'reply' => $language === 'filipino'
+                ? 'Ang Rejected ay nangangahulugang hindi tinanggap ang submission sa kasalukuyang anyo nito. Tingnan ang recorded reason sa Documents o Messages. Para sa corrected na bagong submission, gamitin ang Submit Document maliban kung may partikular na revision request.'
+                : 'Rejected means the submission was not accepted in its current form. Check the recorded reason in Documents or Messages. For a corrected new submission, use Submit Document unless the Legal Affairs Office gave you a specific revision request.',
+        ]);
+    }
+
+    private function requestScopeClarificationReply(
+        Request $request,
+        User $user,
+        string $conversationId,
+        string $language,
+    ): JsonResponse {
+        $reply = $language === 'filipino'
+            ? 'Gusto mo bang i-check ang existing document request mo, o alamin kung paano magsumite ng bagong request? Hindi ako gumagawa o nagsusumite ng request dito.'
+            : 'Do you want to check an existing document request, or learn how to submit a new request? I cannot create or submit a request here.';
+
+        $response = $this->privateReply($request, $reply);
+        $this->putPendingAction(
+            $request,
+            $user,
+            $conversationId,
+            'request_scope',
+            'request_scope',
+            ['check_existing', 'submit_new'],
+            'Choose whether to check an existing request or learn the submission procedure.',
+        );
+
+        return $response;
+    }
+
+    private function copyTypeClarificationReply(
+        Request $request,
+        User $user,
+        string $conversationId,
+        string $language,
+    ): JsonResponse {
+        $reply = $language === 'filipino'
+            ? 'Ang “Original” at “Soft copy” ay copy types ng document request. Anong existing request ang gusto mong i-check? Ibigay ang request number o pumili mula sa listahan.'
+            : '“Original” and “Soft copy” are document-request copy types. Which existing request do you want to check? Provide its request number or choose from the list.';
+
+        $response = $this->privateReply($request, $reply);
+        $this->putPendingAction(
+            $request,
+            $user,
+            $conversationId,
+            'request_reference_copy_type',
+            'copy_type',
+            ['request_reference'],
+            'Provide an existing request reference before checking its copy type.',
+        );
+
+        return $response;
+    }
+
+    private function clarificationReply(string $language): JsonResponse
+    {
+        return response()->json([
+            'reply' => $language === 'filipino'
+                ? 'Pwede mo bang linawin ang tanong mo tungkol sa LexTrack?'
+                : 'Could you clarify your question about LexTrack?',
+        ]);
+    }
+
     private function greetingReply(string $language): JsonResponse
     {
         return response()->json([
@@ -381,6 +747,323 @@ class ChatbotController extends Controller
                 ? 'Kumusta! Matutulungan kita sa LexTrack documents, requests, statuses, at Messages.'
                 : 'Hello! I can help with LexTrack documents, requests, statuses, and Messages.',
         ]);
+    }
+
+    /**
+     * Execute only multi-intent operations that already have explicit,
+     * owner-scoped Laravel service methods. Mixed or unclear private clauses
+     * stop here instead of falling through to OpenAI.
+     *
+     * @param array<string, mixed> $interpretation
+     */
+    private function multiIntentReply(
+        Request $request,
+        User $user,
+        ClientDocumentLookupService $documents,
+        ClientDocumentRequestLookupService $documentRequests,
+        ClientMessageAvailabilityService $messages,
+        mixed $documentContext,
+        mixed $requestContext,
+        array $interpretation,
+    ): JsonResponse {
+        $selectedDocumentId = $this->privateContextDocumentId($documentContext, $user);
+        $selectedRequestId = $this->privateContextRequestId($requestContext, $user);
+
+        $this->clearGeneralHistory($request);
+        $this->clearPendingAction($request);
+        $request->session()->put(self::PRIVATE_CONTEXT_KEY, true);
+        $request->session()->forget(self::PRIVATE_DOCUMENT_CONTEXT_KEY);
+        $request->session()->forget(self::PRIVATE_REQUEST_CONTEXT_KEY);
+        $request->session()->forget(self::DOCUMENT_CHOICES_KEY);
+        $request->session()->forget(self::REQUEST_CHOICES_KEY);
+
+        if (($interpretation['clarification_required'] ?? false) === true) {
+            return $this->privateReply(
+                $request,
+                (string) ($interpretation['clarification_question'] ?? 'Please clarify which authorized record you want to check.'),
+            );
+        }
+
+        $intents = is_array($interpretation['intents'] ?? null) ? $interpretation['intents'] : [];
+        $supported = [
+            'document_count',
+            'request_count',
+            'message_metadata',
+            'latest_status',
+            'latest_submission_date',
+            'lao_lookup',
+            'document_context_status',
+            'document_context_details',
+            'document_context_guidance',
+            'request_status',
+            'latest_request',
+            'request_context_details',
+        ];
+
+        foreach ($intents as $intent) {
+            if (! is_array($intent) || ! in_array($intent['name'] ?? null, $supported, true)) {
+                return $this->privateReply(
+                    $request,
+                    'I understood more than one part of your question, but I need you to ask the private record question separately so I do not guess or expose the wrong record.',
+                );
+            }
+        }
+
+        try {
+            $replies = [];
+            $documentCounts = null;
+            $requestCounts = null;
+            $hasDocumentTotal = false;
+            $hasRequestTotal = false;
+
+            foreach ($intents as $intent) {
+                $parameters = is_array($intent['parameters'] ?? null) ? $intent['parameters'] : [];
+                $language = (string) ($interpretation['response_language'] ?? 'english');
+
+                switch ($intent['name']) {
+                    case 'document_count':
+                        $replies[] = $this->multiDocumentCountText(
+                            $user,
+                            $documents,
+                            isset($parameters['status']) ? (string) $parameters['status'] : null,
+                            $language,
+                            $documentCounts,
+                            $hasDocumentTotal,
+                        );
+                        break;
+                    case 'request_count':
+                        $replies[] = $this->multiRequestCountText(
+                            $user,
+                            $documentRequests,
+                            isset($parameters['status']) ? (string) $parameters['status'] : null,
+                            $language,
+                            $requestCounts,
+                            $hasRequestTotal,
+                        );
+                        break;
+                    case 'message_metadata':
+                        $replies[] = $this->multiMessageMetadataText(
+                            $user,
+                            $messages,
+                            (string) ($parameters['kind'] ?? 'exists'),
+                            $language,
+                        );
+                        break;
+                    case 'latest_status':
+                        $result = $documents->latestStatusResult($user);
+                        $selectedDocumentId = $this->resultIdentifier($result, 'document_id') ?? $selectedDocumentId;
+                        $replies[] = (string) $result['reply'];
+                        break;
+                    case 'latest_submission_date':
+                        $result = $documents->latestSubmissionDateResult($user);
+                        $selectedDocumentId = $this->resultIdentifier($result, 'document_id') ?? $selectedDocumentId;
+                        $replies[] = (string) $result['reply'];
+                        break;
+                    case 'lao_lookup':
+                        foreach ((array) ($parameters['lao_numbers'] ?? []) as $laoNumber) {
+                            $result = $documents->statusByLaoNumberResult($user, (string) $laoNumber);
+                            $selectedDocumentId = $this->resultIdentifier($result, 'document_id') ?? $selectedDocumentId;
+                            $replies[] = (string) $result['reply'];
+                        }
+                        break;
+                    case 'document_context_status':
+                        if ($selectedDocumentId === null) {
+                            throw new \RuntimeException('No authorized document context is available.');
+                        }
+                        $replies[] = (string) $documents->statusByDocumentIdResult($user, $selectedDocumentId)['reply'];
+                        break;
+                    case 'document_context_details':
+                        if ($selectedDocumentId === null) {
+                            throw new \RuntimeException('No authorized document context is available.');
+                        }
+                        $replies[] = (string) $documents->detailsByDocumentIdResult(
+                            $user,
+                            $selectedDocumentId,
+                            (string) ($parameters['topic'] ?? 'summary'),
+                        )['reply'];
+                        break;
+                    case 'document_context_guidance':
+                        if ($selectedDocumentId === null) {
+                            throw new \RuntimeException('No authorized document context is available.');
+                        }
+                        $replies[] = (string) $documents->guidanceForAuthorizedDocument(
+                            $user,
+                            $selectedDocumentId,
+                            (string) ($parameters['topic'] ?? 'summary'),
+                            $language,
+                        )['reply'];
+                        break;
+                    case 'request_status':
+                    case 'latest_request':
+                        $result = isset($parameters['request_id'])
+                            ? $documentRequests->detailsByIdResult($user, (int) $parameters['request_id'], (string) ($parameters['topic'] ?? 'summary'), $language)
+                            : $documentRequests->latestResult($user, $language);
+                        $selectedRequestId = $this->resultIdentifier($result, 'request_id') ?? $selectedRequestId;
+                        $replies[] = (string) $result['reply'];
+                        break;
+                    case 'request_context_details':
+                        if ($selectedRequestId === null) {
+                            throw new \RuntimeException('No authorized request context is available.');
+                        }
+                        $replies[] = (string) $documentRequests->detailsByIdResult(
+                            $user,
+                            $selectedRequestId,
+                            (string) ($parameters['topic'] ?? 'summary'),
+                            $language,
+                        )['reply'];
+                        break;
+                }
+            }
+
+            // A count answer is an aggregate, but when it proves that the
+            // client has exactly one authorized request, retain that request
+            // as short-lived context so a follow-up such as “pickup date
+            // nyan” can resolve safely without asking for an identifier again.
+            if ($selectedRequestId === null
+                && $requestCounts !== null
+                && array_sum($requestCounts) === 1
+                && collect($intents)->contains(
+                    static fn (array $intent): bool => ($intent['name'] ?? null) === 'request_count'
+                        && ! isset($intent['parameters']['status']),
+                )) {
+                $selectedRequestId = $documentRequests->latestAuthorizedId($user);
+            }
+
+            $conversationId = $this->conversationId($request, $request->input('conversation_id'));
+            if ($selectedDocumentId !== null) {
+                $request->session()->put(self::PRIVATE_DOCUMENT_CONTEXT_KEY, [
+                    'user_id' => (string) $user->getKey(),
+                    'conversation_id' => $conversationId,
+                    'document_id' => $selectedDocumentId,
+                    'expires_at' => now()->addMinutes(self::DOCUMENT_CONTEXT_TTL_MINUTES)->getTimestamp(),
+                ]);
+            }
+            if ($selectedRequestId !== null) {
+                $request->session()->put(self::PRIVATE_REQUEST_CONTEXT_KEY, [
+                    'user_id' => (string) $user->getKey(),
+                    'conversation_id' => $conversationId,
+                    'request_id' => $selectedRequestId,
+                    'expires_at' => now()->addMinutes(self::DOCUMENT_CONTEXT_TTL_MINUTES)->getTimestamp(),
+                ]);
+            }
+
+            return response()->json(['reply' => implode(' ', array_filter($replies))]);
+        } catch (Throwable $exception) {
+            return $this->safeDocumentFailure($exception);
+        }
+    }
+
+    /** @param array<string, mixed> $result */
+    private function resultIdentifier(array $result, string $key): ?int
+    {
+        $value = filter_var($result[$key] ?? null, FILTER_VALIDATE_INT);
+
+        return $value !== false && $value > 0 ? (int) $value : null;
+    }
+
+    /** @param array<string, int>|null $counts */
+    private function multiDocumentCountText(
+        User $user,
+        ClientDocumentLookupService $documents,
+        ?string $status,
+        string $language,
+        ?array &$counts = null,
+        bool &$hasTotal = false,
+    ): string {
+        $counts ??= $documents->documentCountsByStatus($user);
+        $count = $status === null ? array_sum($counts) : ($counts[$status] ?? 0);
+        $label = $this->countLabel(
+            $status === null ? 'authorized documents' : (($status === 'in_progress' ? 'In Progress' : ucfirst($status)) . ' documents'),
+            $count,
+        );
+
+        if ($status !== null && $hasTotal) {
+            return $this->isFilipinoLike($language)
+                ? 'Kabilang dito ang ' . $count . ' ' . $label . '.'
+                : 'This includes ' . $count . ' ' . $label . '.';
+        }
+
+        $hasTotal = $status === null || $hasTotal;
+
+        return $this->isFilipinoLike($language)
+            ? 'Mayroon kang ' . $count . ' ' . $label . '.'
+            : 'You have ' . $count . ' ' . $label . '.';
+    }
+
+    /** @param array<string, int>|null $counts */
+    private function multiRequestCountText(
+        User $user,
+        ClientDocumentRequestLookupService $documentRequests,
+        ?string $status,
+        string $language,
+        ?array &$counts = null,
+        bool &$hasTotal = false,
+    ): string {
+        $counts ??= $documentRequests->countsByStatus($user);
+        $count = $status === null ? array_sum($counts) : ($counts[$status] ?? 0);
+        $label = $this->countLabel(
+            $status === null ? 'document requests' : $documentRequests->statusLabelForChat($status),
+            $count,
+        );
+
+        if ($status !== null && $hasTotal) {
+            return $this->isFilipinoLike($language)
+                ? 'Kabilang dito ang ' . $count . ' ' . $label . '.'
+                : 'This includes ' . $count . ' ' . $label . '.';
+        }
+
+        $hasTotal = $status === null || $hasTotal;
+
+        return $this->isFilipinoLike($language)
+            ? 'Mayroon kang ' . $count . ' ' . $label . '.'
+            : 'You have ' . $count . ' ' . $label . '.';
+    }
+
+    private function countLabel(string $label, int $count): string
+    {
+        if ($count === 1) {
+            $singular = preg_replace('/\brequests\b/', 'request', $label) ?? $label;
+
+            return $singular !== $label
+                ? $singular
+                : (preg_replace('/\bdocuments\b/', 'document', $label) ?? $label);
+        }
+
+        return $label;
+    }
+
+    private function multiMessageMetadataText(
+        User $user,
+        ClientMessageAvailabilityService $messages,
+        string $kind,
+        string $language,
+    ): string {
+        $filipino = $this->isFilipinoLike($language);
+
+        if ($kind === 'unread') {
+            $count = $messages->countUnreadMessagesFromOffice($user);
+
+            return $count === 0
+                ? ($filipino ? 'Wala kang unread na mensahe mula sa Legal Affairs Office.' : 'You have no unread messages from the Legal Affairs Office.')
+                : ($filipino ? 'Mayroon kang ' . $count . ' unread na mensahe mula sa Legal Affairs Office.' : 'You have ' . $count . ' unread messages from the Legal Affairs Office.');
+        }
+
+        if ($kind === 'count') {
+            $count = $messages->countMessagesFromOffice($user);
+
+            return $filipino
+                ? 'Mayroon kang ' . $count . ' mensahe mula sa Legal Affairs Office.'
+                : 'You have ' . $count . ' messages from the Legal Affairs Office.';
+        }
+
+        return $messages->hasMessagesFromOffice($user)
+            ? ($filipino ? 'Oo, may mensahe sa iyo mula sa Legal Affairs Office.' : 'Yes, you have a message from the Legal Affairs Office.')
+            : ($filipino ? 'Wala kang mensahe mula sa Legal Affairs Office.' : 'You have no messages from the Legal Affairs Office.');
+    }
+
+    private function isFilipinoLike(string $language): bool
+    {
+        return in_array($language, ['filipino', 'taglish'], true);
     }
 
     /** @param array<string, mixed> $intent */
@@ -416,7 +1099,7 @@ class ChatbotController extends Controller
         $requestId = $this->privateContextRequestId($context, $user);
 
         if ($requestId === null) {
-            return $this->privateReply($request, 'Please provide the request number or select the request again so I can check its authorized details.');
+            return $this->privateReply($request, 'Please select the authorized request again so I can check its details.');
         }
 
         return $this->requestContextReply(
@@ -446,6 +1129,19 @@ class ChatbotController extends Controller
                 : $documentRequests->countByStatus($user, $status);
         } catch (Throwable $exception) {
             return $this->safeDocumentFailure($exception);
+        }
+
+        if ($status === null && $count === 1) {
+            $requestId = $documentRequests->latestAuthorizedId($user);
+
+            if ($requestId !== null) {
+                $request->session()->put(self::PRIVATE_REQUEST_CONTEXT_KEY, [
+                    'user_id' => (string) $user->getKey(),
+                    'conversation_id' => $this->conversationId($request, $request->input('conversation_id')),
+                    'request_id' => $requestId,
+                    'expires_at' => now()->addMinutes(self::DOCUMENT_CONTEXT_TTL_MINUTES)->getTimestamp(),
+                ]);
+            }
         }
 
         $label = $status === null ? 'document requests' : $documentRequests->statusLabelForChat($status);
@@ -493,6 +1189,8 @@ class ChatbotController extends Controller
         $request->session()->forget(self::PRIVATE_DOCUMENT_CONTEXT_KEY);
         $request->session()->forget(self::PRIVATE_REQUEST_CONTEXT_KEY);
 
+        $language = $this->chatbotLanguage($request);
+
         try {
             $choices = $documentRequests->authorizedChoices($user);
         } catch (Throwable $exception) {
@@ -504,14 +1202,57 @@ class ChatbotController extends Controller
         }
 
         $ids = [];
-        $lines = ['Which authorized document request do you mean? Reply with a number, such as 1 or “request 1”:'];
+        $requestNoun = count($choices) === 1 ? 'document request' : 'document requests';
+        $lines = [$this->listHeading(
+            $language,
+            'I found ' . count($choices) . ' authorized ' . $requestNoun . '.',
+            'May nakita akong ' . count($choices) . ' authorized na ' . $requestNoun . '.',
+            'May nakita akong ' . count($choices) . ' authorized ' . $requestNoun . '.',
+        )];
         foreach ($choices as $index => $choice) {
             $ids[] = $choice['request_id'];
             $type = $choice['copy_type'] === 'soft_copy'
                 ? 'Soft copy'
                 : ($choice['copy_type'] === 'original' ? 'Original' : 'Copy type not recorded');
-            $lines[] = ($index + 1) . '. Request #' . $choice['request_id'] . ' — ' . ucfirst($choice['status']) . ' — ' . $type . ' — requested ' . $choice['requested_at'];
+            $details = collect([$choice['purpose'] ?? null, $choice['purpose_details'] ?? null])
+                ->map(static fn (mixed $value): string => trim((string) $value))
+                ->filter()
+                ->unique()
+                ->implode(' — ');
+            $detailsLabel = $details !== '' ? $details : 'Not recorded';
+            $lines[] = ($index + 1) . '. ' . $this->listField(
+                $language,
+                'Request details',
+                'Detalye ng request',
+                'Request details',
+                $detailsLabel,
+            ) . "\n   " . $this->listField(
+                $language,
+                'Status',
+                'Status',
+                'Status',
+                ucfirst((string) $choice['status']),
+            ) . "\n   " . $this->listField(
+                $language,
+                'Copy type',
+                'Uri ng kopya',
+                'Copy type',
+                $type,
+            ) . "\n   " . $this->listField(
+                $language,
+                'Requested',
+                'Petsa ng request',
+                'Requested',
+                $choice['requested_at'],
+            );
         }
+
+        $lines[] = $this->listInstruction(
+            $language,
+            'Reply with the number of the request you want to check.',
+            'I-type ang numero ng request na gusto mong i-check.',
+            'I-type ang number ng request na gusto mong i-check.',
+        );
 
         $request->session()->put(self::REQUEST_CHOICES_KEY, [
             'user_id' => (string) $user->getKey(),
@@ -521,7 +1262,7 @@ class ChatbotController extends Controller
         ]);
         $this->putPendingAction($request, $user, $conversationId, 'select_request');
 
-        return response()->json(['reply' => implode("\n", $lines)]);
+        return response()->json(['reply' => implode("\n\n", $lines)]);
     }
 
     private function rejectionGuidanceReply(
@@ -742,24 +1483,58 @@ class ChatbotController extends Controller
         ClientDocumentLookupService $documents,
         string $name,
         string $conversationId,
+        ?string $searchField = null,
+        string $action = 'get_document_status',
+        string $language = 'english',
     ): JsonResponse {
         try {
-            $choices = $documents->authorizedDocumentChoicesByName($user, $name);
+            $choices = $searchField === 'created_at'
+                ? $documents->authorizedDocumentChoicesBySubmittedDate($user, $name)
+                : $documents->authorizedDocumentChoicesByName($user, $name, $searchField);
         } catch (Throwable $exception) {
             return $this->safeDocumentFailure($exception);
         }
 
+        $referenceLabel = $name;
+        if ($searchField === 'created_at' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $name) === 1) {
+            $referenceLabel = Carbon::createFromFormat('!Y-m-d', $name)->format('F j, Y');
+        }
+
         if ($choices === []) {
-            return $this->privateReply($request, 'I couldn’t find an authorized document with that name. Check the title shown in Documents or provide its LAO number.');
+            return $this->privateReply(
+                $request,
+                $searchField === 'created_at'
+                    ? 'I couldn’t find an authorized document submitted on ' . $referenceLabel . '. Provide another submission date, document name, LAO number, or keyword to search.'
+                    : 'I couldn’t find an authorized document matching "' . $referenceLabel . '". Provide the document name, LAO number, or another keyword to search.',
+            );
         }
 
         if (count($choices) > 1) {
-            return $this->ambiguousDocumentReply($request, $user, $documents, $conversationId, 'status', $choices);
+            return $this->ambiguousDocumentReply(
+                $request,
+                $user,
+                $documents,
+                $conversationId,
+                'topic_status',
+                $choices,
+                $referenceLabel,
+            );
         }
 
         return $this->documentContextReply(
             $request,
-            fn (): array => $documents->statusByDocumentIdResult($user, (int) $choices[0]['document_id']),
+            fn (): array => $action === 'get_document_type'
+                ? $documents->detailsByDocumentIdResult(
+                    $user,
+                    (int) $choices[0]['document_id'],
+                    'document_type',
+                    $language,
+                )
+                : $documents->statusByDocumentIdResult(
+                    $user,
+                    (int) $choices[0]['document_id'],
+                    $searchField === 'created_at' ? null : $name,
+                ),
         );
     }
 
@@ -881,6 +1656,7 @@ class ChatbotController extends Controller
         string $conversationId = 'default',
         string $purpose = 'status',
         ?array $providedChoices = null,
+        ?string $topic = null,
     ): JsonResponse {
         $this->clearGeneralHistory($request);
         $request->session()->put(self::PRIVATE_CONTEXT_KEY, true);
@@ -903,19 +1679,63 @@ class ChatbotController extends Controller
         }
 
         $documentIds = [];
-        $lines = [$purpose === 'rejection_reason'
-            ? 'Which authorized document should I check for a recorded rejection reason? Reply with a number, “document 1”, “document 2”, or its LAO number:'
-            : 'I found these documents associated with your account. Which one do you mean? Reply with a number, “document 1”, “document 2”, or its LAO number:'];
+        $language = $this->chatbotLanguage($request);
+        $lines = [$this->documentChoicesHeading($language, count($choices), $purpose, $topic)];
 
         foreach ($choices as $index => $choice) {
             $documentIds[] = $choice['document_id'];
-            $identifier = $choice['lao_number'] ?? 'LAO number not assigned';
-            $type = $choice['document_type'] ? ' — ' . $choice['document_type'] : '';
             $name = filled($choice['display_name'] ?? null)
-                ? ' — ' . $choice['display_name']
-                : '';
-            $lines[] = ($index + 1) . '. ' . $identifier . $type . $name . ' — submitted ' . $choice['submitted_at'];
+                ? (string) $choice['display_name']
+                : 'Not recorded';
+            $type = filled($choice['document_type'] ?? null)
+                ? (string) $choice['document_type']
+                : 'Not recorded';
+            $status = filled($choice['status_label'] ?? null)
+                ? (string) $choice['status_label']
+                : 'Unavailable';
+            $identifier = filled($choice['lao_number'] ?? null)
+                ? (string) $choice['lao_number']
+                : 'Not yet assigned';
+            $lines[] = ($index + 1) . '. ' . $this->listField(
+                $language,
+                'Document name',
+                'Pangalan ng document',
+                'Document name',
+                $name,
+            ) . "\n   " . $this->listField(
+                $language,
+                'Document type',
+                'Uri ng document',
+                'Document type',
+                $type,
+            ) . "\n   " . $this->listField(
+                $language,
+                'Status',
+                'Status',
+                'Status',
+                $status,
+            ) . "\n   " . $this->listField(
+                $language,
+                'LAO number',
+                'LAO number',
+                'LAO number',
+                $identifier,
+            );
         }
+
+        $lines[] = $purpose === 'rejection_reason'
+            ? $this->listInstruction(
+                $language,
+                'Reply with the number of the document to check.',
+                'I-type ang numero ng document na gusto mong i-check.',
+                'I-type ang number ng document na gusto mong i-check.',
+            )
+            : $this->listInstruction(
+                $language,
+                'Reply with the number of the document you want to check.',
+                'I-type ang numero ng document na gusto mong i-check.',
+                'I-type ang number ng document na gusto mong i-check.',
+            );
 
         $request->session()->put(self::DOCUMENT_CHOICES_KEY, [
             'user_id' => (string) $user->getKey(),
@@ -925,11 +1745,70 @@ class ChatbotController extends Controller
         ]);
         $this->putPendingAction($request, $user, $conversationId, 'select_document', $purpose);
 
-        if (count($choices) === 10) {
-            $lines[] = 'For older submissions, open the Documents page.';
+        return response()->json(['reply' => implode("\n\n", $lines)]);
+    }
+
+    private function documentChoicesHeading(
+        string $language,
+        int $count,
+        string $purpose,
+        ?string $topic,
+    ): string {
+        $documentNoun = $count === 1 ? 'document' : 'documents';
+
+        if ($purpose === 'rejection_reason') {
+            return $this->listHeading(
+                $language,
+                'I found ' . $count . ' authorized ' . $documentNoun . ' to check.',
+                'May nakita akong ' . $count . ' authorized na ' . $documentNoun . ' para i-check.',
+                'May nakita akong ' . $count . ' authorized ' . $documentNoun . ' para i-check.',
+            );
         }
 
-        return response()->json(['reply' => implode("\n", $lines)]);
+        if (filled($topic)) {
+            return $this->listHeading(
+                $language,
+                'I found ' . $count . ' matching ' . $documentNoun . ' for "' . $topic . '".',
+                'May nakita akong ' . $count . ' ' . ($count === 1 ? 'dokumentong' : 'dokumentong') . ' tumutugma sa "' . $topic . '".',
+                'May nakita akong ' . $count . ' matching ' . $documentNoun . ' para sa "' . $topic . '".',
+            );
+        }
+
+        return $this->listHeading(
+            $language,
+            'I found ' . $count . ' authorized ' . $documentNoun . '.',
+            'May nakita akong ' . $count . ' authorized na dokumento.',
+            'May nakita akong ' . $count . ' authorized ' . $documentNoun . '.',
+        );
+    }
+
+    private function listHeading(string $language, string $english, string $filipino, string $taglish): string
+    {
+        return $language === 'filipino' ? $filipino : ($language === 'taglish' ? $taglish : $english);
+    }
+
+    private function listField(
+        string $language,
+        string $englishLabel,
+        string $filipinoLabel,
+        string $taglishLabel,
+        string $value,
+    ): string {
+        return $this->listHeading($language, $englishLabel, $filipinoLabel, $taglishLabel) . ': ' . $value;
+    }
+
+    private function listInstruction(string $language, string $english, string $filipino, string $taglish): string
+    {
+        return $this->listHeading($language, $english, $filipino, $taglish);
+    }
+
+    private function chatbotLanguage(Request $request): string
+    {
+        $message = mb_strtolower((string) $request->input('message'), 'UTF-8');
+        $hasFilipino = preg_match('/\b(?:ano|ang|ng|ba|ko|mo|sa|akin|ito|iyon|yan|jan|diyan|paano|pano|kailan|ilan|ilang|may|mayroon|meron|doon|dun|hindi|opo|oo|kamusta|kumusta|mabuti|mensahe|dokumento|hiling|tungkol|para|paki|natin|namin)\b/u', $message) === 1;
+        $hasEnglish = preg_match('/\b(?:what|how|when|where|why|which|many|request|requests|document|documents|status|accepted|pending|message|messages|latest|count|have|do|does|is|are|the|my|about|copy|pickup|download)\b/u', $message) === 1;
+
+        return $hasFilipino && $hasEnglish ? 'taglish' : ($hasFilipino ? 'filipino' : 'english');
     }
 
     /** @param mixed $choices */
@@ -1083,18 +1962,74 @@ class ChatbotController extends Controller
         return $conversationId;
     }
 
+    private function resolvePendingShortAnswer(
+        Request $request,
+        User $user,
+        string $conversationId,
+        ?array $pendingAction,
+        array $quickIntent,
+        string $message,
+        ChatbotIntentRouter $intents,
+    ): ?JsonResponse {
+        $type = $pendingAction['type'] ?? null;
+
+        if ($type === 'rejection_reference') {
+            if (($quickIntent['intent'] ?? null) === 'rejection_reason_lookup') {
+                $this->clearPendingAction($request);
+                $response = $this->privateReply(
+                    $request,
+                    'Which document’s rejection reason should I check? Provide the document name or LAO number.',
+                );
+                $this->putPendingAction(
+                    $request,
+                    $user,
+                    $conversationId,
+                    'rejection_reference',
+                    'rejection_reason',
+                    ['document_reference'],
+                    'Provide the document name or LAO number whose rejection reason you want to check.',
+                );
+
+                return $response;
+            }
+
+            if (in_array($quickIntent['intent'] ?? null, [
+                'acceptance_definition',
+                'rejection_definition',
+                'request_scope_clarification',
+                'copy_type_clarification',
+            ], true) || $intents->isClearTopicChange($message)) {
+                $this->clearPendingAction($request);
+            }
+        }
+
+        if ($type === 'request_scope'
+            && in_array($quickIntent['intent'] ?? null, [
+                'acceptance_definition',
+                'copy_type_clarification',
+            ], true)) {
+            $this->clearPendingAction($request);
+        }
+
+        return null;
+    }
+
     private function putPendingAction(
         Request $request,
         User $user,
         string $conversationId,
         string $type,
         ?string $purpose = null,
+        ?array $slots = null,
+        ?string $question = null,
     ): void {
         $request->session()->put(self::PENDING_ACTION_KEY, array_filter([
             'user_id' => (string) $user->getKey(),
             'conversation_id' => $conversationId,
             'type' => $type,
             'purpose' => $purpose,
+            'slots' => $slots,
+            'question' => $question,
             'expires_at' => now()->addMinutes(self::DOCUMENT_CONTEXT_TTL_MINUTES)->getTimestamp(),
         ], static fn (mixed $value): bool => $value !== null));
     }
@@ -1129,6 +2064,17 @@ class ChatbotController extends Controller
 
         if (isset($action['purpose'])) {
             $activeAction['purpose'] = (string) $action['purpose'];
+        }
+
+        if (isset($action['slots']) && is_array($action['slots'])) {
+            $activeAction['slots'] = array_values(array_filter(
+                $action['slots'],
+                static fn (mixed $slot): bool => is_string($slot) && $slot !== '',
+            ));
+        }
+
+        if (isset($action['question']) && is_string($action['question'])) {
+            $activeAction['question'] = $action['question'];
         }
 
         return $activeAction;
@@ -1371,6 +2317,6 @@ class ChatbotController extends Controller
 
         return response()->json([
             'reply' => 'I can’t retrieve your document information right now. Please try again later or use the Documents page.',
-        ], 503);
+        ]);
     }
 }

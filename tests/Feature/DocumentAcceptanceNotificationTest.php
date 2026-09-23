@@ -93,7 +93,7 @@ class DocumentAcceptanceNotificationTest extends TestCase
         $this->assertNotContains('Document accepted, but email failed', $notificationTitles);
     }
 
-    public function test_mail_failure_still_sends_bell_notification_and_redirects_with_warning(): void
+    public function test_mail_failure_still_sends_bell_notification_and_stays_on_requests_page(): void
     {
         $client = Mockery::mock(User::class)->makePartial();
         $client->shouldReceive('notify')->once()
@@ -126,7 +126,7 @@ class DocumentAcceptanceNotificationTest extends TestCase
 
         Livewire::test(DocumentRequestsAcceptancePageHarness::class)
             ->call('acceptRequest', 1)
-            ->assertRedirect(DocumentRequests::getUrl(['section' => 'accepted']));
+            ->assertNoRedirect();
 
         $notification = collect(session('filament.notifications'))->last();
         $this->assertSame('Document accepted, but email failed', $notification['title']);
