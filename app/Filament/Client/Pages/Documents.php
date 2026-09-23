@@ -7,15 +7,20 @@ use App\Filament\Client\Pages\DocumentTimeline;
 use App\Filament\Client\Pages\ViewDocument;
 use App\Models\Document;
 use App\Models\DocumentRequest;
+use App\Services\DocumentQrToken;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Pages\Page;
+use Filament\Notifications\Notification;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Table;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\ViewColumn;
 use Illuminate\Database\Eloquent\Builder;
+use chillerlan\QRCode\Output\QROutputInterface;
+use chillerlan\QRCode\QRCode;
+use chillerlan\QRCode\QROptions;
 
 class Documents extends Page implements HasTable
 {
@@ -34,6 +39,8 @@ class Documents extends Page implements HasTable
     public string $documentSearch = '';
     public string $documentType = '';
     public string $documentStatus = '';
+    public ?int $qrCodeDocumentId = null;
+    public ?string $qrCodeSvg = null;
 
     public function getHeading(): string
     {
@@ -129,6 +136,40 @@ class Documents extends Page implements HasTable
     {
         $this->documentStatus = '';
         $this->resetTable();
+    }
+
+    public function openQrCode(int $documentId): void
+    {
+        try {
+            $document = Document::findOrFail($documentId);
+
+            abort_unless($this->clientCanAccessFile($document), 403);
+
+            $qrPayload = DocumentQrToken::encode($document);
+
+            $this->qrCodeDocumentId = $documentId;
+            $this->qrCodeSvg = (new QRCode(new QROptions([
+                'outputType' => QROutputInterface::MARKUP_SVG,
+                'outputBase64' => false,
+                'scale' => 5,
+            ])))->render($qrPayload);
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            $this->closeQrCode();
+
+            Notification::make()
+                ->danger()
+                ->title('QR code could not be generated')
+                ->body('Please try again.')
+                ->send();
+        }
+    }
+
+    public function closeQrCode(): void
+    {
+        $this->qrCodeDocumentId = null;
+        $this->qrCodeSvg = null;
     }
 
     protected function documentsQuery(): Builder
@@ -485,6 +526,16 @@ class Documents extends Page implements HasTable
                             ])
                             : null
                 ),
+
+            Action::make('documentQrCode')
+                ->label('QR Code')
+                ->icon('heroicon-o-qr-code')
+                ->color('gray')
+                ->tooltip('Show QR Code')
+                ->action(function (Document $record): void {
+                    $this->openQrCode($record->document_id);
+                })
+                ->visible(fn (Document $record): bool => $this->clientCanAccessFile($record)),
 
             Action::make('download')
                 ->label('Download')

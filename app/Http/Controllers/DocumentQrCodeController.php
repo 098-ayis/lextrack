@@ -20,10 +20,11 @@ class DocumentQrCodeController extends Controller
             'outputBase64' => false,
             'scale' => 5,
         ])))->render($url);
+        $disposition = request()->boolean('download') ? 'attachment' : 'inline';
 
         return response($png, 200, [
             'Content-Type' => 'image/png',
-            'Content-Disposition' => 'inline; filename="document-' . $document . '-qr.png"',
+            'Content-Disposition' => $disposition . '; filename="document-' . $document . '-qr.png"',
             'X-Content-Type-Options' => 'nosniff',
             'Cache-Control' => 'private, no-store',
         ]);
