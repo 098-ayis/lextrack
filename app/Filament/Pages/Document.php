@@ -1731,7 +1731,6 @@ class Document extends Page implements HasTable
     {
         return Action::make('markAsOutgoing')
             ->label('Outgoing')
-            ->icon('heroicon-m-arrow-right')
             ->color('gray')
             ->modalHeading('Add Document to Outgoing')
             ->modalDescription('Provide the destination and sent date for this document.')
