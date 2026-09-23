@@ -31,7 +31,7 @@ Route::view('/ai-test', 'ai-test');
 Route::post('/chatbot/message', [
     ChatbotController::class,
     'reply',
-])->middleware(['auth', 'throttle:10,1'])->name('chatbot.message');
+])->middleware(['auth', 'throttle:chatbot'])->name('chatbot.message');
 
 Route::get('/', function () {
     return view('home');
@@ -40,6 +40,7 @@ Route::get('/', function () {
 Route::view('/login', 'home')->name('login');
 
 Route::get('/auth/google', [GoogleAuthController::class, 'redirect'])
+    ->middleware('throttle:google-login')
     ->name('google.login');
 
 Route::get('/auth/google/callback', [GoogleAuthController::class, 'callback']);
@@ -215,7 +216,7 @@ Route::get('/client/document-download/{document}', function (string $document) {
         ]
     );
 })
-    ->middleware('auth')
+    ->middleware(['auth', 'throttle:downloads'])
     ->name('client.document.download');
 
 Route::get('/messages/{message}/attachment/{attachment}', function (
@@ -578,7 +579,7 @@ Route::post('/api/track/qr', function (Request $request) {
 })
     ->middleware([
         ProtectAgainstSpam::class,
-        'throttle:10,1',
+        'throttle:qr-tracking',
     ])
     ->name('public.track.qr');
 

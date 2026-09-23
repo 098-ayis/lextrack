@@ -28,6 +28,7 @@ use Illuminate\Support\HtmlString;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
+use Illuminate\Support\Facades\RateLimiter;
 
 class Upload extends Page implements HasForms
 {
@@ -223,6 +224,24 @@ class Upload extends Page implements HasForms
     public function submit(): void
     {
         $data = $this->form->getState();
+        $userId = auth()->id();
+
+        $key = 'document-submit:' . $userId;
+
+        if (RateLimiter::tooManyAttempts($key, 3)) {
+            $seconds = RateLimiter::availableIn($key);
+
+            Notification::make()
+                ->title('Too many submission attempts')
+                ->body("You have reached the submission limit. Please try again in {$seconds} seconds.")
+                ->warning()
+                ->send();
+
+            return;
+        }
+
+        RateLimiter::hit($key, 60);
+
         $uploadedFiles = $this->normalizeUploadedFiles($data['file_path'] ?? null);
         $transmittalFiles = $this->normalizeUploadedFiles($data['transmittal'] ?? null);
         $uploads = $this->inspectUploadedFiles($uploadedFiles);
@@ -283,7 +302,6 @@ class Upload extends Page implements HasForms
             return;
         }
 
-        $userId = auth()->id();
         $officeUnit = trim((string) ($data['office_unit'] ?? ''));
         $fileHashes = array_column($uploads, 'hash');
 

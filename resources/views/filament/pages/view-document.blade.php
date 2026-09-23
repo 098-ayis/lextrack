@@ -193,19 +193,11 @@
                                     $isPendingRevisionVersion = $pendingRevisionVersionId !== null && (int) $pendingRevisionVersionId === (int) $version->version_id;
                                 @endphp
                                 <div wire:key="document-version-{{ $version->version_id }}" class="document-file-row">
-                                    @if ($isPendingRevisionVersion)
-                                        <div class="document-file-select">
-                                            <span class="document-file-badge">{{ strtoupper(pathinfo($versionFileName, PATHINFO_EXTENSION)) ?: 'FILE' }}</span>
-                                            <span class="document-file-name">{{ $versionFileName }}</span>
-                                            <span class="document-version-badge">{{ $versionBadge }}</span>
-                                        </div>
-                                    @else
-                                        <button type="button" wire:click="selectVersion({{ $version->version_id }})" wire:loading.attr="disabled" class="document-file-select {{ $selectedVersionId === $version->version_id ? 'is-selected' : '' }}" title="Preview {{ $versionFileName }}">
-                                            <span class="document-file-badge">{{ strtoupper(pathinfo($versionFileName, PATHINFO_EXTENSION)) ?: 'FILE' }}</span>
-                                            <span class="document-file-name">{{ $versionFileName }}</span>
-                                            <span class="document-version-badge">{{ $versionBadge }}</span>
-                                        </button>
-                                    @endif
+                                    <button type="button" wire:click="selectVersion({{ $version->version_id }})" wire:loading.attr="disabled" class="document-file-select {{ $selectedVersionId === $version->version_id ? 'is-selected' : '' }} {{ $isPendingRevisionVersion ? 'is-pending-revision' : '' }}" title="Preview {{ $versionFileName }}">
+                                        <span class="document-file-badge">{{ strtoupper(pathinfo($versionFileName, PATHINFO_EXTENSION)) ?: 'FILE' }}</span>
+                                        <span class="document-file-name">{{ $versionFileName }}</span>
+                                        <span class="document-version-badge">{{ $versionBadge }}</span>
+                                    </button>
                                     <div class="relative shrink-0" x-data="{ menuOpen: false }">
                                         <button type="button" class="document-file-menu-button" aria-label="Version options" aria-haspopup="menu" @click.stop="menuOpen = !menuOpen">
                                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.6" d="M12 6.5h.01M12 12h.01M12 17.5h.01" /></svg>
