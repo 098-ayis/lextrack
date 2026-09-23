@@ -481,8 +481,29 @@
         .fi-page-header, .fi-page-heading { display: none !important; }
         .fi-page { gap: 0 !important; }
         .fi-page-content { width: 100% !important; max-width: none !important; gap: 0 !important; padding-bottom: 0 !important; }
+        [data-field-wrapper]:has(.document-version-upload-files) .fi-fo-field-label,
+        [data-field-wrapper]:has(.document-version-upload-files) .fi-fo-field-label-content { color: #374151 !important; }
+        .dark [data-field-wrapper]:has(.document-version-upload-files) .fi-fo-field-label,
+        .dark [data-field-wrapper]:has(.document-version-upload-files) .fi-fo-field-label-content { color: #374151 !important; }
+        .document-version-upload-files .filepond--root,
+        .document-version-upload-files .filepond--panel-root { background-color: #fff !important; }
         .document-version-upload-files .filepond--list-scroller { top: 0 !important; transform: translate3d(0, 0, 0) !important; margin-top: 0 !important; }
-        .document-version-upload-files .filepond--drop-label { top: auto !important; bottom: 0 !important; }
+        .document-version-upload-files .filepond--drop-label {
+            top: auto !important;
+            bottom: 0 !important;
+            min-height: 3rem !important;
+            height: auto !important;
+            padding: 0.65rem 0.75rem !important;
+        }
+        .document-version-upload-files .filepond--root:has(.filepond--item[data-filepond-item-state*="invalid"], .filepond--item[data-filepond-item-state*="error"]) {
+            height: 7.5rem !important;
+            min-height: 0 !important;
+        }
+        .document-version-upload-files .filepond--item[data-filepond-item-state*="invalid"],
+        .document-version-upload-files .filepond--item[data-filepond-item-state*="error"] {
+            height: 4.25rem !important;
+            min-height: 0 !important;
+        }
         .document-version-upload-files .filepond--item-panel { background-color: #e5e7eb !important; border: 1px solid #9ca3af !important; }
         .document-version-upload-files .filepond--file-info-main,
         .document-version-upload-files .filepond--file-info-sub,
@@ -502,10 +523,10 @@
         }
         .document-version-upload-files .filepond--item[data-filepond-item-state*="invalid"] .filepond--file,
         .document-version-upload-files .filepond--item[data-filepond-item-state*="error"] .filepond--file {
-            min-height: 4.35rem !important;
-            height: auto !important;
+            min-height: 0 !important;
+            height: 100% !important;
             align-items: flex-start !important;
-            padding-right: 4.4rem !important;
+            padding: 0.5rem 4.4rem 0.5rem 0.25rem !important;
         }
         .document-version-upload-files .filepond--item[data-filepond-item-state*="invalid"] .filepond--file-info,
         .document-version-upload-files .filepond--item[data-filepond-item-state*="error"] .filepond--file-info {

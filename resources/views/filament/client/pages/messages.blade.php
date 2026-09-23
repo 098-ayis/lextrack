@@ -1890,6 +1890,7 @@
                     @php
                         $latestMessage = $conversation->messages->last();
 
+                        $latestIsDocumentQr = $latestMessage?->body === 'document_qr';
                         $latestIsRevisionRequest = $latestMessage && (
                             $latestMessage->body === 'revision_request'
                             || str_contains(
@@ -2004,6 +2005,8 @@
 
                                     @if ($latestIsRevisionRequest)
                                         Revision request
+                                    @elseif ($latestIsDocumentQr)
+                                        Document QR code
                                     @elseif ($latestIsRevisionUpload)
                                         {{ $latestRevisionText }}
                                     @else
@@ -2359,6 +2362,7 @@
                             @endif
 
                             @php
+                                $isDocumentQr = $message->body === 'document_qr';
                                 $isRevisionRequest =
                                     $message->body === 'revision_request'
                                     || str_contains(
@@ -2401,6 +2405,8 @@
 
                                     if ($replyPreview === 'revision_request') {
                                         $replyPreview = 'Revision request';
+                                    } elseif ($replyPreview === 'document_qr') {
+                                        $replyPreview = 'Document QR code';
                                     } elseif ($replyPreview === 'Attachment sent.') {
                                         $replyPreview = $message->replyTo->attachments->first()?->original_name ?? 'Attachment';
                                     }
@@ -2422,7 +2428,14 @@
                                 </button>
                             @endif
 
-                            @if ($isRevisionRequest)
+                            @if ($isDocumentQr && $activeConversation?->document)
+                                <div class="t-bubble revision-bubble">
+                                    <x-documents.conversation-qr
+                                        :document="$activeConversation->document"
+                                        :staff-view="false"
+                                    />
+                                </div>
+                            @elseif ($isRevisionRequest)
                                 <div class="t-bubble revision-bubble">
                                     <div class="revision-card">
                                         <div class="revision-card-header">

@@ -813,6 +813,66 @@ class Document extends Page implements HasTable
         $this->qrCodeSvg = null;
     }
 
+    public function sendQrCodeToClient(): void
+    {
+        $document = DocumentModel::query()
+            ->with('user')
+            ->findOrFail($this->qrCodeDocumentId);
+
+        if (! $document->isAvailableForMessaging()) {
+            Notification::make()
+                ->warning()
+                ->title('QR code could not be sent')
+                ->body('Messaging is unavailable until the document is accepted.')
+                ->send();
+
+            return;
+        }
+
+        if (! $document->user_id) {
+            Notification::make()
+                ->warning()
+                ->title('QR code could not be sent')
+                ->body('This document has no client recipient.')
+                ->send();
+
+            return;
+        }
+
+        DB::transaction(function () use ($document): void {
+            $conversation = Conversation::firstOrCreate(
+                ['document_id' => $document->document_id],
+                [
+                    'created_by' => auth()->id(),
+                    'status' => 'active',
+                ]
+            );
+
+            $conversation->participants()->syncWithoutDetaching([
+                $document->user_id => ['joined_at' => now()],
+                auth()->id() => ['joined_at' => now()],
+            ]);
+
+            Message::create([
+                'conversation_id' => $conversation->id,
+                'sender_id' => auth()->id(),
+                'body' => 'document_qr',
+            ]);
+
+            $conversation->touch();
+        });
+
+        $clientName = $document->user?->name ?? 'the client';
+
+        $this->closeQrCode();
+
+        Notification::make()
+            ->success()
+            ->title('QR code sent to client')
+            ->body('The document QR code was sent to ' . $clientName . '.')
+            ->send();
+    }
+
     public function addDocumentAction(): Action
     {
         return Action::make('addDocument')

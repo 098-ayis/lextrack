@@ -451,49 +451,66 @@
                     </div>
                     <div x-ref="qrCode" class="mx-auto mt-5 flex h-64 w-64 items-center justify-center overflow-hidden rounded-lg border border-gray-200 bg-white p-2 dark:border-gray-600">{!! $qrCodeSvg !!}</div>
                     <p class="mt-4 text-sm text-gray-600 dark:text-gray-300">Scan this code on the public Track page to view the document status and details.</p>
-                    <button
-                        type="button"
-                        x-on:click="
-                            const svg = $refs.qrCode.querySelector('svg');
-                            if (!svg) return;
-                            const svgSource = new XMLSerializer().serializeToString(svg);
-                            const svgBlob = new Blob([svgSource], { type: 'image/svg+xml;charset=utf-8' });
-                            const svgUrl = URL.createObjectURL(svgBlob);
-                            const image = new Image();
-                            image.onload = () => {
-                                const viewBox = svg.getAttribute('viewBox')?.split(/\s+/).map(Number) ?? [];
-                                const width = Number.isFinite(viewBox[2]) && viewBox[2] > 0 ? viewBox[2] : 1024;
-                                const height = Number.isFinite(viewBox[3]) && viewBox[3] > 0 ? viewBox[3] : width;
-                                const canvas = document.createElement('canvas');
-                                canvas.width = width;
-                                canvas.height = height;
-                                const context = canvas.getContext('2d');
-                                context.fillStyle = '#ffffff';
-                                context.fillRect(0, 0, width, height);
-                                context.drawImage(image, 0, 0, width, height);
-                                URL.revokeObjectURL(svgUrl);
-                                canvas.toBlob((jpegBlob) => {
-                                    if (!jpegBlob) return;
-                                    const downloadUrl = URL.createObjectURL(jpegBlob);
-                                    const link = document.createElement('a');
-                                    link.href = downloadUrl;
-                                    link.download = 'document-qr-code-{{ $qrCodeDocumentId }}.jpg';
-                                    document.body.appendChild(link);
-                                    link.click();
-                                    link.remove();
-                                    URL.revokeObjectURL(downloadUrl);
-                                }, 'image/jpeg', 0.95);
-                            };
-                            image.onerror = () => URL.revokeObjectURL(svgUrl);
-                            image.src = svgUrl;
-                        "
-                        class="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-[#0F172A] px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-700"
-                    >
-                        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v12m0 0 4-4m-4 4-4-4M5 18v3h14v-3" />
-                        </svg>
-                        Download QR Code
-                    </button>
+                    <div class="mt-5 grid grid-cols-2 gap-2">
+                        <button
+                            type="button"
+                            x-on:click="
+                                const svg = $refs.qrCode.querySelector('svg');
+                                if (!svg) return;
+                                const svgSource = new XMLSerializer().serializeToString(svg);
+                                const svgBlob = new Blob([svgSource], { type: 'image/svg+xml;charset=utf-8' });
+                                const svgUrl = URL.createObjectURL(svgBlob);
+                                const image = new Image();
+                                image.onload = () => {
+                                    const viewBox = svg.getAttribute('viewBox')?.split(/\s+/).map(Number) ?? [];
+                                    const width = Number.isFinite(viewBox[2]) && viewBox[2] > 0 ? viewBox[2] : 1024;
+                                    const height = Number.isFinite(viewBox[3]) && viewBox[3] > 0 ? viewBox[3] : width;
+                                    const canvas = document.createElement('canvas');
+                                    canvas.width = width;
+                                    canvas.height = height;
+                                    const context = canvas.getContext('2d');
+                                    context.fillStyle = '#ffffff';
+                                    context.fillRect(0, 0, width, height);
+                                    context.drawImage(image, 0, 0, width, height);
+                                    URL.revokeObjectURL(svgUrl);
+                                    canvas.toBlob((jpegBlob) => {
+                                        if (!jpegBlob) return;
+                                        const downloadUrl = URL.createObjectURL(jpegBlob);
+                                        const link = document.createElement('a');
+                                        link.href = downloadUrl;
+                                        link.download = 'document-qr-code-{{ $qrCodeDocumentId }}.jpg';
+                                        document.body.appendChild(link);
+                                        link.click();
+                                        link.remove();
+                                        URL.revokeObjectURL(downloadUrl);
+                                    }, 'image/jpeg', 0.95);
+                                };
+                                image.onerror = () => URL.revokeObjectURL(svgUrl);
+                                image.src = svgUrl;
+                            "
+                            class="flex min-w-0 items-center justify-center gap-1.5 rounded-lg bg-[#0F172A] px-2 py-2.5 text-xs font-semibold text-white transition hover:bg-slate-700"
+                        >
+                            <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v12m0 0 4-4m-4 4-4-4M5 18v3h14v-3" />
+                            </svg>
+                            <span class="truncate">Download QR</span>
+                        </button>
+                        <button
+                            type="button"
+                            wire:click="sendQrCodeToClient"
+                            wire:loading.attr="disabled"
+                            wire:target="sendQrCodeToClient"
+                            class="flex min-w-0 items-center justify-center gap-1.5 rounded-lg bg-indigo-500 px-2 py-2.5 text-xs font-semibold text-white transition hover:bg-indigo-600 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                            <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="m4 4 16 8-16 8 3-8-3-8Zm3 8h13" />
+                            </svg>
+                            <span class="truncate">
+                                <span wire:loading.remove wire:target="sendQrCodeToClient">Send to client</span>
+                                <span wire:loading wire:target="sendQrCodeToClient">Sending...</span>
+                            </span>
+                        </button>
+                    </div>
                 </div>
             </div>
         @endif
