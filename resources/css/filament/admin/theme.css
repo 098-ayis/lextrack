@@ -76,6 +76,26 @@
     color: #991b1b !important;
 }
 
+/* Keep document and action type badges uniform, using enough width for the
+ * longest configured label while centering every label inside its badge. */
+.document-type-badge,
+.action-type-badge {
+    flex: 0 0 auto;
+    justify-content: center;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.document-type-badge {
+    width: 10rem;
+    min-width: 10rem;
+}
+
+.action-type-badge {
+    width: 12rem;
+    min-width: 12rem;
+}
+
 /* Shared admin and client notification drawer. */
 .fi-no-database {
     --notification-surface: #ffffff;
