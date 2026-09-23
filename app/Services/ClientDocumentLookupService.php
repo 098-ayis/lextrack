@@ -3,15 +3,41 @@
 namespace App\Services;
 
 use App\Models\Document;
+use App\Models\RejectedDocument;
 use App\Models\User;
+use Illuminate\Support\Facades\Schema;
 
 class ClientDocumentLookupService
 {
     private const NO_AUTHORIZED_MATCH = 'I couldn’t find an authorized document with that LAO number.';
 
+    private const CHATBOT_DOCUMENT_CHOICE_LIMIT = 3;
+
     public function latestStatus(User $user): string
     {
         return $this->latestStatusResult($user)['reply'];
+    }
+
+    /** @return array{reply: string, document_id: ?int, status: ?string} */
+    public function latestSubmissionDateResult(User $user): array
+    {
+        $document = Document::query()
+            ->where('user_id', $user->getKey())
+            ->orderByDesc('created_at')
+            ->orderByDesc('document_id')
+            ->first(['document_id', 'status', 'created_at']);
+
+        if (! $document) {
+            return $this->documentResult('You have no submitted documents yet.');
+        }
+
+        return $this->documentResult(
+            $document->created_at?->format('F j, Y') !== null
+                ? 'Submitted on ' . $document->created_at->format('F j, Y') . '.'
+                : 'The submission date is not recorded.',
+            (int) $document->document_id,
+            (string) $document->status,
+        );
     }
 
     /**
@@ -144,20 +170,14 @@ class ClientDocumentLookupService
     /**
      * @return array{reply: string, document_id: ?int, status: ?string}
      */
-    public function statusByDocumentIdResult(User $user, int $documentId): array
+    public function statusByDocumentIdResult(User $user, int $documentId, ?string $topic = null): array
     {
         // Selection indexes are session-scoped hints, not authorization. Re-check
         // the authenticated owner before reading any document status.
         $document = Document::query()
             ->where('user_id', $user->getKey())
             ->where('document_id', $documentId)
-            ->first([
-                'document_id',
-                'status',
-                'lao_number',
-                'document_name',
-                'document_type',
-            ]);
+            ->first($this->documentStatusColumns());
 
         if (! $document) {
             return $this->documentResult(self::NO_AUTHORIZED_MATCH);
@@ -170,6 +190,7 @@ class ClientDocumentLookupService
                 (string) $document->status,
                 filled($document->lao_number) ? (string) $document->lao_number : null,
                 $this->documentDisplayName($document),
+                $topic,
             ),
             (int) $document->document_id,
             (string) $document->status,
@@ -188,15 +209,23 @@ class ClientDocumentLookupService
         $document = Document::query()
             ->where('user_id', $user->getKey())
             ->where('document_id', $documentId)
-            ->first(['document_id', 'lao_number', 'status', 'rejection_reason']);
+            ->first([
+                'document_id',
+                'lao_number',
+                'status',
+                'document_name',
+                'document_type',
+                'rejection_reason',
+            ]);
 
         if (! $document) {
             return $this->documentResult(self::NO_AUTHORIZED_MATCH);
         }
 
-        $label = filled($document->lao_number)
-            ? 'Document ' . $document->lao_number
-            : 'Your selected document';
+        $label = $this->documentLabel(
+            $this->documentDisplayName($document),
+            filled($document->lao_number) ? (string) $document->lao_number : null,
+        );
         $status = (string) $document->status;
 
         if ($status !== 'rejected') {
@@ -209,7 +238,25 @@ class ClientDocumentLookupService
 
         $reason = filled($document->rejection_reason)
             ? (string) $document->rejection_reason
-            : 'No recorded rejection reason is available.';
+            : null;
+
+        // Some deployments keep rejection history in rejected_documents
+        // instead of copying the reason onto documents. The document has
+        // already passed the owner and current-status checks above.
+        if ($reason === null && Schema::hasTable('rejected_documents')) {
+            $reason = RejectedDocument::query()
+                ->where('document_id', (int) $document->document_id)
+                ->latest('created_at')
+                ->value('reason');
+        }
+
+        if (! filled($reason)) {
+            return $this->documentResult(
+                "{$label} is Rejected. No rejection reason is recorded here. Please open the Messages page for the authorized instructions.",
+                (int) $document->document_id,
+                $status,
+            );
+        }
 
         return $this->documentResult(
             "{$label} is Rejected. Recorded rejection reason: {$reason}",
@@ -292,42 +339,188 @@ class ClientDocumentLookupService
     }
 
     /**
-     * Resolve a title/name only among the authenticated client's documents.
+     * Search only the authenticated client's document metadata. Search terms
+     * are matched across the title, type, description, and particulars, but
+     * those source fields are never returned as chatbot output.
+     *
      * The returned choices are selectors, never an authorization decision.
      * The owner is checked again by statusByDocumentIdResult() after selection.
      *
-     * @return list<array{document_id: int, lao_number: ?string, document_type: ?string, display_name: ?string, submitted_at: string}>
+     * @return list<array{document_id: int, lao_number: ?string, document_type: ?string, display_name: ?string, status_label: string, submitted_at: string}>
+     * @param ?string $searchField A validated schema field such as document_type.
+     *                             Null searches the approved descriptive fields.
      */
-    public function authorizedDocumentChoicesByName(User $user, string $name): array
+    public function authorizedDocumentChoicesByName(User $user, string $name, ?string $searchField = null): array
     {
-        $name = trim($name);
+        $terms = $this->documentSearchTerms($name);
 
-        if ($name === '') {
+        if ($terms === []) {
             return [];
         }
 
-        return Document::query()
+        $searchFields = $this->availableTopicSearchFields();
+
+        if ($searchFields === []) {
+            return [];
+        }
+
+        if ($searchField !== null && ! in_array($searchField, $searchFields, true)) {
+            return [];
+        }
+
+        $matchingFields = $searchField !== null ? [$searchField] : $searchFields;
+
+        $query = Document::query()
             ->where('user_id', $user->getKey())
-            ->where(function ($query) use ($name): void {
-                $query->where('document_name', $name);
-            })
+            ->where(function ($query) use ($terms, $matchingFields): void {
+                foreach ($terms as $term) {
+                    $like = '%' . $term . '%';
+
+                    $query->where(function ($termQuery) use ($like, $matchingFields): void {
+                        foreach ($matchingFields as $field) {
+                            $termQuery->orWhere($field, 'like', $like);
+                        }
+                    });
+                }
+            });
+
+        return $query
             ->orderByDesc('created_at')
             ->orderByDesc('document_id')
-            ->get([
-                'document_id',
-                'lao_number',
-                'document_type',
-                'document_name',
-                'created_at',
-            ])
+            ->limit(self::CHATBOT_DOCUMENT_CHOICE_LIMIT)
+            ->get($this->documentChoiceColumns())
             ->map(fn (Document $document): array => [
                 'document_id' => (int) $document->document_id,
                 'lao_number' => filled($document->lao_number) ? (string) $document->lao_number : null,
                 'document_type' => filled($document->document_type) ? (string) $document->document_type : null,
                 'display_name' => $this->documentDisplayName($document),
+                'status_label' => $this->statusLabel((string) $document->status),
                 'submitted_at' => $document->created_at?->format('F j, Y') ?? 'date unavailable',
             ])
             ->all();
+    }
+
+    /**
+     * Return minimal selectors for this client's documents with one validated
+     * status. This prevents a rejection-reason request from listing unrelated
+     * Pending, In Progress, or Outgoing records.
+     *
+     * @return list<array{document_id: int, lao_number: ?string, document_type: ?string, display_name: ?string, status_label: string, submitted_at: string}>
+     */
+    public function authorizedDocumentChoicesByStatus(User $user, string $status): array
+    {
+        $allowedStatuses = ['pending', 'in_progress', 'outgoing', 'completed', 'returned', 'rejected', 'archived'];
+
+        if (! in_array($status, $allowedStatuses, true)) {
+            return [];
+        }
+
+        return Document::query()
+            ->where('user_id', $user->getKey())
+            ->where('status', $status)
+            ->orderByDesc('created_at')
+            ->orderByDesc('document_id')
+            ->limit(self::CHATBOT_DOCUMENT_CHOICE_LIMIT)
+            ->get($this->documentChoiceColumns())
+            ->map(fn (Document $document): array => [
+                'document_id' => (int) $document->document_id,
+                'lao_number' => filled($document->lao_number) ? (string) $document->lao_number : null,
+                'document_type' => filled($document->document_type) ? (string) $document->document_type : null,
+                'display_name' => $this->documentDisplayName($document),
+                'status_label' => $this->statusLabel((string) $document->status),
+                'submitted_at' => $document->created_at?->format('F j, Y') ?? 'date unavailable',
+            ])
+            ->all();
+    }
+
+    /**
+     * Find only this client's authorized submissions made on the supplied
+     * calendar date. The date is validated before it reaches the query and
+     * created_at is the existing submission timestamp in the documents table.
+     *
+     * @return list<array{document_id: int, lao_number: ?string, document_type: ?string, display_name: ?string, status_label: string, submitted_at: string}>
+     */
+    public function authorizedDocumentChoicesBySubmittedDate(User $user, string $date): array
+    {
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) !== 1) {
+            return [];
+        }
+
+        return Document::query()
+            ->where('user_id', $user->getKey())
+            ->whereDate('created_at', $date)
+            ->orderByDesc('created_at')
+            ->orderByDesc('document_id')
+            ->limit(self::CHATBOT_DOCUMENT_CHOICE_LIMIT)
+            ->get($this->documentChoiceColumns())
+            ->map(fn (Document $document): array => [
+                'document_id' => (int) $document->document_id,
+                'lao_number' => filled($document->lao_number) ? (string) $document->lao_number : null,
+                'document_type' => filled($document->document_type) ? (string) $document->document_type : null,
+                'display_name' => $this->documentDisplayName($document),
+                'status_label' => $this->statusLabel((string) $document->status),
+                'submitted_at' => $document->created_at?->format('F j, Y') ?? 'date unavailable',
+            ])
+            ->all();
+    }
+
+    /** @return list<string> */
+    private function availableTopicSearchFields(): array
+    {
+        return array_values(array_filter(
+            ['document_name', 'document_type', 'description', 'particulars'],
+            static fn (string $field): bool => Schema::hasColumn('documents', $field),
+        ));
+    }
+
+    /** @return list<string> */
+    private function documentChoiceColumns(): array
+    {
+        $columns = ['document_id', 'lao_number', 'status', 'created_at'];
+
+        foreach (['document_type', 'document_name'] as $field) {
+            if (Schema::hasColumn('documents', $field)) {
+                $columns[] = $field;
+            }
+        }
+
+        return $columns;
+    }
+
+    /** @return list<string> */
+    private function documentStatusColumns(): array
+    {
+        $columns = ['document_id', 'status', 'lao_number'];
+
+        foreach (['document_name', 'document_type'] as $field) {
+            if (Schema::hasColumn('documents', $field)) {
+                $columns[] = $field;
+            }
+        }
+
+        return $columns;
+    }
+
+    /** @return list<string> */
+    private function documentSearchTerms(string $value): array
+    {
+        $value = mb_strtolower(trim($value), 'UTF-8');
+        $parts = preg_split('/[^\p{L}\p{N}]+/u', $value) ?: [];
+        $aliases = [
+            'org' => 'organization',
+            'orgs' => 'organizations',
+            'req' => 'request',
+            'reqs' => 'requests',
+            'docs' => 'document',
+        ];
+
+        return array_values(array_unique(array_filter(
+            array_map(
+                static fn (string $part): string => $aliases[trim($part)] ?? trim($part),
+                $parts,
+            ),
+            static fn (string $part): bool => mb_strlen($part, 'UTF-8') >= 2,
+        )));
     }
 
     /**
@@ -336,7 +529,12 @@ class ClientDocumentLookupService
      *
      * @return array{reply: string, document_id: ?int, status: ?string}
      */
-    public function detailsByDocumentIdResult(User $user, int $documentId, string $topic = 'summary'): array
+    public function detailsByDocumentIdResult(
+        User $user,
+        int $documentId,
+        string $topic = 'summary',
+        string $language = 'english',
+    ): array
     {
         $document = Document::query()
             ->where('user_id', $user->getKey())
@@ -350,6 +548,7 @@ class ClientDocumentLookupService
                 'sent_to',
                 'sent_date',
                 'lao_number',
+                'created_at',
             ]);
 
         if (! $document) {
@@ -362,7 +561,18 @@ class ClientDocumentLookupService
         );
         $status = (string) $document->status;
 
-        if ($topic === 'action_type') {
+        if ($topic === 'document_type') {
+            $reply = filled($document->document_type)
+                ? ($language === 'filipino' ? 'Uri ng document: ' : 'Document type: ')
+                    . (string) $document->document_type . '.'
+                : ($language === 'filipino'
+                    ? 'Hindi nakatala ang uri ng document.'
+                    : 'The document type is not recorded.');
+        } elseif ($topic === 'submission_date') {
+            $reply = $document->created_at?->format('F j, Y') !== null
+                ? 'Submitted on ' . $document->created_at->format('F j, Y') . '.'
+                : 'The submission date is not recorded.';
+        } elseif ($topic === 'action_type') {
             $statusLabel = $this->statusLabel($status);
             $reply = $status !== 'in_progress'
                 ? "{$label} is currently {$statusLabel}. An assigned action type is available only for an In Progress document."
@@ -386,20 +596,21 @@ class ClientDocumentLookupService
      * Return minimal selectors for the authenticated client's own records.
      * These values are used only to help the client disambiguate a private lookup.
      *
-     * @return list<array{document_id: int, lao_number: ?string, document_type: ?string, display_name: ?string, submitted_at: string}>
+     * @return list<array{document_id: int, lao_number: ?string, document_type: ?string, display_name: ?string, status_label: string, submitted_at: string}>
      */
-    public function authorizedDocumentChoices(User $user, int $limit = 10): array
+    public function authorizedDocumentChoices(User $user, int $limit = self::CHATBOT_DOCUMENT_CHOICE_LIMIT): array
     {
         return Document::query()
             ->where('user_id', $user->getKey())
             ->orderByDesc('created_at')
             ->orderByDesc('document_id')
-            ->limit(max(1, min($limit, 10)))
+            ->limit(max(1, min($limit, self::CHATBOT_DOCUMENT_CHOICE_LIMIT)))
             ->get([
                 'document_id',
                 'lao_number',
                 'document_type',
                 'document_name',
+                'status',
                 'created_at',
             ])
             ->map(fn (Document $document): array => [
@@ -407,6 +618,7 @@ class ClientDocumentLookupService
                 'lao_number' => filled($document->lao_number) ? (string) $document->lao_number : null,
                 'document_type' => filled($document->document_type) ? (string) $document->document_type : null,
                 'display_name' => $this->documentDisplayName($document),
+                'status_label' => $this->statusLabel((string) $document->status),
                 'submitted_at' => $document->created_at?->format('F j, Y') ?? 'date unavailable',
             ])
             ->all();
@@ -492,8 +704,15 @@ class ClientDocumentLookupService
         string $status,
         ?string $laoNumber,
         ?string $displayName = null,
+        ?string $topic = null,
     ): string {
         $label = $this->documentLabel($displayName, $laoNumber);
+
+        if (filled($topic)) {
+            $topicLabel = mb_convert_case(trim($topic), MB_CASE_TITLE, 'UTF-8');
+            $documentLabel = $displayName ?: ($laoNumber ?: 'selected document');
+            $label = 'Your document about "' . $topicLabel . '" ("' . $documentLabel . '")';
+        }
 
         return match ($status) {
             'pending' => "{$label} is Pending.",

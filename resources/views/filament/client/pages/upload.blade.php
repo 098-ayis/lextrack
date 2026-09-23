@@ -119,6 +119,33 @@
             color: #14532d !important;
         }
 
+        .client-upload-page .filepond--item.lextrack-duplicate-file .filepond--item-panel {
+            background-color: #fee2e2 !important;
+            border-color: #dc2626 !important;
+        }
+
+        .client-upload-page .filepond--item.lextrack-duplicate-file > .filepond--panel,
+        .client-upload-page .filepond--item.lextrack-duplicate-file .filepond--file {
+            background-color: #fee2e2 !important;
+            border-color: #dc2626 !important;
+            color: #991b1b !important;
+        }
+
+        .client-upload-page .filepond--item.lextrack-duplicate-file .filepond--file-info-main,
+        .client-upload-page .filepond--item.lextrack-duplicate-file .filepond--file-info-sub,
+        .client-upload-page .filepond--item.lextrack-duplicate-file .filepond--file-status-main,
+        .client-upload-page .filepond--item.lextrack-duplicate-file .filepond--file-status-sub {
+            color: #991b1b !important;
+            font-weight: 600 !important;
+        }
+
+        .client-upload-page .filepond--item.lextrack-duplicate-file .filepond--action-remove-item {
+            right: 0.5625em !important;
+            left: auto !important;
+            background-color: #991b1b !important;
+            color: #ffffff !important;
+        }
+
         .dark .client-upload-page .filepond--item-panel {
             background-color: #374151 !important;
             border-color: #6b7280 !important;
@@ -141,6 +168,30 @@
         .dark .client-upload-page .filepond--item[data-filepond-item-state="processing-complete"] .filepond--file-status-main,
         .dark .client-upload-page .filepond--item[data-filepond-item-state="processing-complete"] .filepond--file-status-sub {
             color: #dcfce7 !important;
+        }
+
+        .dark .client-upload-page .filepond--item.lextrack-duplicate-file .filepond--item-panel {
+            background-color: #7f1d1d !important;
+            border-color: #f87171 !important;
+        }
+
+        .dark .client-upload-page .filepond--item.lextrack-duplicate-file > .filepond--panel,
+        .dark .client-upload-page .filepond--item.lextrack-duplicate-file .filepond--file {
+            background-color: #7f1d1d !important;
+            border-color: #f87171 !important;
+            color: #fecaca !important;
+        }
+
+        .dark .client-upload-page .filepond--item.lextrack-duplicate-file .filepond--file-info-main,
+        .dark .client-upload-page .filepond--item.lextrack-duplicate-file .filepond--file-info-sub,
+        .dark .client-upload-page .filepond--item.lextrack-duplicate-file .filepond--file-status-main,
+        .dark .client-upload-page .filepond--item.lextrack-duplicate-file .filepond--file-status-sub {
+            color: #fecaca !important;
+        }
+
+        .dark .client-upload-page .filepond--item.lextrack-duplicate-file .filepond--action-remove-item {
+            background-color: #991b1b !important;
+            color: #ffffff !important;
         }
 
         .client-upload-page .lextrack-duplicate-file-message {
@@ -429,6 +480,28 @@
                         }
                     };
 
+                    const markDuplicateFiles = (duplicateNames = []) => {
+                        const names = new Set(duplicateNames.map((name) => String(name).toLocaleLowerCase()));
+
+                        pond.getFiles().forEach((file) => {
+                            const fileName = String(file.filename || file.file?.name || '').toLocaleLowerCase();
+                            const item = document.getElementById(`filepond--item-${file.id}`);
+
+                            if (!item) {
+                                return;
+                            }
+
+                            const isDuplicate = names.has(fileName);
+                            item.classList.toggle('lextrack-duplicate-file', isDuplicate);
+
+                            if (isDuplicate) {
+                                updateStatus(file, 'Duplicate file', 'Choose another file');
+                            }
+                        });
+                    };
+
+                    root.__lexTrackMarkDuplicateFiles = markDuplicateFiles;
+
                     pond.on('addfilestart', syncUploadState);
                     pond.on('updatefiles', syncUploadState);
                     pond.on('removefile', syncUploadState);
@@ -458,6 +531,69 @@
                 const retryTimer = window.setInterval(bindUploadProgress, 250);
                 window.setTimeout(() => window.clearInterval(retryTimer), 10000);
             };
+
+            const bindDuplicateFileListener = () => {
+                if (window.__lexTrackDuplicateFileListenerBound || typeof window.Livewire?.on !== 'function') {
+                    return;
+                }
+
+                window.__lexTrackDuplicateFileListenerBound = true;
+
+                Livewire.on('duplicate-files-detected', (event) => {
+                    const field = event.field;
+                    const names = Array.isArray(event.names) ? event.names : [];
+
+                    const markVisibleDuplicateFiles = () => {
+                        const duplicateNames = new Set(
+                            names.map((name) => String(name).trim().toLocaleLowerCase()),
+                        );
+
+                        document.querySelectorAll('.client-upload-page [data-upload-field]').forEach((wrapper) => {
+                            if (wrapper.dataset.uploadField !== field) {
+                                return;
+                            }
+
+                            wrapper.querySelectorAll('.filepond--root').forEach((root) => {
+                                root.__lexTrackMarkDuplicateFiles?.(names);
+
+                                root.querySelectorAll('.filepond--item').forEach((item) => {
+                                    const fileName = item.querySelector('.filepond--file-info-main')?.textContent
+                                        ?.trim()
+                                        ?.toLocaleLowerCase();
+                                    const isDuplicate = Boolean(fileName && duplicateNames.has(fileName));
+
+                                    item.classList.toggle('lextrack-duplicate-file', isDuplicate);
+
+                                    if (isDuplicate) {
+                                        const status = item.querySelector('.filepond--file-status-main');
+                                        const subStatus = item.querySelector('.filepond--file-status-sub');
+
+                                        if (status) {
+                                            status.textContent = 'Duplicate file';
+                                        }
+
+                                        if (subStatus) {
+                                            subStatus.textContent = 'Choose another file';
+                                        }
+                                    }
+                                });
+                            });
+                        });
+                    };
+
+                    // Livewire may morph the FilePond markup after dispatching
+                    // the event, so apply the marker more than once.
+                    [0, 50, 150, 300, 600, 1000].forEach((delay) => {
+                        window.setTimeout(markVisibleDuplicateFiles, delay);
+                    });
+                });
+            };
+
+            if (typeof window.Livewire?.on === 'function') {
+                bindDuplicateFileListener();
+            } else {
+                document.addEventListener('livewire:init', bindDuplicateFileListener, { once: true });
+            }
 
             if (document.readyState === 'loading') {
                 document.addEventListener('DOMContentLoaded', startUploadProgressWatcher, { once: true });
