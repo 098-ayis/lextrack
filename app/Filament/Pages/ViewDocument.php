@@ -15,11 +15,14 @@ use App\Rules\UniqueDocumentVersionUpload;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Concerns\InteractsWithForms;
+use Filament\Forms\Contracts\HasForms;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
+use Filament\Schemas\Schema;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Enums\Alignment;
@@ -31,11 +34,15 @@ use Illuminate\Support\Js;
 use Illuminate\Validation\Rule;
 // use BezhanSalleh\FilamentShield\Traits\HasPageShield;
 
-class ViewDocument extends Page
+class ViewDocument extends Page implements HasForms
 {
+    use InteractsWithForms;
+
     public const string OTHER_DOCUMENT_TYPE_VALUE = '__custom_document_type__';
 
     private const string REVISION_UPLOAD_PREFIX = 'A revised document was uploaded';
+
+    private const string REVISION_UPLOADS_PREFIX = 'Revised documents were uploaded';
 
     private const string REVISION_DECISION_PREFIX = 'The revised document (';
 
@@ -68,6 +75,10 @@ class ViewDocument extends Page
 
     public bool $isEditingDetails = false;
 
+    public bool $isAddingVersion = false;
+
+    public array $versionUploadData = [];
+
     public array $documentDetailsForm = [];
 
     public array $originalDocumentDetailsForm = [];
@@ -99,7 +110,6 @@ class ViewDocument extends Page
         $this->documentRecord->load([
             'user',
             'notes.user',
-            'versions',
             'latestVersion',
             'transmittalAttachments',
             'documentRequests.user',
@@ -107,8 +117,88 @@ class ViewDocument extends Page
             'activityLogs.user',
         ]);
 
+        // Load every version explicitly by the document's internal key. This
+        // keeps the admin Document Version section tied to all rows belonging
+        // to this document, including revisions uploaded by the client.
+        $this->documentRecord->setRelation(
+            'versions',
+            DocumentVersion::query()
+                ->where('document_id', $this->documentRecord->document_id)
+                ->orderBy('version_id')
+                ->get(),
+        );
+
         $this->previewUrl = $this->generatePreview();
         $this->previewPageCount = $this->pageCountForVersion($this->documentRecord->latestVersion);
+        $this->form->fill();
+    }
+
+    public function form(Schema $form): Schema
+    {
+        return $form
+            ->schema([
+                FileUpload::make('file_path')
+                    ->label('PDF or DOCX Files')
+                    ->disk('local')
+                    ->directory('documents/versions')
+                    ->preserveFilenames()
+                    ->multiple()
+                    ->appendFiles()
+                    ->panelLayout('compact')
+                    ->maxSize(5120)
+                    ->nestedRecursiveRule(new UniqueDocumentVersionUpload(
+                        $this->documentRecord->document_id,
+                        auth()->id(),
+                    ))
+                    ->acceptedFileTypes([
+                        'application/pdf',
+                        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                    ])
+                    ->extraAttributes(['class' => 'document-version-upload-files'])
+                    ->required(),
+            ])
+            ->statePath('versionUploadData');
+    }
+
+    public function startAddingVersion(): void
+    {
+        if (
+            in_array($this->documentRecord->status, ['pending', 'rejected'], true)
+            || $this->hasPendingRevision()
+        ) {
+            Notification::make()
+                ->warning()
+                ->title('Revision upload is disabled')
+                ->body('Review the pending revision before uploading another revision.')
+                ->send();
+
+            return;
+        }
+
+        $this->isAddingVersion = true;
+        $this->versionUploadData = [];
+        $this->form->fill();
+    }
+
+    public function cancelAddingVersion(): void
+    {
+        $this->isAddingVersion = false;
+        $this->versionUploadData = [];
+        $this->resetValidation();
+        $this->form->fill();
+    }
+
+    public function submitVersionUpload(): void
+    {
+        $uploaded = $this->uploadDocumentVersions($this->form->getState());
+
+        if (! $uploaded) {
+            return;
+        }
+
+        $this->isAddingVersion = false;
+        $this->versionUploadData = [];
+        $this->form->fill();
     }
 
     public function startEditingDetails(): void
@@ -616,12 +706,13 @@ class ViewDocument extends Page
                         ->default(now()->toDateString()),
 
                     FileUpload::make('file_path')
-                        ->label('Upload New Document Version')
+                    ->label('Upload New Revision')
                         ->disk('local')
                         ->directory('documents/versions')
                         ->preserveFilenames()
                         ->multiple()
                         ->appendFiles()
+                        ->maxSize(5120)
                         ->acceptedFileTypes([
                             'application/pdf',
                             'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -713,6 +804,7 @@ class ViewDocument extends Page
                         'version_number' => (string) $this->getNextVersionNumber($document),
                         'file_path' => $filePath,
                         'file_hash' => $fileHash,
+                        'source' => 'admin',
                     ]);
 
                     $uploadedNames[] = basename($filePath);
@@ -897,14 +989,14 @@ JS;
             ->disabled($isLocked)
             ->tooltip($isLocked
                 ? 'Uploading is disabled while this document is awaiting review'
-                : 'Add attachment')
+                : 'Add revision')
             ->extraAttributes([
                 'class' => 'h-7 w-7 rounded-md p-1 text-gray-900 ' .
                     ($isLocked
                         ? 'cursor-not-allowed opacity-50'
                         : 'hover:bg-gray-100'),
             ])
-            ->modalHeading('Upload Document')
+            ->modalHeading('Upload Revision')
             ->modalSubmitAction(fn (Action $action): Action => $action
                 ->label('Upload')
                 ->extraAttributes([
@@ -919,6 +1011,7 @@ JS;
                     ->preserveFilenames()
                     ->multiple()
                     ->appendFiles()
+                    ->maxSize(5120)
                     ->nestedRecursiveRule(new UniqueDocumentVersionUpload(
                         $this->documentRecord->document_id,
                         auth()->id(),
@@ -931,142 +1024,148 @@ JS;
                     ->extraAttributes(['class' => 'document-version-upload-files'])
                     ->required(),
             ])
-            ->action(function (array $data): void {
-                $filePaths = array_values(array_filter(
-                    (array) ($data['file_path'] ?? []),
-                    fn (mixed $filePath): bool => is_string($filePath) && $filePath !== '',
-                ));
+            ->action(fn (array $data): bool => $this->uploadDocumentVersions($data));
+    }
 
-                if (
-                    in_array($this->documentRecord->status, ['pending', 'rejected'], true)
-                    || $this->hasPendingRevision()
-                ) {
-                    foreach ($filePaths as $filePath) {
-                        DocumentVersion::removeUnreferencedUpload($filePath);
-                    }
+    private function uploadDocumentVersions(array $data): bool
+    {
+        $filePaths = array_values(array_filter(
+            (array) ($data['file_path'] ?? []),
+            fn (mixed $filePath): bool => is_string($filePath) && $filePath !== '',
+        ));
 
-                    Notification::make()
-                        ->warning()
-                        ->title('Version upload is disabled')
-                        ->body('Review the pending revision before uploading another version.')
-                        ->send();
+        if (
+            in_array($this->documentRecord->status, ['pending', 'rejected'], true)
+            || $this->hasPendingRevision()
+        ) {
+            foreach ($filePaths as $filePath) {
+                DocumentVersion::removeUnreferencedUpload($filePath);
+            }
 
-                    return;
+            Notification::make()
+                ->warning()
+                ->title('Revision upload is disabled')
+                ->body('Review the pending revision before uploading another revision.')
+                ->send();
+
+            return false;
+        }
+
+        if ($filePaths === []) {
+            Notification::make()
+                ->danger()
+                ->title('No files selected')
+                ->body('Select at least one PDF or DOCX file to upload.')
+                ->send();
+
+            return false;
+        }
+
+        $uploadedVersions = [];
+        $duplicates = [];
+        $unreadableFiles = [];
+
+        foreach ($filePaths as $filePath) {
+            $fileName = basename($filePath);
+            $fileHash = DocumentVersion::hashForUpload($filePath);
+
+            if ($fileHash === null) {
+                DocumentVersion::removeUnreferencedUpload($filePath);
+                $unreadableFiles[] = $fileName;
+
+                continue;
+            }
+
+            $version = DB::transaction(function () use ($filePath, $fileHash): ?DocumentVersion {
+                $document = Document::query()
+                    ->whereKey($this->documentRecord->document_id)
+                    ->lockForUpdate()
+                    ->firstOrFail();
+
+                if (DocumentVersion::existsForDocumentOrUserHash(
+                    $document->document_id,
+                    $fileHash,
+                    auth()->id(),
+                )) {
+                    return null;
                 }
 
-                if ($filePaths === []) {
-                    Notification::make()
-                        ->danger()
-                        ->title('No files selected')
-                        ->body('Select at least one PDF or DOCX file to upload.')
-                        ->send();
+                $versionNumber = $this->getNextVersionNumber(
+                    $document->versions()->get()
+                );
 
-                    return;
-                }
-
-                $uploadedVersions = [];
-                $duplicates = [];
-                $unreadableFiles = [];
-
-                foreach ($filePaths as $filePath) {
-                    $fileName = basename($filePath);
-                    $fileHash = DocumentVersion::hashForUpload($filePath);
-
-                    if ($fileHash === null) {
-                        DocumentVersion::removeUnreferencedUpload($filePath);
-                        $unreadableFiles[] = $fileName;
-
-                        continue;
-                    }
-
-                    $version = DB::transaction(function () use ($filePath, $fileHash): ?DocumentVersion {
-                        $document = Document::query()
-                            ->whereKey($this->documentRecord->document_id)
-                            ->lockForUpdate()
-                            ->firstOrFail();
-
-                        if (DocumentVersion::existsForDocumentOrUserHash(
-                            $document->document_id,
-                            $fileHash,
-                            auth()->id(),
-                        )) {
-                            return null;
-                        }
-
-                        $versionNumber = $this->getNextVersionNumber(
-                            $document->versions()->get()
-                        );
-
-                        return DocumentVersion::create([
-                            'document_id' => $document->document_id,
-                            'user_id' => auth()->id(),
-                            'version_number' => (string) $versionNumber,
-                            'file_path' => $filePath,
-                            'file_hash' => $fileHash,
-                        ]);
-                    });
-
-                    if ($version === null) {
-                        DocumentVersion::removeUnreferencedUpload($filePath);
-                        $duplicates[] = $fileName;
-
-                        continue;
-                    }
-
-                    $uploadedVersions[] = $version;
-
-                    $this->logDocumentActivity(
-                        'Version uploaded',
-                        'Uploaded ' . basename($version->file_path) .
-                        ' as version ' . $version->version_number . '.'
-                    );
-                }
-
-                if ($uploadedVersions !== []) {
-                    $this->documentRecord->load([
-                        'notes.user',
-                        'versions',
-                        'latestVersion',
-                        'activityLogs.user',
-                    ]);
-                }
-
-                if ($uploadedVersions === []) {
-                    $details = [];
-
-                    if ($duplicates !== []) {
-                        $details[] = 'Already uploaded: ' . implode(', ', $duplicates) . '.';
-                    }
-
-                    if ($unreadableFiles !== []) {
-                        $details[] = 'Could not read: ' . implode(', ', $unreadableFiles) . '.';
-                    }
-
-                    Notification::make()
-                        ->danger()
-                        ->title('No files uploaded')
-                        ->body(implode(' ', $details) ?: 'The selected files could not be uploaded.')
-                        ->send();
-
-                    return;
-                }
-
-                $details = [count($uploadedVersions) . ' file' . (count($uploadedVersions) === 1 ? '' : 's') . ' uploaded.'];
-
-                if ($duplicates !== []) {
-                    $details[] = 'Skipped duplicates: ' . implode(', ', $duplicates) . '.';
-                }
-
-                if ($unreadableFiles !== []) {
-                    $details[] = 'Could not read: ' . implode(', ', $unreadableFiles) . '.';
-                }
-
-                Notification::make()
-                    ->success()
-                    ->title('Document versions uploaded')
-                    ->body(implode(' ', $details))
-                    ->send();
+                return DocumentVersion::create([
+                    'document_id' => $document->document_id,
+                    'user_id' => auth()->id(),
+                    'version_number' => (string) $versionNumber,
+                    'file_path' => $filePath,
+                    'file_hash' => $fileHash,
+                    'source' => 'admin',
+                ]);
             });
+
+            if ($version === null) {
+                DocumentVersion::removeUnreferencedUpload($filePath);
+                $duplicates[] = $fileName;
+
+                continue;
+            }
+
+            $uploadedVersions[] = $version;
+
+            $this->logDocumentActivity(
+                'Revision uploaded',
+                'Uploaded ' . basename($version->file_path) .
+                ' as revision ' . $version->version_number . '.'
+            );
+        }
+
+        if ($uploadedVersions !== []) {
+            $this->documentRecord->load([
+                'notes.user',
+                'versions',
+                'latestVersion',
+                'activityLogs.user',
+            ]);
+        }
+
+        if ($uploadedVersions === []) {
+            $details = [];
+
+            if ($duplicates !== []) {
+                $details[] = 'Already uploaded: ' . implode(', ', $duplicates) . '.';
+            }
+
+            if ($unreadableFiles !== []) {
+                $details[] = 'Could not read: ' . implode(', ', $unreadableFiles) . '.';
+            }
+
+            Notification::make()
+                ->danger()
+                ->title('No files uploaded')
+                ->body(implode(' ', $details) ?: 'The selected files could not be uploaded.')
+                ->send();
+
+            return false;
+        }
+
+        $details = [count($uploadedVersions) . ' file' . (count($uploadedVersions) === 1 ? '' : 's') . ' uploaded.'];
+
+        if ($duplicates !== []) {
+            $details[] = 'Skipped duplicates: ' . implode(', ', $duplicates) . '.';
+        }
+
+        if ($unreadableFiles !== []) {
+            $details[] = 'Could not read: ' . implode(', ', $unreadableFiles) . '.';
+        }
+
+        Notification::make()
+            ->success()
+            ->title('Revisions uploaded')
+            ->body(implode(' ', $details))
+            ->send();
+
+        return true;
     }
 
     public function selectVersion(int $versionId): void
@@ -1107,7 +1206,7 @@ JS;
         $wasSelected = $this->selectedVersionId === $versionId;
 
         $this->logDocumentActivity(
-            'Version deleted',
+            'Revision deleted',
             'Deleted ' . basename($filePath) .
             ' (version ' . $versionNumber . ').'
         );
@@ -1127,7 +1226,7 @@ JS;
 
         Notification::make()
             ->success()
-            ->title('Document version deleted')
+            ->title('Revision deleted')
             ->send();
     }
 
@@ -1138,14 +1237,14 @@ JS;
             ->icon('heroicon-o-trash')
             ->iconButton()
             ->color('danger')
-            ->tooltip('Delete version')
+            ->tooltip('Delete revision')
             ->extraAttributes([
                 'class' => 'h-7 w-7 rounded-md p-1',
             ])
             ->requiresConfirmation()
-            ->modalHeading('Delete document version')
-            ->modalDescription('Are you sure you want to delete this uploaded version?')
-            ->modalSubmitActionLabel('Delete version')
+            ->modalHeading('Delete revision')
+            ->modalDescription('Are you sure you want to delete this uploaded revision?')
+            ->modalSubmitActionLabel('Delete revision')
             ->action(function (array $arguments): void {
                 $this->deleteVersion((int) $arguments['version']);
             });
@@ -1176,7 +1275,7 @@ JS;
 
             if (
                 (int) $message->sender_id === (int) $this->documentRecord->user_id
-                && str_starts_with($body, self::REVISION_UPLOAD_PREFIX)
+                && $this->isRevisionUploadMessage($body)
             ) {
                 $pending = true;
 
@@ -1195,6 +1294,12 @@ JS;
         }
 
         return $pending;
+    }
+
+    private function isRevisionUploadMessage(string $body): bool
+    {
+        return str_starts_with($body, self::REVISION_UPLOAD_PREFIX)
+            || str_starts_with($body, self::REVISION_UPLOADS_PREFIX);
     }
 
     public function acceptRevisionAction(): Action

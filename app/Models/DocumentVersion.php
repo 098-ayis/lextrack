@@ -16,6 +16,7 @@ class DocumentVersion extends Model
         'version_number',
         'file_path',
         'file_hash',
+        'source',
     ];
 
     public static function hashForUpload(mixed $file): ?string

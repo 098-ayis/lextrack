@@ -4,7 +4,6 @@ namespace App\Filament\Resources\OfficeUnits;
 
 use App\Filament\Clusters\SettingsCluster;
 use App\Filament\Resources\OfficeUnits\Pages\CreateOfficeUnit;
-use App\Filament\Resources\OfficeUnits\Pages\EditOfficeUnit;
 use App\Filament\Resources\OfficeUnits\Pages\ListOfficeUnits;
 use App\Models\OfficeUnit;
 use Filament\Forms\Components\TextInput;
@@ -58,6 +57,8 @@ class OfficeUnitResource extends Resource
             ])
             ->recordActions([
                 \Filament\Actions\EditAction::make()
+                    ->modal()
+                    ->modalWidth('lg')
                     ->successNotificationTitle('Office/unit updated successfully')
                     ->successRedirectUrl(fn (): string => OfficeUnitResource::getUrl('index')),
                 \Filament\Actions\DeleteAction::make(),
@@ -86,7 +87,6 @@ class OfficeUnitResource extends Resource
         return [
             'index' => ListOfficeUnits::route('/'),
             'create' => CreateOfficeUnit::route('/create'),
-            'edit' => EditOfficeUnit::route('/{record}/edit'),
         ];
     }
 }

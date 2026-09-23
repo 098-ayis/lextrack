@@ -11,7 +11,11 @@ use Filament\Forms\Contracts\HasForms;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Schemas\Schema;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 
 class ReviseDocument extends Page implements HasForms
 {
@@ -20,6 +24,8 @@ class ReviseDocument extends Page implements HasForms
     private const string REVISION_REQUEST_BODY = 'revision_request';
 
     private const string REVISION_UPLOAD_PREFIX = 'A revised document was uploaded';
+
+    private const string REVISION_UPLOADS_PREFIX = 'Revised documents were uploaded';
 
     protected static bool $shouldRegisterNavigation = false;
 
@@ -78,6 +84,9 @@ class ReviseDocument extends Page implements HasForms
                     ->disk('local')
                     ->directory('client-document-revisions')
                     ->preserveFilenames()
+                    // Validate and store the temporary upload in submit(). This
+                    // keeps the Livewire temporary file available for hashing.
+                    ->storeFiles(false)
                     ->helperText('Accepted files: PDF or DOCX. Maximum file size: 5 MB.')
                     ->required(),
             ])
@@ -87,12 +96,12 @@ class ReviseDocument extends Page implements HasForms
     public function submit(): void
     {
         $data = $this->form->getState();
-        $filePaths = array_values(array_filter(
+        $uploadedFiles = array_values(array_filter(
             (array) ($data['file_path'] ?? []),
-            static fn (mixed $filePath): bool => is_string($filePath) && filled($filePath),
+            static fn (mixed $file): bool => filled($file),
         ));
 
-        if ($filePaths === [] || ! $this->documentRecord) {
+        if ($uploadedFiles === [] || ! $this->documentRecord) {
             return;
         }
 
@@ -100,12 +109,12 @@ class ReviseDocument extends Page implements HasForms
         $duplicateFiles = [];
         $unreadableFiles = [];
 
-        foreach ($filePaths as $filePath) {
-            $fileHash = DocumentVersion::hashForUpload($filePath);
+        foreach ($uploadedFiles as $file) {
+            $fileHash = $this->hashUploadedFile($file);
+            $fileName = $this->uploadedFileName($file);
 
             if ($fileHash === null) {
-                DocumentVersion::removeUnreferencedUpload($filePath);
-                $unreadableFiles[] = basename($filePath);
+                $unreadableFiles[] = $fileName;
 
                 continue;
             }
@@ -118,19 +127,16 @@ class ReviseDocument extends Page implements HasForms
                     auth()->id(),
                 )
             ) {
-                DocumentVersion::removeUnreferencedUpload($filePath);
-                $duplicateFiles[] = basename($filePath);
+                $duplicateFiles[] = $fileName;
 
                 continue;
             }
 
-            $uploads[$fileHash] = $filePath;
+            $uploads[$fileHash] = $file;
         }
 
         if ($duplicateFiles !== [] || $unreadableFiles !== []) {
-            foreach ($uploads as $filePath) {
-                DocumentVersion::removeUnreferencedUpload($filePath);
-            }
+            $this->cleanupUploadedFiles($uploadedFiles);
 
             $messages = [];
             if ($duplicateFiles !== []) {
@@ -149,8 +155,28 @@ class ReviseDocument extends Page implements HasForms
             return;
         }
 
-        $fileHashes = array_keys($uploads);
-        $filePaths = array_values($uploads);
+        $storedPaths = [];
+        foreach ($uploads as $fileHash => $file) {
+            $filePath = $this->storeRevisionUpload($file);
+
+            if ($filePath === null) {
+                $this->cleanupUploadedFiles($uploadedFiles);
+                $this->cleanupStoredPaths($storedPaths);
+
+                Notification::make()
+                    ->danger()
+                    ->title('Revision could not be uploaded')
+                    ->body('One or more revised documents could not be saved. Please select the files again and try again.')
+                    ->send();
+
+                return;
+            }
+
+            $storedPaths[$fileHash] = $filePath;
+        }
+
+        $fileHashes = array_keys($storedPaths);
+        $filePaths = array_values($storedPaths);
         $versionNumbers = [];
         $duplicate = false;
 
@@ -194,6 +220,7 @@ class ReviseDocument extends Page implements HasForms
                     'version_number' => (string) $versionNumber,
                     'file_path' => $filePath,
                     'file_hash' => $fileHashes[$index],
+                    'source' => 'client',
                 ]);
             }
 
@@ -222,9 +249,7 @@ class ReviseDocument extends Page implements HasForms
         });
 
         if ($duplicate) {
-            foreach ($filePaths as $filePath) {
-                DocumentVersion::removeUnreferencedUpload($filePath);
-            }
+            $this->cleanupStoredPaths($filePaths);
 
             Notification::make()
                 ->danger()
@@ -245,6 +270,169 @@ class ReviseDocument extends Page implements HasForms
 
         $this->revisionRequestClosed = true;
         $this->form->fill();
+    }
+
+    private function hashUploadedFile(mixed $file): ?string
+    {
+        $realPath = null;
+
+        if ($file instanceof TemporaryUploadedFile || $file instanceof UploadedFile) {
+            $realPath = $file->getRealPath();
+        } elseif (is_string($file) && $file !== '') {
+            foreach (['local', 'public', 'livewire'] as $diskName) {
+                $disk = Storage::disk($diskName);
+
+                if (! $disk->exists($file)) {
+                    continue;
+                }
+
+                try {
+                    $candidatePath = $disk->path($file);
+                } catch (\Throwable) {
+                    continue;
+                }
+
+                if (is_file($candidatePath)) {
+                    $realPath = $candidatePath;
+
+                    break;
+                }
+            }
+        }
+
+        if (! is_string($realPath) || ! is_file($realPath)) {
+            return null;
+        }
+
+        $hash = hash_file('sha256', $realPath);
+
+        return is_string($hash) ? $hash : null;
+    }
+
+    private function uploadedFileName(mixed $file): string
+    {
+        if ($file instanceof TemporaryUploadedFile || $file instanceof UploadedFile) {
+            $originalName = basename($file->getClientOriginalName());
+
+            if ($originalName !== '') {
+                return $originalName;
+            }
+        }
+
+        return is_string($file) && $file !== '' ? basename($file) : 'uploaded file';
+    }
+
+    private function storeRevisionUpload(mixed $file): ?string
+    {
+        if ($file instanceof TemporaryUploadedFile || $file instanceof UploadedFile) {
+            $originalName = $this->uploadedFileName($file);
+            $filePath = $this->uniqueRevisionPath($originalName);
+            $storedPath = $file->storeAs(
+                'client-document-revisions',
+                basename($filePath),
+                'local',
+            );
+
+            if (! is_string($storedPath) || $storedPath === '') {
+                return null;
+            }
+
+            if ($file instanceof TemporaryUploadedFile) {
+                $file->delete();
+            }
+
+            return $storedPath;
+        }
+
+        if (! is_string($file) || $file === '') {
+            return null;
+        }
+
+        foreach (['local', 'public'] as $diskName) {
+            if (Storage::disk($diskName)->exists($file)) {
+                return $file;
+            }
+        }
+
+        $livewireDisk = Storage::disk('livewire');
+        if (! $livewireDisk->exists($file)) {
+            return null;
+        }
+
+        $filePath = $this->uniqueRevisionPath(basename($file));
+        $stream = $livewireDisk->readStream($file);
+
+        if (! is_resource($stream)) {
+            return null;
+        }
+
+        $stored = Storage::disk('local')->put($filePath, $stream);
+        fclose($stream);
+
+        if (! $stored) {
+            return null;
+        }
+
+        $livewireDisk->delete($file);
+
+        return $filePath;
+    }
+
+    private function uniqueRevisionPath(string $originalName): string
+    {
+        $safeName = basename($originalName);
+        if ($safeName === '' || $safeName === '.' || $safeName === DIRECTORY_SEPARATOR) {
+            $safeName = (string) Str::ulid();
+        }
+
+        $disk = Storage::disk('local');
+        $path = 'client-document-revisions/' . $safeName;
+
+        if (! $disk->exists($path)) {
+            return $path;
+        }
+
+        $extension = pathinfo($safeName, PATHINFO_EXTENSION);
+        $name = pathinfo($safeName, PATHINFO_FILENAME);
+        $suffix = '-' . Str::ulid();
+
+        return 'client-document-revisions/' . $name . $suffix . ($extension !== '' ? '.' . $extension : '');
+    }
+
+    private function cleanupUploadedFiles(array $files): void
+    {
+        foreach ($files as $file) {
+            if ($file instanceof TemporaryUploadedFile) {
+                $file->delete();
+
+                continue;
+            }
+
+            if ($file instanceof UploadedFile) {
+                continue;
+            }
+
+            if (! is_string($file) || $file === '') {
+                continue;
+            }
+
+            if (Storage::disk('livewire')->exists($file)) {
+                Storage::disk('livewire')->delete($file);
+
+                continue;
+            }
+
+            DocumentVersion::removeUnreferencedUpload($file);
+        }
+    }
+
+    private function cleanupStoredPaths(array $filePaths): void
+    {
+        foreach ($filePaths as $filePath) {
+            if (is_string($filePath) && $filePath !== '') {
+                DocumentVersion::removeUnreferencedUpload($filePath);
+            }
+        }
     }
 
     public function clearForm(): void
@@ -286,10 +474,7 @@ class ReviseDocument extends Page implements HasForms
             if (
                 $openRequest &&
                 (int) $message->sender_id === (int) $document->user_id &&
-                str_starts_with(
-                    (string) $message->body,
-                    self::REVISION_UPLOAD_PREFIX
-                )
+                $this->isRevisionUploadMessage((string) $message->body)
             ) {
                 $openRequest = false;
             }
@@ -305,5 +490,11 @@ class ReviseDocument extends Page implements HasForms
                 (string) $message->body,
                 'Please upload a revised version of your document using this link:'
             );
+    }
+
+    private function isRevisionUploadMessage(string $body): bool
+    {
+        return str_starts_with($body, self::REVISION_UPLOAD_PREFIX)
+            || str_starts_with($body, self::REVISION_UPLOADS_PREFIX);
     }
 }

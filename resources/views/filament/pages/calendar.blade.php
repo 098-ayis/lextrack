@@ -1506,7 +1506,7 @@
                                         rounded-full
                                     "
 
-                                    style="background-color:color-mix(in srgb, {{ $eventColor }} 28%, white); border:1px solid color-mix(in srgb, {{ $eventColor }} 42%, white);"
+                                    style="background-color:{{ $eventColor }};"
 
                                     title="{{ $staffName }}"
                                 ></span>

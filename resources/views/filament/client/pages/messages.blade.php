@@ -1036,6 +1036,33 @@
         box-shadow: 0 6px 16px rgba(30, 27, 75, 0.2);
     }
 
+    .revision-card:not(.revision-upload-card) .revision-card-banner {
+        background: #f3e8ff;
+        color: #9333ea;
+    }
+
+    .revision-card:not(.revision-upload-card) .revision-card-banner-icon {
+        background: #eadcff;
+        border-color: #c084fc;
+        box-shadow: 0 6px 16px rgba(126, 34, 206, 0.12);
+    }
+
+    .revision-upload-card .revision-card-banner {
+        background: #e4f4e6;
+        color: #0f9d2e;
+    }
+
+    .revision-upload-card .revision-card-brand {
+        background: #e4f4e6;
+        color: #0f9d2e;
+    }
+
+    .revision-upload-card .revision-card-banner-icon {
+        background: #d0ecd4;
+        border-color: #9ed3a5;
+        box-shadow: 0 6px 16px rgba(20, 83, 45, 0.12);
+    }
+
     .revision-card-content {
         padding: 13px 14px 14px;
         background: #ffffff;
@@ -1061,6 +1088,7 @@
         font-size: 12px;
         font-weight: 700;
         text-align: center;
+        text-decoration: none !important;
         transition: background 0.15s, border-color 0.15s, transform 0.15s;
     }
 
@@ -1068,6 +1096,16 @@
         background: #eef2ff;
         border-color: #a5b4fc;
         transform: translateY(-1px);
+    }
+
+    .revision-upload-card .revision-card-action {
+        color: #15803d;
+    }
+
+    .revision-upload-card .revision-card-action:hover,
+    .revision-upload-card .revision-card-action:focus-visible {
+        background: #f0fdf4;
+        border-color: #86efac;
     }
 
     .revision-card-action:disabled {
@@ -1092,6 +1130,14 @@
         font-weight: 600;
         text-decoration: underline;
         text-underline-offset: 2px;
+    }
+
+    .t-bubble.attachment-bubble:not(.attachment-image-bubble),
+    .t-msg-row.own .t-bubble.attachment-bubble:not(.attachment-image-bubble),
+    .t-msg-row.incoming .t-bubble.attachment-bubble:not(.attachment-image-bubble) {
+        background: #e5e7eb;
+        border-color: #d1d5db;
+        color: #374151;
     }
 
     .t-attachment-image {
@@ -1627,6 +1673,14 @@
         color: #ffffff;
     }
 
+    .dark .t-bubble.attachment-bubble:not(.attachment-image-bubble),
+    .dark .t-msg-row.own .t-bubble.attachment-bubble:not(.attachment-image-bubble),
+    .dark .t-msg-row.incoming .t-bubble.attachment-bubble:not(.attachment-image-bubble) {
+        background: #374151;
+        border-color: #4b5563;
+        color: #f3f4f6;
+    }
+
     .dark .revision-card {
         background: #1f2937;
         border-color: #374151;
@@ -1843,6 +1897,28 @@
                                 'Please upload a revised version of your document using this link:'
                             )
                         );
+                        $latestIsRevisionUpload = $latestMessage && (
+                            str_starts_with(
+                                (string) $latestMessage->body,
+                                'A revised document was uploaded as version '
+                            ) || str_starts_with(
+                                (string) $latestMessage->body,
+                                'Revised documents were uploaded as versions '
+                            )
+                        );
+                        $latestRevisionText = $latestIsRevisionUpload
+                            ? (preg_replace(
+                                [
+                                    '/^A revised document was uploaded as version (.+?) and is ready for review\\.$/',
+                                    '/^Revised documents were uploaded as versions (.+?) and are ready for review\\.$/',
+                                ],
+                                [
+                                    'Revision uploaded as version $1',
+                                    'Revisions uploaded as versions $1',
+                                ],
+                                (string) $latestMessage->body
+                            ) ?: 'Revision uploaded')
+                            : null;
 
                         $displayName = $conversation->document?->particulars
                             ?: $conversation->documentRequest?->purpose_details
@@ -1928,6 +2004,8 @@
 
                                     @if ($latestIsRevisionRequest)
                                         Revision request
+                                    @elseif ($latestIsRevisionUpload)
+                                        {{ $latestRevisionText }}
                                     @else
                                         {{ \Illuminate\Support\Str::limit(
                                             $latestMessage->body,
@@ -2287,6 +2365,31 @@
                                         (string) $message->body,
                                         'Please upload a revised version of your document using this link:'
                                     );
+                                $isRevisionUpload = str_starts_with(
+                                    (string) $message->body,
+                                    'A revised document was uploaded as version '
+                                ) || str_starts_with(
+                                    (string) $message->body,
+                                    'Revised documents were uploaded as versions '
+                                );
+                                $revisionUploadText = preg_replace(
+                                    [
+                                        '/^A revised document was uploaded as version (.+?) and is ready for review\\.$/',
+                                        '/^Revised documents were uploaded as versions (.+?) and are ready for review\\.$/',
+                                    ],
+                                    [
+                                        'Revision uploaded as version $1',
+                                        'Revisions uploaded as versions $1',
+                                    ],
+                                    (string) $message->body
+                                ) ?: 'Revision uploaded';
+                                $revisionViewUrl = $activeConversation?->document?->public_id
+                                    ? \App\Filament\Client\Pages\ViewDocument::getUrl([
+                                        'document' => $activeConversation->document->public_id,
+                                        'from' => 'messages',
+                                        'tab' => 'all',
+                                    ])
+                                    : null;
                             @endphp
 
                             @if ($message->replyTo)
@@ -2359,6 +2462,40 @@
                                                     Opening...
                                                 </span>
                                             </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            @elseif ($isRevisionUpload)
+                                <div class="t-bubble revision-bubble">
+                                    <div class="revision-card revision-upload-card">
+                                        <div class="revision-card-header">
+                                            <div class="revision-card-brand">
+                                                <x-heroicon-o-document-text class="h-5 w-5" />
+                                            </div>
+
+                                            <div class="revision-card-heading">
+                                                <strong>{{ $isOwn ? 'You' : 'Legal Affairs Office' }}</strong>
+                                                <span>Revision uploaded</span>
+                                            </div>
+                                        </div>
+
+                                        <div class="revision-card-banner">
+                                            <div class="revision-card-banner-icon">
+                                                <x-heroicon-o-check class="h-8 w-8" />
+                                            </div>
+                                        </div>
+
+                                        <div class="revision-card-content">
+                                            <p>{{ $revisionUploadText }}</p>
+
+                                            @if ($revisionViewUrl)
+                                                <a
+                                                    href="{{ $revisionViewUrl }}"
+                                                    class="revision-card-action revision-card-action-link"
+                                                >
+                                                    Review Revision
+                                                </a>
+                                            @endif
                                         </div>
                                     </div>
                                 </div>

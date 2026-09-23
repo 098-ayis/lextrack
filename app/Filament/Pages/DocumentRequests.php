@@ -598,6 +598,7 @@ class DocumentRequests extends Page implements HasTable
                         'version_number' => (string) ($highestVersion + $index + 1),
                         'file_path' => $path,
                         'file_hash' => $fileHashes[$index],
+                        'source' => 'admin',
                     ]);
                 }
             }

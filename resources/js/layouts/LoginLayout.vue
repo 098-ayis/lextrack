@@ -1,9 +1,7 @@
 <template>
-    <div class="min-h-screen flex flex-col bg-[#f5f5f7]">
+    <div class="public-login-layout min-h-screen flex flex-col bg-[#f5f5f7]">
 
-        <Header />
-
-        <main class="flex-1 flex items-center justify-center">
+        <main class="public-login-main flex-1 flex items-center justify-center">
                 <RouterView />
         </main>
 
@@ -11,6 +9,4 @@
 </template>
 
 <script setup>
-import Header from '../components/public/Header.vue'
 </script>
-

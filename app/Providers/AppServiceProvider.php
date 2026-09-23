@@ -12,6 +12,9 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\ValidationException;
 use Spatie\Permission\Models\Role;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 
 
 class AppServiceProvider extends ServiceProvider
@@ -93,6 +96,38 @@ class AppServiceProvider extends ServiceProvider
             return RoleSecurity::shouldDeferRoleMutation($ability, $arguments)
                 ? null
                 : true;
+        });
+
+        RateLimiter::for('google-login', function (Request $request) {
+        return Limit::perMinute(10)
+            ->by($request->ip());
+        });
+
+        RateLimiter::for('document-submit', function (Request $request) {
+            $id = $request->user()?->id ?? $request->ip();
+
+            return [
+                Limit::perMinute(3)
+                    ->by('document-minute:'.$id),
+
+                Limit::perDay(30)
+                    ->by('document-day:'.$id),
+            ];
+        });
+
+        RateLimiter::for('messages', function (Request $request) {
+            return Limit::perMinute(20)
+                ->by($request->user()?->id ?? $request->ip());
+        });
+
+        RateLimiter::for('chatbot', function (Request $request) {
+            return Limit::perMinute(10)
+                ->by($request->user()?->id ?? $request->ip());
+        });
+
+        RateLimiter::for('downloads', function (Request $request) {
+            return Limit::perMinute(30)
+                ->by($request->user()?->id ?? $request->ip());
         });
     }
 }

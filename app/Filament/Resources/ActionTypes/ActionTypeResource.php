@@ -4,7 +4,6 @@ namespace App\Filament\Resources\ActionTypes;
 
 use App\Filament\Clusters\SettingsCluster;
 use App\Filament\Resources\ActionTypes\Pages\CreateActionType;
-use App\Filament\Resources\ActionTypes\Pages\EditActionType;
 use App\Filament\Resources\ActionTypes\Pages\ListActionTypes;
 use App\Models\ActionType;
 use Filament\Forms\Components\TextInput;
@@ -70,6 +69,8 @@ class ActionTypeResource extends Resource
             ])
             ->recordActions([
                 \Filament\Actions\EditAction::make()
+                    ->modal()
+                    ->modalWidth('xs')
                     ->successNotificationTitle('Action type updated successfully')
                     ->successRedirectUrl(fn (): string => ActionTypeResource::getUrl('index')),
                 \Filament\Actions\DeleteAction::make(),
@@ -98,7 +99,6 @@ class ActionTypeResource extends Resource
         return [
             'index' => ListActionTypes::route('/'),
             'create' => CreateActionType::route('/create'),
-            'edit' => EditActionType::route('/{record}/edit'),
         ];
     }
 }

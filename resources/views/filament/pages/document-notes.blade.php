@@ -1,11 +1,7 @@
 <div
-    class="flex items-center justify-between gap-3 border-b border-gray-200
+    class="flex items-center justify-between gap-3
            px-4 py-3"
 >
-    <p class="text-[10px] font-semibold uppercase tracking-[0.12em] text-gray-500">
-        Notes
-    </p>
-
     @if ($isAddingNote)
         <button
             type="button"

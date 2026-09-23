@@ -40,13 +40,9 @@
         .cabinet-explorer-toolbar .cabinet-toolbar-control { background: transparent; box-shadow: none; }
         .cabinet-explorer-toolbar .cabinet-source-filter {
             width: 132px;
-            border: 1px solid #d1d5db;
-            background: #fff;
-            box-shadow: 0 1px 2px rgb(15 23 42 / 6%);
-        }
-        .dark .cabinet-explorer-toolbar .cabinet-source-filter {
-            border-color: #4b5563;
-            background: #1f2937;
+            border: 0;
+            background: transparent;
+            box-shadow: none;
         }
         .cabinet-explorer-toolbar .cabinet-toolbar-control:hover { background: #f3f4f6; }
         .cabinet-icon-action { display: inline-flex; align-items: center; justify-content: center; width: 40px; padding: 8px; color: #64748b; }
@@ -95,14 +91,19 @@
         </div>
     </div>
 
-    <div x-data="{ open: false, folder: {}, x: 0, y: 0 }" @cabinet-folder-context.window="folder = $event.detail; x = Math.max(8, Math.min(folder.x, window.innerWidth - 190)); y = Math.max(8, Math.min(folder.y, window.innerHeight - 180)); open = true" @click.outside="open = false" @keydown.escape.window="open = false">
+    <div x-data="{ open: false, folder: {}, folderPaste: false, x: 0, y: 0 }" @cabinet-folder-context.window="folder = $event.detail; x = Math.max(8, Math.min(folder.x, window.innerWidth - 190)); y = Math.max(8, Math.min(folder.y, window.innerHeight - 180)); open = true" @click.outside="open = false" @keydown.escape.window="open = false">
         <div x-show="open" x-cloak :style="{ position: 'fixed', left: x + 'px', top: y + 'px', zIndex: 101, width: '180px' }" class="rounded-lg bg-white p-2 shadow-xl dark:bg-gray-800">
             @if ($currentType === 'Recycle Bin')
-                <button type="button" @click="$wire.selectFolder(folder.type, folder.office); $wire.restoreFolder(); open = false" class="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700">Restore</button>
+                <template x-if="folder.folderId">
+                    <button type="button" @click="$wire.restoreTreeFolder(folder.folderId); open = false" class="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700">Restore</button>
+                </template>
             @else
-                <button type="button" @click="$wire.selectFolder(folder.type, folder.office); $wire.copyFolderToClipboard(folder.type, folder.office); open = false" class="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700">Copy</button>
-                <button type="button" @click="$wire.selectFolder(folder.type, folder.office); $wire.mountAction('renameFolder'); open = false" class="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700">Rename</button>
-                <button type="button" @click="$wire.selectFolder(folder.type, folder.office); $wire.mountAction('deleteFolder'); open = false" class="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700">Delete</button>
+                <template x-if="folder.folderId">
+                    <div>
+                        <button type="button" @click="$wire.selectNode(folder.path); $wire.mountAction('renameFolder'); open = false" class="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700">Rename</button>
+                        <button type="button" @click="$wire.selectNode(folder.path); $wire.mountAction('deleteFolder'); open = false" class="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700">Delete</button>
+                    </div>
+                </template>
             @endif
             @if ($clipboardDocumentId || $clipboardFolderType)
                 <button type="button" @click="folderPaste = @js((bool) $clipboardFolderType); folderPaste ? $wire.mountAction('pasteFolder') : $wire.pasteDocument(); open = false" class="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700">Paste</button>
@@ -111,20 +112,6 @@
     </div>
 
     @php
-
-        $filterOptions = collect($this->cabinet)
-            ->flatMap(fn ($folders) => array_keys($folders))->unique()->sort()->values();
-        $cabinet = $this->cabinet;
-        if (!$this instanceof \App\Filament\Pages\RecycleBin) { unset($cabinet['Recycle Bin']); }
-        $nestedFolderNames = \Illuminate\Support\Facades\DB::table('cabinet_folders')
-            ->whereNotNull('parent_type')
-            ->pluck('name');
-        if ($sourceFilter !== 'all') {
-            $cabinet = collect($cabinet)->map(fn ($folders) =>
-                array_filter($folders, fn ($office) => $office === $sourceFilter, ARRAY_FILTER_USE_KEY)
-            )->filter(fn ($folders) => count($folders) > 0)->all();
-        }
-
         $normalizedSearch = strtolower(trim($search));
 
         $sizeToBytes = function (?string $size): float {
@@ -142,7 +129,11 @@
             return (float) $matches[1] * $multiplier;
         };
 
-        $documentMatchesSearch = function (array $document) use ($normalizedSearch): bool {
+        $documentMatchesSearch = function (array $document) use ($normalizedSearch, $sourceFilter): bool {
+            if ($sourceFilter !== 'all' && ($document['office_unit'] ?? null) !== $sourceFilter) {
+                return false;
+            }
+
             if ($normalizedSearch === '') {
                 return true;
             }
@@ -159,79 +150,79 @@
             return str_contains($searchableText, $normalizedSearch);
         };
 
-        $documentsForType = fn (string $type) => collect($cabinet[$type] ?? [])
-            ->flatMap(fn (array $documents) => $documents);
+        $collectOffices = function (array $nodes) use (&$collectOffices): array {
+            $offices = [];
+            foreach ($nodes as $node) {
+                foreach ($node['documents'] ?? [] as $document) {
+                    if (filled($document['office_unit'] ?? null)) {
+                        $offices[] = $document['office_unit'];
+                    }
+                }
+                $offices = [...$offices, ...$collectOffices($node['children'] ?? [])];
+            }
 
-        $documentTypes = collect(array_keys($cabinet))
-            ->reject(fn (string $type) => $nestedFolderNames->contains($type))
-            ->filter(function (string $type) use ($normalizedSearch, $documentsForType, $documentMatchesSearch): bool {
-                return $normalizedSearch === ''
-                    || str_contains(strtolower($type), $normalizedSearch)
-                    || $documentsForType($type)->contains($documentMatchesSearch);
-            });
-
-        $documentTypes = match ($sortBy) {
-            'date' => $documentTypes->sortByDesc(
-                fn (string $type) => $documentsForType($type)
-                    ->max(fn (array $document) => strtotime($document['date'] ?? '') ?: 0) ?? 0
-            ),
-            'size' => $documentTypes->sortByDesc(
-                fn (string $type) => $documentsForType($type)
-                    ->sum(fn (array $document) => $sizeToBytes($document['size'] ?? null))
-            ),
-            default => $documentTypes->sort(
-                fn (string $first, string $second) => strcasecmp($first, $second)
-            ),
+            return $offices;
         };
 
-        // Keep Others at the end regardless of the selected sort mode.
-        $documentTypes = $documentTypes
-            ->reject(fn (string $type) => strcasecmp($type, 'Others') === 0)
-            ->concat(
-                $documentTypes->filter(fn (string $type) => strcasecmp($type, 'Others') === 0)
-            )
-            ->values();
+        $nodeMatchesSearch = function (array $node) use (&$nodeMatchesSearch, $normalizedSearch, $documentMatchesSearch): bool {
+            if ($normalizedSearch === '') {
+                return true;
+            }
+            if (str_contains(strtolower($node['name'] ?? ''), $normalizedSearch)) {
+                return true;
+            }
+            if (collect($node['documents'] ?? [])->contains($documentMatchesSearch)) {
+                return true;
+            }
 
-        $isRoot = $currentType === '';
+            foreach ($node['children'] ?? [] as $child) {
+                if ($nodeMatchesSearch($child)) {
+                    return true;
+                }
+            }
 
-        $isTypeView =
-            $currentType !== ''
-            && $currentOffice === '';
-
-        $isOfficeView =
-            $currentType !== ''
-            && $currentOffice !== '';
-
-        $currentDocuments = [];
-
-        if (
-            $isOfficeView &&
-            isset($cabinet[$currentType][$currentOffice])
-        ) {
-            $currentDocuments =
-                $cabinet[$currentType][$currentOffice];
-        }
-
-        $currentFolders = collect($cabinet[$currentType] ?? [])
-            ->filter(function (array $documents, string $folder) use ($normalizedSearch, $documentMatchesSearch): bool {
-                return $normalizedSearch === ''
-                    || str_contains(strtolower($folder), $normalizedSearch)
-                    || collect($documents)->contains($documentMatchesSearch);
-            });
-
-        $currentFolders = match ($sortBy) {
-            'date' => $currentFolders->sortByDesc(
-                fn (array $documents) => collect($documents)
-                    ->max(fn (array $document) => strtotime($document['date'] ?? '') ?: 0) ?? 0
-            ),
-            'size' => $currentFolders->sortByDesc(
-                fn (array $documents) => collect($documents)
-                    ->sum(fn (array $document) => $sizeToBytes($document['size'] ?? null))
-            ),
-            default => $currentFolders->sortKeysUsing('strnatcasecmp'),
+            return false;
         };
 
-        $currentDocuments = collect($currentDocuments)
+        $nodeSortValue = function (array $node) use (&$nodeSortValue, $sizeToBytes, $documentMatchesSearch): array {
+            $documents = collect($node['documents'] ?? [])->filter($documentMatchesSearch);
+            foreach ($node['children'] ?? [] as $child) {
+                $childValue = $nodeSortValue($child);
+                $documents = $documents->concat($childValue['documents']);
+            }
+
+            return [
+                'documents' => $documents,
+                'date' => $documents->max(fn (array $document) => strtotime($document['date'] ?? '') ?: 0) ?? 0,
+                'size' => $documents->sum(fn (array $document) => $sizeToBytes($document['size'] ?? null)),
+            ];
+        };
+
+        $sortNodes = function ($nodes) use ($sortBy, $nodeSortValue): \Illuminate\Support\Collection {
+            $nodes = collect($nodes);
+
+            return match ($sortBy) {
+                'date' => $nodes->sortByDesc(fn (array $node) => $nodeSortValue($node)['date']),
+                'size' => $nodes->sortByDesc(fn (array $node) => $nodeSortValue($node)['size']),
+                default => $nodes->sort(fn (array $first, array $second) => strnatcasecmp($first['name'], $second['name'])),
+            };
+        };
+
+        $isRoot = $currentPath === [];
+        $currentNode = $this->nodeAtPath($currentPath);
+        $currentChildren = collect($currentNode['children'] ?? [])
+            ->filter(fn (array $node): bool => $nodeMatchesSearch($node));
+        $currentChildren = $sortNodes($currentChildren)->values();
+
+        $rootNodes = collect($this->cabinetTree)
+            ->filter(fn (array $node, string $name): bool => $this instanceof \App\Filament\Pages\RecycleBin || $name !== 'Recycle Bin')
+            ->filter(fn (array $node): bool => $nodeMatchesSearch($node));
+        $rootNodes = $sortBy === 'name' ? $rootNodes->values() : $sortNodes($rootNodes)->values();
+
+        $sourceNodes = $isRoot ? $rootNodes->all() : [$currentNode];
+        $filterOptions = collect($collectOffices($sourceNodes))->unique()->sort()->values();
+
+        $currentDocuments = collect($currentNode['documents'] ?? [])
             ->filter($documentMatchesSearch);
 
         $currentDocuments = match ($sortBy) {
@@ -249,10 +240,7 @@
         $currentDocuments = $currentDocuments->values();
 
         $selectedDocument = $currentDocuments->firstWhere('id', $selectedDocumentId);
-        $customFolder = $currentType !== '' ? \Illuminate\Support\Facades\DB::table('cabinet_folders')->where('name', $currentType)->first() : null;
         $folderBreadcrumbs = collect($this->folderBreadcrumbs());
-
-        $childFolders = $currentType !== '' ? \Illuminate\Support\Facades\DB::table('cabinet_folders')->where('parent_type', $currentType)->where(function ($query) use ($currentOffice) { $currentOffice !== '' ? $query->where('parent_office', $currentOffice) : $query->whereNull('parent_office'); })->orderBy('name')->get() : collect();
 
     @endphp
 
@@ -283,25 +271,14 @@
                     Cabinet
                 </button>
 
-                @if ($customFolder)
-                    @foreach ($folderBreadcrumbs as $folderName)
-                        <x-heroicon-m-chevron-right class="h-4 w-4 text-gray-400" />
-                        @if (! $loop->last)
-                            <button type="button" wire:click="openType(@js($folderName))" class="text-gray-500 transition hover:text-indigo-600 dark:text-gray-400">{{ $folderName }}</button>
-                        @else
-                            <span class="font-semibold text-gray-950 dark:text-white">{{ $folderName }}</span>
-                        @endif
-                    @endforeach
-                @else
+                @foreach ($folderBreadcrumbs as $index => $folderName)
                     <x-heroicon-m-chevron-right class="h-4 w-4 text-gray-400" />
-                    @if($currentOffice)
-                        <button type="button" wire:click="goToType" class="text-gray-500 transition hover:text-indigo-600 dark:text-gray-400">{{ $currentType }}</button>
-                        <x-heroicon-m-chevron-right class="h-4 w-4 text-gray-400" />
-                        <span class="font-semibold text-gray-950 dark:text-white">{{ $currentOffice }}</span>
+                    @if (! $loop->last)
+                        <button type="button" wire:click="openNode(@js(array_slice($currentPath, 0, $index + 1)))" class="text-gray-500 transition hover:text-indigo-600 dark:text-gray-400">{{ $folderName }}</button>
                     @else
-                        <span class="font-semibold text-gray-950 dark:text-white">{{ $currentType }}</span>
+                        <span class="font-semibold text-gray-950 dark:text-white">{{ $folderName }}</span>
                     @endif
-                @endif
+                @endforeach
 
             </div>
 
@@ -320,11 +297,7 @@
 
                     <h2 class="text-2xl font-bold tracking-tight text-gray-950 dark:text-white">
 
-                        @if ($customFolder || $isTypeView)
-                            {{ $currentType }}
-                        @else
-                            {{ $currentOffice }}
-                        @endif
+                        {{ $currentNode['name'] ?? $currentType }}
 
                     </h2>
 
@@ -378,12 +351,14 @@
                 <span class="cabinet-toolbar-divider" aria-hidden="true"></span>
 
 
-                <select wire:model.live="sourceFilter" aria-label="Filter by office or source" class="cabinet-source-filter cabinet-toolbar-control rounded-lg px-3 py-2.5 text-sm font-medium text-gray-800 dark:text-gray-100">
-                    <option value="all">All sources</option>
-                    @foreach ($filterOptions as $office)
-                        <option value="{{ $office }}">{{ $office }}</option>
-                    @endforeach
-                </select>
+                @if($filterOptions->count() > 1)
+                    <select wire:model.live="sourceFilter" aria-label="Filter by office or source" class="cabinet-source-filter cabinet-toolbar-control rounded-lg px-3 py-2.5 text-sm font-medium text-gray-800 dark:text-gray-100">
+                        <option value="all">All sources</option>
+                        @foreach ($filterOptions as $office)
+                            <option value="{{ $office }}">{{ $office }}</option>
+                        @endforeach
+                    </select>
+                @endif
 
                 {{-- SORT --}}
                 <div
@@ -693,360 +668,79 @@
             {{-- MAIN CONTENT --}}
             <div class="min-w-0 flex-1">
 
-
-                {{-- ===================================================== --}}
-                {{-- ROOT: DOCUMENT TYPES --}}
-                {{-- ===================================================== --}}
-
-                @if($isRoot)
-
+                {{-- The cabinet uses a recursive tree so Archived can keep the
+                     same Document Type → Office / Unit → Document layout. --}}
+                @php
+                    $visibleNodes = $isRoot ? $rootNodes : $currentChildren;
+                @endphp
+                @if($visibleNodes->isNotEmpty())
                     @if($viewMode === 'tiles')
-
                         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-
-                            @foreach($documentTypes as $type)
-
-                                    <button
-                                        x-data="{ clickTimer: null }"
-                                        @click="clearTimeout(clickTimer); clickTimer = setTimeout(() => $wire.selectFolder(@js($type)), 220)"
-                                        @dblclick="clearTimeout(clickTimer); $wire.openType(@js($type))"
-                                        wire:key="root-type-tile-{{ $type }}" @contextmenu.prevent="$dispatch('cabinet-folder-context', { type: @js($type), office: null, x: $event.currentTarget.getBoundingClientRect().right + 8, y: $event.currentTarget.getBoundingClientRect().top })"
-                                        class="group rounded-xl border bg-white p-5 text-left transition {{ $selectedFolderType === $type && $selectedFolderOffice === null ? 'border-indigo-500 ring-2 ring-indigo-500/30' : 'border-gray-200' }} hover:border-indigo-300 hover:bg-indigo-50/40 hover:shadow-sm dark:border-gray-700 dark:bg-gray-900 dark:hover:border-indigo-500 dark:hover:bg-indigo-500/5"
-                                    >
-
-                                        <x-dynamic-component :component="$type === 'Recycle Bin' ? 'heroicon-o-trash' : 'heroicon-o-folder'"
-                                            class="h-14 w-14 text-indigo-500"
-                                        />
-
-                                        <p class="mt-4 truncate text-sm font-semibold text-gray-900 dark:text-white">
-                                            {{ $type }}
-                                        </p>
-                                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ $this->folderFileCount($type) }} {{ Str::plural('file', $this->folderFileCount($type)) }}</p>
-
-                                    </button>
-
+                            @foreach($visibleNodes as $node)
+                                <button
+                                    x-data="{ clickTimer: null }"
+                                    @click="clearTimeout(clickTimer); clickTimer = setTimeout(() => $wire.selectNode(@js($node['path'])), 220)"
+                                    @dblclick="clearTimeout(clickTimer); $wire.openNode(@js($node['path']))"
+                                    @contextmenu.prevent="$dispatch('cabinet-folder-context', { type: @js($node['name']), office: null, path: @js($node['path']), folderId: @js($node['folder_id']) , x: $event.currentTarget.getBoundingClientRect().right + 8, y: $event.currentTarget.getBoundingClientRect().top })"
+                                    wire:key="cabinet-node-tile-{{ implode('-', $node['path']) }}"
+                                    class="group rounded-xl border bg-white p-5 text-left transition {{ $currentPath === $node['path'] ? 'border-indigo-500 ring-2 ring-indigo-500/30' : 'border-gray-200' }} hover:border-indigo-300 hover:bg-indigo-50/40 hover:shadow-sm dark:border-gray-700 dark:bg-gray-900 dark:hover:border-indigo-500 dark:hover:bg-indigo-500/5"
+                                >
+                                    <x-heroicon-o-folder class="h-14 w-14 text-indigo-500" />
+                                    <p class="mt-4 line-clamp-2 text-sm font-semibold text-gray-900 dark:text-white">{{ $node['name'] }}</p>
+                                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ $this->nodeFileCount($node['path']) }} {{ Str::plural('file', $this->nodeFileCount($node['path'])) }}</p>
+                                </button>
                             @endforeach
-
                         </div>
-
-
                     @else
-
-                        {{-- CONTENT VIEW --}}
-
                         <div class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
-
-                            @foreach($documentTypes as $type)
-
-                                    <button
-                                        x-data="{ clickTimer: null }"
-                                        @click="clearTimeout(clickTimer); clickTimer = setTimeout(() => $wire.selectFolder(@js($type)), 220)"
-                                        @dblclick="clearTimeout(clickTimer); $wire.openType(@js($type))"
-                                        wire:key="root-type-content-{{ $type }}" @contextmenu.prevent="$dispatch('cabinet-folder-context', { type: @js($type), office: null, x: $event.currentTarget.getBoundingClientRect().right + 8, y: $event.currentTarget.getBoundingClientRect().top })"
-                                        class="flex w-full items-center gap-4 border-b {{ $selectedFolderType === $type && $selectedFolderOffice === null ? 'ring-2 ring-inset ring-indigo-500' : '' }} border-gray-100 px-5 py-4 text-left transition hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800"
-                                    >
-
-                                        <x-dynamic-component :component="$type === 'Recycle Bin' ? 'heroicon-o-trash' : 'heroicon-o-folder'"
-                                            class="h-9 w-9 shrink-0 text-indigo-500"
-                                        />
-
-                                        <div class="min-w-0 flex-1">
-
-                                            <p class="truncate text-sm font-semibold text-gray-900 dark:text-white">
-                                                {{ $type }}
-                                            </p>
-                                            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ $this->folderFileCount($type) }} {{ Str::plural('file', $this->folderFileCount($type)) }}</p>
-
-                                        </div>
-
-                                    </button>
-
-                            @endforeach
-
-                        </div>
-
-                    @endif
-
-
-                {{-- ===================================================== --}}
-                {{-- DOCUMENT TYPE → OFFICE / OTHERS → CUSTOM TYPE --}}
-                {{-- ===================================================== --}}
-
-                @elseif($isTypeView)
-
-                    @if($viewMode === 'tiles')
-
-                        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-
-                            @foreach($currentFolders as $office => $documents)
-
-                                    <button
-                                        x-data="{ clickTimer: null }"
-                                        @click="clearTimeout(clickTimer); clickTimer = setTimeout(() => $wire.selectFolder(@js($currentType), @js($office)), 220)"
-                                        @dblclick="clearTimeout(clickTimer); $wire.openOffice(@js($office))"
-                                        wire:key="office-tile-{{ $office }}" @contextmenu.prevent="$dispatch('cabinet-folder-context', { type: @js($currentType), office: @js($office), x: $event.currentTarget.getBoundingClientRect().right + 8, y: $event.currentTarget.getBoundingClientRect().top })"
-                                        class="group rounded-xl border border-gray-200 bg-white p-5 text-left transition hover:border-indigo-300 hover:bg-indigo-50/40 hover:shadow-sm dark:border-gray-700 dark:bg-gray-900 dark:hover:border-indigo-500 dark:hover:bg-indigo-500/5 {{ $selectedFolderType === $currentType && $selectedFolderOffice === $office ? 'border-indigo-500 ring-2 ring-indigo-500/30' : 'border-gray-200' }}"
-                                    >
-
-                                        <x-heroicon-o-folder
-                                            class="h-14 w-14 text-indigo-500"
-                                        />
-
-                                        <p class="mt-4 line-clamp-2 text-sm font-semibold text-gray-900 dark:text-white">
-                                            {{ $office }}
-                                        </p>
-                                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ count($documents) }} {{ Str::plural('file', count($documents)) }}</p>
-
-                                    </button>
-
-                            @endforeach
-
-                        </div>
-
-
-                    @else
-
-                        {{-- CONTENT VIEW --}}
-
-                        <div class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
-
-                            @foreach($currentFolders as $office => $documents)
-
-                                    <button
-                                        x-data="{ clickTimer: null }"
-                                        @click="clearTimeout(clickTimer); clickTimer = setTimeout(() => $wire.selectFolder(@js($currentType), @js($office)), 220)"
-                                        @dblclick="clearTimeout(clickTimer); $wire.openOffice(@js($office))"
-                                        wire:key="office-content-{{ $office }}" @contextmenu.prevent="$dispatch('cabinet-folder-context', { type: @js($currentType), office: @js($office), x: $event.currentTarget.getBoundingClientRect().right + 8, y: $event.currentTarget.getBoundingClientRect().top })"
-                                        class="flex w-full items-center gap-4 border-b {{ $selectedFolderType === $currentType && $selectedFolderOffice === $office ? 'ring-2 ring-inset ring-indigo-500' : '' }} border-gray-100 px-5 py-4 text-left transition hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800"
-                                    >
-
-                                        <x-heroicon-o-folder
-                                            class="h-9 w-9 shrink-0 text-indigo-500"
-                                        />
-
-                                        <div class="min-w-0 flex-1">
-
-                                            <p class="truncate text-sm font-semibold text-gray-900 dark:text-white">
-                                                {{ $office }}
-                                            </p>
-                                            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ count($documents) }} {{ Str::plural('file', count($documents)) }}</p>
-
-                                        </div>
-
-                                    </button>
-
-                            @endforeach
-
-                        </div>
-
-                    @endif
-
-
-                {{-- ===================================================== --}}
-                {{-- OFFICE → DOCUMENTS --}}
-                {{-- ===================================================== --}}
-
-                @else
-
-                    @if ($childFolders->isNotEmpty())
-                        <div class="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-                            @foreach ($childFolders as $folder)
-                                <button x-data="{ clickTimer: null }" @click="clearTimeout(clickTimer); clickTimer = setTimeout(() => $wire.selectFolder(@js($folder->name)), 220)" @dblclick="clearTimeout(clickTimer); $wire.openType(@js($folder->name))" @contextmenu.prevent="$dispatch('cabinet-folder-context', { type: @js($folder->name), office: null, x: $event.currentTarget.getBoundingClientRect().right + 8, y: $event.currentTarget.getBoundingClientRect().top })" class="rounded-xl border bg-white p-5 text-left transition {{ $selectedFolderType === $folder->name ? 'border-indigo-500 ring-2 ring-indigo-500/30' : 'border-gray-200' }}">
-                                    <x-heroicon-o-folder class="h-14 w-14 text-indigo-500" /><p class="mt-4 truncate text-sm font-semibold">{{ $folder->name }}</p>
-                                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ $this->folderFileCount($folder->name) }} {{ Str::plural('file', $this->folderFileCount($folder->name)) }}</p>
+                            @foreach($visibleNodes as $node)
+                                <button
+                                    x-data="{ clickTimer: null }"
+                                    @click="clearTimeout(clickTimer); clickTimer = setTimeout(() => $wire.selectNode(@js($node['path'])), 220)"
+                                    @dblclick="clearTimeout(clickTimer); $wire.openNode(@js($node['path']))"
+                                    @contextmenu.prevent="$dispatch('cabinet-folder-context', { type: @js($node['name']), office: null, path: @js($node['path']), folderId: @js($node['folder_id']), x: $event.currentTarget.getBoundingClientRect().right + 8, y: $event.currentTarget.getBoundingClientRect().top })"
+                                    wire:key="cabinet-node-row-{{ implode('-', $node['path']) }}"
+                                    class="flex w-full items-center gap-4 border-b border-gray-100 px-5 py-4 text-left transition hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800"
+                                >
+                                    <x-heroicon-o-folder class="h-9 w-9 shrink-0 text-indigo-500" />
+                                    <div class="min-w-0 flex-1">
+                                        <p class="truncate text-sm font-semibold text-gray-900 dark:text-white">{{ $node['name'] }}</p>
+                                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ $this->nodeFileCount($node['path']) }} {{ Str::plural('file', $this->nodeFileCount($node['path'])) }}</p>
+                                    </div>
                                 </button>
                             @endforeach
                         </div>
                     @endif
-
-                    @if($viewMode === 'tiles')
-
-                        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-
-                            @forelse($currentDocuments as $document)
-
-                                @php
-                                    $fileName = $document['name'];
-                                    $displayName = $showFileExtensions
-                                        ? $fileName
-                                        : pathinfo($fileName, PATHINFO_FILENAME);
-                                @endphp
-
-                                <a
-                                    href="{{ route('admin.documents.file', [
-                                        'document' => $document['public_id'],
-                                        'filename' => $fileName,
-                                    ]) }}"
-                                    wire:click.prevent="selectItem(@js($displayName), {{ $document['id'] }}, {{ isset($document['copy_key']) ? (int) substr($document['copy_key'], 5) : 'null' }})"
-                                    @dblclick.prevent="window.open($el.href, '_blank', 'noopener')"
-                                    wire:key="document-tile-{{ $document['copy_key'] ?? $document['id'] }}"
-                                    @contextmenu.prevent="$dispatch('cabinet-context', { id: {{ $document['id'] }}, name: @js($displayName), url: $el.href, x: $event.currentTarget.getBoundingClientRect().right + 8, y: $event.currentTarget.getBoundingClientRect().top }); $wire.selectItem(@js($displayName), {{ $document['id'] }}, {{ isset($document['copy_key']) ? (int) substr($document['copy_key'], 5) : 'null' }})"
-                                    rel="noopener noreferrer"
-                                    class="group rounded-xl border bg-white p-5 text-left transition hover:border-indigo-300 hover:bg-indigo-50/40 hover:shadow-sm dark:bg-gray-900 dark:hover:border-indigo-500 dark:hover:bg-indigo-500/5 {{ $selectedDocumentId === $document['id'] && $selectedCopyId === (isset($document['copy_key']) ? (int) substr($document['copy_key'], 5) : null) ? 'border-indigo-500 bg-indigo-50 ring-2 ring-indigo-500/25 dark:bg-indigo-500/10' : 'border-gray-200 dark:border-gray-700' }}"
-                                >
-
-                                    <div class="flex h-14 w-14 items-center justify-center rounded-xl bg-red-50 text-red-500 dark:bg-red-500/10 dark:text-red-400">
-                                        @if(str_ends_with(strtolower($fileName), '.pdf'))
-                                            <x-heroicon-o-document-text class="h-8 w-8" />
-                                        @else
-                                            <x-heroicon-o-document class="h-8 w-8" />
-                                        @endif
-                                    </div>
-
-                                    <p class="mt-4 line-clamp-2 text-sm font-semibold text-gray-900 dark:text-white">
-                                        {{ $displayName }}
-                                    </p>
-
-                                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                                        {{ $document['size'] }} · {{ $document['date'] }}
-                                    </p>
-
-                                </a>
-
-                            @empty
-
-                                <div class="col-span-full px-6 py-16 text-center">
-                                    <x-heroicon-o-document-magnifying-glass
-                                        class="mx-auto h-12 w-12 text-gray-300 dark:text-gray-600"
-                                    />
-                                    <h3 class="mt-3 text-sm font-semibold text-gray-900 dark:text-white">
-                                        No documents found
-                                    </h3>
-                                </div>
-
-                            @endforelse
-
-                        </div>
-
-                    @else
-
-                    <div class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
-
-                        {{-- HEADER --}}
-
-                        <div class="cabinet-list-heading grid grid-cols-[minmax(0,1fr)_120px_160px_60px] border-b border-gray-200 bg-gray-50 px-5 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
-
-                            <div>Name</div>
-
-                            <div>Size</div>
-
-                            <div>Date modified</div>
-
-                            <div></div>
-
-                        </div>
-
-
-                        @forelse($currentDocuments as $document)
-
-                            @php
-
-                                $fileName = $document['name'];
-
-                                $displayName = $showFileExtensions
-                                    ? $fileName
-                                    : pathinfo($fileName, PATHINFO_FILENAME);
-
-                            @endphp
-
-                                <a
-                                    href="{{ route('admin.documents.file', [
-                                        'document' => $document['public_id'],
-                                        'filename' => $fileName,
-                                    ]) }}"
-                                    wire:click.prevent="selectItem(@js($displayName), {{ $document['id'] }}, {{ isset($document['copy_key']) ? (int) substr($document['copy_key'], 5) : 'null' }})"
-                                    @dblclick.prevent="window.open($el.href, '_blank', 'noopener')"
-                                    wire:key="document-row-{{ $document['copy_key'] ?? $document['id'] }}"
-                                    @contextmenu.prevent="$dispatch('cabinet-context', { id: {{ $document['id'] }}, name: @js($displayName), url: $el.href, x: $event.currentTarget.getBoundingClientRect().right + 8, y: $event.currentTarget.getBoundingClientRect().top }); $wire.selectItem(@js($displayName), {{ $document['id'] }}, {{ isset($document['copy_key']) ? (int) substr($document['copy_key'], 5) : 'null' }})"
-                                    rel="noopener noreferrer"
-                                    class="cabinet-list-row grid w-full cursor-pointer grid-cols-[minmax(0,1fr)_120px_160px_60px] items-center border-b px-5 py-4 text-left transition {{ $selectedDocumentId === $document['id'] && $selectedCopyId === (isset($document['copy_key']) ? (int) substr($document['copy_key'], 5) : null) ? 'border-indigo-300 bg-indigo-100 ring-1 ring-inset ring-indigo-500 dark:bg-indigo-500/20' : 'border-gray-100 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800' }}"
-                                >
-
-                                    {{-- DOCUMENT NAME --}}
-
-                                    <div class="flex min-w-0 items-center gap-3">
-
-                                        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-red-50 text-red-500 dark:bg-red-500/10 dark:text-red-400">
-
-                                            @if(str_ends_with(strtolower($fileName), '.pdf'))
-
-                                                <x-heroicon-o-document-text class="h-6 w-6" />
-
-                                            @else
-
-                                                <x-heroicon-o-document class="h-6 w-6" />
-
-                                            @endif
-
-                                        </div>
-
-
-                                        <div class="min-w-0">
-
-                                            <p class="truncate text-sm font-medium text-gray-900 dark:text-white">
-                                                {{ $displayName }}
-                                            </p>
-
-                                            <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-                                                {{ $document['type'] }}
-                                            </p>
-
-                                        </div>
-
-                                    </div>
-
-
-                                    {{-- SIZE --}}
-
-                                    <div class="text-sm text-gray-600 dark:text-gray-300">
-                                        {{ $document['size'] }}
-                                    </div>
-
-
-                                    {{-- DATE --}}
-
-                                    <div class="text-sm text-gray-600 dark:text-gray-300">
-                                        {{ $document['date'] }}
-                                    </div>
-
-
-                                    {{-- ACTIONS --}}
-
-                                    <div class="flex justify-end">
-
-                                        <span class="rounded-lg p-2 text-gray-400">
-                                            <x-heroicon-m-ellipsis-horizontal class="h-5 w-5" />
-                                        </span>
-
-                                    </div>
-
-                                </a>
-
-                        @empty
-
-                            <div class="px-6 py-16 text-center">
-
-                                <x-heroicon-o-document-magnifying-glass
-                                    class="mx-auto h-12 w-12 text-gray-300 dark:text-gray-600"
-                                />
-
-                                <h3 class="mt-3 text-sm font-semibold text-gray-900 dark:text-white">
-                                    No documents found
-                                </h3>
-
-                                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                                    This folder does not contain any documents yet.
-                                </p>
-
-                            </div>
-
-                        @endforelse
-
-                    </div>
-
-                    @endif
-
                 @endif
+
+                <div class="{{ $isRoot ? 'hidden' : ($viewMode === 'tiles' ? 'mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5' : 'mt-4 overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900') }}">
+                    <div class="{{ $viewMode === 'tiles' ? 'hidden' : 'cabinet-list-heading grid grid-cols-[minmax(0,1fr)_120px_160px_60px] border-b border-gray-200 bg-gray-50 px-5 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400' }}"><div>Name</div><div>Size</div><div>Date modified</div><div></div></div>
+
+                    @foreach($currentDocuments as $document)
+                        @php
+                            $fileName = $document['name'];
+                            $displayName = $showFileExtensions ? $fileName : pathinfo($fileName, PATHINFO_FILENAME);
+                            $iconComponent = str_ends_with(strtolower($fileName), '.pdf') ? 'heroicon-o-document-text' : 'heroicon-o-document';
+                            $copyId = isset($document['copy_key']) ? (int) substr($document['copy_key'], 5) : 'null';
+                        @endphp
+                        <a href="{{ route('admin.documents.file', ['document' => $document['public_id'], 'filename' => $fileName]) }}"
+                           wire:click.prevent="selectItem(@js($displayName), {{ $document['id'] }}, {{ $copyId }})"
+                           @dblclick.prevent="window.open($el.href, '_blank', 'noopener')"
+                           wire:key="cabinet-document-{{ $document['copy_key'] ?? $document['id'] }}"
+                           @contextmenu.prevent="$dispatch('cabinet-context', { id: {{ $document['id'] }}, name: @js($displayName), url: $el.href, x: $event.currentTarget.getBoundingClientRect().right + 8, y: $event.currentTarget.getBoundingClientRect().top }); $wire.selectItem(@js($displayName), {{ $document['id'] }}, {{ $copyId }})"
+                           class="{{ $viewMode === 'tiles' ? 'group rounded-xl border border-gray-200 bg-white p-5 text-left transition hover:border-indigo-300 hover:bg-indigo-50/40 hover:shadow-sm dark:bg-gray-900 dark:hover:border-indigo-500 dark:hover:bg-indigo-500/5' : 'cabinet-list-row grid w-full cursor-pointer grid-cols-[minmax(0,1fr)_120px_160px_60px] items-center border-b border-gray-100 px-5 py-4 text-left transition hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800' }}">
+                            <div class="{{ $viewMode === 'tiles' ? 'flex h-14 w-14 items-center justify-center rounded-xl bg-red-50 text-red-500 dark:bg-red-500/10 dark:text-red-400' : 'flex min-w-0 items-center gap-3' }}">
+                                <x-dynamic-component :component="$iconComponent" class="{{ $viewMode === 'tiles' ? 'h-8 w-8' : 'h-6 w-6 shrink-0 text-red-500' }}" />
+                                <div class="{{ $viewMode === 'tiles' ? 'hidden' : 'min-w-0' }}"><p class="truncate text-sm font-medium text-gray-900 dark:text-white">{{ $displayName }}</p><p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{{ $document['type'] }}</p></div>
+                            </div>
+                            <p class="{{ $viewMode === 'tiles' ? 'mt-4 line-clamp-2 text-sm font-semibold text-gray-900 dark:text-white' : 'hidden' }}">{{ $displayName }}</p>
+                            <p class="{{ $viewMode === 'tiles' ? 'mt-1 text-xs text-gray-500 dark:text-gray-400' : 'text-sm text-gray-600 dark:text-gray-300' }}">{{ $document['size'] }}{{ $viewMode === 'tiles' ? ' · ' . $document['date'] : '' }}</p>
+                            <div class="{{ $viewMode === 'tiles' ? 'hidden' : 'text-sm text-gray-600 dark:text-gray-300' }}">{{ $document['date'] }}</div>
+                            <div class="{{ $viewMode === 'tiles' ? 'hidden' : 'flex justify-end' }}"><x-heroicon-m-ellipsis-horizontal class="h-5 w-5 text-gray-400" /></div>
+                        </a>
+                    @endforeach
+                </div>
+
 
             </div>
 

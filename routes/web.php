@@ -31,7 +31,7 @@ Route::view('/ai-test', 'ai-test');
 Route::post('/chatbot/message', [
     ChatbotController::class,
     'reply',
-])->middleware(['auth', 'throttle:10,1'])->name('chatbot.message');
+])->middleware(['auth', 'throttle:chatbot'])->name('chatbot.message');
 
 Route::get('/', function () {
     return view('home');
@@ -40,6 +40,7 @@ Route::get('/', function () {
 Route::view('/login', 'home')->name('login');
 
 Route::get('/auth/google', [GoogleAuthController::class, 'redirect'])
+    ->middleware('throttle:google-login')
     ->name('google.login');
 
 Route::get('/auth/google/callback', [GoogleAuthController::class, 'callback']);
@@ -215,8 +216,221 @@ Route::get('/client/document-download/{document}', function (string $document) {
         ]
     );
 })
-    ->middleware('auth')
+    ->middleware(['auth', 'throttle:downloads'])
     ->name('client.document.download');
+
+Route::get('/client/document-version/{document}/{version}/preview', function (
+    string $document,
+    int $version,
+) {
+    $documentRecord = Document::findForRoute($document);
+
+    abort_unless(
+        (int) $documentRecord->user_id === (int) auth()->id()
+        || $documentRecord
+            ->documentRequests()
+            ->where('user_id', auth()->id())
+            ->where('status', 'accepted')
+            ->exists(),
+        404,
+    );
+
+    $versionRecord = DocumentVersion::query()
+        ->where('document_id', $documentRecord->document_id)
+        ->findOrFail($version);
+
+    $latestAdminRevisionId = DocumentVersion::query()
+        ->where('document_id', $documentRecord->document_id)
+        ->where('source', 'admin')
+        ->latest('created_at')
+        ->latest('version_id')
+        ->value('version_id');
+
+    abort_unless(
+        $versionRecord->source === 'client'
+        || (int) $versionRecord->version_id === (int) $latestAdminRevisionId,
+        404,
+    );
+
+    abort_unless(
+        $versionRecord->file_path
+        && $versionRecord->storageDisk()->exists($versionRecord->file_path),
+        404,
+    );
+
+    return app(\App\Services\DocumentPreviewService::class)->preview(
+        $versionRecord->storageDisk()->path($versionRecord->file_path),
+    );
+})
+    ->middleware('auth')
+    ->name('client.document.version.preview');
+
+Route::get('/client/document-version/{document}/{version}/download', function (
+    string $document,
+    int $version,
+) {
+    $documentRecord = Document::findForRoute($document);
+
+    abort_unless(
+        (int) $documentRecord->user_id === (int) auth()->id()
+        || $documentRecord
+            ->documentRequests()
+            ->where('user_id', auth()->id())
+            ->where('status', 'accepted')
+            ->exists(),
+        404,
+    );
+
+    $versionRecord = DocumentVersion::query()
+        ->where('document_id', $documentRecord->document_id)
+        ->findOrFail($version);
+
+    $latestAdminRevisionId = DocumentVersion::query()
+        ->where('document_id', $documentRecord->document_id)
+        ->where('source', 'admin')
+        ->latest('created_at')
+        ->latest('version_id')
+        ->value('version_id');
+
+    abort_unless(
+        $versionRecord->source === 'client'
+        || (int) $versionRecord->version_id === (int) $latestAdminRevisionId,
+        404,
+    );
+
+    abort_unless(
+        $versionRecord->file_path
+        && $versionRecord->storageDisk()->exists($versionRecord->file_path),
+        404,
+    );
+
+    return app(DocumentDownloadService::class)->download($documentRecord, $versionRecord);
+})
+    ->middleware('auth')
+    ->name('client.document.version.download');
+
+Route::get('/client/document-transmittal/{document}/preview', function (string $document) {
+    $documentRecord = Document::findForRoute($document);
+
+    abort_unless(
+        (int) $documentRecord->user_id === (int) auth()->id()
+        || $documentRecord
+            ->documentRequests()
+            ->where('user_id', auth()->id())
+            ->where('status', 'accepted')
+            ->exists(),
+        404,
+    );
+
+    $filePath = $documentRecord->transmittal;
+    $disk = Storage::disk('local');
+
+    if ($filePath && ! $disk->exists($filePath)) {
+        $disk = Storage::disk('public');
+    }
+
+    abort_unless($filePath && $disk->exists($filePath), 404);
+
+    return app(\App\Services\DocumentPreviewService::class)->preview($disk->path($filePath));
+})
+    ->middleware('auth')
+    ->name('client.document.transmittal.preview');
+
+Route::get('/client/document-transmittal/{document}/download', function (string $document) {
+    $documentRecord = Document::findForRoute($document);
+
+    abort_unless(
+        (int) $documentRecord->user_id === (int) auth()->id()
+        || $documentRecord
+            ->documentRequests()
+            ->where('user_id', auth()->id())
+            ->where('status', 'accepted')
+            ->exists(),
+        404,
+    );
+
+    $filePath = $documentRecord->transmittal;
+    $disk = Storage::disk('local');
+
+    if ($filePath && ! $disk->exists($filePath)) {
+        $disk = Storage::disk('public');
+    }
+
+    abort_unless($filePath && $disk->exists($filePath), 404);
+
+    return $disk->download($filePath, basename($filePath));
+})
+    ->middleware('auth')
+    ->name('client.document.transmittal.download');
+
+Route::get('/client/document-transmittal/{document}/{attachment}/preview', function (
+    string $document,
+    int $attachment,
+) {
+    $documentRecord = Document::findForRoute($document);
+
+    abort_unless(
+        (int) $documentRecord->user_id === (int) auth()->id()
+        || $documentRecord
+            ->documentRequests()
+            ->where('user_id', auth()->id())
+            ->where('status', 'accepted')
+            ->exists(),
+        404,
+    );
+
+    $attachmentRecord = DocumentTransmittal::query()
+        ->where('document_id', $documentRecord->document_id)
+        ->findOrFail($attachment);
+    $disk = Storage::disk('local');
+
+    if (! $disk->exists($attachmentRecord->file_path)) {
+        $disk = Storage::disk('public');
+    }
+
+    abort_unless($disk->exists($attachmentRecord->file_path), 404);
+
+    return app(\App\Services\DocumentPreviewService::class)->preview(
+        $disk->path($attachmentRecord->file_path),
+    );
+})
+    ->middleware('auth')
+    ->name('client.document.transmittal-attachment.preview');
+
+Route::get('/client/document-transmittal/{document}/{attachment}/download', function (
+    string $document,
+    int $attachment,
+) {
+    $documentRecord = Document::findForRoute($document);
+
+    abort_unless(
+        (int) $documentRecord->user_id === (int) auth()->id()
+        || $documentRecord
+            ->documentRequests()
+            ->where('user_id', auth()->id())
+            ->where('status', 'accepted')
+            ->exists(),
+        404,
+    );
+
+    $attachmentRecord = DocumentTransmittal::query()
+        ->where('document_id', $documentRecord->document_id)
+        ->findOrFail($attachment);
+    $disk = Storage::disk('local');
+
+    if (! $disk->exists($attachmentRecord->file_path)) {
+        $disk = Storage::disk('public');
+    }
+
+    abort_unless($disk->exists($attachmentRecord->file_path), 404);
+
+    return $disk->download(
+        $attachmentRecord->file_path,
+        basename($attachmentRecord->file_path),
+    );
+})
+    ->middleware('auth')
+    ->name('client.document.transmittal-attachment.download');
 
 Route::get('/messages/{message}/attachment/{attachment}', function (
     Message $message,
@@ -578,7 +792,7 @@ Route::post('/api/track/qr', function (Request $request) {
 })
     ->middleware([
         ProtectAgainstSpam::class,
-        'throttle:10,1',
+        'throttle:qr-tracking',
     ])
     ->name('public.track.qr');
 
