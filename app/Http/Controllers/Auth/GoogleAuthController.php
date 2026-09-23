@@ -178,6 +178,10 @@ class GoogleAuthController extends Controller
             // Regenerate session ID after authentication
             request()->session()->regenerate();
 
+            // Do not carry an old session's inactivity timestamp into a new
+            // login. The authenticated session starts active now.
+            request()->session()->put('last_activity_at', time());
+
             /*
             |--------------------------------------------------------------------------
             | Redirect Based on Role
