@@ -768,6 +768,14 @@ class ChatbotIntentRouter
 
     private function isLatestDocumentIdentityQuestion(string $message): bool
     {
+        // “What is the status of my latest document?” is a direct latest
+        // record lookup. Only ask for a selection when the client is asking
+        // which record is latest and has not requested status or details.
+        if ($this->hasDocumentStatusTerm($message)
+            || preg_match('/\b(?:detail|details|particulars|information|info|detalye|impormasyon)\b/', $message) === 1) {
+            return false;
+        }
+
         return preg_match(
             '/\b(?:which|what|anong|alin)\b.*\b(?:document|doc|submission|sinumite|ipinasa)\b/',
             $message,
