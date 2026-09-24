@@ -1178,15 +1178,10 @@ class Document extends Page implements HasTable
                 $data['deadline'] ??= DocumentModel::deadlineForType($data['document_type'] ?? null);
                 $data['document_name'] = $this->uploadedDocumentName($filePaths[0])
                     ?? ($data['document_name'] ?? null);
-                $targetStatus = match ($this->activeSection) {
-                    'pending' => 'pending',
-                    'incoming' => 'in_progress',
-                    'outgoing' => 'outgoing',
-                    'completed' => 'completed',
-                    'rejected' => 'rejected',
-                    'archived' => 'archived',
-                    default => 'in_progress',
-                };
+                // Documents uploaded by an administrator enter the workflow
+                // immediately and must not be placed in the client review
+                // queue, even when the add form is opened from Pending.
+                $targetStatus = 'in_progress';
 
                 $document = DB::transaction(function () use ($data, $filePaths, $fileHashes, $transmittalPaths, $transmittalHashes, $targetStatus): DocumentModel {
                     // Generate again at save time so the number is always the
@@ -1230,6 +1225,12 @@ class Document extends Page implements HasTable
                 );
 
                 $this->markDocumentSectionAsViewed($this->activeSection);
+
+                Notification::make()
+                    ->success()
+                    ->title('Document uploaded')
+                    ->body('The document was uploaded successfully and is now in progress.')
+                    ->send();
             });
     }
 
