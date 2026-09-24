@@ -110,7 +110,6 @@ class AdminDocumentNotificationService
     protected function administrators(): Collection
     {
         return User::query()
-            ->whereNotNull('email')
             ->whereHas(
                 'roles',
                 fn ($query) => $query->whereIn('name', [

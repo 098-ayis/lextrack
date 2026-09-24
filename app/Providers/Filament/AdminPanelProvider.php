@@ -9,6 +9,7 @@ use App\Http\Middleware\FilamentAuthenticate;
 use App\Http\Middleware\IdleTimeout;
 use App\Livewire\DatabaseNotifications;
 use App\Models\Document;
+use App\Models\DocumentRequest;
 use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -89,6 +90,25 @@ class AdminPanelProvider extends PanelProvider
                 );
             })
             ->name('admin.documents.file');
+
+        Route::middleware(['web', 'auth', 'admin', EnsureLegalStaff::class])
+            ->get('/admin/navigation-counts', function () {
+                return response()->json([
+                    'documents' => Document::query()
+                        ->where('status', 'pending')
+                        ->count(),
+                    'requests' => DocumentRequest::query()
+                        ->where('status', 'pending')
+                        ->count(),
+                    'notifications' => auth()->user()
+                        ->unreadNotifications()
+                        ->where('data->format', 'filament')
+                        ->count(),
+                ], headers: [
+                    'Cache-Control' => 'no-store, private',
+                ]);
+            })
+            ->name('admin.navigation.counts');
     }
 
     public function panel(Panel $panel): Panel
@@ -115,6 +135,10 @@ class AdminPanelProvider extends PanelProvider
             ->renderHook(
                 PanelsRenderHook::BODY_START,
                 fn () => view('filament.admin.windows-scale'),
+            )
+            ->renderHook(
+                PanelsRenderHook::SIDEBAR_NAV_END,
+                fn () => view('filament.admin.sidebar-badge-poll'),
             )
             ->renderHook(
                 PanelsRenderHook::SIDEBAR_LOGO_AFTER,
@@ -153,7 +177,7 @@ class AdminPanelProvider extends PanelProvider
             )
             ->globalSearch(false)
             ->databaseNotifications(true, DatabaseNotifications::class)
-            ->databaseNotificationsPolling('15s')
+            ->databaseNotificationsPolling('5s')
 
             ->brandLogo(fn () => view('filament.components.brand'))
             ->brandLogoHeight('3rem')

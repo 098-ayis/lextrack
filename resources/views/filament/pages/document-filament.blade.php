@@ -1,5 +1,8 @@
 <x-filament-panels::page>
-    <div class="admin-documents-page admin-documents-section-{{ $this->activeSection }}">
+    <div
+        class="admin-documents-page admin-documents-section-{{ $this->activeSection }}"
+        wire:poll.5s="refreshDocuments"
+    >
         @php
             $activeSection = $this->activeSection;
             $statusCounts = $this->getStatusCounts();
