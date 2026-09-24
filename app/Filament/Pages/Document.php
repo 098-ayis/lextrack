@@ -467,7 +467,7 @@ class Document extends Page implements HasTable
             ->columns($this->getDocumentTableColumns())
             ->recordActions($this->getDocumentTableActions())
             ->recordActionsColumnLabel('ACTION')
-            ->recordActionsAlignment('fi-align-center')
+            ->recordActionsAlignment('end')
             ->recordUrl(fn (DocumentModel $record): string => ViewDocument::getUrl([
                 'document' => $record->getPublicRouteKey(),
                 'return_to' => static::getUrl(['section' => $this->activeSection]),

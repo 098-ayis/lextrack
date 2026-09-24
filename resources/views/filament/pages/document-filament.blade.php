@@ -328,7 +328,7 @@
 
             .admin-documents-page .fi-ta-table td:has(> .fi-ta-actions) {
                 padding-left: 1rem;
-                padding-right: 0.5rem;
+                padding-right: 1rem;
                 white-space: nowrap;
             }
 
@@ -347,10 +347,23 @@
                 line-height: 1rem;
             }
 
-            .admin-documents-page .fi-ta-actions {
-                justify-content: flex-end !important;
-                gap: 0.375rem;
-                margin-left: auto;
+            .admin-documents-page .fi-ta-table td:has(> .fi-ta-actions) > .fi-ta-actions {
+                display: flex !important;
+                flex-wrap: nowrap !important;
+                align-items: center !important;
+                width: 100%;
+                margin-left: 0;
+                justify-content: center !important;
+                gap: 0.5rem;
+                white-space: nowrap;
+            }
+
+            .admin-documents-page .fi-ta-table td:has(> .fi-ta-actions) > .fi-ta-actions > * {
+                width: auto !important;
+                min-width: 0 !important;
+                flex: 0 0 auto !important;
+                flex-shrink: 0 !important;
+                margin: 0 !important;
             }
 
             .admin-documents-page .fi-ta-table th {
