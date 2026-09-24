@@ -82,6 +82,16 @@ class ChatbotController extends Controller
             hasPrivateRequestContext: $hasPrivateRequestContext,
         );
 
+        $policyOptionResponse = $this->resolveLegalPolicyOption(
+            $request,
+            $message,
+            $intents,
+        );
+
+        if ($policyOptionResponse !== null) {
+            return $policyOptionResponse;
+        }
+
         if (is_array($quickIntent)) {
             $pendingResponse = $this->resolvePendingShortAnswer(
                 $request,
@@ -109,6 +119,8 @@ class ChatbotController extends Controller
                 'rejection_definition',
                 'request_scope_clarification',
                 'copy_type_clarification',
+                'payment_inquiry',
+                'legal_policy_information',
             ], true)) {
             $quickLanguage = is_string($quickIntent['language'] ?? null)
                 ? $quickIntent['language']
@@ -132,6 +144,8 @@ class ChatbotController extends Controller
                     $conversationId,
                     $quickLanguage,
                 ),
+                'payment_inquiry' => $this->paymentInquiryReply($request, $quickLanguage),
+                'legal_policy_information' => $this->legalPolicyReply($request, $quickLanguage),
                 'unsupported' => $this->unsupportedReply($request),
                 default => $this->clarificationReply($quickLanguage),
             };
@@ -266,6 +280,17 @@ class ChatbotController extends Controller
             );
         }
 
+        if (($normalizedIntent['name'] ?? null) === 'document_status_filter') {
+            return $this->lookupByDocumentStatus(
+                $request,
+                $user,
+                $documents,
+                (string) ($normalizedIntent['parameters']['status'] ?? ''),
+                (string) ($interpretation['response_language'] ?? 'english'),
+                $conversationId,
+            );
+        }
+
         // A topic-specific document question has already been interpreted
         // locally. Route it directly to the owner-scoped resolver instead of
         // reclassifying it through the generic fallback path.
@@ -337,6 +362,8 @@ class ChatbotController extends Controller
                 $conversationId,
                 $intent['language'],
             ),
+            'payment_inquiry' => $this->paymentInquiryReply($request, $intent['language']),
+            'legal_policy_information' => $this->legalPolicyReply($request, $intent['language']),
             'clarification' => $this->clarificationReply($intent['language']),
             'email_delivery' => $this->emailDeliveryReply($request, $intent['language']),
             'message_content' => $this->messageContentReply($request, $intent['language']),
@@ -354,6 +381,14 @@ class ChatbotController extends Controller
                 $intent['status'],
                 $intent['yes_no'],
                 $intent['language'],
+            ),
+            'document_status_filter' => $this->lookupByDocumentStatus(
+                $request,
+                $user,
+                $documents,
+                (string) ($intent['status'] ?? ''),
+                $intent['language'],
+                $conversationId,
             ),
             'rejection_guidance' => $this->rejectionGuidanceReply(
                 $request,
@@ -435,6 +470,9 @@ class ChatbotController extends Controller
                 $documents,
                 (string) $intent['document_name'],
                 $conversationId,
+                isset($intent['reference_field']) ? (string) $intent['reference_field'] : null,
+                (string) ($intent['document_action'] ?? 'get_document_status'),
+                (string) ($intent['language'] ?? 'english'),
             ),
             'lao_lookup' => $this->lookupByLaoNumber(
                 $request,
@@ -738,6 +776,76 @@ class ChatbotController extends Controller
                 ? 'Pwede mo bang linawin ang tanong mo tungkol sa LexTrack?'
                 : 'Could you clarify your question about LexTrack?',
         ]);
+    }
+
+    private function paymentInquiryReply(Request $request, string $language): JsonResponse
+    {
+        $reply = match ($language) {
+            'filipino' => 'Hindi ko makumpirma kung may bayad o magkano ang babayaran. Makipag-ugnayan sa Legal Affairs Office sa pamamagitan ng Messages page para sa opisyal na impormasyon sa bayad.',
+            'taglish' => 'Hindi ko makumpirma kung may fee o magkano ang babayaran. I-message ang Legal Affairs Office sa Messages page para sa official payment information.',
+            default => 'I can’t confirm whether a fee is required or how much it would be. Please contact the Legal Affairs Office through the Messages page for the official payment information.',
+        };
+
+        return $this->privateReply($request, $reply);
+    }
+
+    private function legalPolicyReply(
+        Request $request,
+        string $language,
+        ?string $option = null,
+    ): JsonResponse {
+        if ($option === 'a') {
+            $reply = match ($language) {
+                'filipino' => 'Ayon sa approved LexTrack guide, ang Legal Affairs Office ay may tungkulin sa legal representation ng unibersidad, legal advice at counseling, administrative investigations, at pag-review at pag-record ng mga legal document. Para sa kumpletong opisyal na policy text, kumonsulta sa Legal Affairs Office o sa official Bicol University sources.',
+                'taglish' => 'The approved LexTrack guide describes the Legal Affairs Office as handling university legal representation, legal advice and counseling, administrative investigations, and review and recordkeeping of university legal documents. For complete official policy text, consult the Legal Affairs Office or an official Bicol University source.',
+                default => 'The approved LexTrack guide describes the Legal Affairs Office as handling university legal representation, legal advice and counseling, administrative investigations, and review and recordkeeping of university legal documents. For complete official policy text, consult the Legal Affairs Office or an official Bicol University source.',
+            };
+        } elseif ($option === 'b') {
+            $reply = match ($language) {
+                'filipino' => 'Ang LexTrack ay may rules para sa document submission, tracking, document requests, at Messages. Read-only ang chatbot: hindi ito gumagawa o nagbabago ng records at hindi nagbibigay ng official legal opinion. Para sa verified system rules, gamitin ang Client Portal at Messages.',
+                'taglish' => 'LexTrack supports document submission, tracking, document requests, and Messages. Read-only ang chatbot: hindi ito gumagawa o nagbabago ng records at hindi nagbibigay ng official legal opinion. For verified system rules, use the Client Portal and Messages.',
+                default => 'LexTrack supports document submission, tracking, document requests, and Messages. The chatbot is read-only: it does not create or change records and does not provide official legal opinions. For verified system rules, use the Client Portal and Messages.',
+            };
+        } else {
+            $reply = match ($language) {
+                'filipino' => 'Ayon sa approved LexTrack guide, ang Legal Affairs Office ay tumutulong sa legal representation, legal advice at counseling, administrative investigations, at pag-review ng mga legal document ng unibersidad. Ang LexTrack naman ay para sa document submission, tracking, document requests, at Messages. Para sa opisyal na policy text o legal interpretation, kumonsulta sa Legal Affairs Office o sa official Bicol University sources.',
+                'taglish' => 'The approved LexTrack guide describes the Legal Affairs Office as handling university legal representation, legal advice and counseling, administrative investigations, and review of university legal documents. LexTrack supports document submission, tracking, document requests, and Messages. For official policy text or legal interpretation, consult the Legal Affairs Office or an official Bicol University source.',
+                default => 'The approved LexTrack guide describes the Legal Affairs Office as handling university legal representation, legal advice and counseling, administrative investigations, and review of university legal documents. LexTrack supports document submission, tracking, document requests, and Messages. For official policy text or legal interpretation, consult the Legal Affairs Office or an official Bicol University source.',
+            };
+        }
+
+        return $this->privateReply($request, $reply);
+    }
+
+    private function resolveLegalPolicyOption(
+        Request $request,
+        string $message,
+        ChatbotIntentRouter $intents,
+    ): ?JsonResponse {
+        $option = match ($intents->normalize($message)) {
+            'a', 'option a', 'a option' => 'a',
+            'b', 'option b', 'b option' => 'b',
+            default => null,
+        };
+
+        if ($option === null) {
+            return null;
+        }
+
+        $history = $request->session()->get(self::GENERAL_HISTORY_KEY, []);
+        if (! is_array($history) || $history === []) {
+            return null;
+        }
+
+        $lastTurn = end($history);
+        $lastAnswer = is_array($lastTurn) ? (string) ($lastTurn['answer'] ?? '') : '';
+
+        if (preg_match('/\\(\\s*a\\s*\\).*?\\(\\s*b\\s*\\)/is', $lastAnswer) !== 1
+            && preg_match('/\\boption\\s+a\\b.*\\boption\\s+b\\b/is', $lastAnswer) !== 1) {
+            return null;
+        }
+
+        return $this->legalPolicyReply($request, 'english', $option);
     }
 
     private function greetingReply(string $language): JsonResponse
@@ -1477,6 +1585,69 @@ class ChatbotController extends Controller
         );
     }
 
+    private function lookupByDocumentStatus(
+        Request $request,
+        User $user,
+        ClientDocumentLookupService $documents,
+        string $status,
+        string $language,
+        string $conversationId,
+    ): JsonResponse {
+        $status = trim($status);
+        $statusLabel = match ($status) {
+            'in_progress' => 'In Progress',
+            'pending' => 'Pending',
+            'outgoing' => 'Outgoing',
+            'completed' => 'Completed',
+            'returned' => 'Returned',
+            'rejected' => 'Rejected',
+            'archived' => 'Archived',
+            default => null,
+        };
+
+        if ($statusLabel === null) {
+            return $this->clarificationReply($language);
+        }
+
+        try {
+            $choices = $documents->authorizedDocumentChoicesByStatus($user, $status);
+        } catch (Throwable $exception) {
+            return $this->safeDocumentFailure($exception);
+        }
+
+        if ($choices === []) {
+            $reply = $language === 'filipino'
+                ? 'Wala akong nakitang authorized na document na may status na ' . $statusLabel . '.'
+                : ($language === 'taglish'
+                    ? 'Wala akong nakitang authorized document na may status na ' . $statusLabel . '.'
+                    : 'I found no authorized documents currently marked as ' . $statusLabel . '.');
+
+            return $this->privateReply($request, $reply);
+        }
+
+        if (count($choices) > 1) {
+            return $this->ambiguousDocumentReply(
+                $request,
+                $user,
+                $documents,
+                $conversationId,
+                'status_filter',
+                $choices,
+                $statusLabel,
+            );
+        }
+
+        return $this->documentContextReply(
+            $request,
+            fn (): array => $documents->statusByDocumentIdResult(
+                $user,
+                (int) $choices[0]['document_id'],
+                null,
+                $language,
+            ),
+        );
+    }
+
     private function lookupByDocumentName(
         Request $request,
         User $user,
@@ -1490,7 +1661,11 @@ class ChatbotController extends Controller
         try {
             $choices = $searchField === 'created_at'
                 ? $documents->authorizedDocumentChoicesBySubmittedDate($user, $name)
-                : $documents->authorizedDocumentChoicesByName($user, $name, $searchField);
+                : $documents->authorizedDocumentChoicesByReference(
+                    $user,
+                    $name,
+                    $searchField === 'document_type' ? 'document_type' : null,
+                );
         } catch (Throwable $exception) {
             return $this->safeDocumentFailure($exception);
         }
@@ -1534,6 +1709,7 @@ class ChatbotController extends Controller
                     $user,
                     (int) $choices[0]['document_id'],
                     $searchField === 'created_at' ? null : $name,
+                    $language,
                 ),
         );
     }
@@ -1762,6 +1938,15 @@ class ChatbotController extends Controller
                 'I found ' . $count . ' authorized ' . $documentNoun . ' to check.',
                 'May nakita akong ' . $count . ' authorized na ' . $documentNoun . ' para i-check.',
                 'May nakita akong ' . $count . ' authorized ' . $documentNoun . ' para i-check.',
+            );
+        }
+
+        if ($purpose === 'status_filter' && filled($topic)) {
+            return $this->listHeading(
+                $language,
+                'I found ' . $count . ' authorized ' . $topic . ' ' . $documentNoun . '.',
+                'May nakita akong ' . $count . ' authorized na ' . $topic . ' ' . $documentNoun . '.',
+                'May nakita akong ' . $count . ' authorized ' . $topic . ' ' . $documentNoun . '.',
             );
         }
 
@@ -1998,6 +2183,7 @@ class ChatbotController extends Controller
                 'rejection_definition',
                 'request_scope_clarification',
                 'copy_type_clarification',
+                'payment_inquiry',
             ], true) || $intents->isClearTopicChange($message)) {
                 $this->clearPendingAction($request);
             }
@@ -2007,6 +2193,7 @@ class ChatbotController extends Controller
             && in_array($quickIntent['intent'] ?? null, [
                 'acceptance_definition',
                 'copy_type_clarification',
+                'payment_inquiry',
             ], true)) {
             $this->clearPendingAction($request);
         }

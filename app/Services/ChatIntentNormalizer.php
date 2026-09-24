@@ -206,6 +206,13 @@ class ChatIntentNormalizer
             : $this->router->documentSelectionIndex($message);
         $name = (string) ($classification['intent'] ?? 'general_knowledge');
 
+        if ($name === 'payment_inquiry') {
+            return [
+                'payment' => true,
+                'aggregate' => $aggregate || $this->hasAggregateCue($wholeMessage),
+            ];
+        }
+
         return array_filter([
             'status' => $status ?? ($classification['status'] ?? null),
             'latest' => $this->hasLatestCue($message),
@@ -230,6 +237,10 @@ class ChatIntentNormalizer
         string $domain,
         bool $aggregate,
     ): array {
+        if (($classification['intent'] ?? null) === 'payment_inquiry') {
+            return ['type' => 'none'];
+        }
+
         if ($aggregate && in_array($classification['intent'] ?? null, ['request_count', 'document_count'], true)) {
             return ['type' => 'aggregate', 'record' => $domain === 'document_requests' ? 'request' : 'document'];
         }
@@ -263,6 +274,11 @@ class ChatIntentNormalizer
         return match ($classification['intent'] ?? null) {
             'latest_status', 'latest_submission_date', 'latest_request' => ['type' => 'latest', 'record' => $domain === 'document_requests' ? 'request' : 'document'],
             'document_context_status', 'document_context_details', 'document_context_guidance', 'document_context_rejection_reason', 'request_context_details' => ['type' => 'context', 'record' => $domain === 'document_requests' ? 'request' : 'document'],
+            'document_status_filter' => [
+                'type' => 'status_filter',
+                'record' => 'document',
+                'status' => $classification['status'] ?? null,
+            ],
             'ambiguous_document', 'ambiguous_request', 'invalid_lao' => ['type' => 'ambiguous'],
             'document_selection', 'request_selection' => ['type' => 'selection', 'validated' => true],
             default => ['type' => 'none'],
@@ -281,6 +297,7 @@ class ChatIntentNormalizer
 
         if (in_array($intent, [
             'document_count',
+            'document_status_filter',
             'latest_status',
             'latest_submission_date',
             'lao_lookup',
@@ -553,8 +570,9 @@ class ChatIntentNormalizer
 
     private function responseLanguage(string $message): string
     {
-        $tagalog = preg_match('/\b(?:ano|ang|ng|ba|ko|mo|sa|akin|ito|iyon|yan|jan|diyan|paano|pano|kailan|ilan|ilang|may|mayroon|meron|doon|dun|hindi|opo|oo|kamusta|kumusta|mabuti|na|mensahe|dokumento|hiling|tungkol|ibig sabihin|paki|natin|namin)\b/', $message) === 1;
-        $english = preg_match('/\b(?:what|how|when|where|why|which|many|request|requests|document|documents|status|accepted|pending|message|messages|latest|count|have|do|does|is|are|the|my|about|copy|pickup|download)\b/', $message) === 1;
+        $tagalog = preg_match('/\\b(?:ano|ang|ng|ba|ko|mo|sa|akin|ito|iyon|yan|jan|diyan|paano|pano|kailan|ilan|ilang|may|mayroon|meron|doon|dun|hindi|opo|oo|kamusta|kumusta|mabuti|na|mensahe|dokumento|hiling|tungkol|ibig sabihin|paki|natin|namin|bayad|bayaran|babayaran|magbayad|magkano|singil|gastos)\\b/', $message) === 1;
+        $english = preg_match('/\\b(?:what|how|when|where|why|which|many|request|requests|document|documents|status|accepted|pending|message|messages|latest|count|have|do|does|is|are|the|my|about|copy|pickup|download|pay|paid|payment|payments|fee|fees|processing|charge|charges|cost|costs|price|prices|amount|how much)\\b/', $message) === 1;
+
 
         return $tagalog && $english ? 'taglish' : ($tagalog ? 'filipino' : 'english');
     }

@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Document;
+use App\Models\DocumentType;
 use App\Models\RejectedDocument;
 use App\Models\User;
 use Illuminate\Support\Facades\Schema;
@@ -11,7 +12,7 @@ class ClientDocumentLookupService
 {
     private const NO_AUTHORIZED_MATCH = 'I couldn’t find an authorized document with that LAO number.';
 
-    private const CHATBOT_DOCUMENT_CHOICE_LIMIT = 3;
+    private const CHATBOT_DOCUMENT_CHOICE_LIMIT = 5;
 
     public function latestStatus(User $user): string
     {
@@ -170,7 +171,12 @@ class ClientDocumentLookupService
     /**
      * @return array{reply: string, document_id: ?int, status: ?string}
      */
-    public function statusByDocumentIdResult(User $user, int $documentId, ?string $topic = null): array
+    public function statusByDocumentIdResult(
+        User $user,
+        int $documentId,
+        ?string $topic = null,
+        string $language = 'english',
+    ): array
     {
         // Selection indexes are session-scoped hints, not authorization. Re-check
         // the authenticated owner before reading any document status.
@@ -191,6 +197,7 @@ class ClientDocumentLookupService
                 filled($document->lao_number) ? (string) $document->lao_number : null,
                 $this->documentDisplayName($document),
                 $topic,
+                $language,
             ),
             (int) $document->document_id,
             (string) $document->status,
@@ -401,6 +408,112 @@ class ClientDocumentLookupService
     }
 
     /**
+     * Resolve a natural-language document reference without exposing the
+     * searchable source fields. A configured document type is matched exactly
+     * after dynamic lookup; otherwise the reference is searched across the
+     * approved descriptive fields.
+     *
+     * @return list<array{document_id: int, lao_number: ?string, document_type: ?string, display_name: ?string, status_label: string, submitted_at: string}>
+     */
+    public function authorizedDocumentChoicesByReference(
+        User $user,
+        string $reference,
+        ?string $referenceType = null,
+    ): array {
+        if ($referenceType === 'document_type') {
+            $configuredType = $this->configuredDocumentType($reference);
+
+            if ($configuredType !== null) {
+                return $this->authorizedDocumentChoicesByDocumentType($user, $configuredType);
+            }
+        }
+
+        return $this->authorizedDocumentChoicesByName($user, $reference);
+    }
+
+    /**
+     * Match an exact configured type for this authenticated client's records.
+     *
+     * @return list<array{document_id: int, lao_number: ?string, document_type: ?string, display_name: ?string, status_label: string, submitted_at: string}>
+     */
+    public function authorizedDocumentChoicesByDocumentType(User $user, string $documentType): array
+    {
+        if (! Schema::hasColumn('documents', 'document_type')) {
+            return [];
+        }
+
+        $documentType = trim($documentType);
+        if ($documentType === '') {
+            return [];
+        }
+
+        return Document::query()
+            ->where('user_id', $user->getKey())
+            ->whereRaw('LOWER(TRIM(document_type)) = ?', [mb_strtolower($documentType, 'UTF-8')])
+            ->orderByDesc('created_at')
+            ->orderByDesc('document_id')
+            ->limit(self::CHATBOT_DOCUMENT_CHOICE_LIMIT)
+            ->get($this->documentChoiceColumns())
+            ->map(fn (Document $document): array => [
+                'document_id' => (int) $document->document_id,
+                'lao_number' => filled($document->lao_number) ? (string) $document->lao_number : null,
+                'document_type' => filled($document->document_type) ? (string) $document->document_type : null,
+                'display_name' => $this->documentDisplayName($document),
+                'status_label' => $this->statusLabel((string) $document->status),
+                'submitted_at' => $document->created_at?->format('F j, Y') ?? 'date unavailable',
+            ])
+            ->all();
+    }
+
+    private function configuredDocumentType(string $candidate): ?string
+    {
+        if (! Schema::hasTable('document_types')) {
+            return null;
+        }
+
+        $needle = $this->normalizeReferenceValue($candidate);
+        if ($needle === '') {
+            return null;
+        }
+
+        $types = DocumentType::query()
+            ->whereNotNull('type_name')
+            ->pluck('type_name')
+            ->map(static fn (mixed $value): string => trim((string) $value))
+            ->filter(static fn (string $value): bool => $value !== '')
+            ->values();
+
+        foreach ($types as $type) {
+            if ($this->normalizeReferenceValue($type) === $needle) {
+                return $type;
+            }
+        }
+
+        // Allow a small spelling variation without maintaining a hardcoded
+        // list of document types. The configured value remains authoritative.
+        $bestType = null;
+        $bestDistance = PHP_INT_MAX;
+
+        foreach ($types as $type) {
+            $normalizedType = $this->normalizeReferenceValue($type);
+            $distance = levenshtein($needle, $normalizedType);
+            $threshold = max(1, (int) floor(max(mb_strlen($needle), mb_strlen($normalizedType)) / 5));
+
+            if ($distance <= $threshold && $distance < $bestDistance) {
+                $bestType = $type;
+                $bestDistance = $distance;
+            }
+        }
+
+        return $bestType;
+    }
+
+    private function normalizeReferenceValue(string $value): string
+    {
+        return trim((string) preg_replace('/\s+/u', ' ', mb_strtolower($value, 'UTF-8')));
+    }
+
+    /**
      * Return minimal selectors for this client's documents with one validated
      * status. This prevents a rejection-reason request from listing unrelated
      * Pending, In Progress, or Outgoing records.
@@ -586,6 +699,8 @@ class ClientDocumentLookupService
                 $status,
                 filled($document->lao_number) ? (string) $document->lao_number : null,
                 $label,
+                null,
+                $language,
             );
         }
 
@@ -705,24 +820,36 @@ class ClientDocumentLookupService
         ?string $laoNumber,
         ?string $displayName = null,
         ?string $topic = null,
+        string $language = 'english',
     ): string {
-        $label = $this->documentLabel($displayName, $laoNumber);
+        $filipinoLike = in_array($language, ['filipino', 'taglish'], true);
+        $label = $filipinoLike
+            ? $this->filipinoDocumentLabel($displayName, $laoNumber)
+            : $this->documentLabel($displayName, $laoNumber);
 
         if (filled($topic)) {
             $topicLabel = mb_convert_case(trim($topic), MB_CASE_TITLE, 'UTF-8');
             $documentLabel = $displayName ?: ($laoNumber ?: 'selected document');
-            $label = 'Your document about "' . $topicLabel . '" ("' . $documentLabel . '")';
+            $label = $filipinoLike
+                ? 'Ang document tungkol sa "' . $topicLabel . '" ("' . $documentLabel . '")'
+                : 'Your document about "' . $topicLabel . '" ("' . $documentLabel . '")';
         }
 
         return match ($status) {
-            'pending' => "{$label} is Pending.",
-            'in_progress' => $this->inProgressStatus($user, $documentId, $laoNumber, $label),
-            'outgoing' => $this->outgoingStatus($user, $documentId, $laoNumber, $label),
-            'completed' => "{$label} is Completed.",
-            'rejected' => "{$label} is Rejected. Please view its authorized rejection reason in the Documents page.",
-            'archived' => "{$label} is Archived — Retained for Records.",
-            'returned' => "{$label} is currently Returned.",
-            default => 'The current document status is unavailable.',
+            'pending' => $filipinoLike ? "{$label} ay Pending." : "{$label} is Pending.",
+            'in_progress' => $this->inProgressStatus($user, $documentId, $laoNumber, $label, $filipinoLike),
+            'outgoing' => $this->outgoingStatus($user, $documentId, $laoNumber, $label, $filipinoLike),
+            'completed' => $filipinoLike ? "{$label} ay Completed." : "{$label} is Completed.",
+            'rejected' => $filipinoLike
+                ? "{$label} ay Rejected. Tingnan ang authorized rejection reason sa Documents page."
+                : "{$label} is Rejected. Please view its authorized rejection reason in the Documents page.",
+            'archived' => $filipinoLike
+                ? "{$label} ay Archived — Retained for Records."
+                : "{$label} is Archived — Retained for Records.",
+            'returned' => $filipinoLike ? "{$label} ay Returned." : "{$label} is currently Returned.",
+            default => $filipinoLike
+                ? 'Hindi available ang kasalukuyang status ng document.'
+                : 'The current document status is unavailable.',
         };
     }
 
@@ -731,6 +858,7 @@ class ClientDocumentLookupService
         int $documentId,
         ?string $laoNumber,
         string $label,
+        bool $filipinoLike = false,
     ): string {
         $query = Document::query()
             ->where('user_id', $user->getKey())
@@ -748,8 +876,12 @@ class ClientDocumentLookupService
         }
 
         return filled($document->action_type)
-            ? "{$label} is In Progress. Assigned action type: {$document->action_type}."
-            : "{$label} is In Progress. No assigned action type has been recorded.";
+            ? ($filipinoLike
+                ? "{$label} ay In Progress. Assigned action type: {$document->action_type}."
+                : "{$label} is In Progress. Assigned action type: {$document->action_type}.")
+            : ($filipinoLike
+                ? "{$label} ay In Progress. Walang assigned action type na nakatala."
+                : "{$label} is In Progress. No assigned action type has been recorded.");
     }
 
     private function outgoingStatus(
@@ -757,6 +889,7 @@ class ClientDocumentLookupService
         int $documentId,
         ?string $laoNumber,
         string $label,
+        bool $filipinoLike = false,
     ): string {
         // Destination and sent date are disclosed only for Outgoing documents.
         $query = Document::query()
@@ -779,7 +912,9 @@ class ClientDocumentLookupService
             : 'No destination has been recorded';
         $sentDate = $document->sent_date?->format('F j, Y') ?? 'No sent date has been recorded';
 
-        return "{$label} is Outgoing. Recorded destination: {$destination}. Date sent: {$sentDate}.";
+        return $filipinoLike
+            ? "{$label} ay Outgoing. Recorded destination: {$destination}. Date sent: {$sentDate}."
+            : "{$label} is Outgoing. Recorded destination: {$destination}. Date sent: {$sentDate}.";
     }
 
     private function statusLabel(string $status): string
@@ -794,6 +929,19 @@ class ClientDocumentLookupService
             'archived' => 'Archived',
             default => 'Unavailable',
         };
+    }
+
+    private function filipinoDocumentLabel(?string $displayName, ?string $laoNumber): string
+    {
+        if (filled($displayName) && filled($laoNumber)) {
+            return "Ang document {$displayName} ({$laoNumber})";
+        }
+
+        if (filled($displayName)) {
+            return "Ang document {$displayName}";
+        }
+
+        return filled($laoNumber) ? "Ang document {$laoNumber}" : 'Ang napiling document';
     }
 
     private function documentDisplayName(Document $document): ?string

@@ -60,7 +60,9 @@
                 ? $displayedVersionNumber
                 : 'v' . $displayedVersionNumber)
             : null;
-        $latestRejection = $documentRecord->rejections->sortByDesc('created_at')->first();
+        $latestRejection = $documentRecord->status === 'rejected'
+            ? $documentRecord->rejections->sortByDesc('created_at')->first()
+            : null;
         $allVersions = $documentRecord->versions;
         $submittedFiles = $allVersions
             ->filter(fn ($version): bool => $version->source === 'client')

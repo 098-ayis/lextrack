@@ -13,11 +13,15 @@ class ChatbotIntentRouter
     /**
      * Detect what the client is asking independently of any document reference.
      *
-     * @return 'workflow_explanation'|'yes_no_comparison'|'status_lookup'|'document_count'|'request_status'|'request_count'|'general_knowledge'
+     * @return 'payment_inquiry'|'workflow_explanation'|'yes_no_comparison'|'status_lookup'|'document_count'|'request_status'|'request_count'|'general_knowledge'
      */
     public function detectQuestionIntent(string $message): string
     {
         $normalized = $this->normalize($message);
+
+        if ($this->isPaymentInquiry($normalized)) {
+            return 'payment_inquiry';
+        }
 
         if ($this->isDocumentCountInquiry($normalized)) {
             return 'document_count';
@@ -29,10 +33,6 @@ class ChatbotIntentRouter
 
         if ($this->isYesNoStatusComparison($normalized)) {
             return 'yes_no_comparison';
-        }
-
-        if ($this->isDocumentCountInquiry($normalized)) {
-            return 'document_count';
         }
 
         if ($this->isPrivateDocumentRequestInquiry($normalized)) {
@@ -160,6 +160,17 @@ class ChatbotIntentRouter
         bool $hasPrivateRequestContext = false,
     ): array {
         $normalized = $this->normalize($message);
+
+        // Payment questions are answered locally and must not be interpreted
+        // as document lookups, even when they include an LAO number or a
+        // status word.
+        if ($this->isPaymentInquiry($normalized)) {
+            return [
+                'intent' => 'payment_inquiry',
+                'language' => $this->responseLanguage($normalized),
+            ];
+        }
+
         $questionIntent = $this->detectQuestionIntent($normalized);
         $documentReference = $this->resolveDocumentReference(
             $message,
@@ -243,6 +254,13 @@ class ChatbotIntentRouter
 
         if ($this->isUnsupportedRequest($message, $normalized)) {
             return ['intent' => 'unsupported'];
+        }
+
+        if ($this->isLegalPolicyQuestion($normalized)) {
+            return [
+                'intent' => 'legal_policy_information',
+                'language' => $this->responseLanguage($normalized),
+            ];
         }
 
         if ($hasRequestChoices
@@ -352,6 +370,14 @@ class ChatbotIntentRouter
                 'document_name' => $rejectionReference['value'] ?? null,
                 'reference_type' => $rejectionReference['type'] ?? null,
                 'reference_field' => $rejectionReference['field'] ?? null,
+                'language' => $this->responseLanguage($normalized),
+            ];
+        }
+
+        if ($this->isStatusFilteredDocumentInquiry($normalized)) {
+            return [
+                'intent' => 'document_status_filter',
+                'status' => $this->requestedStatus($normalized),
                 'language' => $this->responseLanguage($normalized),
             ];
         }
@@ -653,6 +679,10 @@ class ChatbotIntentRouter
             'upadte' => 'update',
             'updte' => 'update',
             'staus' => 'status',
+            'pollicoes' => 'policies',
+            'polocies' => 'policies',
+            'policys' => 'policies',
+            'polcy' => 'policy',
             'twhats' => 'whats',
         ] as $variant => $canonical) {
             $message = preg_replace(
@@ -881,6 +911,23 @@ class ChatbotIntentRouter
         return preg_match('/^(?:mabuti|mabuti rin|mabuti naman|mabuti po|mabuti rin po)[.! ]*$/', $message) === 1;
     }
 
+    private function isPaymentInquiry(string $message): bool
+    {
+        return preg_match(
+            '/\b(?:pay|paid|payment|payments|fee|fees|processing\s+fee|charge|charges|cost|costs|price|prices|amount|amounts|bayad|bayaran|babayaran|magbayad|magkano|singil|gastos)\b/u',
+            $message,
+        ) === 1
+            || preg_match('/\b(?:how\s+much|magkano)\b/u', $message) === 1;
+    }
+
+    private function isLegalPolicyQuestion(string $message): bool
+    {
+        $hasPolicyTerm = preg_match('/\\b(?:policy|policies)\\b/u', $message) === 1;
+        $hasLegalOfficeTerm = preg_match('/\\b(?:legal|legal affairs|office)\\b/u', $message) === 1;
+
+        return $hasPolicyTerm && $hasLegalOfficeTerm;
+    }
+
     private function isUnclearShortMessage(string $message): bool
     {
         if ($message === '' || str_contains($message, '?')) {
@@ -892,10 +939,16 @@ class ChatbotIntentRouter
             return false;
         }
 
-        return preg_match(
-            '/\b(?:what|how|when|where|why|which|define|explain|ano|paano|pano|kailan|saan|bakit|ibig sabihin|lextrack|document|documents?|request|requests?|status|message|messages?)\b/i',
+        $hasGeneralTopic = preg_match(
+            '/\b(?:lextrack|legal|legal affairs|office|services?|polic(?:y|ies)|portal|system|feature|features|faq|guide)\b/i',
             $message,
-        ) !== 1;
+        ) === 1;
+
+        return ! $hasGeneralTopic
+            && preg_match(
+                '/\b(?:what|how|when|where|why|which|define|explain|ano|paano|pano|kailan|saan|bakit|ibig sabihin|lextrack|document|documents?|request|requests?|status|message|messages?)\b/i',
+                $message,
+            ) !== 1;
     }
 
     private function isEmailDeliveryInquiry(string $message): bool
@@ -980,6 +1033,20 @@ class ChatbotIntentRouter
     {
         return ! $this->isCountQuestion($message)
             && preg_match('/\b(?:do i have|is there|are there|have i|mayroon ba|meron ba|may ba)\b/', $message) === 1;
+    }
+
+    private function isStatusFilteredDocumentInquiry(string $message): bool
+    {
+        if ($this->requestedStatus($message) === null
+            || $this->isDocumentCountInquiry($message)
+            || $this->isWorkflowExplanationQuestion($message)
+            || $this->isGeneralDocumentDefinition($message)) {
+            return false;
+        }
+
+        return $this->hasDocumentTerm($message)
+            || $this->hasPersonalReference($message)
+            || preg_match('/\b(?:i have|do i have|have i|mayroon|meron|may)\b/', $message) === 1;
     }
 
     private function isDocumentCountInquiry(string $message): bool
@@ -1068,7 +1135,7 @@ class ChatbotIntentRouter
             'outgoing' => '/\b(?:outgoing|sent out|naipadala|na forward)\b/',
             'completed' => '/\b(?:completed|complete|finished|natapos|nakumpleto)\b/',
             'returned' => '/\b(?:returned|ibinalik|naibalik)\b/',
-            'rejected' => '/\b(?:rejected|rejection|tinanggihan|na reject)\b/',
+            'rejected' => '/\b(?:rejected|rejection|reject|rejction|rejecton|tinanggihan|na reject|nareject)\b/',
             'archived' => '/\b(?:archived|archive|naka archive)\b/',
         ];
 
@@ -1213,7 +1280,8 @@ class ChatbotIntentRouter
         }
 
         // Rejection questions have their own status-aware extraction path.
-        if ($this->isRejectionReasonQuestion($normalized)) {
+        if ($this->isRejectionReasonQuestion($normalized)
+            || $this->isWorkflowExplanationQuestion($normalized)) {
             return null;
         }
 
@@ -1257,6 +1325,10 @@ class ChatbotIntentRouter
             return $submissionDate;
         }
 
+        if (($documentType = $this->extractDocumentTypeReference($normalized)) !== null) {
+            return $documentType;
+        }
+
         $patterns = [
             '/\b(?:about|regarding|concerning|tungkol\s+sa|patungkol\s+sa|para\s+sa)\s+(.+?)(?:[?!.,]|$)/iu',
             '/\b(?:dun\s+sa|doon\s+sa|diyan\s+sa|yan\s+sa|niyan\s+sa)\s+(.+?)(?:\s+(?:document|doc|submission)\b|[?!.,]|$)/iu',
@@ -1287,6 +1359,32 @@ class ChatbotIntentRouter
      *
      * @return array{type: 'submission_date', field: 'created_at', value: string}|null
      */
+    private function extractDocumentTypeReference(string $message): ?array
+    {
+        if ($this->isWorkflowExplanationQuestion($message)) {
+            return null;
+        }
+
+        if (preg_match(
+            '/^\s*(?:what\s+is\s+)?(.+?)\s+(?:update|updates|updated|status|progress|details?|detalye)\s*[?!.,]*$/iu',
+            $message,
+            $matches,
+        ) !== 1) {
+            return null;
+        }
+
+        $value = $this->cleanDocumentReference($matches[1]);
+        if ($value === null) {
+            return null;
+        }
+
+        return [
+            'type' => 'document_type',
+            'field' => 'document_type',
+            'value' => $value,
+        ];
+    }
+
     public function extractSubmissionDate(string $message): ?array
     {
         $month = '(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)';
@@ -1391,9 +1489,10 @@ class ChatbotIntentRouter
 
     private function responseLanguage(string $message): string
     {
-        return preg_match('/\b(?:salamat|sige|opo|oo|po|ko|ba|ano|paano|pano|kamusta|kumusta|mabuti|mensahe|hindi|nakatanggap|dokumentong?)\b/', $message) === 1
-            ? 'filipino'
-            : 'english';
+        $filipino = preg_match('/\\b(?:salamat|sige|opo|oo|po|ko|ba|ano|paano|pano|kamusta|kumusta|mabuti|mensahe|hindi|nakatanggap|dokumentong?|bayad|bayaran|babayaran|magbayad|magkano|singil|gastos|mayroon|meron)\\b/', $message) === 1;
+        $english = preg_match('/\\b(?:pay|paid|payment|payments|fee|fees|processing|charge|charges|cost|costs|price|prices|amount|how much|document|documents|pickup|request|status)\\b/', $message) === 1;
+
+        return $filipino && $english ? 'taglish' : ($filipino ? 'filipino' : 'english');
     }
 
     private function isGeneralStatusComparison(string $message): bool

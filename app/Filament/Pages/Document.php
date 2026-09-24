@@ -9,6 +9,7 @@ use App\Models\RejectedDocument;
 use Carbon\Carbon;
 use App\Notifications\DocumentRejectedNotification;
 use App\Notifications\DocumentAcceptedNotification;
+use App\Notifications\DocumentPendingNotification;
 use App\Notifications\DocumentCompletedNotification;
 use Filament\Pages\Page;
 use Filament\Notifications\Notification;
@@ -1732,6 +1733,7 @@ class Document extends Page implements HasTable
             ->color('gray')
             ->modalHeading('Add Document to Outgoing')
             ->modalDescription('Provide the destination and sent date for this document.')
+            ->modalWidth(Width::Small)
             ->modalAlignment(Alignment::Center)
             ->modalFooterActionsAlignment(Alignment::Center)
             ->modalSubmitAction(fn (Action $action): Action => $this->styleDocumentPrimarySubmitAction($action))
@@ -1812,6 +1814,7 @@ class Document extends Page implements HasTable
             ->modalIcon('heroicon-o-x-circle')
             ->modalIconColor('danger')
             ->modalDescription('Please provide a reason for rejecting this document.')
+            ->modalWidth(Width::Small)
             ->modalAlignment(Alignment::Center)
             ->modalFooterActionsAlignment(Alignment::Center)
             ->modalSubmitActionLabel('Reject document')
@@ -1898,35 +1901,72 @@ class Document extends Page implements HasTable
     {
         return Action::make('returnDocument')
             ->label('Return')
-            ->icon('heroicon-o-arrow-uturn-left')
             ->color('success')
             ->tooltip('Return Document')
             ->extraAttributes([
                 'class' => 'return-document-button',
             ])
+            ->requiresConfirmation()
             ->modalHeading('Return Document')
-            ->modalDescription('Choose which document section this document should be returned to.')
-            ->schema([
-                Select::make('destination')
-                    ->label('Return to')
-                    ->options([
+            ->modalDescription(fn (): string => $this->activeSection === 'rejected'
+                ? 'This document will be returned to Pending for validation.'
+                : 'Choose which document status this document should be returned to.')
+            ->modalWidth(Width::Small)
+            ->modalSubmitActionLabel('Return document')
+            ->schema(function (array $arguments, ?DocumentModel $record = null): array {
+                if ($this->activeSection === 'rejected') {
+                    return [];
+                }
+
+                $document = $record ?? DocumentModel::find($arguments['document'] ?? null);
+                $options = blank($document?->lao_number)
+                    ? ['pending' => 'Pending']
+                    : [
                         'incoming' => 'Incoming',
                         'outgoing' => 'Outgoing',
-                    ])
-                    ->required(),
-            ])
+                    ];
+
+                return [
+                    Select::make('destination')
+                        ->label('Return to')
+                        ->options($options)
+                        ->default(blank($document?->lao_number) ? 'pending' : null)
+                        ->required(),
+                ];
+            })
             ->action(function (array $data, array $arguments, ?DocumentModel $record = null): void {
                 $document = $this->resolveDocumentActionRecord($arguments, $record);
-                $isOutgoing = $data['destination'] === 'outgoing';
+                $destination = $this->activeSection === 'rejected'
+                    ? 'pending'
+                    : ($data['destination'] ?? 'incoming');
+                $status = match ($destination) {
+                    'pending' => 'pending',
+                    'outgoing' => 'outgoing',
+                    default => 'in_progress',
+                };
+
+                $wasReturnedFromRejected = $this->activeSection === 'rejected'
+                    && $destination === 'pending';
+
+                $document->loadMissing('user');
 
                 $document->update([
-                    'status' => $isOutgoing ? 'outgoing' : 'in_progress',
+                    'status' => $status,
+                    ...($wasReturnedFromRejected
+                        ? ['rejection_reason' => null]
+                        : []),
                 ]);
+
+                if ($wasReturnedFromRejected && $document->user) {
+                    $document->user->notify(
+                        new DocumentPendingNotification($document)
+                    );
+                }
 
                 $this->recordDocumentActivity(
                     $document->document_id,
                     'Document returned',
-                    'Returned the document to ' . $data['destination'] . '.'
+                    'Returned the document to ' . $destination . '.'
                 );
 
                 Notification::make()
@@ -2083,7 +2123,6 @@ class Document extends Page implements HasTable
     {
         return Action::make('returnArchivedDocument')
             ->label('Return')
-            ->icon('heroicon-o-arrow-uturn-left')
             ->color('success')
             ->tooltip('Return Document')
             ->extraAttributes([
@@ -2091,26 +2130,52 @@ class Document extends Page implements HasTable
             ])
             ->requiresConfirmation()
             ->modalHeading('Return Archived Document')
-            ->modalDescription('This will restore the document to the Completed section.')
+            ->modalDescription('Choose which document status this document should be returned to.')
+            ->modalWidth(Width::Small)
             ->modalSubmitActionLabel('Return document')
-            ->action(function (array $arguments, ?DocumentModel $record = null): void {
+            ->schema(function (array $arguments, ?DocumentModel $record = null): array {
+                $document = $record ?? DocumentModel::find($arguments['document'] ?? null);
+                $options = blank($document?->lao_number)
+                    ? ['pending' => 'Pending']
+                    : [
+                        'incoming' => 'Incoming',
+                        'outgoing' => 'Outgoing',
+                        'completed' => 'Completed',
+                    ];
+
+                return [
+                    Select::make('destination')
+                        ->label('Return to')
+                        ->options($options)
+                        ->default(blank($document?->lao_number) ? 'pending' : null)
+                        ->required(),
+                ];
+            })
+            ->action(function (array $data, array $arguments, ?DocumentModel $record = null): void {
                 $document = $this->resolveDocumentActionRecord($arguments, $record);
+                $destination = $data['destination'];
+                $status = match ($destination) {
+                    'pending' => 'pending',
+                    'incoming' => 'in_progress',
+                    'outgoing' => 'outgoing',
+                    default => 'completed',
+                };
 
                 $document->update([
-                    'status' => 'completed',
+                    'status' => $status,
                     'archived_at' => null,
                 ]);
 
                 $this->recordDocumentActivity(
                     $document->document_id,
                     'Document returned from archive',
-                    'Restored the document to the Completed section.'
+                    'Restored the document to the ' . ucfirst($destination) . ' section.'
                 );
 
                 Notification::make()
                     ->success()
                     ->title('Document returned')
-                    ->body('The document was restored to the Completed section.')
+                    ->body('The document was restored to the ' . ucfirst($destination) . ' section.')
                     ->send();
 
             });
