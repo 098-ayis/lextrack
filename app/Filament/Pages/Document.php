@@ -100,6 +100,8 @@ class Document extends Page implements HasTable
 
     public ?int $highlightedDocumentId = null;
 
+    public ?string $latestDocumentMarker = null;
+
     public bool $showAcceptedModal = false;
 
     public ?string $acceptedDocumentUploader = null;
@@ -107,6 +109,8 @@ class Document extends Page implements HasTable
     public ?int $qrCodeDocumentId = null;
 
     public ?string $qrCodeSvg = null;
+
+    public bool $qrCodeCanSendToClient = false;
 
     public static function getNavigationBadge(): ?string
     {
@@ -142,6 +146,7 @@ class Document extends Page implements HasTable
 
         $this->initializeDocumentNavigationViewState();
         $this->markDocumentSectionAsViewed($this->activeSection);
+        $this->latestDocumentMarker = $this->getLatestDocumentMarker();
     }
 
     protected function initializeDocumentNavigationViewState(): void
@@ -211,6 +216,38 @@ class Document extends Page implements HasTable
             'completed' => DocumentModel::where('status', 'completed')
                 ->count(),
         ];
+    }
+
+    public function refreshDocuments(): void
+    {
+        $latestDocumentMarker = $this->getLatestDocumentMarker();
+
+        if ($latestDocumentMarker === $this->latestDocumentMarker) {
+            // The lightweight poll is only a change check. Do not re-render
+            // the admin page when no document arrived.
+            $this->skipRender();
+
+            return;
+        }
+
+        $this->latestDocumentMarker = $latestDocumentMarker;
+
+        // Clear Filament's cached records only after a new document arrives,
+        // without resetting staff filters or pagination.
+        $this->flushCachedTableRecords();
+    }
+
+    protected function getLatestDocumentMarker(): ?string
+    {
+        $document = DocumentModel::query()
+            ->select(['document_id', 'created_at'])
+            ->latest('created_at')
+            ->latest('document_id')
+            ->first();
+
+        return $document
+            ? $document->created_at->format('Y-m-d H:i:s.u') . '|' . $document->document_id
+            : null;
     }
 
     public function getStatusCounts(): array
@@ -468,7 +505,7 @@ class Document extends Page implements HasTable
             ->columns($this->getDocumentTableColumns())
             ->recordActions($this->getDocumentTableActions())
             ->recordActionsColumnLabel('ACTION')
-            ->recordActionsAlignment('fi-align-center')
+            ->recordActionsAlignment('end')
             ->recordUrl(fn (DocumentModel $record): string => ViewDocument::getUrl([
                 'document' => $record->getPublicRouteKey(),
                 'return_to' => static::getUrl(['section' => $this->activeSection]),
@@ -795,6 +832,7 @@ class Document extends Page implements HasTable
                 'outputBase64' => false,
                 'scale' => 5,
             ])))->render($qrPayload);
+            $this->qrCodeCanSendToClient = $document->hasClientRecipient();
         } catch (\Throwable $exception) {
             report($exception);
 
@@ -812,6 +850,67 @@ class Document extends Page implements HasTable
     {
         $this->qrCodeDocumentId = null;
         $this->qrCodeSvg = null;
+        $this->qrCodeCanSendToClient = false;
+    }
+
+    public function sendQrCodeToClient(): void
+    {
+        $document = DocumentModel::query()
+            ->with('user')
+            ->findOrFail($this->qrCodeDocumentId);
+
+        if (! $document->isAvailableForMessaging()) {
+            Notification::make()
+                ->warning()
+                ->title('QR code could not be sent')
+                ->body('Messaging is unavailable until the document is accepted.')
+                ->send();
+
+            return;
+        }
+
+        if (! $document->hasClientRecipient()) {
+            Notification::make()
+                ->warning()
+                ->title('QR code could not be sent')
+                ->body('This document has no client recipient.')
+                ->send();
+
+            return;
+        }
+
+        DB::transaction(function () use ($document): void {
+            $conversation = Conversation::firstOrCreate(
+                ['document_id' => $document->document_id],
+                [
+                    'created_by' => auth()->id(),
+                    'status' => 'active',
+                ]
+            );
+
+            $conversation->participants()->syncWithoutDetaching([
+                $document->user_id => ['joined_at' => now()],
+                auth()->id() => ['joined_at' => now()],
+            ]);
+
+            Message::create([
+                'conversation_id' => $conversation->id,
+                'sender_id' => auth()->id(),
+                'body' => 'document_qr',
+            ]);
+
+            $conversation->touch();
+        });
+
+        $clientName = $document->user?->name ?? 'the client';
+
+        $this->closeQrCode();
+
+        Notification::make()
+            ->success()
+            ->title('QR code sent to client')
+            ->body('The document QR code was sent to ' . $clientName . '.')
+            ->send();
     }
 
     public function addDocumentAction(): Action
@@ -1119,15 +1218,10 @@ class Document extends Page implements HasTable
                 $data['deadline'] ??= DocumentModel::deadlineForType($data['document_type'] ?? null);
                 $data['document_name'] = $this->uploadedDocumentName($filePaths[0])
                     ?? ($data['document_name'] ?? null);
-                $targetStatus = match ($this->activeSection) {
-                    'pending' => 'pending',
-                    'incoming' => 'in_progress',
-                    'outgoing' => 'outgoing',
-                    'completed' => 'completed',
-                    'rejected' => 'rejected',
-                    'archived' => 'archived',
-                    default => 'in_progress',
-                };
+                // Documents uploaded by an administrator enter the workflow
+                // immediately and must not be placed in the client review
+                // queue, even when the add form is opened from Pending.
+                $targetStatus = 'in_progress';
 
                 $document = DB::transaction(function () use ($data, $filePaths, $fileHashes, $transmittalPaths, $transmittalHashes, $targetStatus): DocumentModel {
                     // Generate again at save time so the number is always the
@@ -1171,6 +1265,12 @@ class Document extends Page implements HasTable
                 );
 
                 $this->markDocumentSectionAsViewed($this->activeSection);
+
+                Notification::make()
+                    ->success()
+                    ->title('Document uploaded')
+                    ->body('The document was uploaded successfully and is now in progress.')
+                    ->send();
             });
     }
 

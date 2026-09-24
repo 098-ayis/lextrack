@@ -1038,7 +1038,7 @@
                                                 style="top:{{ $eventTop }}px; background-color:color-mix(in srgb, {{ $eventColor }} 10%, white); border-color:color-mix(in srgb, {{ $eventColor }} 28%, white); border-left-color:{{ $eventColor }};"
                                             >
                                                 <div class="mb-1 text-[11px] font-semibold text-gray-500">All day</div>
-                                                <div class="text-sm font-semibold break-all text-gray-800 dark:text-gray-100">{{ $this->getEventTitle($event) }}</div>
+                                                <div class="text-sm font-semibold break-all text-gray-800 dark:text-gray-900">{{ $this->getEventTitle($event) }}</div>
                                                 @if($this->getEventDetails($event))
                                                     <div class="break-all whitespace-pre-line text-[11px] text-gray-500">{{ $this->getEventDetails($event) }}</div>
                                                 @endif
@@ -1067,7 +1067,7 @@
                                                 style="top:{{ $eventTop }}px; min-height:52px; background-color:color-mix(in srgb, {{ $eventColor }} 10%, white); border-color:color-mix(in srgb, {{ $eventColor }} 28%, white); border-left-color:{{ $eventColor }};"
                                             >
                                                 <div class="text-[11px] font-semibold text-gray-500">{{ $eventTime }}</div>
-                                                <div class="text-sm font-semibold break-all text-gray-800 dark:text-gray-100">{{ $this->getEventTitle($event) }}</div>
+                                                <div class="text-sm font-semibold break-all text-gray-800 dark:text-gray-900">{{ $this->getEventTitle($event) }}</div>
                                                 @if($this->getEventDetails($event))
                                                     <div class="break-all whitespace-pre-line text-[11px] text-gray-500">{{ $this->getEventDetails($event) }}</div>
                                                 @endif
@@ -1162,7 +1162,7 @@
                                             style="top:{{ $eventTop }}px; background-color:color-mix(in srgb, {{ $eventColor }} 10%, white); border-color:color-mix(in srgb, {{ $eventColor }} 28%, white); border-left-color:{{ $eventColor }};"
                                         >
                                             <div class="mb-1 text-[10px] font-semibold text-gray-500">All day</div>
-                                            <div class="text-sm font-semibold text-gray-900 dark:text-white">{{ $this->getEventTitle($event) }}</div>
+                                            <div class="text-sm font-semibold text-gray-900 dark:text-gray-900">{{ $this->getEventTitle($event) }}</div>
                                             @if($this->getEventDetails($event))
                                                 <div class="whitespace-pre-line text-xs text-gray-500">{{ $this->getEventDetails($event) }}</div>
                                             @endif
@@ -1187,7 +1187,7 @@
                                             style="top:{{ $eventTop }}px; min-height:64px; background-color:color-mix(in srgb, {{ $eventColor }} 10%, white); border-color:color-mix(in srgb, {{ $eventColor }} 28%, white); border-left-color:{{ $eventColor }};"
                                         >
                                             <div class="text-xs font-semibold text-gray-500">{{ $eventTime }}</div>
-                                            <div class="text-sm font-semibold text-gray-900 dark:text-white">{{ $this->getEventTitle($event) }}</div>
+                                            <div class="text-sm font-semibold text-gray-900 dark:text-gray-900">{{ $this->getEventTitle($event) }}</div>
                                             @if($this->getEventDetails($event))
                                                 <div class="whitespace-pre-line text-xs text-gray-500">{{ $this->getEventDetails($event) }}</div>
                                             @endif
@@ -1564,7 +1564,7 @@
 
                                             text-gray-800
 
-                                            dark:text-gray-200
+                                            dark:text-gray-900
                                         "
                                     >
                                         {{ $this->getEventTitle($event) }}
@@ -1581,7 +1581,8 @@
                                                 text-xs
                                                 leading-4
 
-                                                text-gray-500
+                                                text-gray-700
+                                                dark:text-gray-900
                                             "
                                         >
                                             {{ $this->getEventDetails($event) }}
@@ -1601,7 +1602,8 @@
 
                                                 text-[11px]
                                                 leading-4
-                                                text-gray-500
+                                                text-gray-700
+                                                dark:text-gray-900
                                             "
                                         >
 
@@ -1615,7 +1617,7 @@
 
                                                     text-gray-600
 
-                                                    dark:text-gray-300
+                                                    dark:text-gray-900
                                                 "
                                             >
                                                 {{ $isDocumentDeadline ? 'Documents' : $staffName }}

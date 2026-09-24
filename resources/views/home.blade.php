@@ -16,7 +16,7 @@
     <div
         id="public-app"
         class="{{ $isWindowsClient ? 'is-windows' : '' }}"
-        style="{{ $isWindowsClient ? 'zoom: 0.78;' : '' }}"
+        style="{{ $isWindowsClient ? 'zoom: 0.9;' : '' }}"
     ></div>
 
     @if($isWindowsClient)
@@ -28,30 +28,30 @@
             }
 
             body:has(#public-app.is-windows .hero-section) main {
-                min-height: calc(100vh / 0.78);
+                min-height: calc(100vh / 0.9);
             }
 
             #public-app.is-windows:has(.hero-section) {
                 display: block;
-                min-height: calc(100vh / 0.78);
+                min-height: calc(100vh / 0.9);
                 background: #0F172A;
             }
 
             #public-app.is-windows:has(.hero-section) .hero-section {
-                height: calc(100vh / 0.78) !important;
-                min-height: calc(100vh / 0.78) !important;
+                height: calc(100vh / 0.9) !important;
+                min-height: calc(100vh / 0.9) !important;
                 box-sizing: border-box;
             }
 
             #public-app.is-windows:has(.public-login-layout) .public-login-layout {
-                height: calc(100vh / 0.78) !important;
-                min-height: calc(100vh / 0.78) !important;
+                height: calc(100vh / 0.9) !important;
+                min-height: calc(100vh / 0.9) !important;
                 background: #f5f5f7 !important;
             }
 
             #public-app.is-windows:has(.public-login-layout) .public-login-main {
-                height: calc(100vh / 0.78) !important;
-                min-height: calc(100vh / 0.78) !important;
+                height: calc(100vh / 0.9) !important;
+                min-height: calc(100vh / 0.9) !important;
                 flex: 0 0 auto !important;
                 align-items: center !important;
                 justify-content: center !important;
@@ -61,7 +61,7 @@
         <script>
             (() => {
                 const publicRoot = document.getElementById('public-app');
-                const zoomFactor = 0.78;
+                const zoomFactor = 0.9;
 
                 const fitWindowsHero = () => {
                     const hero = publicRoot?.querySelector('.hero-section');

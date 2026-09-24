@@ -3,9 +3,11 @@
 namespace App\Filament\Pages;
 
 use App\Models\Conversation;
+use App\Models\Document;
 use App\Models\Message;
 use App\Models\MessageAttachment;
 use App\Models\MessageReaction;
+use App\Models\User;
 use App\Support\RoleSecurity;
 use Filament\Pages\Page;
 use Filament\Notifications\Notification;
@@ -605,6 +607,43 @@ class Messages extends Page
         return 'danger';
     }
 
+    protected function getOrCreateDocumentConversation(Document $document): Conversation
+    {
+        abort_unless(
+            $document->isAvailableForMessaging(),
+            403,
+            'Messaging is available after the document is accepted.'
+        );
+
+        return DB::transaction(function () use ($document): Conversation {
+            $conversation = Conversation::firstOrCreate(
+                [
+                    'document_id' => $document->document_id,
+                ],
+                [
+                    'created_by' => auth()->id(),
+                    'status' => 'active',
+                ]
+            );
+
+            $participantIds = User::permission('view_shared_messages')
+                ->pluck('id')
+                ->push($document->user_id, auth()->id())
+                ->filter()
+                ->unique();
+
+            foreach ($participantIds as $participantId) {
+                $conversation->participants()->syncWithoutDetaching([
+                    $participantId => [
+                        'joined_at' => now(),
+                    ],
+                ]);
+            }
+
+            return $conversation;
+        });
+    }
+
     public function mount(): void
     {
         $requestId = request()->query('request');
@@ -621,17 +660,8 @@ class Messages extends Page
             return;
         }
 
-        $conversation = Conversation::query()
-            ->where('document_id', $documentId)
-            ->whereHas(
-                'document',
-                fn ($query) => $query->availableForMessaging()
-            )
-            ->first();
-
-        if (! $conversation) {
-            return;
-        }
+        $document = Document::findForRoute((string) $documentId);
+        $conversation = $this->getOrCreateDocumentConversation($document);
 
         Gate::authorize('view', $conversation);
 

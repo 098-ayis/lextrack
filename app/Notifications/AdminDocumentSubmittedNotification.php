@@ -4,11 +4,15 @@ namespace App\Notifications;
 
 use App\Models\Document;
 use Filament\Notifications\Notification as FilamentNotification;
+use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
-class AdminDocumentSubmittedNotification extends Notification
+class AdminDocumentSubmittedNotification extends Notification implements ShouldQueue
 {
+    use Queueable;
+
     public function __construct(
         public Document $document,
         public int $documentCount,
@@ -16,15 +20,19 @@ class AdminDocumentSubmittedNotification extends Notification
 
     public function via(object $notifiable): array
     {
-        return ['mail', 'database'];
+        // The database channel is persisted immediately by
+        // InAppNotificationService; only email is queued from the submission.
+        return ['mail'];
+    }
+
+    public function viaConnections(): array
+    {
+        return ['mail' => 'background'];
     }
 
     public function toMail(object $notifiable): MailMessage
     {
         $submitterName = $this->document->user?->name ?? 'A client';
-        $documentLabel = $this->documentCount === 1
-            ? 'document'
-            : 'documents';
 
         return (new MailMessage)
             ->subject(
@@ -33,10 +41,10 @@ class AdminDocumentSubmittedNotification extends Notification
             )
             ->greeting('Hello, ' . $notifiable->name . '!')
             ->line(
-                $submitterName . ' has submitted ' .
-                $this->documentCount . ' ' . $documentLabel . ' for review.'
+                $submitterName . ' submitted a new document for review.'
             )
-            ->line('Latest submission: ' . ($this->document->description ?: $this->document->particulars ?: 'Untitled document: ' . $this->document->notificationLabel()))
+            ->line('Latest Submission: ' . $this->document->notificationLabel())
+            ->line('Pending documents from this client: ' . $this->documentCount)
             ->line('Status: Pending review')
             ->action(
                 'Review Submissions',
@@ -48,16 +56,13 @@ class AdminDocumentSubmittedNotification extends Notification
     public function toDatabase(object $notifiable): array
     {
         $submitterName = $this->document->user?->name ?? 'A client';
-        $documentLabel = $this->documentCount === 1
-            ? 'document'
-            : 'documents';
 
         return [
             ...FilamentNotification::make()
                 ->title($this->document->notificationLabel())
                 ->body(
-                    $submitterName . ' submitted ' .
-                    $this->documentCount . ' ' . $documentLabel . ' for review.'
+                    $submitterName . ' submitted a new document for review. ' .
+                    'Pending documents from this client: ' . $this->documentCount . '.'
                 )
                 ->info()
                 ->getDatabaseMessage(),

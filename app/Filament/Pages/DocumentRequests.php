@@ -65,6 +65,8 @@ class DocumentRequests extends Page implements HasTable
 
     public string $dateFilter = '';
 
+    public ?string $latestRequestMarker = null;
+
     public static function getNavigationBadge(): ?string
     {
         $count = DocumentRequest::query()
@@ -92,6 +94,8 @@ class DocumentRequests extends Page implements HasTable
             ],
             true
         ) ? $section : 'pending';
+
+        $this->latestRequestMarker = $this->getLatestRequestMarker();
     }
 
     public function getMaxContentWidth(): Width
@@ -112,6 +116,38 @@ class DocumentRequests extends Page implements HasTable
             'accepted' => (int) ($counts['accepted'] ?? 0),
             'rejected' => (int) ($counts['rejected'] ?? 0),
         ];
+    }
+
+    public function refreshRequests(): void
+    {
+        $latestRequestMarker = $this->getLatestRequestMarker();
+
+        if ($latestRequestMarker === $this->latestRequestMarker) {
+            // The lightweight poll is only a change check. Do not re-render
+            // the admin page when no request arrived.
+            $this->skipRender();
+
+            return;
+        }
+
+        $this->latestRequestMarker = $latestRequestMarker;
+
+        // Clear Filament's cached records only after a new request arrives,
+        // without resetting staff filters or pagination.
+        $this->flushCachedTableRecords();
+    }
+
+    protected function getLatestRequestMarker(): ?string
+    {
+        $request = DocumentRequest::query()
+            ->select(['request_id', 'created_at'])
+            ->latest('created_at')
+            ->latest('request_id')
+            ->first();
+
+        return $request
+            ? $request->created_at->format('Y-m-d H:i:s.u') . '|' . $request->request_id
+            : null;
     }
 
     protected function getDocumentRequestTableQuery(): Builder

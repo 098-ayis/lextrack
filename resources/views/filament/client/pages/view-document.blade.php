@@ -24,9 +24,16 @@
             default => 'client-document-file-icon-default',
         };
         $allVersions = $documentRecord->versions;
-        $latestAdminRevision = $allVersions
-            ->first(fn ($version): bool => $version->source === 'admin');
-        $versionNumber = trim((string) ($latestAdminRevision?->version_number ?? ''));
+        $revisionVersionNumbers = $documentRecord->revisionVersionNumbers();
+        $revisionVersions = $allVersions
+            ->filter(fn ($version): bool =>
+                $version->source === 'admin'
+                || $revisionVersionNumbers->contains((string) $version->version_number)
+            )
+            ->sortByDesc('created_at')
+            ->values();
+        $latestRevision = $revisionVersions->first();
+        $versionNumber = trim((string) ($latestRevision?->version_number ?? ''));
         $versionBadge = $versionNumber !== ''
             ? (str_contains(strtolower($versionNumber), 'version') || str_starts_with(strtolower($versionNumber), 'v')
                 ? $versionNumber
@@ -85,10 +92,13 @@
             ]);
         }
         $submittedFiles = $allVersions
-            ->filter(fn ($version): bool => $version->source === 'client')
+            ->filter(fn ($version): bool =>
+                $version->source === 'client'
+                && ! $revisionVersionNumbers->contains((string) $version->version_number)
+            )
             ->sortByDesc('created_at')
             ->values();
-        $versions = $latestAdminRevision ? collect([$latestAdminRevision]) : collect();
+        $versions = $revisionVersions;
     @endphp
 
     <div

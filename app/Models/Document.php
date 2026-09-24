@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
@@ -269,6 +270,40 @@ class Document extends Model
         return $this->hasOne(Conversation::class, 'document_id');
     }
 
+    /**
+     * Return version numbers uploaded through a client revision request.
+     *
+     * Client revisions use the same version source as the original client
+     * submission, so the revision message distinguishes them in the viewer.
+     */
+    public function revisionVersionNumbers(): Collection
+    {
+        $messages = $this->conversation()
+            ->with('messages')
+            ->first()?->messages ?? collect();
+
+        return $messages
+            ->pluck('body')
+            ->filter(fn (mixed $body): bool => preg_match(
+                '/\bversion(?:s)?\s+(.+?)\s+and\s+(?:is|are)\s+ready\b/i',
+                (string) $body
+            ) === 1)
+            ->flatMap(function (mixed $body): array {
+                preg_match(
+                    '/\bversion(?:s)?\s+(.+?)\s+and\s+(?:is|are)\s+ready\b/i',
+                    (string) $body,
+                    $matches,
+                );
+
+                preg_match_all('/\d+(?:\.\d+)?/', $matches[1] ?? '', $numbers);
+
+                return $numbers[0] ?? [];
+            })
+            ->map(fn (string $version): string => trim($version))
+            ->unique()
+            ->values();
+    }
+
     public function scopeAvailableForMessaging(Builder $query): Builder
     {
         return $query
@@ -281,6 +316,11 @@ class Document extends Model
     {
         return filled($this->lao_number)
             && ! in_array($this->status, ['pending', 'rejected'], true);
+    }
+
+    public function hasClientRecipient(): bool
+    {
+        return $this->user?->hasRole('Client') ?? false;
     }
 
     public function messageDocument(int $documentId): void

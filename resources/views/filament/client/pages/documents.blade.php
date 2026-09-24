@@ -307,9 +307,17 @@
         }
 
         .client-documents-page .documents-table-track-action {
+            display: inline-flex !important;
+            min-width: 4.25rem;
+            align-items: center;
+            justify-content: center;
+            border-radius: 0.6rem !important;
             background-color: #6366f1 !important;
             color: #ffffff !important;
+            padding: 0.55rem 0.85rem !important;
             box-shadow: 0 1px 2px rgb(0 0 0 / 0.08);
+            font-size: 0.8rem;
+            font-weight: 700;
             text-decoration: none !important;
             text-decoration-line: none !important;
             transition: background-color 150ms ease-in-out, box-shadow 150ms ease-in-out;
@@ -632,7 +640,162 @@
         .dark .document-highlighted > td {
             background-color: rgb(55 65 81) !important;
         }
+
+        @media (max-width: 640px) {
+            .client-documents-page .client-documents-table:not(.client-documents-table-requested) .fi-ta-content {
+                overflow: visible;
+            }
+
+            .client-documents-page .client-documents-table:not(.client-documents-table-requested) .fi-ta-table,
+            .client-documents-page .client-documents-table:not(.client-documents-table-requested) .fi-ta-table tbody {
+                display: block;
+                width: 100%;
+            }
+
+            .client-documents-page .client-documents-table:not(.client-documents-table-requested) .fi-ta-table thead {
+                display: none;
+            }
+
+            .client-documents-page .client-documents-table:not(.client-documents-table-requested) .fi-ta-table tbody {
+                padding: 0.4rem;
+            }
+
+            .client-documents-page .client-documents-table:not(.client-documents-table-requested) .fi-ta-table tbody tr {
+                display: flex;
+                min-height: 4.25rem;
+                align-items: center;
+                justify-content: space-between;
+                gap: 0.75rem;
+                margin-bottom: 0.55rem;
+                border: 1px solid #e5e7eb;
+                border-radius: 0.75rem;
+                background: #ffffff;
+                padding: 0.7rem 0.75rem;
+                box-shadow: 0 1px 2px rgb(15 23 42 / 0.05);
+            }
+
+            .client-documents-page .client-documents-table:not(.client-documents-table-requested) .fi-ta-table tbody tr:last-child {
+                margin-bottom: 0;
+            }
+
+            .client-documents-page .client-documents-table:not(.client-documents-table-requested) .fi-ta-table tbody tr > td {
+                display: none !important;
+                border: 0;
+                padding: 0;
+            }
+
+            .client-documents-page .client-documents-table:not(.client-documents-table-requested) .fi-ta-table tbody tr > td:first-child,
+            .client-documents-page .client-documents-table:not(.client-documents-table-requested) .fi-ta-table tbody tr > td:last-child {
+                display: flex !important;
+                min-width: 0;
+                align-items: center;
+            }
+
+            .client-documents-page .client-documents-table:not(.client-documents-table-requested) .fi-ta-table tbody tr > td:first-child {
+                flex: 1 1 auto;
+                justify-content: flex-start;
+                text-align: left;
+            }
+
+            .client-documents-page .client-documents-table:not(.client-documents-table-requested) .fi-ta-table tbody tr > td:first-child .fi-ta-col {
+                min-width: 0;
+                justify-content: flex-start !important;
+                padding: 0;
+                text-align: left !important;
+            }
+
+            .client-documents-page .client-documents-table:not(.client-documents-table-requested) .fi-ta-table tbody tr > td:first-child .fi-ta-col > * {
+                text-align: left !important;
+            }
+
+            .client-documents-page .client-documents-table:not(.client-documents-table-requested) .fi-ta-table tbody tr > td:last-child {
+                flex: 0 0 auto;
+                justify-content: flex-end;
+                white-space: nowrap;
+            }
+
+            .client-documents-page .client-documents-table:not(.client-documents-table-requested) .fi-ta-table tbody tr > td:last-child .fi-ta-actions {
+                justify-content: flex-end !important;
+                gap: 0;
+            }
+
+            .client-documents-page .client-documents-table:not(.client-documents-table-requested) .documents-table-track-action {
+                min-width: 4.5rem;
+                min-height: 2.35rem;
+                border-radius: 0.65rem !important;
+                padding: 0.55rem 0.9rem !important;
+                font-size: 0.85rem;
+            }
+
+            .dark .client-documents-page .client-documents-table:not(.client-documents-table-requested) .fi-ta-table tbody tr {
+                border-color: #374151;
+                background: #1f2937;
+            }
+        }
     </style>
+
+    @if ($qrCodeSvg)
+        <div wire:click.self="closeQrCode" x-data class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/50 p-4" role="dialog" aria-modal="true" aria-labelledby="client-qr-code-title">
+            <div class="w-full max-w-md rounded-2xl bg-white p-6 text-center shadow-2xl dark:bg-gray-900">
+                <div class="flex items-center justify-between">
+                    <h2 id="client-qr-code-title" class="text-lg font-bold text-gray-900 dark:text-white">Document QR Code</h2>
+                    <button type="button" wire:click="closeQrCode" class="rounded-md p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-800 dark:text-gray-300 dark:hover:bg-white/10 dark:hover:text-white" aria-label="Close QR code">
+                        <span class="text-xl leading-none">&times;</span>
+                    </button>
+                </div>
+
+                <div x-ref="qrCode" class="mx-auto mt-5 flex h-64 w-64 items-center justify-center overflow-hidden rounded-lg border border-gray-200 bg-white p-2 dark:border-gray-600">
+                    {!! $qrCodeSvg !!}
+                </div>
+
+                <p class="mt-4 text-sm text-gray-600 dark:text-gray-300">Scan this code on the public Track page to view the document status and details.</p>
+
+                <button
+                    type="button"
+                    x-on:click="
+                        const svg = $refs.qrCode.querySelector('svg');
+                        if (!svg) return;
+                        const svgSource = new XMLSerializer().serializeToString(svg);
+                        const svgBlob = new Blob([svgSource], { type: 'image/svg+xml;charset=utf-8' });
+                        const svgUrl = URL.createObjectURL(svgBlob);
+                        const image = new Image();
+                        image.onload = () => {
+                            const viewBox = svg.getAttribute('viewBox')?.split(/\s+/).map(Number) ?? [];
+                            const width = Number.isFinite(viewBox[2]) && viewBox[2] > 0 ? viewBox[2] : 1024;
+                            const height = Number.isFinite(viewBox[3]) && viewBox[3] > 0 ? viewBox[3] : width;
+                            const canvas = document.createElement('canvas');
+                            canvas.width = width;
+                            canvas.height = height;
+                            const context = canvas.getContext('2d');
+                            context.fillStyle = '#ffffff';
+                            context.fillRect(0, 0, width, height);
+                            context.drawImage(image, 0, 0, width, height);
+                            URL.revokeObjectURL(svgUrl);
+                            canvas.toBlob((jpegBlob) => {
+                                if (!jpegBlob) return;
+                                const downloadUrl = URL.createObjectURL(jpegBlob);
+                                const link = document.createElement('a');
+                                link.href = downloadUrl;
+                                link.download = 'document-qr-code-{{ $qrCodeDocumentId }}.jpg';
+                                document.body.appendChild(link);
+                                link.click();
+                                link.remove();
+                                URL.revokeObjectURL(downloadUrl);
+                            }, 'image/jpeg', 0.95);
+                        };
+                        image.onerror = () => URL.revokeObjectURL(svgUrl);
+                        image.src = svgUrl;
+                    "
+                    class="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-[#0F172A] px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-700"
+                >
+                    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v12m0 0 4-4m-4 4-4-4M5 18v3h14v-3" />
+                    </svg>
+                    Download QR Code
+                </button>
+            </div>
+        </div>
+    @endif
 
     </div>
 </x-filament-panels::page>
