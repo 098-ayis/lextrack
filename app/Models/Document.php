@@ -283,6 +283,11 @@ class Document extends Model
             && ! in_array($this->status, ['pending', 'rejected'], true);
     }
 
+    public function hasClientRecipient(): bool
+    {
+        return $this->user?->hasRole('Client') ?? false;
+    }
+
     public function messageDocument(int $documentId): void
     {
         $document = static::findOrFail($documentId);

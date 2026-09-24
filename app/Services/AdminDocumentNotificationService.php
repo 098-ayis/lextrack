@@ -13,8 +13,7 @@ use Illuminate\Support\Collection;
 class AdminDocumentNotificationService
 {
     /**
-     * Send one unread submission notification per client to each admin.
-     * Later submissions update the existing in-app notification count.
+     * Notify every administrator about each client document submission.
      */
     public function notifyDocumentSubmitted(Document $document): void
     {
@@ -30,28 +29,10 @@ class AdminDocumentNotificationService
             ->count();
 
         foreach ($this->administrators() as $admin) {
-            $existing = $admin->unreadNotifications()
-                ->where('type', AdminDocumentSubmittedNotification::class)
-                ->get()
-                ->first(
-                    fn ($notification): bool => (int) data_get(
-                        $notification->data,
-                        'submission_user_id'
-                    ) === (int) $document->user_id
-                );
-
             $notification = new AdminDocumentSubmittedNotification(
                 $document,
                 $documentCount,
             );
-
-            if ($existing) {
-                $existing->update([
-                    'data' => $notification->toDatabase($admin),
-                ]);
-
-                continue;
-            }
 
             app(InAppNotificationService::class)->send($admin, $notification);
         }
@@ -110,14 +91,12 @@ class AdminDocumentNotificationService
     protected function administrators(): Collection
     {
         return User::query()
-            ->whereNotNull('email')
             ->whereHas(
                 'roles',
-                fn ($query) => $query->whereIn('name', [
-                    'Admin',
-                    'Super Admin',
-                    'super_admin',
-                ])
+                fn ($query) => $query->whereRaw(
+                    "LOWER(REPLACE(name, '_', ' ')) IN (?, ?)",
+                    ['admin', 'super admin']
+                )
             )
             ->get();
     }

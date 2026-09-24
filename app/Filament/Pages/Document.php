@@ -107,6 +107,8 @@ class Document extends Page implements HasTable
 
     public ?string $qrCodeSvg = null;
 
+    public bool $qrCodeCanSendToClient = false;
+
     public static function getNavigationBadge(): ?string
     {
         $count = DocumentModel::query()
@@ -794,6 +796,7 @@ class Document extends Page implements HasTable
                 'outputBase64' => false,
                 'scale' => 5,
             ])))->render($qrPayload);
+            $this->qrCodeCanSendToClient = $document->hasClientRecipient();
         } catch (\Throwable $exception) {
             report($exception);
 
@@ -811,6 +814,7 @@ class Document extends Page implements HasTable
     {
         $this->qrCodeDocumentId = null;
         $this->qrCodeSvg = null;
+        $this->qrCodeCanSendToClient = false;
     }
 
     public function sendQrCodeToClient(): void
@@ -829,7 +833,7 @@ class Document extends Page implements HasTable
             return;
         }
 
-        if (! $document->user_id) {
+        if (! $document->hasClientRecipient()) {
             Notification::make()
                 ->warning()
                 ->title('QR code could not be sent')

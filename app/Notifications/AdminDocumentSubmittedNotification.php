@@ -22,9 +22,6 @@ class AdminDocumentSubmittedNotification extends Notification
     public function toMail(object $notifiable): MailMessage
     {
         $submitterName = $this->document->user?->name ?? 'A client';
-        $documentLabel = $this->documentCount === 1
-            ? 'document'
-            : 'documents';
 
         return (new MailMessage)
             ->subject(
@@ -33,10 +30,10 @@ class AdminDocumentSubmittedNotification extends Notification
             )
             ->greeting('Hello, ' . $notifiable->name . '!')
             ->line(
-                $submitterName . ' has submitted ' .
-                $this->documentCount . ' ' . $documentLabel . ' for review.'
+                $submitterName . ' submitted a new document for review.'
             )
-            ->line('Latest submission: ' . ($this->document->description ?: $this->document->particulars ?: 'Untitled document: ' . $this->document->notificationLabel()))
+            ->line('Latest Submission: ' . $this->document->notificationLabel())
+            ->line('Pending documents from this client: ' . $this->documentCount)
             ->line('Status: Pending review')
             ->action(
                 'Review Submissions',
@@ -48,16 +45,13 @@ class AdminDocumentSubmittedNotification extends Notification
     public function toDatabase(object $notifiable): array
     {
         $submitterName = $this->document->user?->name ?? 'A client';
-        $documentLabel = $this->documentCount === 1
-            ? 'document'
-            : 'documents';
 
         return [
             ...FilamentNotification::make()
                 ->title($this->document->notificationLabel())
                 ->body(
-                    $submitterName . ' submitted ' .
-                    $this->documentCount . ' ' . $documentLabel . ' for review.'
+                    $submitterName . ' submitted a new document for review. ' .
+                    'Pending documents from this client: ' . $this->documentCount . '.'
                 )
                 ->info()
                 ->getDatabaseMessage(),

@@ -77,12 +77,12 @@ class AdminNotificationsTest extends TestCase
         return $user;
     }
 
-    public function test_submissions_reach_all_admins_despite_mail_failure_and_group_unread_alerts(): void
+    public function test_submissions_reach_all_admins_despite_mail_failure_with_individual_alerts(): void
     {
         $admins = collect(['Admin', 'Super Admin', 'super_admin'])->map(fn ($role) => $this->user($role));
         $client = $this->user('Client');
         $mail = Mockery::mock(MailChannel::class);
-        $mail->shouldReceive('send')->times(6)->andThrow(new TransportException('SMTP unavailable'));
+        $mail->shouldReceive('send')->times(9)->andThrow(new TransportException('SMTP unavailable'));
         $this->app->instance(MailChannel::class, $mail);
         $service = app(AdminDocumentNotificationService::class);
         $first = Document::create(['user_id' => $client->id, 'status' => 'pending']);
@@ -90,16 +90,30 @@ class AdminNotificationsTest extends TestCase
         $second = Document::create(['user_id' => $client->id, 'status' => 'pending']);
         $service->notifyDocumentSubmitted($second);
         foreach ($admins as $admin) {
-            $this->assertSame(1, $admin->notifications()->count());
-            $alert = $admin->notifications()->first();
-            $this->assertSame(AdminDocumentSubmittedNotification::class, $alert->type);
-            $this->assertSame(2, $alert->data['document_count']);
-            $this->assertStringContainsString('document='.$second->public_id, $alert->data['redirect_url']);
-            $alert->markAsRead();
+            $alerts = $admin->notifications()
+                ->where('type', AdminDocumentSubmittedNotification::class)
+                ->get();
+
+            $this->assertCount(2, $alerts);
+
+            $firstAlert = $alerts->first(
+                fn ($alert): bool => (int) data_get($alert->data, 'document_id') === (int) $first->document_id
+            );
+            $secondAlert = $alerts->first(
+                fn ($alert): bool => (int) data_get($alert->data, 'document_id') === (int) $second->document_id
+            );
+
+            $this->assertNotNull($firstAlert);
+            $this->assertNotNull($secondAlert);
+            $this->assertSame(1, $firstAlert->data['document_count']);
+            $this->assertSame(2, $secondAlert->data['document_count']);
+            $this->assertStringContainsString('document='.$second->public_id, $secondAlert->data['redirect_url']);
+
+            $alerts->each->markAsRead();
         }
         $service->notifyDocumentSubmitted($second);
         foreach ($admins as $admin) {
-            $this->assertSame(2, $admin->notifications()->count());
+            $this->assertSame(3, $admin->notifications()->count());
             $this->assertSame(1, $admin->unreadNotifications()->count());
         }
         $this->assertSame(0, $client->notifications()->count());
