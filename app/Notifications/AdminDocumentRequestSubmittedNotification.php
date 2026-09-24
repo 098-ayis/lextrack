@@ -4,18 +4,29 @@ namespace App\Notifications;
 
 use App\Models\DocumentRequest;
 use Filament\Notifications\Notification as FilamentNotification;
+use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
-class AdminDocumentRequestSubmittedNotification extends Notification
+class AdminDocumentRequestSubmittedNotification extends Notification implements ShouldQueue
 {
+    use Queueable;
+
     public function __construct(
         public DocumentRequest $request,
     ) {}
 
     public function via(object $notifiable): array
     {
-        return ['mail', 'database'];
+        // The database channel is persisted immediately by
+        // InAppNotificationService; only email is queued from the request.
+        return ['mail'];
+    }
+
+    public function viaConnections(): array
+    {
+        return ['mail' => 'background'];
     }
 
     public function toMail(object $notifiable): MailMessage

@@ -99,6 +99,8 @@ class Document extends Page implements HasTable
 
     public ?int $highlightedDocumentId = null;
 
+    public ?string $latestDocumentMarker = null;
+
     public bool $showAcceptedModal = false;
 
     public ?string $acceptedDocumentUploader = null;
@@ -143,6 +145,7 @@ class Document extends Page implements HasTable
 
         $this->initializeDocumentNavigationViewState();
         $this->markDocumentSectionAsViewed($this->activeSection);
+        $this->latestDocumentMarker = $this->getLatestDocumentMarker();
     }
 
     protected function initializeDocumentNavigationViewState(): void
@@ -212,6 +215,38 @@ class Document extends Page implements HasTable
             'completed' => DocumentModel::where('status', 'completed')
                 ->count(),
         ];
+    }
+
+    public function refreshDocuments(): void
+    {
+        $latestDocumentMarker = $this->getLatestDocumentMarker();
+
+        if ($latestDocumentMarker === $this->latestDocumentMarker) {
+            // The lightweight poll is only a change check. Do not re-render
+            // the admin page when no document arrived.
+            $this->skipRender();
+
+            return;
+        }
+
+        $this->latestDocumentMarker = $latestDocumentMarker;
+
+        // Clear Filament's cached records only after a new document arrives,
+        // without resetting staff filters or pagination.
+        $this->flushCachedTableRecords();
+    }
+
+    protected function getLatestDocumentMarker(): ?string
+    {
+        $document = DocumentModel::query()
+            ->select(['document_id', 'created_at'])
+            ->latest('created_at')
+            ->latest('document_id')
+            ->first();
+
+        return $document
+            ? $document->created_at->format('Y-m-d H:i:s.u') . '|' . $document->document_id
+            : null;
     }
 
     public function getStatusCounts(): array

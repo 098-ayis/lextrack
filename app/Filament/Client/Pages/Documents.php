@@ -2,8 +2,8 @@
 
 namespace App\Filament\Client\Pages;
 
-use App\Filament\Client\Pages\Messages as ClientMessages;
 use App\Filament\Client\Pages\DocumentTimeline;
+use App\Filament\Client\Pages\Messages as ClientMessages;
 use App\Filament\Client\Pages\ViewDocument;
 use App\Models\Document;
 use App\Models\DocumentRequest;

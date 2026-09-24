@@ -4,7 +4,10 @@
         $statusCounts = $this->getStatusCounts();
     @endphp
 
-    <div class="admin-document-requests-page admin-document-requests-{{ $activeSection }}">
+    <div
+        class="admin-document-requests-page admin-document-requests-{{ $activeSection }}"
+        wire:poll.5s="refreshRequests"
+    >
         {{-- STATUS HEADER --}}
         <div class="mb-0 w-full overflow-x-auto border border-gray-300 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
             <nav class="flex w-full min-w-[720px] items-stretch justify-start gap-1 px-3 py-2" aria-label="Document request status">
