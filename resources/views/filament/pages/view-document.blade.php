@@ -675,7 +675,7 @@
         .document-review-actions > * { flex: 1; }
         .document-review-actions button { width: 100%; justify-content: center; }
         .document-preview-card { display: flex; height: 100%; flex-direction: column; }
-        .document-preview-heading { height: 64px; min-height: 64px; justify-content: flex-start; padding-inline: 1rem; box-sizing: border-box; }
+        .document-preview-heading { height: auto; min-height: 64px; flex: 0 0 auto; justify-content: flex-start; padding-inline: 1rem; box-sizing: border-box; }
         .document-preview-heading > div { min-width: 0; flex: 1; padding-top: 0; }
         .document-preview-file-meta { display: flex; min-width: 0; align-items: center; gap: 0.7rem; }
         .document-preview-file-icon { display: inline-flex; width: 2.5rem; height: 2.7rem; flex: 0 0 2.5rem; align-items: center; justify-content: center; border-radius: 0.45rem; }
@@ -684,7 +684,7 @@
         .document-preview-file-icon-docx { background: #dbeafe; color: #2563eb; }
         .document-preview-file-icon-default { background: #e5e7eb; color: #475569; }
         .document-preview-file-meta > div { min-width: 0; }
-        .document-preview-heading h2 { font-size: 1.08rem; }
+        .document-preview-heading h2 { min-width: 0; overflow-wrap: anywhere; word-break: break-word; font-size: 1.08rem; }
         .document-preview-heading p { margin: 0.2rem 0 0; overflow: hidden; color: #8b8d94; font-size: 0.875rem; font-weight: 550; text-overflow: ellipsis; white-space: nowrap; }
         .document-preview-frame { min-height: 0; flex: 1; overflow: hidden; background: #fff; }
         .document-preview-frame iframe { display: block; width: 100%; height: 100%; border: 0; background: white; }
