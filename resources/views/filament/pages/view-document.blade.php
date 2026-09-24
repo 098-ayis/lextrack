@@ -62,12 +62,19 @@
             : null;
         $latestRejection = $documentRecord->rejections->sortByDesc('created_at')->first();
         $allVersions = $documentRecord->versions;
+        $revisionVersionNumbers = $documentRecord->revisionVersionNumbers();
         $submittedFiles = $allVersions
-            ->filter(fn ($version): bool => $version->source === 'client')
+            ->filter(fn ($version): bool =>
+                $version->source === 'client'
+                && ! $revisionVersionNumbers->contains((string) $version->version_number)
+            )
             ->sortByDesc('created_at')
             ->values();
         $versions = $allVersions
-            ->reject(fn ($version): bool => $version->source === 'client')
+            ->filter(fn ($version): bool =>
+                $version->source === 'admin'
+                || $revisionVersionNumbers->contains((string) $version->version_number)
+            )
             ->sortByDesc(function ($version): int {
                 preg_match('/(\d+)\s*$/', (string) $version->version_number, $matches);
 
