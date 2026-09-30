@@ -4,14 +4,29 @@ namespace App\Livewire;
 
 use App\Filament\Notifications\ClickableDatabaseNotification;
 use App\Models\Document;
+use App\Models\User;
+use App\Notifications\AdminDocumentRequestSubmittedNotification;
+use App\Notifications\AdminDocumentSubmittedNotification;
+use App\Notifications\CalendarEventReminder;
+use App\Notifications\DocumentDeadlineReminder;
+use App\Support\RoleSecurity;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Support\Str;
 use Livewire\Attributes\On;
 
 class DatabaseNotifications extends \Filament\Livewire\DatabaseNotifications
 {
+    private const OPERATIONAL_NOTIFICATION_TYPES = [
+        AdminDocumentRequestSubmittedNotification::class,
+        AdminDocumentSubmittedNotification::class,
+        CalendarEventReminder::class,
+        DocumentDeadlineReminder::class,
+    ];
+
     #[On('notificationClosed')]
     public function removeNotification(string $id): void
     {
@@ -27,6 +42,18 @@ class DatabaseNotifications extends \Filament\Livewire\DatabaseNotifications
     public function clearNotificationsAction(): Action
     {
         return parent::clearNotificationsAction()->hidden();
+    }
+
+    public function getNotificationsQuery(): Builder|Relation
+    {
+        $query = parent::getNotificationsQuery();
+        $user = $this->getUser();
+
+        if ($user instanceof User && $user->hasRole(RoleSecurity::SUPER_ADMIN)) {
+            $query->whereNotIn('type', self::OPERATIONAL_NOTIFICATION_TYPES);
+        }
+
+        return $query;
     }
 
     public function openNotification(string $id): void

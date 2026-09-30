@@ -102,6 +102,8 @@ class UsersTable
                     ->extraAttributes(['class' => 'users-add-button']),
                 BulkActionGroup::make([
                     DeleteBulkAction::make()
+                        ->modalHeading('Remove selected users?')
+                        ->modalDescription('Selected users will be removed from user management and cannot sign in. Their historical names and activity records will be retained.')
                         ->authorizeIndividualRecords(fn (User $record): bool => UserResource::canDelete($record)),
                 ]),
             ])
@@ -113,6 +115,8 @@ class UsersTable
                     ->extraAttributes(['class' => 'users-edit-action']),
                 DeleteAction::make()
                     ->authorize(fn (User $record): bool => UserResource::canDelete($record))
+                    ->modalHeading('Remove user?')
+                    ->modalDescription('This user will be removed from user management and can no longer sign in. Their historical name and activity records will be retained.')
                     ->iconButton()
                     ->tooltip('Delete user')
                     ->extraAttributes(['class' => 'users-delete-action']),

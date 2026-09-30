@@ -1,5 +1,5 @@
 @if ($record->user)
-    @php($userName = $record->user->name ?: 'Unknown')
+    @php($userName = $record->user->historical_display_name)
     @php($profilePhotoUrl = $record->user->getProfilePhotoUrl())
 
     <div
@@ -17,7 +17,7 @@
         @else
             <div class="flex h-8 w-8 items-center justify-center rounded-full border border-gray-300 bg-gray-200 dark:border-gray-600 dark:bg-gray-700">
                 <span class="text-xs font-bold text-gray-600 dark:text-gray-200">
-                    {{ strtoupper(substr($userName, 0, 1)) }}
+                    {{ strtoupper(substr($record->user->historical_name, 0, 1)) }}
                 </span>
             </div>
         @endif

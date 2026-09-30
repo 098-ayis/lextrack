@@ -40,7 +40,11 @@ class DocumentRequest extends Model
 
     public function user(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'user_id');
+        return $this->belongsTo(
+            User::class,
+            'user_id',
+            'id'
+        )->withTrashed();
     }
 
     public function conversation(): HasOne

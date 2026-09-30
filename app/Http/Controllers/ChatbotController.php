@@ -120,6 +120,8 @@ class ChatbotController extends Controller
                 'request_scope_clarification',
                 'copy_type_clarification',
                 'payment_inquiry',
+                'legal_services_information',
+                'legal_procedures_information',
                 'legal_policy_information',
             ], true)) {
             $quickLanguage = is_string($quickIntent['language'] ?? null)
@@ -145,6 +147,8 @@ class ChatbotController extends Controller
                     $quickLanguage,
                 ),
                 'payment_inquiry' => $this->paymentInquiryReply($request, $quickLanguage),
+                'legal_services_information' => $this->legalServicesReply($request, $quickLanguage),
+                'legal_procedures_information' => $this->legalProceduresReply($request, $quickLanguage),
                 'legal_policy_information' => $this->legalPolicyReply($request, $quickLanguage),
                 'unsupported' => $this->unsupportedReply($request),
                 default => $this->clarificationReply($quickLanguage),
@@ -363,6 +367,8 @@ class ChatbotController extends Controller
                 $intent['language'],
             ),
             'payment_inquiry' => $this->paymentInquiryReply($request, $intent['language']),
+            'legal_services_information' => $this->legalServicesReply($request, $intent['language']),
+            'legal_procedures_information' => $this->legalProceduresReply($request, $intent['language']),
             'legal_policy_information' => $this->legalPolicyReply($request, $intent['language']),
             'clarification' => $this->clarificationReply($intent['language']),
             'email_delivery' => $this->emailDeliveryReply($request, $intent['language']),
@@ -784,6 +790,28 @@ class ChatbotController extends Controller
             'filipino' => 'Hindi ko makumpirma kung may bayad o magkano ang babayaran. Makipag-ugnayan sa Legal Affairs Office sa pamamagitan ng Messages page para sa opisyal na impormasyon sa bayad.',
             'taglish' => 'Hindi ko makumpirma kung may fee o magkano ang babayaran. I-message ang Legal Affairs Office sa Messages page para sa official payment information.',
             default => 'I can’t confirm whether a fee is required or how much it would be. Please contact the Legal Affairs Office through the Messages page for the official payment information.',
+        };
+
+        return $this->privateReply($request, $reply);
+    }
+
+    private function legalServicesReply(Request $request, string $language): JsonResponse
+    {
+        $reply = match ($language) {
+            'filipino' => 'Ayon sa approved LexTrack guide, ang Legal Affairs Office ay may tungkulin sa legal representation ng unibersidad, legal advice at counseling, administrative investigations, at pagbuo, pag-review, at pag-record ng mga legal document ng unibersidad. Para sa opisyal na requirements o legal interpretation, kumonsulta sa Legal Affairs Office o sa official Bicol University source.',
+            'taglish' => 'The approved LexTrack guide describes the Legal Affairs Office as handling university legal representation, legal advice and counseling, administrative investigations, and the formulation, review, and recordkeeping of university legal documents. For official requirements or legal interpretation, contact the Legal Affairs Office or consult an official Bicol University source.',
+            default => 'The approved LexTrack guide describes the Legal Affairs Office as handling university legal representation, legal advice and counseling, administrative investigations, and the formulation, review, and recordkeeping of university legal documents. For official requirements or legal interpretation, contact the Legal Affairs Office or consult an official Bicol University source.',
+        };
+
+        return $this->privateReply($request, $reply);
+    }
+
+    private function legalProceduresReply(Request $request, string $language): JsonResponse
+    {
+        $reply = match ($language) {
+            'filipino' => "Para sa LexTrack document procedures:\n1. Sa Submit Document, kumpletuhin ang form, i-upload ang transmittal o endorsement at ang document para sa review, pagkatapos ay i-submit.\n2. Sa Request Document, piliin ang request type at copy type, kumpletuhin ang required details, pagkatapos ay i-submit.\nPara sa official legal procedures, documentary requirements, o legal interpretation, kumonsulta sa Legal Affairs Office o sa official Bicol University source.",
+            'taglish' => "For LexTrack document procedures:\n1. In Submit Document, complete the form, upload the transmittal or endorsement and the document for review, then submit it.\n2. In Request Document, choose the request type and copy type, complete the required details, then submit it.\nFor official legal procedures, documentary requirements, or legal interpretation, contact the Legal Affairs Office or consult an official Bicol University source.",
+            default => "For LexTrack document procedures:\n1. In Submit Document, complete the required information, upload the transmittal or endorsement and the document for review, review the details, then submit it.\n2. In Request Document, select the request type and copy type, complete the required information, review the details, then submit it.\nFor official legal procedures, documentary requirements, or legal interpretation, contact the Legal Affairs Office or consult an official Bicol University source.",
         };
 
         return $this->privateReply($request, $reply);

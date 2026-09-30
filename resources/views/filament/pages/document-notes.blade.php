@@ -60,6 +60,7 @@
     @endif
 
     @forelse ($documentRecord->notes->sortByDesc('created_at')->values() as $note)
+        @php($noteAuthorName = $note->user?->historical_display_name ?? 'User')
         <div
             class="relative mb-3 overflow-visible rounded-lg border border-gray-200
                    bg-gray-50 last:mb-0"
@@ -73,7 +74,7 @@
                     @if ($note->user && $note->user->getProfilePhotoUrl())
                         <img
                             src="{{ $note->user->getProfilePhotoUrl() }}"
-                            alt="{{ $note->user->name ?? 'User' }}"
+                            alt="{{ $noteAuthorName }}"
                             referrerpolicy="no-referrer"
                             class="h-8 w-8 shrink-0 rounded-full object-cover"
                         >
@@ -83,13 +84,13 @@
                                    justify-center rounded-full bg-blue-100
                                    text-xs font-bold text-blue-700"
                         >
-                            {{ strtoupper(substr($note->user->name ?? 'U', 0, 1)) }}
+                            {{ strtoupper(substr($note->user?->historical_name ?? 'U', 0, 1)) }}
                         </div>
                     @endif
 
                     <div class="flex min-w-0 flex-col">
                         <span class="document-note-author truncate text-xs font-bold text-gray-950">
-                            {{ $note->user->name ?? 'User' }}
+                            {{ $noteAuthorName }}
                         </span>
                         @if ($note->created_at)
                             <time

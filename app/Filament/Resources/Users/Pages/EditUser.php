@@ -16,7 +16,9 @@ class EditUser extends EditRecord
     {
         return [
             DeleteAction::make()
-                ->authorize(fn (): bool => UserResource::canDelete($this->getRecord())),
+                ->authorize(fn (): bool => UserResource::canDelete($this->getRecord()))
+                ->modalHeading('Remove user?')
+                ->modalDescription('This user will be removed from user management and can no longer sign in. Their historical name and activity records will be retained.'),
         ];
     }
 

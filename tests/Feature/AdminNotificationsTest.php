@@ -27,6 +27,7 @@ class AdminNotificationsTest extends TestCase
             $table->id();
             $table->string('name');
             $table->string('email');
+            $table->softDeletes();
             $table->timestamps();
         });
         Schema::create('roles', function (Blueprint $table) {
@@ -77,46 +78,66 @@ class AdminNotificationsTest extends TestCase
         return $user;
     }
 
-    public function test_submissions_reach_all_admins_despite_mail_failure_with_individual_alerts(): void
+    public function test_submissions_reach_legal_staff_but_not_super_admins_despite_mail_failure(): void
     {
         $admins = collect(['Admin', 'Super Admin', 'super_admin'])->map(fn ($role) => $this->user($role));
         $client = $this->user('Client');
         $mail = Mockery::mock(MailChannel::class);
-        $mail->shouldReceive('send')->times(9)->andThrow(new TransportException('SMTP unavailable'));
+        $mail->shouldReceive('send')->times(3)->andThrow(new TransportException('SMTP unavailable'));
         $this->app->instance(MailChannel::class, $mail);
         $service = app(AdminDocumentNotificationService::class);
         $first = Document::create(['user_id' => $client->id, 'status' => 'pending']);
         $service->notifyDocumentSubmitted($first);
         $second = Document::create(['user_id' => $client->id, 'status' => 'pending']);
         $service->notifyDocumentSubmitted($second);
-        foreach ($admins as $admin) {
-            $alerts = $admin->notifications()
-                ->where('type', AdminDocumentSubmittedNotification::class)
-                ->get();
+        $legalStaff = $admins->first(fn (User $admin): bool => $admin->name === 'Admin');
+        $alerts = $legalStaff->notifications()
+            ->where('type', AdminDocumentSubmittedNotification::class)
+            ->get();
 
-            $this->assertCount(2, $alerts);
+        $this->assertCount(2, $alerts);
 
-            $firstAlert = $alerts->first(
-                fn ($alert): bool => (int) data_get($alert->data, 'document_id') === (int) $first->document_id
-            );
-            $secondAlert = $alerts->first(
-                fn ($alert): bool => (int) data_get($alert->data, 'document_id') === (int) $second->document_id
-            );
+        $firstAlert = $alerts->first(
+            fn ($alert): bool => (int) data_get($alert->data, 'document_id') === (int) $first->document_id
+        );
+        $secondAlert = $alerts->first(
+            fn ($alert): bool => (int) data_get($alert->data, 'document_id') === (int) $second->document_id
+        );
 
-            $this->assertNotNull($firstAlert);
-            $this->assertNotNull($secondAlert);
-            $this->assertSame(1, $firstAlert->data['document_count']);
-            $this->assertSame(2, $secondAlert->data['document_count']);
-            $this->assertStringContainsString('document='.$second->public_id, $secondAlert->data['redirect_url']);
+        $this->assertNotNull($firstAlert);
+        $this->assertNotNull($secondAlert);
+        $this->assertSame(1, $firstAlert->data['document_count']);
+        $this->assertSame(2, $secondAlert->data['document_count']);
+        $this->assertStringContainsString('document='.$second->public_id, $secondAlert->data['redirect_url']);
 
-            $alerts->each->markAsRead();
-        }
+        $alerts->each->markAsRead();
         $service->notifyDocumentSubmitted($second);
-        foreach ($admins as $admin) {
-            $this->assertSame(3, $admin->notifications()->count());
-            $this->assertSame(1, $admin->unreadNotifications()->count());
-        }
+        $this->assertSame(3, $legalStaff->notifications()->count());
+        $this->assertSame(1, $legalStaff->unreadNotifications()->count());
+        $this->assertSame(0, $admins->first(fn (User $admin): bool => $admin->name === 'Super Admin')->notifications()->count());
+        $this->assertSame(0, $admins->first(fn (User $admin): bool => $admin->name === 'super_admin')->notifications()->count());
         $this->assertSame(0, $client->notifications()->count());
+    }
+
+    public function test_calendar_reminders_skip_super_admin(): void
+    {
+        $this->travelTo(now()->setDate(2026, 9, 8)->startOfDay());
+        $superAdmin = $this->user('Super Admin');
+        $mail = Mockery::mock(MailChannel::class);
+        $mail->shouldReceive('send')->never();
+        $this->app->instance(MailChannel::class, $mail);
+
+        $scheduled = now()->addMinutes(60);
+        Calendar::create([
+            'user_id' => $superAdmin->id,
+            'event' => 'Super Admin event',
+            'date' => $scheduled->toDateString(),
+            'time' => $scheduled->format('H:i:s'),
+        ]);
+
+        $this->artisan('calendar:send-reminders')->assertSuccessful();
+
+        $this->assertSame(0, $superAdmin->notifications()->count());
     }
 
     public function test_calendar_reminders_survive_mail_failure_without_repeating(): void

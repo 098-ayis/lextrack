@@ -51,7 +51,7 @@ class Calendar extends Model
             User::class,
             'user_id',
             'id'
-        );
+        )->withTrashed();
     }
 
     public function documentRequest(): BelongsTo

@@ -74,6 +74,7 @@ class ViewDocument extends Page
             })
             ->with([
                 'latestVersion',
+                'versions.user',
                 'versions' => fn ($query) => $query
                     ->latest('created_at')
                     ->latest('version_id'),

@@ -31,9 +31,7 @@ class DocumentAcceptanceNotificationTest extends TestCase
                 if (! $notification instanceof DatabaseNotification) {
                     return false;
                 }
-                $qr = collect($notification->toDatabase(new User)['actions'])
-                    ->firstWhere('name', 'viewDocumentQrCode');
-                return $qr !== null && str_contains($qr['url'], '/document-qr/1?signature=');
+                return empty($notification->toDatabase(new User)['actions'] ?? []);
             }));
 
         $document = new Document;
@@ -67,9 +65,7 @@ class DocumentAcceptanceNotificationTest extends TestCase
                 if (! $notification instanceof DatabaseNotification) {
                     return false;
                 }
-                $qr = collect($notification->toDatabase(new User)['actions'])
-                    ->firstWhere('name', 'viewDocumentQrCode');
-                return $qr !== null && str_contains($qr['url'], '/document-qr/1?signature=');
+                return empty($notification->toDatabase(new User)['actions'] ?? []);
             }));
 
         $document = new Document;
@@ -104,11 +100,7 @@ class DocumentAcceptanceNotificationTest extends TestCase
                 if (! $notification instanceof DatabaseNotification) {
                     return false;
                 }
-                $actions = $notification->toDatabase(new User)['actions'];
-                $qr = collect($actions)->firstWhere('name', 'viewDocumentQrCode');
-                return $qr !== null
-                    && str_contains($qr['url'], '/document-qr/1')
-                    && str_contains($qr['url'], 'signature=');
+                return empty($notification->toDatabase(new User)['actions'] ?? []);
             }));
 
         $document = new Document;

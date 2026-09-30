@@ -387,7 +387,7 @@
                                             <img
                                                 src="{{ $document->user->getProfilePhotoUrl() }}"
                                                 referrerpolicy="no-referrer"
-                                                alt="{{ $document->user->name }}"
+                                                alt="{{ $document->user->historical_display_name }}"
                                                 class="w-9 h-9 rounded-full object-cover
                                                     border border-gray-300
                                                     flex-shrink-0"
@@ -401,7 +401,7 @@
                                                     flex-shrink-0"
                                             >
                                                 <span class="text-xs font-bold text-gray-600">
-                                                    {{ strtoupper(substr($document->user->name ?? 'U', 0, 1)) }}
+                                                    {{ strtoupper(substr($document->user->historical_name, 0, 1)) }}
                                                 </span>
                                             </div>
                                         @endif
@@ -409,7 +409,7 @@
                                         {{-- User Information --}}
                                         <div class="flex min-w-0 flex-col">
                                             <span class="text-xs font-semibold text-gray-900">
-                                                {{ $document->user->name }}
+                                                {{ $document->user->historical_display_name }}
                                             </span>
                                         </div>
 

@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Storage;
@@ -28,6 +29,8 @@ class User extends Authenticatable implements FilamentUser, HasAvatar, MustVerif
 
     public const DEFAULT_STATUS = 'Active';
 
+    public const FORMER_USER_LABEL = 'Former User';
+
     public const STATUS_OPTIONS = [
         'Active' => 'Active',
         'Inactive' => 'Inactive',
@@ -36,9 +39,7 @@ class User extends Authenticatable implements FilamentUser, HasAvatar, MustVerif
     ];
 
     /** @use HasFactory<UserFactory> */
-    use HasApiTokens, HasFactory, MustVerifyEmailTrait, Notifiable;
-
-    use HasRoles;
+    use HasApiTokens, HasFactory, HasRoles, MustVerifyEmailTrait, Notifiable, SoftDeletes;
 
     protected $fillable = [
         'name',
@@ -98,6 +99,31 @@ class User extends Authenticatable implements FilamentUser, HasAvatar, MustVerif
     }
 
     /**
+     * Return the person's preserved historical name for record attribution.
+     *
+     * Soft-deleting a user must not turn old records into an anonymous
+     * "deleted account". The deleted_at flag is rendered separately as a
+     * lifecycle label wherever this name is shown.
+     */
+    public function getHistoricalNameAttribute(): string
+    {
+        return trim((string) $this->name) ?: 'Unknown User';
+    }
+
+    public function getHistoricalStatusLabelAttribute(): ?string
+    {
+        return $this->trashed() ? self::FORMER_USER_LABEL : null;
+    }
+
+    public function getHistoricalDisplayNameAttribute(): string
+    {
+        return $this->historical_name
+            . ($this->historical_status_label
+                ? ' (' . $this->historical_status_label . ')'
+                : '');
+    }
+
+    /**
      * Get the attributes that should be cast.
      *
      * @return array<string, string>
@@ -122,7 +148,7 @@ class User extends Authenticatable implements FilamentUser, HasAvatar, MustVerif
 
     public function canAccessPanel(Panel $panel): bool
     {
-        if ($this->status !== self::DEFAULT_STATUS) {
+        if ($this->trashed() || $this->status !== self::DEFAULT_STATUS) {
             return false;
         }
 

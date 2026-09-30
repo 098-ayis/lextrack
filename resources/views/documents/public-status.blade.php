@@ -148,7 +148,7 @@
                 </div>
                 <div class="row">
                     <dt>Uploaded By</dt>
-                    <dd>{{ $document->user?->name ?? 'Unknown user' }}</dd>
+                    <dd>{{ $document->user?->historical_display_name ?? 'Unknown user' }}</dd>
                 </div>
                 <div class="row">
                     <dt>Office / Unit</dt>

@@ -54,7 +54,6 @@ use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Filament\Schemas\Components\Grid;
-use Illuminate\Support\Facades\URL;
 // use BezhanSalleh\FilamentShield\Traits\HasPageShield;
 
 class Document extends Page implements HasTable
@@ -109,8 +108,6 @@ class Document extends Page implements HasTable
     public ?int $qrCodeDocumentId = null;
 
     public ?string $qrCodeSvg = null;
-
-    public bool $qrCodeCanSendToClient = false;
 
     public static function getNavigationBadge(): ?string
     {
@@ -416,18 +413,8 @@ class Document extends Page implements HasTable
         if ($result['accepted'] && $document->user) {
             Notification::make()
                 ->title($document->notificationLabel())
-                ->body('Your document has been accepted. Open your QR code below and scan it to track the document status. LAO Number: ' . $document->lao_number)
+                ->body('Your document has been accepted and is now being processed. LAO Number: ' . $document->lao_number)
                 ->success()
-                ->actions([
-                    Action::make('viewDocumentQrCode')
-                        ->label('View QR code')
-                        ->icon('heroicon-o-qr-code')
-                        ->url(URL::signedRoute('documents.qr', [
-                            'document' => $document->document_id,
-                        ]))
-                        ->openUrlInNewTab()
-                        ->button(),
-                ])
                 ->sendToDatabase($document->user);
 
             try {
@@ -832,7 +819,6 @@ class Document extends Page implements HasTable
                 'outputBase64' => false,
                 'scale' => 5,
             ])))->render($qrPayload);
-            $this->qrCodeCanSendToClient = $document->hasClientRecipient();
         } catch (\Throwable $exception) {
             report($exception);
 
@@ -850,67 +836,6 @@ class Document extends Page implements HasTable
     {
         $this->qrCodeDocumentId = null;
         $this->qrCodeSvg = null;
-        $this->qrCodeCanSendToClient = false;
-    }
-
-    public function sendQrCodeToClient(): void
-    {
-        $document = DocumentModel::query()
-            ->with('user')
-            ->findOrFail($this->qrCodeDocumentId);
-
-        if (! $document->isAvailableForMessaging()) {
-            Notification::make()
-                ->warning()
-                ->title('QR code could not be sent')
-                ->body('Messaging is unavailable until the document is accepted.')
-                ->send();
-
-            return;
-        }
-
-        if (! $document->hasClientRecipient()) {
-            Notification::make()
-                ->warning()
-                ->title('QR code could not be sent')
-                ->body('This document has no client recipient.')
-                ->send();
-
-            return;
-        }
-
-        DB::transaction(function () use ($document): void {
-            $conversation = Conversation::firstOrCreate(
-                ['document_id' => $document->document_id],
-                [
-                    'created_by' => auth()->id(),
-                    'status' => 'active',
-                ]
-            );
-
-            $conversation->participants()->syncWithoutDetaching([
-                $document->user_id => ['joined_at' => now()],
-                auth()->id() => ['joined_at' => now()],
-            ]);
-
-            Message::create([
-                'conversation_id' => $conversation->id,
-                'sender_id' => auth()->id(),
-                'body' => 'document_qr',
-            ]);
-
-            $conversation->touch();
-        });
-
-        $clientName = $document->user?->name ?? 'the client';
-
-        $this->closeQrCode();
-
-        Notification::make()
-            ->success()
-            ->title('QR code sent to client')
-            ->body('The document QR code was sent to ' . $clientName . '.')
-            ->send();
     }
 
     public function addDocumentAction(): Action

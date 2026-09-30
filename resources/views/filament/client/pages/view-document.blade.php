@@ -197,7 +197,7 @@
                                     <div class="client-document-detail-row"><dt>Purpose</dt><dd>{{ $requestRecord->purpose ?: '—' }}</dd></div>
                                     <div class="client-document-detail-row"><dt>Details</dt><dd>{{ $requestRecord->purpose_details ?: '—' }}</dd></div>
                                     <div class="client-document-detail-row"><dt>Type</dt><dd>Soft copy</dd></div>
-                                    <div class="client-document-detail-row"><dt>Requested By</dt><dd>{{ $requestRecord->user?->name ?: '—' }}</dd></div>
+                                    <div class="client-document-detail-row"><dt>Requested By</dt><dd>{{ $requestRecord->user?->historical_display_name ?: '—' }}</dd></div>
                                     <div class="client-document-detail-row"><dt>Date of Request</dt><dd>{{ $requestRecord->date_of_request?->format('F d, Y') ?: '—' }}</dd></div>
                                     <div class="client-document-detail-row"><dt>Date Accepted</dt><dd>{{ $requestRecord->date_processed?->format('F d, Y') ?: '—' }}</dd></div>
                                 </dl>
@@ -279,6 +279,7 @@
                                     >
                                         <span class="client-document-file-badge {{ $fileBadgeClass($submittedFileName) }}">{{ strtoupper(pathinfo($submittedFileName, PATHINFO_EXTENSION)) ?: 'FILE' }}</span>
                                         <span class="client-document-file-name">{{ $submittedFileName }}</span>
+                                        <span class="client-document-file-uploader">Uploaded by {{ $submittedFile->user?->historical_display_name ?? 'Unknown User' }}</span>
                                     </button>
                                     <div class="client-document-file-menu-wrap" x-data="{ menuOpen: false }">
                                         <button type="button" class="client-document-file-menu-button" aria-label="Submitted file options" aria-haspopup="menu" @click.stop="menuOpen = !menuOpen">
@@ -315,6 +316,7 @@
                                     >
                                         <span class="client-document-file-badge {{ $fileBadgeClass($versionFileName) }}">{{ strtoupper(pathinfo($versionFileName, PATHINFO_EXTENSION)) ?: 'FILE' }}</span>
                                         <span class="client-document-file-name">{{ $versionFileName }}</span>
+                                        <span class="client-document-file-uploader">Uploaded by {{ $version->user?->historical_display_name ?? 'Unknown User' }}</span>
                                     </button>
                                     <span class="client-document-version-badge">{{ $versionLabel }}</span>
                                     <div class="client-document-file-menu-wrap" x-data="{ menuOpen: false }">
@@ -471,6 +473,7 @@
         .client-document-file-select:focus-visible { outline: 2px solid #6366f1; outline-offset: 2px; border-radius: 0.35rem; }
         .client-document-file-badge { display: inline-flex; width: 2.35rem; height: 2.35rem; flex: 0 0 auto; align-items: center; justify-content: center; border-radius: 0.4rem; font-size: 0.62rem; font-weight: 800; }
         .client-document-file-name { min-width: 0; flex: 1 1 auto; overflow: hidden; color: #7b8495; font-size: 0.85rem; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+        .client-document-file-uploader { flex: 0 0 auto; color: #9ca3af; font-size: 0.68rem; font-weight: 500; white-space: nowrap; }
         .client-document-file-empty { margin: 0; color: #9ca3af; font-size: 0.85rem; }
         .client-document-file-menu-wrap { position: relative; flex: 0 0 auto; }
         .client-document-file-menu-button { display: inline-flex; width: 2rem; height: 2rem; align-items: center; justify-content: center; border: 0; border-radius: 999px; background: transparent; color: #4b5563; cursor: pointer; }

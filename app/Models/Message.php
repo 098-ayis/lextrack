@@ -37,7 +37,7 @@ class Message extends Model
     {
         return $this->belongsTo(
             User::class, 'sender_id', 'id'
-        );
+        )->withTrashed();
     }
     
 
@@ -48,7 +48,7 @@ class Message extends Model
             'message_reads',
             'message_id',
             'user_id'
-        )->withPivot('read_at');
+        )->withTrashed()->withPivot('read_at');
     }
 
     public function attachments(): HasMany

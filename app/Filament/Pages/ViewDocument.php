@@ -11,6 +11,7 @@ use App\Models\DocumentType;
 use App\Models\OfficeUnit;
 use App\Models\Message;
 use App\Models\RejectedDocument;
+use App\Models\User;
 use App\Rules\UniqueDocumentVersionUpload;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
@@ -124,6 +125,7 @@ class ViewDocument extends Page implements HasForms
             'versions',
             DocumentVersion::query()
                 ->where('document_id', $this->documentRecord->document_id)
+                ->with('user')
                 ->orderBy('version_id')
                 ->get(),
         );
@@ -419,7 +421,7 @@ class ViewDocument extends Page implements HasForms
         $this->documentRecord->refresh()->load([
             'user',
             'notes.user',
-            'versions',
+            'versions.user',
             'latestVersion',
             'rejections',
             'activityLogs.user',
@@ -471,7 +473,7 @@ class ViewDocument extends Page implements HasForms
 
         $this->documentRecord->load([
             'notes.user',
-            'versions',
+            'versions.user',
             'activityLogs.user',
         ]);
         $this->isAddingNote = false;
@@ -834,7 +836,7 @@ class ViewDocument extends Page implements HasForms
                 $this->documentRecord->load([
                     'user',
                     'rejections',
-                    'versions',
+                    'versions.user',
                     'latestVersion',
                     'activityLogs.user',
                 ]);
@@ -1123,7 +1125,7 @@ JS;
         if ($uploadedVersions !== []) {
             $this->documentRecord->load([
                 'notes.user',
-                'versions',
+                'versions.user',
                 'latestVersion',
                 'activityLogs.user',
             ]);
@@ -1213,7 +1215,7 @@ JS;
 
         $this->documentRecord->load([
             'notes.user',
-            'versions',
+            'versions.user',
             'latestVersion',
             'activityLogs.user',
         ]);
@@ -1373,7 +1375,7 @@ JS;
         $this->documentRecord->load([
             'user',
             'notes.user',
-            'versions',
+            'versions.user',
             'latestVersion',
             'rejections',
             'activityLogs.user',
@@ -1488,7 +1490,7 @@ JS;
         $this->documentRecord->load([
             'user',
             'notes.user',
-            'versions',
+            'versions.user',
             'latestVersion',
             'rejections',
             'activityLogs.user',
@@ -1647,9 +1649,12 @@ JS;
 
     public function activityActorFirstName(ActivityLog $log): string
     {
-        $name = preg_replace('/\s+/u', ' ', trim((string) $log->user?->name)) ?? '';
+        $name = preg_replace('/\s+/u', ' ', trim((string) $log->user?->historical_name)) ?? '';
+        $firstName = explode(' ', $name, 2)[0] ?: 'Someone';
 
-        return explode(' ', $name, 2)[0] ?: 'Someone';
+        return $firstName . ($log->user?->trashed()
+            ? ' (' . User::FORMER_USER_LABEL . ')'
+            : '');
     }
 
     /** @return list<array{label: string, before: string, after: string}> */

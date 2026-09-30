@@ -196,7 +196,7 @@
                             <div class="document-detail-row"><dt>Purpose</dt><dd>{{ $softCopyRequest->purpose ?: '—' }}</dd></div>
                             <div class="document-detail-row"><dt>Details</dt><dd>{{ $softCopyRequest->purpose_details ?: '—' }}</dd></div>
                             <div class="document-detail-row"><dt>Type</dt><dd>Soft copy</dd></div>
-                            <div class="document-detail-row"><dt>Requested By</dt><dd>{{ $softCopyRequest->user?->name ?? '—' }}</dd></div>
+                            <div class="document-detail-row"><dt>Requested By</dt><dd>{{ $softCopyRequest->user?->historical_display_name ?? '—' }}</dd></div>
                             <div class="document-detail-row"><dt>Date of Request</dt><dd>{{ $softCopyRequest->date_of_request?->format('F d, Y') ?? '—' }}</dd></div>
                             <div class="document-detail-row"><dt>Date Accepted</dt><dd>{{ $softCopyRequest->date_processed?->format('F d, Y') ?? '—' }}</dd></div>
                         </dl>
@@ -245,7 +245,7 @@
                         <dl class="document-detail-list document-secondary-details">
                             <div class="document-detail-row"><dt>File</dt><dd>{{ $latestFilePath ? basename($latestFilePath) : 'No file' }}</dd></div>
                             <div class="document-detail-row"><dt>Uploaded</dt><dd>{{ $documentRecord->created_at?->format('F d, Y') ?? 'Unknown' }}</dd></div>
-                            <div class="document-detail-row"><dt>Uploaded By</dt><dd>{{ $documentRecord->user?->name ?? 'Unknown' }}</dd></div>
+                            <div class="document-detail-row"><dt>Uploaded By</dt><dd>{{ $documentRecord->user?->historical_display_name ?? 'Unknown' }}</dd></div>
                             <div class="document-detail-row"><dt>Last Updated</dt><dd>{{ $documentRecord->updated_at?->format('F d, Y') ?? 'Unknown' }}</dd></div>
                             @if ($latestRejection)
                                 <div class="document-detail-row document-detail-row-stacked"><dt>Rejection Reason</dt><dd>{{ $latestRejection->reason }}</dd></div>
@@ -307,6 +307,7 @@
                                     <button type="button" wire:click="selectVersion({{ $submittedFile->version_id }})" wire:loading.attr="disabled" class="document-file-select {{ $selectedVersionId === $submittedFile->version_id && ! $isTransmittalSelected ? 'is-selected' : '' }}" title="Preview {{ $submittedFileName }}">
                                         <span class="document-file-badge {{ $fileBadgeClass($submittedFileName) }}">{{ strtoupper(pathinfo($submittedFileName, PATHINFO_EXTENSION)) ?: 'FILE' }}</span>
                                         <span class="document-file-name">{{ $submittedFileName }}</span>
+                                        <span class="document-file-uploader">Uploaded by {{ $submittedFile->user?->historical_display_name ?? 'Unknown User' }}</span>
                                     </button>
                                     <div class="relative shrink-0" x-data="{ menuOpen: false }">
                                         <button type="button" class="document-file-menu-button" aria-label="Submitted file options" aria-haspopup="menu" @click.stop="menuOpen = !menuOpen">
@@ -372,12 +373,14 @@
                                             <span class="document-file-badge {{ $fileBadgeClass($versionFileName) }}">{{ strtoupper(pathinfo($versionFileName, PATHINFO_EXTENSION)) ?: 'FILE' }}</span>
                                             <span class="document-file-name">{{ $versionFileName }}</span>
                                             <span class="document-version-badge">{{ $versionBadge }}</span>
+                                            <span class="document-file-uploader">Uploaded by {{ $version->user?->historical_display_name ?? 'Unknown User' }}</span>
                                         </div>
                                     @else
                                         <button type="button" wire:click="selectVersion({{ $version->version_id }})" wire:loading.attr="disabled" class="document-file-select {{ $selectedVersionId === $version->version_id ? 'is-selected' : '' }}" title="Preview {{ $versionFileName }}">
                                             <span class="document-file-badge {{ $fileBadgeClass($versionFileName) }}">{{ strtoupper(pathinfo($versionFileName, PATHINFO_EXTENSION)) ?: 'FILE' }}</span>
                                             <span class="document-file-name">{{ $versionFileName }}</span>
                                             <span class="document-version-badge">{{ $versionBadge }}</span>
+                                            <span class="document-file-uploader">Uploaded by {{ $version->user?->historical_display_name ?? 'Unknown User' }}</span>
                                         </button>
                                     @endif
                                     <div class="relative shrink-0" x-data="{ menuOpen: false }">
@@ -436,9 +439,9 @@
                             >
                                 <div class="document-history-avatar">
                                     @if ($log->user && $log->user->getProfilePhotoUrl())
-                                        <img src="{{ $log->user->getProfilePhotoUrl() }}" alt="{{ $log->user->name ?? 'User' }}" referrerpolicy="no-referrer">
+                                        <img src="{{ $log->user->getProfilePhotoUrl() }}" alt="{{ $log->user->historical_display_name ?? 'User' }}" referrerpolicy="no-referrer">
                                     @else
-                                        <span>{{ strtoupper(substr($log->user->name ?? 'U', 0, 1)) }}</span>
+                                        <span>{{ strtoupper(substr($log->user?->historical_name ?? 'U', 0, 1)) }}</span>
                                     @endif
                                 </div>
                                 <div class="document-history-copy">
@@ -672,6 +675,7 @@
         .document-file-badge-docx { border-color: #bfdbfe; background: #dbeafe; color: #2563eb; }
         .document-file-badge-default { border-color: #cbd5e1; background: #e2e8f0; color: #64748b; }
         .document-file-name { min-width: 0; flex: 1; overflow: hidden; color: #737b8c; font-size: 0.8rem; font-weight: 550; text-overflow: ellipsis; white-space: nowrap; }
+        .document-file-uploader { flex-shrink: 0; color: #9ca3af; font-size: 0.68rem; font-weight: 500; white-space: nowrap; }
         .document-version-badge { display: inline-flex; flex-shrink: 0; align-items: center; border-radius: 999px; background: #f3f4f6; padding: 0.2rem 0.5rem; color: #4b5563; font-size: 0.68rem; font-weight: 600; }
         .document-file-menu-button { display: inline-flex; width: 2rem; height: 2rem; flex-shrink: 0; align-items: center; justify-content: center; border: 0; border-radius: 999px; background: transparent; color: #111827; cursor: pointer; }
         .document-file-menu-button:hover { background: #f3f4f6; }

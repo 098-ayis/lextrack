@@ -1429,8 +1429,6 @@ class ChatbotRoutingTest extends TestCase
         $questions = [
             'What is the Legal Affairs Office?',
             'What is legal office?',
-            'Legal services',
-            'Legal policies',
             'What is the Messages page?',
             'ano ibig sabihin ng outgoing?',
             'Ano ang transmittal?',
@@ -1484,11 +1482,12 @@ class ChatbotRoutingTest extends TestCase
         }
     }
 
-    public function test_short_legal_topic_phrases_are_general_knowledge_questions(): void
+    public function test_short_legal_topic_phrases_are_classified_by_topic(): void
     {
         $router = app(ChatbotIntentRouter::class);
 
-        $this->assertSame('general_knowledge', $router->classify('legal services')['intent']);
+        $this->assertSame('legal_services_information', $router->classify('legal services')['intent']);
+        $this->assertSame('legal_procedures_information', $router->classify('legal procedures')['intent']);
         $this->assertSame('legal_policy_information', $router->classify('legal policies')['intent']);
         $this->assertSame('legal_policy_information', $router->classify('legal pollicoes')['intent']);
     }
@@ -1507,6 +1506,17 @@ class ChatbotRoutingTest extends TestCase
             ->assertSee('LexTrack supports document submission, tracking, document requests, and Messages.')
             ->assertDontSee('Do you mean')
             ->assertDontSee('Could you clarify');
+
+        $this->postJson('/chatbot/message', ['message' => 'Legal Services'])
+            ->assertOk()
+            ->assertSee('university legal representation')
+            ->assertDontSee('could not complete that request');
+
+        $this->postJson('/chatbot/message', ['message' => 'Legal Procedures'])
+            ->assertOk()
+            ->assertSee('Submit Document')
+            ->assertSee('Request Document')
+            ->assertDontSee('could not complete that request');
 
         $policyChoice = 'Do you mean (A) the Legal Affairs Office policy, or (B) LexTrack rules?';
 

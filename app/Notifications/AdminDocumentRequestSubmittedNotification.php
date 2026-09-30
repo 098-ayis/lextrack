@@ -31,7 +31,7 @@ class AdminDocumentRequestSubmittedNotification extends Notification implements 
 
     public function toMail(object $notifiable): MailMessage
     {
-        $requesterName = $this->request->user?->name ?? 'A client';
+        $requesterName = $this->request->user?->historical_display_name ?? 'A client';
 
         return (new MailMessage)
             ->subject('New document request')
@@ -48,7 +48,7 @@ class AdminDocumentRequestSubmittedNotification extends Notification implements 
 
     public function toDatabase(object $notifiable): array
     {
-        $requesterName = $this->request->user?->name ?? 'A client';
+        $requesterName = $this->request->user?->historical_display_name ?? 'A client';
 
         return [
             ...FilamentNotification::make()

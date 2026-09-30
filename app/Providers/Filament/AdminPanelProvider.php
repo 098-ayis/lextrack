@@ -10,6 +10,11 @@ use App\Http\Middleware\IdleTimeout;
 use App\Livewire\DatabaseNotifications;
 use App\Models\Document;
 use App\Models\DocumentRequest;
+use App\Notifications\AdminDocumentRequestSubmittedNotification;
+use App\Notifications\AdminDocumentSubmittedNotification;
+use App\Notifications\CalendarEventReminder;
+use App\Notifications\DocumentDeadlineReminder;
+use App\Support\RoleSecurity;
 use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -93,6 +98,20 @@ class AdminPanelProvider extends PanelProvider
 
         Route::middleware(['web', 'auth', 'admin', EnsureLegalStaff::class])
             ->get('/admin/navigation-counts', function () {
+                $user = auth()->user();
+                $notifications = $user
+                    ->unreadNotifications()
+                    ->where('data->format', 'filament');
+
+                if ($user->hasRole(RoleSecurity::SUPER_ADMIN)) {
+                    $notifications->whereNotIn('type', [
+                        AdminDocumentRequestSubmittedNotification::class,
+                        AdminDocumentSubmittedNotification::class,
+                        CalendarEventReminder::class,
+                        DocumentDeadlineReminder::class,
+                    ]);
+                }
+
                 return response()->json([
                     'documents' => Document::query()
                         ->where('status', 'pending')
@@ -100,10 +119,7 @@ class AdminPanelProvider extends PanelProvider
                     'requests' => DocumentRequest::query()
                         ->where('status', 'pending')
                         ->count(),
-                    'notifications' => auth()->user()
-                        ->unreadNotifications()
-                        ->where('data->format', 'filament')
-                        ->count(),
+                    'notifications' => $notifications->count(),
                 ], headers: [
                     'Cache-Control' => 'no-store, private',
                 ]);
@@ -240,6 +256,10 @@ class AdminPanelProvider extends PanelProvider
                     ->label('Profile')
                     ->icon('heroicon-o-user-circle')
                     ->url('/admin/profile'),
-            ]);
+            ])
+            ->renderHook(
+                PanelsRenderHook::GLOBAL_SEARCH_AFTER,
+                fn () => view('filament.admin.super-admin-badge'),
+            );
     }
 }

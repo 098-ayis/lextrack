@@ -8,12 +8,13 @@ use App\Models\User;
 use App\Notifications\AdminDocumentRequestSubmittedNotification;
 use App\Notifications\AdminDocumentSubmittedNotification;
 use App\Notifications\DocumentDeadlineReminder;
+use App\Support\RoleSecurity;
 use Illuminate\Support\Collection;
 
 class AdminDocumentNotificationService
 {
     /**
-     * Notify every administrator about each client document submission.
+     * Notify legal staff about each client document submission.
      */
     public function notifyDocumentSubmitted(Document $document): void
     {
@@ -39,7 +40,7 @@ class AdminDocumentNotificationService
     }
 
     /**
-     * Notify every admin when a client submits a document request.
+     * Notify legal staff when a client submits a document request.
      */
     public function notifyRequestSubmitted(DocumentRequest $request): void
     {
@@ -86,7 +87,11 @@ class AdminDocumentNotificationService
     }
 
     /**
-     * Admin-panel users who should receive document workflow alerts.
+     * Legal staff who should receive operational document workflow alerts.
+     *
+     * Super Admin is intentionally excluded. Super Admin receives
+     * administrative and security notifications, not routine document
+     * submissions, requests, or deadline reminders.
      */
     protected function administrators(): Collection
     {
@@ -94,8 +99,15 @@ class AdminDocumentNotificationService
             ->whereHas(
                 'roles',
                 fn ($query) => $query->whereRaw(
-                    "LOWER(REPLACE(name, '_', ' ')) IN (?, ?)",
-                    ['admin', 'super admin']
+                    "LOWER(REPLACE(name, '_', ' ')) = ?",
+                    [strtolower(RoleSecurity::LEGAL_STAFF)]
+                )
+            )
+            ->whereDoesntHave(
+                'roles',
+                fn ($query) => $query->whereRaw(
+                    "LOWER(REPLACE(name, '_', ' ')) = ?",
+                    [strtolower(RoleSecurity::SUPER_ADMIN)]
                 )
             )
             ->get();

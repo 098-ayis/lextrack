@@ -846,7 +846,7 @@
                                                     $isDocumentDeadline
                                                         ? 'Document deadline'
                                                         : (
-                                                            $event->user?->name
+                                                            $event->user?->historical_display_name
                                                             ?? 'Unknown Staff'
                                                         );
 
@@ -1434,7 +1434,7 @@
                                     $isDocumentDeadline
                                         ? 'Document deadline'
                                         : (
-                                            $event->user?->name
+                                            $event->user?->historical_display_name
                                             ?? 'Unknown Staff'
                                         );
 

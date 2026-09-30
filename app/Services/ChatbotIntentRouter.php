@@ -256,6 +256,20 @@ class ChatbotIntentRouter
             return ['intent' => 'unsupported'];
         }
 
+        if ($this->isLegalServicesQuestion($normalized)) {
+            return [
+                'intent' => 'legal_services_information',
+                'language' => $this->responseLanguage($normalized),
+            ];
+        }
+
+        if ($this->isLegalProceduresQuestion($normalized)) {
+            return [
+                'intent' => 'legal_procedures_information',
+                'language' => $this->responseLanguage($normalized),
+            ];
+        }
+
         if ($this->isLegalPolicyQuestion($normalized)) {
             return [
                 'intent' => 'legal_policy_information',
@@ -926,6 +940,22 @@ class ChatbotIntentRouter
         $hasLegalOfficeTerm = preg_match('/\\b(?:legal|legal affairs|office)\\b/u', $message) === 1;
 
         return $hasPolicyTerm && $hasLegalOfficeTerm;
+    }
+
+    private function isLegalServicesQuestion(string $message): bool
+    {
+        return preg_match(
+            '/\\b(?:legal services?|services? of (?:the )?(?:legal affairs|legal) office|what services does (?:the )?(?:legal affairs|legal) office provide)\\b/u',
+            $message,
+        ) === 1;
+    }
+
+    private function isLegalProceduresQuestion(string $message): bool
+    {
+        return preg_match(
+            '/\\b(?:legal procedures?|procedures? of (?:the )?(?:legal affairs|legal) office|what procedures does (?:the )?(?:legal affairs|legal) office follow)\\b/u',
+            $message,
+        ) === 1;
     }
 
     private function isUnclearShortMessage(string $message): bool
