@@ -85,6 +85,7 @@
             ->values();
         $hasCurrentVersion = $allVersions->contains(fn ($version) => $version->file_path === $latestFilePath);
         $hasPendingRevision = $this->hasPendingRevision();
+        $revisionUploadLocked = $this->isRevisionUploadLocked();
         $pendingRevisionVersionId = $hasPendingRevision ? $documentRecord->latestVersion?->version_id : null;
         $showCurrentDocument = filled($latestFilePath) && ! $hasCurrentVersion;
         $activityLogs = $documentRecord->activityLogs
@@ -332,9 +333,9 @@
                                         <button
                                             type="button"
                                             wire:click="startAddingVersion"
-                                            @disabled(in_array($documentRecord->status, ['pending', 'rejected'], true) || $hasPendingRevision)
-                                            class="document-inline-add-button {{ in_array($documentRecord->status, ['pending', 'rejected'], true) || $hasPendingRevision ? 'is-disabled' : '' }}"
-                                            title="{{ in_array($documentRecord->status, ['pending', 'rejected'], true) || $hasPendingRevision ? 'Uploading is disabled while this document is awaiting review' : 'Add revision' }}"
+                                            @disabled($revisionUploadLocked)
+                                            class="document-inline-add-button {{ $revisionUploadLocked ? 'is-disabled' : '' }}"
+                                            title="{{ $revisionUploadLocked ? 'Uploading is disabled while this document is awaiting review' : 'Add revision' }}"
                                             aria-label="Add revision"
                                         >
                                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v14M5 12h14" /></svg>
@@ -369,12 +370,12 @@
                                 @endphp
                                 <div wire:key="document-version-{{ $version->version_id }}" class="document-file-row">
                                     @if ($isPendingRevisionVersion)
-                                        <div class="document-file-select">
+                                        <button type="button" wire:click="selectVersion({{ $version->version_id }})" wire:loading.attr="disabled" class="document-file-select {{ $selectedVersionId === $version->version_id ? 'is-selected' : '' }}" title="Preview {{ $versionFileName }}">
                                             <span class="document-file-badge {{ $fileBadgeClass($versionFileName) }}">{{ strtoupper(pathinfo($versionFileName, PATHINFO_EXTENSION)) ?: 'FILE' }}</span>
                                             <span class="document-file-name">{{ $versionFileName }}</span>
                                             <span class="document-version-badge">{{ $versionBadge }}</span>
                                             <span class="document-file-uploader">Uploaded by {{ $version->user?->historical_display_name ?? 'Unknown User' }}</span>
-                                        </div>
+                                        </button>
                                     @else
                                         <button type="button" wire:click="selectVersion({{ $version->version_id }})" wire:loading.attr="disabled" class="document-file-select {{ $selectedVersionId === $version->version_id ? 'is-selected' : '' }}" title="Preview {{ $versionFileName }}">
                                             <span class="document-file-badge {{ $fileBadgeClass($versionFileName) }}">{{ strtoupper(pathinfo($versionFileName, PATHINFO_EXTENSION)) ?: 'FILE' }}</span>

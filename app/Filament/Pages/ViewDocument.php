@@ -78,6 +78,13 @@ class ViewDocument extends Page implements HasForms
 
     public bool $isAddingVersion = false;
 
+    /**
+     * Whether this page was opened from an admin message's "Review Revision"
+     * link. In that flow, the admin needs to be able to upload another
+     * revision while reviewing the client's submitted revision.
+     */
+    public bool $isRevisionReviewContext = false;
+
     public array $versionUploadData = [];
 
     public array $documentDetailsForm = [];
@@ -107,6 +114,7 @@ class ViewDocument extends Page implements HasForms
 
     public function mount(string|int $document): void
     {
+        $this->isRevisionReviewContext = request()->boolean('review_revision');
         $this->documentRecord = Document::findForRoute($document);
         $this->documentRecord->load([
             'user',
@@ -164,10 +172,7 @@ class ViewDocument extends Page implements HasForms
 
     public function startAddingVersion(): void
     {
-        if (
-            in_array($this->documentRecord->status, ['pending', 'rejected'], true)
-            || $this->hasPendingRevision()
-        ) {
+        if ($this->isRevisionUploadLocked()) {
             Notification::make()
                 ->warning()
                 ->title('Revision upload is disabled')
@@ -892,11 +897,7 @@ class ViewDocument extends Page implements HasForms
 
     public function addVersionAction(): Action
     {
-        $isLocked = in_array(
-            $this->documentRecord->status,
-            ['pending', 'rejected'],
-            true
-        ) || $this->hasPendingRevision();
+        $isLocked = $this->isRevisionUploadLocked();
 
         $documentId = $this->documentRecord->document_id;
         $userId = auth()->id();
@@ -1036,10 +1037,7 @@ JS;
             fn (mixed $filePath): bool => is_string($filePath) && $filePath !== '',
         ));
 
-        if (
-            in_array($this->documentRecord->status, ['pending', 'rejected'], true)
-            || $this->hasPendingRevision()
-        ) {
+        if ($this->isRevisionUploadLocked()) {
             foreach ($filePaths as $filePath) {
                 DocumentVersion::removeUnreferencedUpload($filePath);
             }
@@ -1256,6 +1254,15 @@ JS;
      * A revised version is reviewed from this document page instead of being
      * treated as a new request that needs a new LAO number.
      */
+    public function isRevisionUploadLocked(): bool
+    {
+        if (in_array($this->documentRecord->status, ['pending', 'rejected'], true)) {
+            return true;
+        }
+
+        return $this->hasPendingRevision() && ! $this->isRevisionReviewContext;
+    }
+
     public function hasPendingRevision(): bool
     {
         $conversation = $this->documentRecord->conversation()

@@ -2418,6 +2418,7 @@
                                     ? \App\Filament\Pages\ViewDocument::getUrl([
                                         'document' => $activeConversation->document->public_id,
                                         'return_to' => \App\Filament\Pages\Messages::getUrl(),
+                                        'review_revision' => 1,
                                     ])
                                     : null;
                             @endphp
