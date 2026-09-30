@@ -16,10 +16,13 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Support\Str;
+use Illuminate\Contracts\View\View;
 use Livewire\Attributes\On;
 
 class DatabaseNotifications extends \Filament\Livewire\DatabaseNotifications
 {
+    public string $notificationFilter = 'all';
+
     private const OPERATIONAL_NOTIFICATION_TYPES = [
         AdminDocumentRequestSubmittedNotification::class,
         AdminDocumentSubmittedNotification::class,
@@ -46,6 +49,22 @@ class DatabaseNotifications extends \Filament\Livewire\DatabaseNotifications
 
     public function getNotificationsQuery(): Builder|Relation
     {
+        $query = $this->getScopedNotificationsQuery();
+
+        if ($this->notificationFilter === 'unread') {
+            $query->unread();
+        }
+
+        return $query;
+    }
+
+    public function hasAnyNotifications(): bool
+    {
+        return $this->getScopedNotificationsQuery()->exists();
+    }
+
+    private function getScopedNotificationsQuery(): Builder|Relation
+    {
         $query = parent::getNotificationsQuery();
         $user = $this->getUser();
 
@@ -54,6 +73,16 @@ class DatabaseNotifications extends \Filament\Livewire\DatabaseNotifications
         }
 
         return $query;
+    }
+
+    public function setNotificationFilter(string $filter): void
+    {
+        if (! in_array($filter, ['all', 'unread'], true)) {
+            return;
+        }
+
+        $this->notificationFilter = $filter;
+        $this->resetPage('database-notifications-page');
     }
 
     public function openNotification(string $id): void
@@ -72,21 +101,79 @@ class DatabaseNotifications extends \Filament\Livewire\DatabaseNotifications
 
         $redirectUrl = $this->getRedirectUrl($notification);
 
+        $notification->markAsRead();
+
         if (! filled($redirectUrl)) {
             return;
         }
 
-        $notification->markAsRead();
-
         $this->redirect($redirectUrl);
+    }
+
+    public function render(): View
+    {
+        return view('filament.admin.database-notifications');
     }
 
     public function getNotification(DatabaseNotification $notification): Notification
     {
         return ClickableDatabaseNotification::fromDatabase($notification)
             ->actions([])
+            ->icon($this->getNotificationIcon($notification))
+            ->iconColor($this->getNotificationIconColor($notification))
             ->redirectUrl($this->getRedirectUrl($notification))
             ->date($this->formatNotificationDate($notification->getAttributeValue('created_at')));
+    }
+
+    private function getNotificationIcon(DatabaseNotification $notification): string
+    {
+        $content = Str::lower(implode(' ', [
+            class_basename((string) $notification->type),
+            (string) data_get($notification->data, 'title'),
+            (string) data_get($notification->data, 'body'),
+        ]));
+
+        return match (true) {
+            str_contains($content, 'reject') => 'heroicon-o-x-circle',
+            str_contains($content, 'accept')
+                || str_contains($content, 'complete')
+                || str_contains($content, 'fulfill')
+                || str_contains($content, 'ready') => 'heroicon-o-check-circle',
+            str_contains($content, 'deadline')
+                || str_contains($content, 'calendar')
+                || str_contains($content, 'reminder') => 'heroicon-o-calendar-days',
+            str_contains($content, 'request') => 'heroicon-o-document-plus',
+            str_contains($content, 'submit') => 'heroicon-o-document-arrow-up',
+            str_contains($content, 'pending') => 'heroicon-o-clock',
+            str_contains($content, 'security')
+                || str_contains($content, 'access')
+                || str_contains($content, 'permission')
+                || str_contains($content, 'role') => 'heroicon-o-shield-exclamation',
+            str_contains($content, 'user')
+                || str_contains($content, 'account') => 'heroicon-o-user-circle',
+            default => 'heroicon-o-bell-alert',
+        };
+    }
+
+    private function getNotificationIconColor(DatabaseNotification $notification): string
+    {
+        $content = Str::lower(implode(' ', [
+            class_basename((string) $notification->type),
+            (string) data_get($notification->data, 'title'),
+            (string) data_get($notification->data, 'body'),
+        ]));
+
+        return match (true) {
+            str_contains($content, 'reject') => 'danger',
+            str_contains($content, 'accept')
+                || str_contains($content, 'complete')
+                || str_contains($content, 'fulfill')
+                || str_contains($content, 'ready') => 'success',
+            str_contains($content, 'deadline')
+                || str_contains($content, 'calendar')
+                || str_contains($content, 'reminder') => 'warning',
+            default => 'gray',
+        };
     }
 
     private function getRedirectUrl(DatabaseNotification $notification): ?string
