@@ -53,7 +53,6 @@ use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Filament\Schemas\Components\Grid;
-use Illuminate\Support\Facades\URL;
 // use BezhanSalleh\FilamentShield\Traits\HasPageShield;
 
 class Document extends Page implements HasTable
@@ -414,18 +413,8 @@ class Document extends Page implements HasTable
         if ($result['accepted'] && $document->user) {
             Notification::make()
                 ->title($document->notificationLabel())
-                ->body('Your document has been accepted. Open your QR code below and scan it to track the document status. LAO Number: ' . $document->lao_number)
+                ->body('Your document has been accepted and is now being processed. LAO Number: ' . $document->lao_number)
                 ->success()
-                ->actions([
-                    Action::make('viewDocumentQrCode')
-                        ->label('View QR code')
-                        ->icon('heroicon-o-qr-code')
-                        ->url(URL::signedRoute('documents.qr', [
-                            'document' => $document->document_id,
-                        ]))
-                        ->openUrlInNewTab()
-                        ->button(),
-                ])
                 ->sendToDatabase($document->user);
 
             try {

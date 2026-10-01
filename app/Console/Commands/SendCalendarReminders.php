@@ -7,6 +7,8 @@ use App\Models\Document;
 use App\Notifications\CalendarEventReminder;
 use App\Services\AdminDocumentNotificationService;
 use App\Services\InAppNotificationService;
+use App\Support\RoleSecurity;
+use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 
@@ -27,7 +29,11 @@ class SendCalendarReminders extends Command
             ->get();
 
         foreach ($events as $event) {
-            if (! $event->user || ! $event->user->email) {
+            if (
+                ! $event->user
+                || ! $event->user->email
+                || ! $this->receivesOperationalNotifications($event->user)
+            ) {
                 continue;
             }
 
@@ -123,6 +129,12 @@ class SendCalendarReminders extends Command
         $this->sendDocumentDeadlineReminders($notifications);
 
         return self::SUCCESS;
+    }
+
+    private function receivesOperationalNotifications(User $user): bool
+    {
+        return $user->hasRole(RoleSecurity::LEGAL_STAFF)
+            && ! $user->hasRole(RoleSecurity::SUPER_ADMIN);
     }
 
     private function sendDocumentDeadlineReminders(

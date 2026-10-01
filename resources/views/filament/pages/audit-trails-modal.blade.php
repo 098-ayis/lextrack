@@ -1,11 +1,12 @@
 <div class="max-h-[60vh] overflow-y-auto">
     @forelse ($logs as $log)
+        @php($actorName = $log->user?->historical_display_name ?? 'User')
         <div class="border-b border-gray-100 px-1 py-3 last:border-b-0">
             <div class="flex items-start gap-3">
                 @if ($log->user && $log->user->getProfilePhotoUrl())
                     <img
                         src="{{ $log->user->getProfilePhotoUrl() }}"
-                        alt="{{ $log->user->name ?? 'User' }}"
+                        alt="{{ $actorName }}"
                         referrerpolicy="no-referrer"
                         class="h-8 w-8 shrink-0 rounded-full object-cover"
                     >
@@ -14,7 +15,7 @@
                         class="flex h-8 w-8 shrink-0 items-center justify-center
                                rounded-full bg-gray-200 text-xs font-bold text-gray-600"
                     >
-                        {{ strtoupper(substr($log->user->name ?? 'U', 0, 1)) }}
+                        {{ strtoupper(substr($log->user?->historical_name ?? 'U', 0, 1)) }}
                     </div>
                 @endif
 
@@ -34,7 +35,7 @@
                     </p>
 
                     <p class="mt-1 text-xs font-medium text-gray-500">
-                        {{ $log->user->name ?? 'User' }}
+                        {{ $actorName }}
                     </p>
                 </div>
             </div>

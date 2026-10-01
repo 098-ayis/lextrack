@@ -26,7 +26,7 @@ class UserResource extends Resource
 
     protected static ?string $navigationLabel = 'Users';
 
-    protected static ?int $navigationSort = 2;
+    protected static ?int $navigationSort = 1;
 
     public static function form(Schema $schema): Schema
     {
@@ -69,11 +69,22 @@ class UserResource extends Resource
         return $actor instanceof User
             && $actor->hasRole(RoleSecurity::SUPER_ADMIN)
             && $record instanceof User
+            && ! $record->trashed()
             && ! $actor->is($record);
     }
 
     public static function canDelete(Model $record): bool
     {
         return static::canEdit($record);
+    }
+
+    public static function canRestore(Model $record): bool
+    {
+        $actor = auth()->user();
+
+        return $actor instanceof User
+            && $actor->hasRole(RoleSecurity::SUPER_ADMIN)
+            && $record instanceof User
+            && $record->trashed();
     }
 }

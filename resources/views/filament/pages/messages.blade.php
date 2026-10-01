@@ -1866,7 +1866,7 @@
                      */
                     $client = $conversation?->document?->user
                         ?? $conversation?->documentRequest?->user;
-                    $clientName = $client?->name ?? 'Unknown Client';
+                    $clientName = $client?->historical_display_name ?? 'Unknown Client';
                     $documentTitle = $conversation->document?->particulars
                         ?? $conversation->documentRequest?->purpose_details
                         ?? $conversation->documentRequest?->purpose
@@ -1877,7 +1877,6 @@
                         ->sortBy('created_at')
                         ->last();
 
-                    $latestIsDocumentQr = $latestMessage?->body === 'document_qr';
                     $latestIsRevisionRequest = $latestMessage && (
                         $latestMessage->body === 'revision_request'
                         || str_contains(
@@ -1998,8 +1997,6 @@
 
                                 @if ($latestIsRevisionRequest)
                                     Revision request
-                                @elseif ($latestIsDocumentQr)
-                                    Document QR code
                                 @elseif ($latestIsRevisionUpload)
                                     {{ $latestRevisionText }}
                                 @else
@@ -2069,11 +2066,6 @@
             @php
                 $activeConversation = $activeConversationRecord
                     ?? $conversations->firstWhere('id', $selectedConversation);
-
-                $client = $activeConversation?->document?->user
-                    ?? $activeConversation?->documentRequest?->user;
-
-                $clientName = $client?->name ?? 'Unknown Client';
 
                 $documentTitle = $activeConversation?->document?->particulars
                     ?? $activeConversation?->documentRequest?->purpose_details
@@ -2337,7 +2329,7 @@
                         $showSenderName = ! $isSameSenderAsPrevious;
                         $showSenderProfile = ! $isSameSenderAsNext;
 
-                        $senderName = $sender?->name ?? 'Unknown User';
+                        $senderName = $sender?->historical_display_name ?? 'Unknown User';
 
                         $senderPhoto = $sender?->getProfilePhotoUrl();
 
@@ -2398,7 +2390,6 @@
                             @endif
 
                             @php
-                                $isDocumentQr = $message->body === 'document_qr';
                                 $isRevisionRequest =
                                     $message->body === 'revision_request'
                                     || str_contains(
@@ -2427,19 +2418,18 @@
                                     ? \App\Filament\Pages\ViewDocument::getUrl([
                                         'document' => $activeConversation->document->public_id,
                                         'return_to' => \App\Filament\Pages\Messages::getUrl(),
+                                        'review_revision' => 1,
                                     ])
                                     : null;
                             @endphp
 
                             @if ($message->replyTo)
                                 @php
-                                    $replySenderName = $message->replyTo->sender?->name ?? 'Message';
+                                    $replySenderName = $message->replyTo->sender?->historical_display_name ?? 'Message';
                                     $replyPreview = $message->replyTo->body;
 
                                     if ($replyPreview === 'revision_request') {
                                         $replyPreview = 'Revision request';
-                                    } elseif ($replyPreview === 'document_qr') {
-                                        $replyPreview = 'Document QR code';
                                     } elseif ($replyPreview === 'Attachment sent.') {
                                         $replyPreview = $message->replyTo->attachments->first()?->original_name ?? 'Attachment';
                                     }
@@ -2461,14 +2451,7 @@
                                 </button>
                             @endif
 
-                            @if ($isDocumentQr && $activeConversation?->document)
-                                <div class="t-bubble revision-bubble">
-                                    <x-documents.conversation-qr
-                                        :document="$activeConversation->document"
-                                        :staff-view="true"
-                                    />
-                                </div>
-                            @elseif ($isRevisionRequest)
+                            @if ($isRevisionRequest)
                                 <div class="t-bubble revision-bubble">
                                     <div class="revision-card">
                                         <div class="revision-card-header">
@@ -2820,7 +2803,7 @@
                                 @endphp
 
                                 @php
-                                    $replyingToName = $replyingToMessage->sender?->name ?? 'Message';
+                                    $replyingToName = $replyingToMessage->sender?->historical_display_name ?? 'Message';
                                 @endphp
 
                                 <div

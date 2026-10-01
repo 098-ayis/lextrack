@@ -84,7 +84,7 @@
                             <td data-label="LAO number"><strong>{{ $document->lao_number ?? '—' }}</strong></td>
                             <td data-label="Particulars">{{ $document->particulars ?? '—' }}</td>
                             <td data-label="Document type">{{ $document->document_type ?? '—' }}</td><td data-label="Office / Unit">{{ $document->office_unit ?? '—' }}</td>
-                            <td data-label="Uploaded by">{{ $document->user?->name ?? '—' }}</td><td data-label="Action taken">{{ $document->action_type ?? '—' }}</td>
+                            <td data-label="Uploaded by">{{ $document->user?->historical_display_name ?? '—' }}</td><td data-label="Action taken">{{ $document->action_type ?? '—' }}</td>
                             <td data-label="Status"><span class="report-badge" data-status="{{ $document->status }}">{{ \App\Filament\Pages\Reports::STATUSES[$document->status] ?? $document->status }}</span></td>
                             <td data-label="Date accomplished">{{ $document->date_accomplished?->format('M d, Y') ?? '—' }}</td>
                         </tr>

@@ -105,7 +105,7 @@ class DocumentExportController extends Controller
                 $document->office_unit,
                 $document->particulars,
                 $type,
-                $document->user?->name ?? '—',
+                $document->user?->historical_display_name ?? '—',
                 $this->formatDate($document->created_at) ?? '—',
                 $action,
                 $status,

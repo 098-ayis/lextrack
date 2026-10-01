@@ -456,6 +456,8 @@ class ChatbotController extends Controller
                 $intent['language'],
             ),
             'payment_inquiry' => $this->paymentInquiryReply($request, $intent['language']),
+            'legal_services_information' => $this->legalServicesReply($request, $intent['language']),
+            'legal_procedures_information' => $this->legalProceduresReply($request, $intent['language']),
             'legal_policy_information' => $this->legalPolicyReply($request, $intent['language']),
             'legal_policy_clarification' => $this->legalPolicyClarificationReply(
                 $request,

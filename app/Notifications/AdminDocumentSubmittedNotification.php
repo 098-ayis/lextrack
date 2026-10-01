@@ -32,7 +32,7 @@ class AdminDocumentSubmittedNotification extends Notification implements ShouldQ
 
     public function toMail(object $notifiable): MailMessage
     {
-        $submitterName = $this->document->user?->name ?? 'A client';
+        $submitterName = $this->document->user?->historical_display_name ?? 'A client';
 
         return (new MailMessage)
             ->subject(
@@ -55,7 +55,7 @@ class AdminDocumentSubmittedNotification extends Notification implements ShouldQ
 
     public function toDatabase(object $notifiable): array
     {
-        $submitterName = $this->document->user?->name ?? 'A client';
+        $submitterName = $this->document->user?->historical_display_name ?? 'A client';
 
         return [
             ...FilamentNotification::make()

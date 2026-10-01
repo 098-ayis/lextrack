@@ -90,12 +90,20 @@ class GoogleAuthController extends Controller
             | Find Existing User
             |--------------------------------------------------------------------------
             */
-            $user = User::where(
-                    'google_id',
-                    $googleUser->getId()
-                )
-                ->orWhere('email', $email)
+            $user = User::withTrashed()
+                ->where(function ($query) use ($googleUser, $email): void {
+                    $query
+                        ->where('google_id', $googleUser->getId())
+                        ->orWhere('email', $email);
+                })
                 ->first();
+
+            if ($user?->trashed()) {
+                abort(
+                    403,
+                    'This account is no longer active. Please contact a LexTrack administrator.'
+                );
+            }
 
             /*
             |--------------------------------------------------------------------------

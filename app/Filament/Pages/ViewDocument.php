@@ -11,6 +11,7 @@ use App\Models\DocumentType;
 use App\Models\OfficeUnit;
 use App\Models\Message;
 use App\Models\RejectedDocument;
+use App\Models\User;
 use App\Rules\UniqueDocumentVersionUpload;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
@@ -77,6 +78,13 @@ class ViewDocument extends Page implements HasForms
 
     public bool $isAddingVersion = false;
 
+    /**
+     * Whether this page was opened from an admin message's "Review Revision"
+     * link. In that flow, the admin needs to be able to upload another
+     * revision while reviewing the client's submitted revision.
+     */
+    public bool $isRevisionReviewContext = false;
+
     public array $versionUploadData = [];
 
     public array $documentDetailsForm = [];
@@ -106,6 +114,7 @@ class ViewDocument extends Page implements HasForms
 
     public function mount(string|int $document): void
     {
+        $this->isRevisionReviewContext = request()->boolean('review_revision');
         $this->documentRecord = Document::findForRoute($document);
         $this->documentRecord->load([
             'user',
@@ -124,6 +133,7 @@ class ViewDocument extends Page implements HasForms
             'versions',
             DocumentVersion::query()
                 ->where('document_id', $this->documentRecord->document_id)
+                ->with('user')
                 ->orderBy('version_id')
                 ->get(),
         );
@@ -162,10 +172,7 @@ class ViewDocument extends Page implements HasForms
 
     public function startAddingVersion(): void
     {
-        if (
-            in_array($this->documentRecord->status, ['pending', 'rejected'], true)
-            || $this->hasPendingRevision()
-        ) {
+        if ($this->isRevisionUploadLocked()) {
             Notification::make()
                 ->warning()
                 ->title('Revision upload is disabled')
@@ -419,7 +426,7 @@ class ViewDocument extends Page implements HasForms
         $this->documentRecord->refresh()->load([
             'user',
             'notes.user',
-            'versions',
+            'versions.user',
             'latestVersion',
             'rejections',
             'activityLogs.user',
@@ -471,7 +478,7 @@ class ViewDocument extends Page implements HasForms
 
         $this->documentRecord->load([
             'notes.user',
-            'versions',
+            'versions.user',
             'activityLogs.user',
         ]);
         $this->isAddingNote = false;
@@ -834,7 +841,7 @@ class ViewDocument extends Page implements HasForms
                 $this->documentRecord->load([
                     'user',
                     'rejections',
-                    'versions',
+                    'versions.user',
                     'latestVersion',
                     'activityLogs.user',
                 ]);
@@ -890,11 +897,7 @@ class ViewDocument extends Page implements HasForms
 
     public function addVersionAction(): Action
     {
-        $isLocked = in_array(
-            $this->documentRecord->status,
-            ['pending', 'rejected'],
-            true
-        ) || $this->hasPendingRevision();
+        $isLocked = $this->isRevisionUploadLocked();
 
         $documentId = $this->documentRecord->document_id;
         $userId = auth()->id();
@@ -1034,10 +1037,7 @@ JS;
             fn (mixed $filePath): bool => is_string($filePath) && $filePath !== '',
         ));
 
-        if (
-            in_array($this->documentRecord->status, ['pending', 'rejected'], true)
-            || $this->hasPendingRevision()
-        ) {
+        if ($this->isRevisionUploadLocked()) {
             foreach ($filePaths as $filePath) {
                 DocumentVersion::removeUnreferencedUpload($filePath);
             }
@@ -1123,7 +1123,7 @@ JS;
         if ($uploadedVersions !== []) {
             $this->documentRecord->load([
                 'notes.user',
-                'versions',
+                'versions.user',
                 'latestVersion',
                 'activityLogs.user',
             ]);
@@ -1213,7 +1213,7 @@ JS;
 
         $this->documentRecord->load([
             'notes.user',
-            'versions',
+            'versions.user',
             'latestVersion',
             'activityLogs.user',
         ]);
@@ -1254,6 +1254,15 @@ JS;
      * A revised version is reviewed from this document page instead of being
      * treated as a new request that needs a new LAO number.
      */
+    public function isRevisionUploadLocked(): bool
+    {
+        if (in_array($this->documentRecord->status, ['pending', 'rejected'], true)) {
+            return true;
+        }
+
+        return $this->hasPendingRevision() && ! $this->isRevisionReviewContext;
+    }
+
     public function hasPendingRevision(): bool
     {
         $conversation = $this->documentRecord->conversation()
@@ -1373,7 +1382,7 @@ JS;
         $this->documentRecord->load([
             'user',
             'notes.user',
-            'versions',
+            'versions.user',
             'latestVersion',
             'rejections',
             'activityLogs.user',
@@ -1488,7 +1497,7 @@ JS;
         $this->documentRecord->load([
             'user',
             'notes.user',
-            'versions',
+            'versions.user',
             'latestVersion',
             'rejections',
             'activityLogs.user',
@@ -1647,9 +1656,12 @@ JS;
 
     public function activityActorFirstName(ActivityLog $log): string
     {
-        $name = preg_replace('/\s+/u', ' ', trim((string) $log->user?->name)) ?? '';
+        $name = preg_replace('/\s+/u', ' ', trim((string) $log->user?->historical_name)) ?? '';
+        $firstName = explode(' ', $name, 2)[0] ?: 'Someone';
 
-        return explode(' ', $name, 2)[0] ?: 'Someone';
+        return $firstName . ($log->user?->trashed()
+            ? ' (' . User::FORMER_USER_LABEL . ')'
+            : '');
     }
 
     /** @return list<array{label: string, before: string, after: string}> */

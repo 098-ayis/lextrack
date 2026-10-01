@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Note extends Model
 {
@@ -14,8 +15,21 @@ class Note extends Model
         'note',
     ];
 
-    public function user()
+    public function user(): BelongsTo
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(
+            User::class,
+            'user_id',
+            'id'
+        )->withTrashed();
+    }
+
+    public function document(): BelongsTo
+    {
+        return $this->belongsTo(
+            Document::class,
+            'document_id',
+            'document_id'
+        );
     }
 }

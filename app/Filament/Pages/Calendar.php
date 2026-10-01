@@ -396,7 +396,7 @@ class Calendar extends Page
                     $event->event ?? null,
                     $event->details ?? null,
                     $categoryLabel,
-                    $event->user?->name ?? null,
+                    $event->user?->historical_display_name ?? null,
                     $event->date ?? null,
                     $event->time ?? null,
                     ($event->is_document_deadline ?? false) ? 'document deadline' : null,
@@ -711,7 +711,7 @@ class Calendar extends Page
                     'id' => $event->user_id,
 
                     'name' =>
-                        $event->user?->name
+                        $event->user?->historical_display_name
                         ?? 'Unknown Staff',
 
                     'color' =>

@@ -39,7 +39,7 @@ class Conversation extends Model
         return $this->belongsTo(
             User::class,
             'created_by'
-        );
+        )->withTrashed();
     }
 
     public function participants(): BelongsToMany
@@ -50,8 +50,9 @@ class Conversation extends Model
             'conversation_id',
             'user_id'
         )
-        ->withPivot('joined_at')
-        ->withTimestamps();
+            ->withTrashed()
+            ->withPivot('joined_at')
+            ->withTimestamps();
     }
 
     public function messages(): HasMany
@@ -61,5 +62,5 @@ class Conversation extends Model
             'conversation_id'
         );
     }
-    
+
 }
