@@ -33,10 +33,7 @@ class ClientPanelProvider extends PanelProvider
 
             ->topNavigation()
             ->databaseNotifications(true, DatabaseNotifications::class)
-            ->renderHook(
-                PanelsRenderHook::BODY_START,
-                fn () => view('filament.client.windows-scale'),
-            )
+            
             ->renderHook(
                 PanelsRenderHook::BODY_END,
                 fn () => view('filament.client.chatbot'),

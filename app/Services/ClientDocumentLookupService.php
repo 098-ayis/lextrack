@@ -22,8 +22,7 @@ class ClientDocumentLookupService
     /** @return array{reply: string, document_id: ?int, status: ?string} */
     public function latestSubmissionDateResult(User $user): array
     {
-        $document = Document::query()
-            ->where('user_id', $user->getKey())
+        $document = $this->submittedDocuments($user)
             ->orderByDesc('created_at')
             ->orderByDesc('document_id')
             ->first(['document_id', 'status', 'created_at']);
@@ -49,8 +48,7 @@ class ClientDocumentLookupService
      */
     public function latestStatusResult(User $user): array
     {
-        $document = Document::query()
-            ->where('user_id', $user->getKey())
+        $document = $this->submittedDocuments($user)
             ->orderByDesc('created_at')
             ->orderByDesc('document_id')
             ->first([
@@ -68,6 +66,8 @@ class ClientDocumentLookupService
         $label = $this->documentDisplayName($document);
 
         if (filled($label)) {
+            $latestSubmittedLabel = 'Your latest submitted document "' . $label . '"';
+
             return $this->documentResult(
                 $this->statusResponse(
                     $user,
@@ -75,6 +75,9 @@ class ClientDocumentLookupService
                     (string) $document->status,
                     filled($document->lao_number) ? (string) $document->lao_number : null,
                     $label,
+                    null,
+                    'english',
+                    $latestSubmittedLabel,
                 ),
                 (int) $document->document_id,
                 (string) $document->status,
@@ -115,6 +118,279 @@ class ClientDocumentLookupService
         };
 
         return $this->documentResult($reply, (int) $document->document_id, (string) $document->status);
+    }
+
+    /**
+     * Answer whether the latest authorized submission is processed without
+     * treating “processed” as a synonym for Completed.
+     *
+     * @return array{reply: string, document_id: ?int, status: ?string}
+     */
+    public function latestProcessingStatusResult(User $user, string $language = 'english'): array
+    {
+        $document = $this->submittedDocuments($user)
+            ->orderByDesc('created_at')
+            ->orderByDesc('document_id')
+            ->first(['document_id']);
+
+        if (! $document) {
+            return $this->documentResult(
+                in_array($language, ['filipino', 'taglish'], true)
+                    ? 'Wala ka pang naisumiteng document.'
+                    : 'You have no submitted documents yet.',
+            );
+        }
+
+        return $this->processingStatusByDocumentIdResult($user, (int) $document->document_id, $language);
+    }
+
+    /**
+     * Check the current status of one authorized document against the
+     * client's “processed/completed” question.
+     *
+     * @return array{reply: string, document_id: ?int, status: ?string}
+     */
+    public function processingStatusByDocumentIdResult(
+        User $user,
+        int $documentId,
+        string $language = 'english',
+    ): array {
+        $document = Document::query()
+            ->where('user_id', $user->getKey())
+            ->where('document_id', $documentId)
+            ->first([
+                'document_id',
+                'status',
+                'document_name',
+                'document_type',
+                'lao_number',
+            ]);
+
+        if (! $document) {
+            return $this->documentResult(self::NO_AUTHORIZED_MATCH);
+        }
+
+        $filipinoLike = in_array($language, ['filipino', 'taglish'], true);
+        $label = $this->documentLabel(
+            $this->documentDisplayName($document),
+            filled($document->lao_number) ? (string) $document->lao_number : null,
+        );
+        $status = (string) $document->status;
+        $statusLabel = $this->statusLabel($status);
+
+        $reply = match (true) {
+            $status === 'completed' => $filipinoLike
+                ? "Oo. {$label} ay Completed."
+                : "Yes. {$label} is Completed.",
+            $status === 'rejected' => $filipinoLike
+                ? "Hindi. {$label} ay Rejected."
+                : "No. {$label} is Rejected.",
+            $filipinoLike => "Hindi pa. {$label} ay kasalukuyang {$statusLabel}.",
+            default => "Not yet. {$label} is currently {$statusLabel}.",
+        };
+
+        return $this->documentResult($reply, (int) $document->document_id, $status);
+    }
+
+    /**
+     * Answer a combined “completed?” and “when was it completed?” question
+     * from one owner-scoped record lookup. Completion time comes only from
+     * the verified activity/status history.
+     *
+     * @return array{reply: string, document_id: ?int, status: ?string}
+     */
+    public function processingAndCompletionDateResult(
+        User $user,
+        int $documentId,
+        string $language = 'english',
+    ): array {
+        $document = Document::query()
+            ->where('user_id', $user->getKey())
+            ->where('document_id', $documentId)
+            ->first([
+                'document_id',
+                'status',
+                'document_name',
+                'document_type',
+                'lao_number',
+            ]);
+
+        if (! $document) {
+            return $this->documentResult(self::NO_AUTHORIZED_MATCH);
+        }
+
+        $filipinoLike = in_array($language, ['filipino', 'taglish'], true);
+        $label = $this->documentLabel(
+            $this->documentDisplayName($document),
+            filled($document->lao_number) ? (string) $document->lao_number : null,
+        );
+        $status = (string) $document->status;
+        $statusLabel = $this->statusLabel($status);
+
+        if ($status !== 'completed') {
+            $reply = $filipinoLike
+                ? "Hindi. {$label} ay kasalukuyang {$statusLabel}. Wala pang verified completion date."
+                : "No. {$label} is currently {$statusLabel}. No verified completion date is available.";
+
+            return $this->documentResult($reply, (int) $document->document_id, $status);
+        }
+
+        $completionDate = $this->verifiedCompletionDate($document);
+        if ($completionDate === null) {
+            $reply = $filipinoLike
+                ? "Oo. {$label} ay Completed, pero walang verified completion date na nakatala."
+                : "Yes. {$label} is Completed, but no verified completion date is recorded.";
+
+            return $this->documentResult($reply, (int) $document->document_id, $status);
+        }
+
+        $formatted = $completionDate->format('F j, Y g:i A');
+        $reply = $filipinoLike
+            ? "Oo. {$label} ay Completed. Completion date: {$formatted}."
+            : "Yes. {$label} is Completed. Completion date: {$formatted}.";
+
+        return $this->documentResult($reply, (int) $document->document_id, $status);
+    }
+
+    /**
+     * Return a verified completion date only when the owned record is
+     * currently Completed and the activity history contains that transition.
+     *
+     * @return array{reply: string, document_id: ?int, status: ?string}
+     */
+    public function completionDateByDocumentIdResult(
+        User $user,
+        int $documentId,
+        string $language = 'english',
+    ): array {
+        $document = Document::query()
+            ->where('user_id', $user->getKey())
+            ->where('document_id', $documentId)
+            ->first([
+                'document_id',
+                'status',
+                'document_name',
+                'document_type',
+                'lao_number',
+            ]);
+
+        if (! $document) {
+            return $this->documentResult(self::NO_AUTHORIZED_MATCH);
+        }
+
+        $filipinoLike = in_array($language, ['filipino', 'taglish'], true);
+        $label = $this->documentLabel(
+            $this->documentDisplayName($document),
+            filled($document->lao_number) ? (string) $document->lao_number : null,
+        );
+        $status = (string) $document->status;
+        $statusLabel = $this->statusLabel($status);
+
+        if ($status !== 'completed') {
+            $reply = $filipinoLike
+                ? "Hindi pa Completed ang {$label}; kasalukuyang {$statusLabel} ito. Wala pang verified completion date."
+                : "{$label} is currently {$statusLabel}, not Completed. No verified completion date is available.";
+
+            return $this->documentResult($reply, (int) $document->document_id, $status);
+        }
+
+        $completionDate = $this->verifiedCompletionDate($document);
+        if ($completionDate === null) {
+            $reply = $filipinoLike
+                ? "{$label} ay Completed, pero walang verified completion date na nakatala."
+                : "{$label} is Completed, but no verified completion date is recorded.";
+
+            return $this->documentResult($reply, (int) $document->document_id, $status);
+        }
+
+        $formatted = $completionDate->format('F j, Y g:i A');
+        $reply = $filipinoLike
+            ? "{$label} ay Completed. Completion date: {$formatted}."
+            : "{$label} is Completed. Completion date: {$formatted}.";
+
+        return $this->documentResult($reply, (int) $document->document_id, $status);
+    }
+
+    /** @return array{reply: string, document_id: ?int, status: ?string} */
+    public function latestCompletionDateResult(User $user, string $language = 'english'): array
+    {
+        $document = $this->submittedDocuments($user)
+            ->orderByDesc('created_at')
+            ->orderByDesc('document_id')
+            ->first(['document_id']);
+
+        if (! $document) {
+            return $this->documentResult(
+                in_array($language, ['filipino', 'taglish'], true)
+                    ? 'Wala ka pang naisumiteng document.'
+                    : 'You have no submitted documents yet.',
+            );
+        }
+
+        return $this->completionDateByDocumentIdResult($user, (int) $document->document_id, $language);
+    }
+
+    /**
+     * Resolve the authenticated client's most recently updated submitted
+     * document. This is deliberately separate from latestStatusResult(),
+     * which orders by submission time.
+     *
+     * @return array{reply: string, document_id: ?int, status: ?string}
+     */
+    public function mostRecentlyUpdatedResult(User $user, string $language = 'english'): array
+    {
+        $document = $this->submittedDocuments($user)
+            ->orderByDesc('updated_at')
+            ->orderByDesc('document_id')
+            ->first([
+                'document_id',
+                'status',
+                'lao_number',
+                'document_name',
+                'document_type',
+                'updated_at',
+            ]);
+
+        if (! $document) {
+            return $this->documentResult(
+                in_array($language, ['filipino', 'taglish'], true)
+                    ? 'Wala kang submitted document na may recorded update.'
+                    : 'You have no submitted document with a recorded update.',
+            );
+        }
+
+        $filipinoLike = in_array($language, ['filipino', 'taglish'], true);
+        $name = $this->documentDisplayName($document)
+            ?? ($filipinoLike ? 'Walang pangalan na nakatala' : 'Name not recorded');
+        $status = $this->statusLabel((string) $document->status);
+        $laoNumber = filled($document->lao_number)
+            ? (string) $document->lao_number
+            : ($filipinoLike ? 'Hindi pa nakatalaga' : 'Not yet assigned');
+        $activity = $this->latestVerifiedActivity($document, $filipinoLike);
+        $updatedAt = $document->updated_at?->format('F j, Y g:i A')
+            ?? ($filipinoLike ? 'hindi nakatala' : 'not recorded');
+
+        $lines = $filipinoLike
+            ? [
+                'Pinakahuling na-update na document: ' . $name,
+                'Status: ' . $status,
+                'LAO number: ' . $laoNumber,
+                'Huling verified activity: ' . $activity,
+                'Na-update: ' . $updatedAt,
+            ]
+            : [
+                'Most recently updated document: ' . $name,
+                'Status: ' . $status,
+                'LAO number: ' . $laoNumber,
+                'Latest verified activity: ' . $activity,
+                'Updated: ' . $updatedAt,
+            ];
+
+        return $this->documentResult(
+            implode("\n", $lines),
+            (int) $document->document_id,
+            (string) $document->status,
+        );
     }
 
     public function statusByLaoNumber(User $user, string $laoNumber): string
@@ -328,8 +604,7 @@ class ClientDocumentLookupService
     public function documentCountsByStatus(User $user): array
     {
         $statuses = ['pending', 'in_progress', 'outgoing', 'completed', 'returned', 'rejected', 'archived'];
-        $counts = Document::query()
-            ->where('user_id', $user->getKey())
+        $counts = $this->submittedDocuments($user)
             ->select('status')
             ->selectRaw('COUNT(*) as aggregate')
             ->groupBy('status')
@@ -343,6 +618,42 @@ class ClientDocumentLookupService
     public function countDocumentsByStatus(User $user, string $status): int
     {
         return $this->documentCountsByStatus($user)[$status] ?? 0;
+    }
+
+    /**
+     * Return all submitted documents owned by the authenticated client for an
+     * explicit aggregate list request. This is separate from the five-item
+     * selector methods, and returns only approved display fields.
+     *
+     * @return list<array{document_id: int, lao_number: ?string, document_type: ?string, display_name: ?string, status_label: string, submitted_at: string}>
+     */
+    public function authorizedDocumentList(User $user, ?string $status = null): array
+    {
+        $allowedStatuses = ['pending', 'in_progress', 'outgoing', 'completed', 'returned', 'rejected', 'archived'];
+
+        if ($status !== null && ! in_array($status, $allowedStatuses, true)) {
+            return [];
+        }
+
+        $query = $this->submittedDocuments($user);
+
+        if ($status !== null) {
+            $query->where('status', $status);
+        }
+
+        return $query
+            ->orderByDesc('created_at')
+            ->orderByDesc('document_id')
+            ->get($this->documentChoiceColumns())
+            ->map(fn (Document $document): array => [
+                'document_id' => (int) $document->document_id,
+                'lao_number' => filled($document->lao_number) ? (string) $document->lao_number : null,
+                'document_type' => filled($document->document_type) ? (string) $document->document_type : null,
+                'display_name' => $this->documentDisplayName($document),
+                'status_label' => $this->statusLabel((string) $document->status),
+                'submitted_at' => $document->created_at?->format('F j, Y') ?? 'date unavailable',
+            ])
+            ->all();
     }
 
     /**
@@ -377,8 +688,7 @@ class ClientDocumentLookupService
 
         $matchingFields = $searchField !== null ? [$searchField] : $searchFields;
 
-        $query = Document::query()
-            ->where('user_id', $user->getKey())
+        $query = $this->submittedDocuments($user)
             ->where(function ($query) use ($terms, $matchingFields): void {
                 foreach ($terms as $term) {
                     $like = '%' . $term . '%';
@@ -426,6 +736,12 @@ class ClientDocumentLookupService
             if ($configuredType !== null) {
                 return $this->authorizedDocumentChoicesByDocumentType($user, $configuredType);
             }
+
+            // Even when the deployment has not populated document_types,
+            // preserve the caller's type intent and search only the actual
+            // document_type column. Never broaden a recognized type into
+            // descriptions or particulars.
+            return $this->authorizedDocumentChoicesByName($user, $reference, 'document_type');
         }
 
         return $this->authorizedDocumentChoicesByName($user, $reference);
@@ -447,8 +763,7 @@ class ClientDocumentLookupService
             return [];
         }
 
-        return Document::query()
-            ->where('user_id', $user->getKey())
+        return $this->submittedDocuments($user)
             ->whereRaw('LOWER(TRIM(document_type)) = ?', [mb_strtolower($documentType, 'UTF-8')])
             ->orderByDesc('created_at')
             ->orderByDesc('document_id')
@@ -528,8 +843,7 @@ class ClientDocumentLookupService
             return [];
         }
 
-        return Document::query()
-            ->where('user_id', $user->getKey())
+        return $this->submittedDocuments($user)
             ->where('status', $status)
             ->orderByDesc('created_at')
             ->orderByDesc('document_id')
@@ -559,8 +873,7 @@ class ClientDocumentLookupService
             return [];
         }
 
-        return Document::query()
-            ->where('user_id', $user->getKey())
+        return $this->submittedDocuments($user)
             ->whereDate('created_at', $date)
             ->orderByDesc('created_at')
             ->orderByDesc('document_id')
@@ -715,8 +1028,7 @@ class ClientDocumentLookupService
      */
     public function authorizedDocumentChoices(User $user, int $limit = self::CHATBOT_DOCUMENT_CHOICE_LIMIT): array
     {
-        return Document::query()
-            ->where('user_id', $user->getKey())
+        return $this->submittedDocuments($user)
             ->orderByDesc('created_at')
             ->orderByDesc('document_id')
             ->limit(max(1, min($limit, self::CHATBOT_DOCUMENT_CHOICE_LIMIT)))
@@ -787,8 +1099,7 @@ class ClientDocumentLookupService
      */
     public function compareLatestStatuses(User $user, int $limit = 5): string
     {
-        $documents = Document::query()
-            ->where('user_id', $user->getKey())
+        $documents = $this->submittedDocuments($user)
             ->orderByDesc('created_at')
             ->orderByDesc('document_id')
             ->limit(max(2, min($limit, 5)))
@@ -821,11 +1132,13 @@ class ClientDocumentLookupService
         ?string $displayName = null,
         ?string $topic = null,
         string $language = 'english',
+        ?string $labelOverride = null,
     ): string {
         $filipinoLike = in_array($language, ['filipino', 'taglish'], true);
-        $label = $filipinoLike
-            ? $this->filipinoDocumentLabel($displayName, $laoNumber)
-            : $this->documentLabel($displayName, $laoNumber);
+        $label = $labelOverride
+            ?? ($filipinoLike
+                ? $this->filipinoDocumentLabel($displayName, $laoNumber)
+                : $this->documentLabel($displayName, $laoNumber));
 
         if (filled($topic)) {
             $topicLabel = mb_convert_case(trim($topic), MB_CASE_TITLE, 'UTF-8');
@@ -917,6 +1230,72 @@ class ClientDocumentLookupService
             : "{$label} is Outgoing. Recorded destination: {$destination}. Date sent: {$sentDate}.";
     }
 
+    private function latestVerifiedActivity(Document $document, bool $filipinoLike): string
+    {
+        if (! Schema::hasTable('activity_logs')) {
+            return $filipinoLike
+                ? 'Walang hiwalay na activity na nakatala.'
+                : 'No separate activity recorded.';
+        }
+
+        $log = $document->activityLogs()
+            ->orderByDesc('created_at')
+            ->orderByDesc('log_id')
+            ->first(['action_type', 'new_value']);
+
+        if (! $log) {
+            return $filipinoLike
+                ? 'Walang hiwalay na activity na nakatala.'
+                : 'No separate activity recorded.';
+        }
+
+        $action = strtolower(trim((string) $log->action_type));
+
+        if (str_contains($action, 'accept')) {
+            return $filipinoLike ? 'Tinanggap para sa processing.' : 'Accepted for processing.';
+        }
+
+        if (str_contains($action, 'reject')) {
+            return $filipinoLike ? 'Minarkahang Rejected.' : 'Marked Rejected.';
+        }
+
+        if ($action === 'document moved to outgoing') {
+            return $filipinoLike ? 'Inilipat sa Outgoing.' : 'Moved to Outgoing.';
+        }
+
+        if ($action === 'document completed') {
+            return $filipinoLike ? 'Nakumpleto.' : 'Completed.';
+        }
+
+        if ($action === 'document archived') {
+            return $filipinoLike ? 'In-archive.' : 'Archived.';
+        }
+
+        if ($action === 'document returned') {
+            return $filipinoLike ? 'Ibinalik para sa karagdagang action.' : 'Returned for further action.';
+        }
+
+        if (str_contains($action, 'updated')) {
+            $new = json_decode((string) ($log->new_value ?? ''), true);
+
+            if (is_array($new) && filled($new['status'] ?? null)) {
+                $status = $this->statusLabel((string) $new['status']);
+
+                return $filipinoLike
+                    ? 'Na-update ang status sa ' . $status . '.'
+                    : 'Status updated to ' . $status . '.';
+            }
+
+            if (is_array($new) && filled($new['action_type'] ?? null)) {
+                return $filipinoLike ? 'Na-update ang action type.' : 'Action type updated.';
+            }
+
+            return $filipinoLike ? 'Na-update ang detalye ng document.' : 'Document details updated.';
+        }
+
+        return $filipinoLike ? 'May recorded activity.' : 'Recorded activity available.';
+    }
+
     private function statusLabel(string $status): string
     {
         return match ($status) {
@@ -951,6 +1330,52 @@ class ClientDocumentLookupService
         $name = $document->document_name ?: $document->document_type;
 
         return filled($name) ? trim((string) $name) : null;
+    }
+
+    private function verifiedCompletionDate(Document $document): ?\Carbon\CarbonInterface
+    {
+        if (! Schema::hasTable('activity_logs')) {
+            return null;
+        }
+
+        $logs = $document->activityLogs()
+            ->orderByDesc('created_at')
+            ->get(['action_type', 'old_value', 'new_value', 'created_at']);
+
+        foreach ($logs as $log) {
+            if ($log->action_type === 'Document completed') {
+                return $log->created_at;
+            }
+
+            $old = json_decode((string) ($log->old_value ?? ''), true);
+            $new = json_decode((string) ($log->new_value ?? ''), true);
+
+            if ($log->action_type === 'Document updated'
+                && ($new['status'] ?? null) === 'completed'
+                && ($old['status'] ?? null) !== 'completed') {
+                return $log->created_at;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Build the owner-scoped query used for submitted-document operations.
+     * A fulfilled document request can create a row in documents and link it
+     * through document_requests; that row must remain available to the
+     * request lookup, but must not be mistaken for a client submission.
+     */
+    private function submittedDocuments(User $user)
+    {
+        $query = Document::query()
+            ->where('user_id', $user->getKey());
+
+        if (Schema::hasTable('document_requests')) {
+            $query->whereDoesntHave('documentRequests');
+        }
+
+        return $query;
     }
 
     private function documentLabel(?string $displayName, ?string $laoNumber): string

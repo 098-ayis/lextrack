@@ -4,6 +4,7 @@ namespace App\Filament\Client\Pages;
 
 use App\Models\Document;
 use App\Models\DocumentRequest;
+use App\Models\DocumentView;
 use Filament\Pages\Page;
 use Filament\Support\Enums\Width;
 
@@ -87,6 +88,16 @@ class ViewDocument extends Page
             ])
             ->firstOrFail();
 
+        DocumentView::updateOrCreate(
+            [
+                'document_id' => $this->documentRecord->document_id,
+                'user_id' => auth()->id(),
+            ],
+            [
+                'viewed_at' => now(),
+            ]
+        );
+
         $this->requestStatus = $this->documentRecord
             ->documentRequests()
             ->where('user_id', auth()->id())
@@ -111,7 +122,7 @@ class ViewDocument extends Page
             || $this->documentRecord
                 ->documentRequests()
                 ->where('user_id', auth()->id())
-                ->where('status', 'accepted')
+                ->where('status', 'completed')
                 ->exists();
 
         $previewFilePath = $this->documentRecord->transmittalAttachments->first()?->file_path

@@ -567,6 +567,14 @@
             transition: background-color 150ms ease-in-out;
         }
 
+        .client-documents-page .fi-ta-table tbody tr:first-child.latest-document-unviewed > td {
+            background-color: rgb(243 244 246) !important;
+        }
+
+        .client-documents-page .fi-ta-table tbody tr:first-child.latest-document-unviewed:hover > td {
+            background-color: rgb(229 231 235) !important;
+        }
+
         .client-documents-page .fi-ta-table tbody tr:hover {
             background-color: rgb(239 246 255);
         }
@@ -731,6 +739,14 @@
                 border-color: #374151;
                 background: #1f2937;
             }
+
+            .dark .client-documents-page .fi-ta-table tbody tr:first-child.latest-document-unviewed > td {
+                background-color: rgb(55 65 81) !important;
+            }
+
+            .dark .client-documents-page .fi-ta-table tbody tr:first-child.latest-document-unviewed:hover > td {
+                background-color: rgb(75 85 99) !important;
+            }
         }
     </style>
 
@@ -776,7 +792,7 @@
                                 const downloadUrl = URL.createObjectURL(jpegBlob);
                                 const link = document.createElement('a');
                                 link.href = downloadUrl;
-                                link.download = 'document-qr-code-{{ $qrCodeDocumentId }}.jpg';
+                                link.download = @js($qrCodeDocumentName . ' QR code.jpg');
                                 document.body.appendChild(link);
                                 link.click();
                                 link.remove();

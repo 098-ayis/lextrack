@@ -1,12 +1,15 @@
 <?php
 
+use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 use App\Http\Middleware\AdminMiddleware;
 use App\Http\Middleware\ClientMiddleware;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -34,6 +37,15 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $exceptions->render(function (\Throwable $exception, Request $request) {
             if (! $request->is('chatbot/message')) {
+                return null;
+            }
+
+            // Authentication, authorization, validation, and throttling are
+            // expected HTTP outcomes. Let Laravel preserve their normal JSON
+            // payloads and status codes (401, 403, 422, and 429).
+            if ($exception instanceof AuthenticationException
+                || $exception instanceof ValidationException
+                || $exception instanceof HttpExceptionInterface) {
                 return null;
             }
 

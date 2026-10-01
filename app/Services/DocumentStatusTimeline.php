@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\ActionType;
 use App\Models\Document;
 
 class DocumentStatusTimeline
@@ -9,7 +10,7 @@ class DocumentStatusTimeline
     /**
      * Build the public-facing status history from the document's activity logs.
      *
-     * @return array<int, array{status: string, title: string, description: string, time: string, date: string}>
+     * @return array<int, array{status: string, title: string, description: string, time: string, date: string, color: string}>
      */
     public function build(Document $document): array
     {
@@ -53,7 +54,10 @@ class DocumentStatusTimeline
             $timeline[] = $this->fallbackStatusEntry($document);
         }
 
-        return $timeline;
+        return array_values(array_filter(
+            $timeline,
+            fn (array $entry): bool => $entry['title'] !== 'In Progress',
+        ));
     }
 
     private function timelineEntryFromActivity(mixed $log, Document $document): ?array
@@ -68,6 +72,7 @@ class DocumentStatusTimeline
                 'In Progress',
                 'Your document was accepted and moved to Incoming.',
                 $timestamp,
+                $this->actionTypeColor($document->action_type),
             );
         }
 
@@ -174,6 +179,21 @@ class DocumentStatusTimeline
             }
 
             if (
+                filled($new['action_type'] ?? null)
+                && ($new['action_type'] ?? null) !== ($old['action_type'] ?? null)
+            ) {
+                $actionType = trim((string) $new['action_type']);
+
+                return $this->timelineEntry(
+                    'action',
+                    'Action Taken: ' . $actionType,
+                    'The action taken was changed to ' . $actionType . '.',
+                    $timestamp,
+                    $this->actionTypeColor($actionType),
+                );
+            }
+
+            if (
                 filled($new['sent_to'] ?? null)
                 && ($new['sent_to'] ?? null) !== ($old['sent_to'] ?? null)
             ) {
@@ -268,6 +288,7 @@ class DocumentStatusTimeline
         string $title,
         string $description,
         mixed $timestamp,
+        ?string $color = null,
     ): array {
         return [
             'status' => $status,
@@ -279,7 +300,36 @@ class DocumentStatusTimeline
             'date' => $timestamp instanceof \DateTimeInterface
                 ? $timestamp->format('M d, Y')
                 : '—',
+            'color' => $color ?: $this->statusColor($status),
         ];
+    }
+
+    private function actionTypeColor(?string $actionType): ?string
+    {
+        $actionType = trim((string) $actionType);
+
+        if ($actionType === '') {
+            return null;
+        }
+
+        $color = ActionType::query()
+            ->where('action_name', $actionType)
+            ->value('color');
+
+        return is_string($color) && preg_match('/^#[0-9a-f]{6}$/i', $color)
+            ? $color
+            : null;
+    }
+
+    private function statusColor(string $status): string
+    {
+        return match ($status) {
+            'pending' => '#f59e0b',
+            'in_progress', 'outgoing' => '#3b82f6',
+            'completed', 'archived' => '#22c55e',
+            'rejected' => '#ef4444',
+            default => '#64748b',
+        };
     }
 
     private function statusLabelFor(string $status): string

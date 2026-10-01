@@ -8,7 +8,11 @@
         }
     @endphp
 
-    <div id="client-chatbot" data-session-key="{{ $chatbotSessionKey }}"></div>
+    <div
+        id="client-chatbot"
+        data-session-key="{{ $chatbotSessionKey }}"
+        data-prohibited-terms="{{ json_encode(config('chatbot.prohibited_terms', []), JSON_THROW_ON_ERROR) }}"
+    ></div>
 
     @vite('resources/js/client-chatbot.js')
 @endif

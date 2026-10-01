@@ -6,6 +6,7 @@ use App\Ai\Agents\LexTrackAssistant;
 use App\Models\User;
 use App\Services\ChatIntentNormalizer;
 use App\Services\ChatbotIntentRouter;
+use App\Services\ChatbotMessagePolicy;
 use App\Services\ClientMessageAvailabilityService;
 use App\Services\ClientDocumentLookupService;
 use App\Services\ClientDocumentRequestLookupService;
@@ -44,6 +45,41 @@ class ChatbotController extends Controller
         LexTrackAssistant $assistant,
         ChatIntentNormalizer $normalizer,
         ChatbotIntentRouter $intents,
+        ChatbotMessagePolicy $messagePolicy,
+    ): JsonResponse {
+        try {
+            return $this->replyInternal(
+                $request,
+                $documents,
+                $documentRequests,
+                $messages,
+                $assistant,
+                $normalizer,
+                $intents,
+                $messagePolicy,
+            );
+        } catch (\Illuminate\Validation\ValidationException|\Symfony\Component\HttpKernel\Exception\HttpExceptionInterface $exception) {
+            throw $exception;
+        } catch (Throwable $exception) {
+            Log::error('Client chatbot request failed.', [
+                'exception_class' => $exception::class,
+            ]);
+
+            return response()->json([
+                'reply' => 'Pwede mo bang linawin ang tanong mo tungkol sa LexTrack?',
+            ]);
+        }
+    }
+
+    private function replyInternal(
+        Request $request,
+        ClientDocumentLookupService $documents,
+        ClientDocumentRequestLookupService $documentRequests,
+        ClientMessageAvailabilityService $messages,
+        LexTrackAssistant $assistant,
+        ChatIntentNormalizer $normalizer,
+        ChatbotIntentRouter $intents,
+        ChatbotMessagePolicy $messagePolicy,
     ): JsonResponse {
         $user = $request->user();
 
@@ -60,6 +96,16 @@ class ChatbotController extends Controller
         ]);
 
         $message = trim($validated['message']);
+
+        if ($messagePolicy->containsProhibitedTerm($message)) {
+            $reply = $messagePolicy->prohibitedMessage();
+
+            return response()->json([
+                'message' => $reply,
+                'reply' => $reply,
+            ], 422);
+        }
+
         $conversationId = $this->conversationId($request, $validated['conversation_id'] ?? null);
         $pendingAction = $this->activePendingAction($request, $user, $conversationId);
         $choices = $this->activeDocumentChoices($request, $user, $pendingAction, $conversationId);
@@ -69,9 +115,28 @@ class ChatbotController extends Controller
         $hasPrivateDocumentContext = $documentContext !== null;
         $hasPrivateRequestContext = $requestContext !== null;
 
-        // Handle short conversational messages before pending selections or
-        // confirmations. Acknowledgments must not be interpreted as a record
-        // selection or repeat the previous private intent.
+        // A numbered reply is an answer to the active list, not a new intent.
+        // Resolve it before quick or normal routing so the list is never
+        // repeated and the mapped ID is reauthorized by the lookup service.
+        $selectionResponse = $this->resolvePendingSelectionInput(
+            $request,
+            $user,
+            $documents,
+            $documentRequests,
+            $choices,
+            $requestChoices,
+            $pendingAction,
+            $conversationId,
+            $message,
+            $intents,
+        );
+
+        if ($selectionResponse !== null) {
+            return $selectionResponse;
+        }
+
+        // Handle short conversational messages before the remaining pending
+        // confirmations. Acknowledgments must not repeat a private intent.
         $quickIntent = $intents->classify(
             $message,
             hasPrivateContext: (bool) $request->session()->get(self::PRIVATE_CONTEXT_KEY, false),
@@ -120,8 +185,15 @@ class ChatbotController extends Controller
                 'request_scope_clarification',
                 'copy_type_clarification',
                 'payment_inquiry',
+                'message_content',
                 'legal_policy_information',
-            ], true)) {
+                'legal_policy_clarification',
+                'legal_services_information',
+                'service_scope_clarification',
+                'document_acceptance_scope',
+                'third_party_document_inquiry',
+            ], true)
+            && ($pendingAction['type'] ?? null) !== 'confirm_rejection_reason') {
             $quickLanguage = is_string($quickIntent['language'] ?? null)
                 ? $quickIntent['language']
                 : 'english';
@@ -145,7 +217,23 @@ class ChatbotController extends Controller
                     $quickLanguage,
                 ),
                 'payment_inquiry' => $this->paymentInquiryReply($request, $quickLanguage),
+                'message_content' => $this->messageContentReply($request, $quickLanguage),
                 'legal_policy_information' => $this->legalPolicyReply($request, $quickLanguage),
+                'legal_policy_clarification' => $this->legalPolicyClarificationReply(
+                    $request,
+                    $user,
+                    $conversationId,
+                    $quickLanguage,
+                ),
+                'legal_services_information' => $this->legalPolicyReply($request, $quickLanguage, 'a'),
+                'service_scope_clarification' => $this->serviceScopeClarificationReply(
+                    $request,
+                    $user,
+                    $conversationId,
+                    $quickLanguage,
+                ),
+                'document_acceptance_scope' => $this->documentAcceptanceScopeReply($request, $quickLanguage),
+                'third_party_document_inquiry' => $this->thirdPartyDocumentReply($request, $quickLanguage),
                 'unsupported' => $this->unsupportedReply($request),
                 default => $this->clarificationReply($quickLanguage),
             };
@@ -181,52 +269,6 @@ class ChatbotController extends Controller
                 return response()->json([
                     'reply' => 'Please reply yes, oo, or opo if you want me to help check the recorded rejection reason, or no to cancel.',
                 ]);
-            }
-        }
-
-        if (($pendingAction['type'] ?? null) === 'select_document') {
-            $selectionIndex = $intents->documentSelectionIndex($message);
-            $confirmation = $intents->confirmationValue($message);
-
-            if ($confirmation === false) {
-                $this->clearPendingAction($request);
-                $request->session()->forget(self::DOCUMENT_CHOICES_KEY);
-
-                return $this->privateReply($request, 'Okay. I cancelled the document selection.');
-            }
-
-            if ($selectionIndex === null && ! $intents->isClearTopicChange($message)) {
-                return response()->json([
-                    'reply' => 'Please choose a listed document by replying with its number, such as 3, “document 3”, or “yung pangatlo”. Reply no to cancel.',
-                ]);
-            }
-
-            if ($selectionIndex === null) {
-                $this->clearPendingAction($request);
-                $request->session()->forget(self::DOCUMENT_CHOICES_KEY);
-            }
-        }
-
-        if (($pendingAction['type'] ?? null) === 'select_request') {
-            $selectionIndex = $intents->documentSelectionIndex($message);
-            $confirmation = $intents->confirmationValue($message);
-
-            if ($confirmation === false) {
-                $this->clearPendingAction($request);
-                $request->session()->forget(self::REQUEST_CHOICES_KEY);
-
-                return $this->privateReply($request, 'Okay. I cancelled the request selection.');
-            }
-
-            if ($selectionIndex === null && ! $intents->isClearTopicChange($message)) {
-                return response()->json([
-                    'reply' => 'Please choose a listed request by replying with its list number, such as 1. Reply no to cancel.',
-                ]);
-            }
-
-            if ($selectionIndex === null) {
-                $this->clearPendingAction($request);
-                $request->session()->forget(self::REQUEST_CHOICES_KEY);
             }
         }
 
@@ -291,10 +333,61 @@ class ChatbotController extends Controller
             );
         }
 
+        if (($normalizedIntent['name'] ?? null) === 'get_most_recently_updated_document') {
+            return $this->mostRecentlyUpdatedDocument(
+                $request,
+                $user,
+                $documents,
+                (string) ($interpretation['response_language'] ?? 'english'),
+            );
+        }
+
+        if (($normalizedIntent['name'] ?? null) === 'document_context_processing_status') {
+            return $this->documentContextReply(
+                $request,
+                fn (): array => $documents->processingStatusByDocumentIdResult(
+                    $user,
+                    $this->privateContextDocumentId($documentContext, $user) ?? 0,
+                    (string) ($interpretation['response_language'] ?? 'english'),
+                ),
+            );
+        }
+
+        if (($normalizedIntent['name'] ?? null) === 'document_completion_date'
+            && ! filled($normalizedIntent['parameters']['document_name'] ?? null)) {
+            if (($normalizedIntent['reference']['type'] ?? null) === 'context') {
+                return $this->documentContextReply(
+                    $request,
+                    fn (): array => $documents->completionDateByDocumentIdResult(
+                        $user,
+                        $this->privateContextDocumentId($documentContext, $user) ?? 0,
+                        (string) ($interpretation['response_language'] ?? 'english'),
+                    ),
+                );
+            }
+
+            return $this->latestCompletionDate(
+                $request,
+                $user,
+                $documents,
+                (string) ($interpretation['response_language'] ?? 'english'),
+            );
+        }
+
+        if (($normalizedIntent['name'] ?? null) === 'document_processing_status'
+            && ! filled($normalizedIntent['parameters']['document_name'] ?? null)) {
+            return $this->latestProcessingStatus(
+                $request,
+                $user,
+                $documents,
+                (string) ($interpretation['response_language'] ?? 'english'),
+            );
+        }
+
         // A topic-specific document question has already been interpreted
         // locally. Route it directly to the owner-scoped resolver instead of
         // reclassifying it through the generic fallback path.
-        if (in_array($normalizedIntent['name'] ?? null, ['get_document_status', 'get_document_updates', 'get_document_type'], true)
+        if (in_array($normalizedIntent['name'] ?? null, ['get_document_status', 'get_document_updates', 'get_document_type', 'document_processing_status', 'document_completion_date'], true)
             && in_array($normalizedIntent['reference']['type'] ?? null, ['topic', 'search_text', 'document_type', 'submission_date'], true)
             && filled($normalizedIntent['parameters']['document_name'] ?? null)) {
             return $this->lookupByDocumentName(
@@ -364,6 +457,20 @@ class ChatbotController extends Controller
             ),
             'payment_inquiry' => $this->paymentInquiryReply($request, $intent['language']),
             'legal_policy_information' => $this->legalPolicyReply($request, $intent['language']),
+            'legal_policy_clarification' => $this->legalPolicyClarificationReply(
+                $request,
+                $user,
+                $conversationId,
+                $intent['language'],
+            ),
+            'legal_services_information' => $this->legalPolicyReply($request, $intent['language'], 'a'),
+            'service_scope_clarification' => $this->serviceScopeClarificationReply(
+                $request,
+                $user,
+                $conversationId,
+                $intent['language'],
+            ),
+            'document_acceptance_scope' => $this->documentAcceptanceScopeReply($request, $intent['language']),
             'clarification' => $this->clarificationReply($intent['language']),
             'email_delivery' => $this->emailDeliveryReply($request, $intent['language']),
             'message_content' => $this->messageContentReply($request, $intent['language']),
@@ -380,6 +487,13 @@ class ChatbotController extends Controller
                 $documents,
                 $intent['status'],
                 $intent['yes_no'],
+                $intent['language'],
+            ),
+            'document_list' => $this->documentListReply(
+                $request,
+                $user,
+                $documents,
+                $intent['status'] ?? null,
                 $intent['language'],
             ),
             'document_status_filter' => $this->lookupByDocumentStatus(
@@ -427,6 +541,14 @@ class ChatbotController extends Controller
                 $documents,
                 $documentContext,
                 $intent['topic'] ?? 'summary',
+            ),
+            'document_context_processing_status' => $this->documentContextReply(
+                $request,
+                fn (): array => $documents->processingStatusByDocumentIdResult(
+                    $user,
+                    $this->privateContextDocumentId($documentContext, $user) ?? 0,
+                    $intent['language'],
+                ),
             ),
             'request_status', 'latest_request' => $this->requestLookup(
                 $request,
@@ -488,12 +610,21 @@ class ChatbotController extends Controller
             ),
             'invalid_lao' => $this->privateReply(
                 $request,
-                'Please provide one valid LAO number, such as LAO-26-009. Pending documents may not have an LAO number yet.',
+                $intent['language'] === 'filipino'
+                    ? 'Mukhang may typo o kulang sa LAO number. Pakicheck at ibigay ang kumpletong LAO number, halimbawa LAO-26-001.'
+                    : ($intent['language'] === 'taglish'
+                        ? 'Mukhang may typo o kulang sa LAO number. Pakicheck at ibigay ang complete LAO number, halimbawa LAO-26-001.'
+                        : 'The LAO number looks incomplete or mistyped. Please provide the complete LAO number, such as LAO-26-001.'),
             ),
             'latest_status' => $this->latestStatus($request, $user, $documents),
             'latest_submission_date' => $this->latestSubmissionDate($request, $user, $documents),
             'compare_latest_documents' => $this->compareLatestDocuments($request, $user, $documents),
-            'ambiguous_document' => $this->ambiguousDocumentReply($request, $user, $documents),
+            'ambiguous_document' => $this->ambiguousDocumentReply(
+                $request,
+                $user,
+                $documents,
+                $conversationId,
+            ),
             'document_selection' => $this->documentSelection(
                 $request,
                 $user,
@@ -502,6 +633,11 @@ class ChatbotController extends Controller
                 $intent['selection_index'],
                 $conversationId,
                 $pendingAction,
+                $intent['language'],
+            ),
+            'third_party_document_inquiry' => $this->thirdPartyDocumentReply(
+                $request,
+                $intent['language'],
             ),
             'unsupported' => $this->unsupportedReply($request),
             default => $this->generalKnowledgeReply($request, $message, $assistant, $intents),
@@ -651,6 +787,42 @@ class ChatbotController extends Controller
         );
     }
 
+    private function latestProcessingStatus(
+        Request $request,
+        User $user,
+        ClientDocumentLookupService $documents,
+        string $language,
+    ): JsonResponse {
+        return $this->documentContextReply(
+            $request,
+            fn (): array => $documents->latestProcessingStatusResult($user, $language),
+        );
+    }
+
+    private function latestCompletionDate(
+        Request $request,
+        User $user,
+        ClientDocumentLookupService $documents,
+        string $language,
+    ): JsonResponse {
+        return $this->documentContextReply(
+            $request,
+            fn (): array => $documents->latestCompletionDateResult($user, $language),
+        );
+    }
+
+    private function mostRecentlyUpdatedDocument(
+        Request $request,
+        User $user,
+        ClientDocumentLookupService $documents,
+        string $language,
+    ): JsonResponse {
+        return $this->documentContextReply(
+            $request,
+            fn (): array => $documents->mostRecentlyUpdatedResult($user, $language),
+        );
+    }
+
     private function latestSubmissionDate(
         Request $request,
         User $user,
@@ -789,6 +961,113 @@ class ChatbotController extends Controller
         return $this->privateReply($request, $reply);
     }
 
+    private function documentAcceptanceScopeReply(Request $request, string $language): JsonResponse
+    {
+        $reply = match ($language) {
+            'filipino' => 'Wala akong kumpletong verified listahan ng lahat ng document type na tinatanggap ng Legal Affairs Office. Depende ang requirements sa uri at purpose ng document. Para sa partikular na requirements o official confirmation, gamitin ang Messages page para makipag-ugnayan sa Legal Affairs Office. Kung sarili mong records ang ibig mong sabihin, itanong kung alin sa documents mo ang In Progress.',
+            'taglish' => 'I don’t have a complete verified list of every document type accepted by the Legal Affairs Office. Depende ang requirements sa document type at purpose. For official confirmation, contact the Legal Affairs Office through Messages. If you mean your own records, ask which of your documents are In Progress.',
+            default => 'I don’t have a complete verified list of every document type accepted by the Legal Affairs Office. Requirements depend on the document type and purpose. For official confirmation, contact the Legal Affairs Office through the Messages page. If you mean your own records, ask which of your documents are In Progress.',
+        };
+
+        return $this->privateReply($request, $reply);
+    }
+
+    private function serviceScopeClarificationReply(
+        Request $request,
+        User $user,
+        string $conversationId,
+        string $language,
+    ): JsonResponse {
+        $reply = match ($language) {
+            'filipino' => 'Aling services ang gusto mong malaman: (A) mga feature ng LexTrack, o (B) mga serbisyong ibinibigay ng Legal Affairs Office? Sumagot ng A o B.',
+            'taglish' => 'Which services do you mean: (A) LexTrack system features, or (B) services provided by the Legal Affairs Office? Reply A or B.',
+            default => 'Which services do you mean: (A) LexTrack system features, or (B) services provided by the Legal Affairs Office? Reply A or B.',
+        };
+
+        $response = $this->privateReply($request, $reply);
+        $this->putPendingAction(
+            $request,
+            $user,
+            $conversationId,
+            'service_scope',
+            'services',
+            ['lextrack', 'office'],
+            'Choose LexTrack system features or Legal Affairs Office services.',
+            $language,
+        );
+
+        return $response;
+    }
+
+    private function serviceScopeReply(Request $request, string $language, string $scope): JsonResponse
+    {
+        if ($scope === 'office') {
+            return $this->legalPolicyReply($request, $language, 'a');
+        }
+
+        $reply = match ($language) {
+            'filipino' => 'Ang LexTrack ay may Submit Document, Request Document, Documents para sa status tracking, Messages, notifications, at revision uploads sa Client Portal.',
+            'taglish' => 'LexTrack provides Submit Document, Request Document, Documents for status tracking, Messages, notifications, and revision uploads in the Client Portal.',
+            default => 'LexTrack provides Submit Document, Request Document, Documents for status tracking, Messages, notifications, and revision uploads in the Client Portal.',
+        };
+
+        return $this->privateReply($request, $reply);
+    }
+
+    private function legalPolicyClarificationReply(
+        Request $request,
+        User $user,
+        string $conversationId,
+        string $language,
+    ): JsonResponse {
+        $reply = match ($language) {
+            'filipino' => 'Anong policy topic ang gusto mong ipaliwanag: general LexTrack policies, privacy at data handling, document submission/request procedures, notification rules, o mga tungkulin ng Legal Affairs Office? Isulat ang topic, gaya ng “general.”',
+            'taglish' => 'Which policy topic do you want explained: general LexTrack policies, privacy and data handling, document submission/request procedures, notification rules, or Legal Affairs Office responsibilities? Reply with a topic, such as “general.”',
+            default => 'Which policy topic do you want explained: general LexTrack policies, privacy and data handling, document submission/request procedures, notification rules, or Legal Affairs Office responsibilities? Reply with a topic, such as “general.”',
+        };
+
+        $response = $this->privateReply($request, $reply);
+        $this->putPendingAction(
+            $request,
+            $user,
+            $conversationId,
+            'legal_policy_scope',
+            'policy',
+            ['general', 'privacy', 'procedures', 'notifications', 'office'],
+            'Choose the policy topic to explain.',
+        );
+
+        return $response;
+    }
+
+    private function legalPolicyScopeReply(Request $request, string $language, string $topic): JsonResponse
+    {
+        return match ($topic) {
+            'privacy' => $this->privateReply(
+                $request,
+                $language === 'filipino'
+                    ? 'Ang private document inquiries, LAO numbers, database results, private messages, at private chat context ay pinoproseso sa Laravel at hindi ipinapadala sa OpenAI. Ang chatbot ay read-only at bawat document lookup ay may authentication, ownership, at field-permission checks.'
+                    : ($language === 'taglish'
+                        ? 'Private document inquiries, LAO numbers, database results, private messages, and private chat context stay in Laravel and are not sent to OpenAI. The chatbot is read-only, and every document lookup applies authentication, ownership, and field-permission checks.'
+                        : 'Private document inquiries, LAO numbers, database results, private messages, and private chat context stay in Laravel and are not sent to OpenAI. The chatbot is read-only, and every document lookup applies authentication, ownership, and field-permission checks.'),
+            ),
+            'procedures' => $this->privateReply(
+                $request,
+                $language === 'filipino'
+                    ? 'Sa LexTrack, maaari kang magsumite o mag-request ng document, tingnan ang status sa Documents, at makipag-ugnayan sa Legal Affairs Office sa Messages. Ang requirements ay maaaring mag-iba depende sa document type at purpose.'
+                    : 'LexTrack lets clients submit or request documents, check statuses in Documents, and communicate with the Legal Affairs Office through Messages. Requirements may vary by document type and purpose.',
+            ),
+            'notifications' => $this->privateReply(
+                $request,
+                $language === 'filipino'
+                    ? 'May in-app at email notifications para sa ilang document events. Hindi makukumpirma ng chatbot kung na-deliver o nabasa ang isang partikular na email; tingnan ang Client Portal Notifications at iyong authorized Bicol University account.'
+                    : 'LexTrack documents some in-app and email notifications for certain document events. The chatbot cannot confirm whether a particular email was delivered or read; check Client Portal Notifications and your authorized Bicol University account.',
+            ),
+            'office' => $this->legalPolicyReply($request, $language, 'a'),
+            default => $this->legalPolicyReply($request, $language),
+        };
+    }
+
     private function legalPolicyReply(
         Request $request,
         string $language,
@@ -796,9 +1075,9 @@ class ChatbotController extends Controller
     ): JsonResponse {
         if ($option === 'a') {
             $reply = match ($language) {
-                'filipino' => 'Ayon sa approved LexTrack guide, ang Legal Affairs Office ay may tungkulin sa legal representation ng unibersidad, legal advice at counseling, administrative investigations, at pag-review at pag-record ng mga legal document. Para sa kumpletong opisyal na policy text, kumonsulta sa Legal Affairs Office o sa official Bicol University sources.',
-                'taglish' => 'The approved LexTrack guide describes the Legal Affairs Office as handling university legal representation, legal advice and counseling, administrative investigations, and review and recordkeeping of university legal documents. For complete official policy text, consult the Legal Affairs Office or an official Bicol University source.',
-                default => 'The approved LexTrack guide describes the Legal Affairs Office as handling university legal representation, legal advice and counseling, administrative investigations, and review and recordkeeping of university legal documents. For complete official policy text, consult the Legal Affairs Office or an official Bicol University source.',
+                'filipino' => 'Ang Legal Affairs Office ay may tungkulin sa legal representation ng unibersidad, legal advice at counseling, administrative investigations, at pag-review at pag-record ng mga legal document. Para sa kumpletong opisyal na policy text, kumonsulta sa Legal Affairs Office o sa official Bicol University sources.',
+                'taglish' => 'The Legal Affairs Office handles university legal representation, legal advice and counseling, administrative investigations, and the review and recordkeeping of university legal documents. For complete official policy text, consult the Legal Affairs Office or an official Bicol University source.',
+                default => 'The Legal Affairs Office handles university legal representation, legal advice and counseling, administrative investigations, and the review and recordkeeping of university legal documents. For complete official policy text, consult the Legal Affairs Office or an official Bicol University source.',
             };
         } elseif ($option === 'b') {
             $reply = match ($language) {
@@ -808,9 +1087,9 @@ class ChatbotController extends Controller
             };
         } else {
             $reply = match ($language) {
-                'filipino' => 'Ayon sa approved LexTrack guide, ang Legal Affairs Office ay tumutulong sa legal representation, legal advice at counseling, administrative investigations, at pag-review ng mga legal document ng unibersidad. Ang LexTrack naman ay para sa document submission, tracking, document requests, at Messages. Para sa opisyal na policy text o legal interpretation, kumonsulta sa Legal Affairs Office o sa official Bicol University sources.',
-                'taglish' => 'The approved LexTrack guide describes the Legal Affairs Office as handling university legal representation, legal advice and counseling, administrative investigations, and review of university legal documents. LexTrack supports document submission, tracking, document requests, and Messages. For official policy text or legal interpretation, consult the Legal Affairs Office or an official Bicol University source.',
-                default => 'The approved LexTrack guide describes the Legal Affairs Office as handling university legal representation, legal advice and counseling, administrative investigations, and review of university legal documents. LexTrack supports document submission, tracking, document requests, and Messages. For official policy text or legal interpretation, consult the Legal Affairs Office or an official Bicol University source.',
+                'filipino' => 'Ang general LexTrack policies ay nakatuon sa tamang document submission, secure na paghawak ng impormasyon, authorized access, document tracking, at communication sa Legal Affairs Office. Magbigay ng accurate na impormasyon at sundin ang procedures para sa submissions, requests, revisions, at Messages. Para sa official university policies o legal interpretation, kumonsulta sa Legal Affairs Office.',
+                'taglish' => 'General LexTrack policies focus on proper document submission, secure handling of information, authorized access, document tracking, and communication with the Legal Affairs Office. Clients should provide accurate information and follow the required procedures for submissions, requests, revisions, and Messages. For official university policies or legal interpretations, please consult the Legal Affairs Office.',
+                default => 'General LexTrack policies focus on proper document submission, secure handling of information, authorized access, document tracking, and communication with the Legal Affairs Office. Clients should provide accurate information and follow the required procedures for submissions, requests, revisions, and Messages. For official university policies or legal interpretations, please consult the Legal Affairs Office.',
             };
         }
 
@@ -876,6 +1155,7 @@ class ChatbotController extends Controller
     ): JsonResponse {
         $selectedDocumentId = $this->privateContextDocumentId($documentContext, $user);
         $selectedRequestId = $this->privateContextRequestId($requestContext, $user);
+        $conversationId = $this->conversationId($request, $request->input('conversation_id'));
 
         $this->clearGeneralHistory($request);
         $this->clearPendingAction($request);
@@ -899,10 +1179,14 @@ class ChatbotController extends Controller
             'message_metadata',
             'latest_status',
             'latest_submission_date',
+            'get_most_recently_updated_document',
             'lao_lookup',
             'document_context_status',
             'document_context_details',
             'document_context_guidance',
+            'document_context_processing_status',
+            'document_processing_status',
+            'document_completion_date',
             'request_status',
             'latest_request',
             'request_context_details',
@@ -915,6 +1199,18 @@ class ChatbotController extends Controller
                     'I understood more than one part of your question, but I need you to ask the private record question separately so I do not guess or expose the wrong record.',
                 );
             }
+        }
+
+        if ($this->isProcessingCompletionPair($intents)) {
+            return $this->multiProcessingCompletionReply(
+                $request,
+                $user,
+                $documents,
+                $selectedDocumentId,
+                $conversationId,
+                $intents,
+                (string) ($interpretation['response_language'] ?? 'english'),
+            );
         }
 
         try {
@@ -967,6 +1263,65 @@ class ChatbotController extends Controller
                         $selectedDocumentId = $this->resultIdentifier($result, 'document_id') ?? $selectedDocumentId;
                         $replies[] = (string) $result['reply'];
                         break;
+                    case 'get_most_recently_updated_document':
+                        $result = $documents->mostRecentlyUpdatedResult($user, $language);
+                        $selectedDocumentId = $this->resultIdentifier($result, 'document_id') ?? $selectedDocumentId;
+                        $replies[] = (string) $result['reply'];
+                        break;
+                    case 'document_processing_status':
+                    case 'document_completion_date':
+                        $reference = filled($parameters['document_name'] ?? null)
+                            ? (string) $parameters['document_name']
+                            : null;
+
+                        if ($reference !== null) {
+                            $choices = $documents->authorizedDocumentChoicesByReference(
+                                $user,
+                                $reference,
+                                ($parameters['reference_field'] ?? null) === 'document_type'
+                                    ? 'document_type'
+                                    : null,
+                            );
+
+                            if ($choices === []) {
+                                return $this->privateReply(
+                                    $request,
+                                    $this->isFilipinoLike($language)
+                                        ? 'Wala akong nakitang authorized document na tumutugma sa "' . $reference . '".'
+                                        : 'I couldn’t find an authorized document matching "' . $reference . '".',
+                                );
+                            }
+
+                            if (count($choices) > 1) {
+                                return $this->ambiguousDocumentReply(
+                                    $request,
+                                    $user,
+                                    $documents,
+                                    $this->conversationId($request, $request->input('conversation_id')),
+                                    'status',
+                                    $choices,
+                                    $reference,
+                                    null,
+                                    $language,
+                                );
+                            }
+
+                            $selectedDocumentId = (int) $choices[0]['document_id'];
+                        }
+
+                        if ($selectedDocumentId === null) {
+                            $result = $intent['name'] === 'document_completion_date'
+                                ? $documents->latestCompletionDateResult($user, $language)
+                                : $documents->latestProcessingStatusResult($user, $language);
+                        } else {
+                            $result = $intent['name'] === 'document_completion_date'
+                                ? $documents->completionDateByDocumentIdResult($user, $selectedDocumentId, $language)
+                                : $documents->processingStatusByDocumentIdResult($user, $selectedDocumentId, $language);
+                        }
+
+                        $selectedDocumentId = $this->resultIdentifier($result, 'document_id') ?? $selectedDocumentId;
+                        $replies[] = (string) $result['reply'];
+                        break;
                     case 'lao_lookup':
                         foreach ((array) ($parameters['lao_numbers'] ?? []) as $laoNumber) {
                             $result = $documents->statusByLaoNumberResult($user, (string) $laoNumber);
@@ -979,6 +1334,13 @@ class ChatbotController extends Controller
                             throw new \RuntimeException('No authorized document context is available.');
                         }
                         $replies[] = (string) $documents->statusByDocumentIdResult($user, $selectedDocumentId)['reply'];
+                        break;
+                    case 'document_context_processing_status':
+                        if ($selectedDocumentId === null) {
+                            throw new \RuntimeException('No authorized document context is available.');
+                        }
+                        $result = $documents->processingStatusByDocumentIdResult($user, $selectedDocumentId, $language);
+                        $replies[] = (string) $result['reply'];
                         break;
                     case 'document_context_details':
                         if ($selectedDocumentId === null) {
@@ -1062,6 +1424,102 @@ class ChatbotController extends Controller
     }
 
     /** @param array<string, mixed> $result */
+    /** @param list<array<string, mixed>> $intents */
+    private function isProcessingCompletionPair(array $intents): bool
+    {
+        $names = array_map(
+            static fn (array $intent): string => (string) ($intent['name'] ?? ''),
+            $intents,
+        );
+
+        return in_array('document_processing_status', $names, true)
+            && in_array('document_completion_date', $names, true);
+    }
+
+    /** @param list<array<string, mixed>> $intents */
+    private function multiProcessingCompletionReply(
+        Request $request,
+        User $user,
+        ClientDocumentLookupService $documents,
+        ?int $selectedDocumentId,
+        string $conversationId,
+        array $intents,
+        string $language,
+    ): JsonResponse {
+        $reference = null;
+        $referenceField = null;
+
+        foreach ($intents as $intent) {
+            if (! in_array($intent['name'] ?? null, ['document_processing_status', 'document_completion_date'], true)) {
+                continue;
+            }
+
+            $parameters = is_array($intent['parameters'] ?? null) ? $intent['parameters'] : [];
+            if (filled($parameters['document_name'] ?? null)) {
+                $reference = (string) $parameters['document_name'];
+                $referenceField = ($parameters['reference_field'] ?? null) === 'document_type'
+                    ? 'document_type'
+                    : null;
+                break;
+            }
+        }
+
+        if ($reference !== null) {
+            try {
+                $choices = $documents->authorizedDocumentChoicesByReference(
+                    $user,
+                    $reference,
+                    $referenceField,
+                );
+            } catch (Throwable $exception) {
+                return $this->safeDocumentFailure($exception);
+            }
+
+            if ($choices === []) {
+                return $this->privateReply(
+                    $request,
+                    $this->isFilipinoLike($language)
+                        ? 'Wala akong nakitang authorized document na tumutugma sa "' . $reference . '".'
+                        : 'I couldn’t find an authorized document matching "' . $reference . '".',
+                );
+            }
+
+            if (count($choices) > 1) {
+                return $this->ambiguousDocumentReply(
+                    $request,
+                    $user,
+                    $documents,
+                    $conversationId,
+                    'completion_status_date',
+                    $choices,
+                    $reference,
+                    null,
+                    $language,
+                );
+            }
+
+            $selectedDocumentId = (int) $choices[0]['document_id'];
+        }
+
+        if ($selectedDocumentId === null) {
+            $latest = $documents->latestProcessingStatusResult($user, $language);
+            $selectedDocumentId = $this->resultIdentifier($latest, 'document_id');
+
+            if ($selectedDocumentId === null) {
+                return response()->json(['reply' => (string) $latest['reply']]);
+            }
+        }
+
+        return $this->documentContextReply(
+            $request,
+            fn (): array => $documents->processingAndCompletionDateResult(
+                $user,
+                $selectedDocumentId,
+                $language,
+            ),
+        );
+    }
+
     private function resultIdentifier(array $result, string $key): ?int
     {
         $value = filter_var($result[$key] ?? null, FILTER_VALIDATE_INT);
@@ -1081,7 +1539,7 @@ class ChatbotController extends Controller
         $counts ??= $documents->documentCountsByStatus($user);
         $count = $status === null ? array_sum($counts) : ($counts[$status] ?? 0);
         $label = $this->countLabel(
-            $status === null ? 'authorized documents' : (($status === 'in_progress' ? 'In Progress' : ucfirst($status)) . ' documents'),
+            $status === null ? 'documents' : (($status === 'in_progress' ? 'In Progress' : ucfirst($status)) . ' documents'),
             $count,
         );
 
@@ -1107,10 +1565,11 @@ class ChatbotController extends Controller
         ?array &$counts = null,
         bool &$hasTotal = false,
     ): string {
+        $lookupStatus = $status === 'accepted' ? 'for_release' : $status;
         $counts ??= $documentRequests->countsByStatus($user);
-        $count = $status === null ? array_sum($counts) : ($counts[$status] ?? 0);
+        $count = $lookupStatus === null ? array_sum($counts) : ($counts[$lookupStatus] ?? 0);
         $label = $this->countLabel(
-            $status === null ? 'document requests' : $documentRequests->statusLabelForChat($status),
+            $lookupStatus === null ? 'document requests' : $documentRequests->statusLabelForChat($lookupStatus),
             $count,
         );
 
@@ -1231,10 +1690,11 @@ class ChatbotController extends Controller
         $request->session()->forget(self::DOCUMENT_CHOICES_KEY);
         $request->session()->forget(self::REQUEST_CHOICES_KEY);
 
+        $lookupStatus = $status === 'accepted' ? 'for_release' : $status;
         try {
-            $count = $status === null
+            $count = $lookupStatus === null
                 ? array_sum($documentRequests->countsByStatus($user))
-                : $documentRequests->countByStatus($user, $status);
+                : $documentRequests->countByStatus($user, $lookupStatus);
         } catch (Throwable $exception) {
             return $this->safeDocumentFailure($exception);
         }
@@ -1252,8 +1712,8 @@ class ChatbotController extends Controller
             }
         }
 
-        $label = $status === null ? 'document requests' : $documentRequests->statusLabelForChat($status);
-        $reply = $language === 'filipino'
+        $label = $lookupStatus === null ? 'document requests' : $documentRequests->statusLabelForChat($lookupStatus);
+        $reply = $this->isFilipinoLike($language)
             ? 'Mayroon kang ' . $count . ' ' . $label . '.'
             : 'You have ' . $count . ' ' . $label . '.';
 
@@ -1306,16 +1766,16 @@ class ChatbotController extends Controller
         }
 
         if ($choices === []) {
-            return $this->privateReply($request, 'You have no authorized document requests to select. Open Documents to submit or review a request.');
+            return $this->privateReply($request, 'You have no document requests to select. Open Documents to submit or review a request.');
         }
 
         $ids = [];
         $requestNoun = count($choices) === 1 ? 'document request' : 'document requests';
         $lines = [$this->listHeading(
             $language,
-            'I found ' . count($choices) . ' authorized ' . $requestNoun . '.',
-            'May nakita akong ' . count($choices) . ' authorized na ' . $requestNoun . '.',
-            'May nakita akong ' . count($choices) . ' authorized ' . $requestNoun . '.',
+            'I found ' . count($choices) . ' ' . $requestNoun . '.',
+            'May nakita akong ' . count($choices) . ' ' . $requestNoun . '.',
+            'May nakita akong ' . count($choices) . ' ' . $requestNoun . '.',
         )];
         foreach ($choices as $index => $choice) {
             $ids[] = $choice['request_id'];
@@ -1431,7 +1891,7 @@ class ChatbotController extends Controller
 
     private function messageContentReply(Request $request, string $language): JsonResponse
     {
-        $reply = $language === 'filipino'
+        $reply = $this->isFilipinoLike($language)
             ? 'Para mapanatili ang privacy, hindi ko mababasa o maibubuod ang private messages. Buksan ang Messages sa Client Portal para makita ang usapan sa Legal Affairs Office.'
             : 'For privacy, I can’t read or summarize private messages here. Open Messages in your Client Portal to view the conversation with the Legal Affairs Office.';
 
@@ -1529,14 +1989,14 @@ class ChatbotController extends Controller
 
         if ($language === 'filipino') {
             $subject = $statusLabel === null
-                ? 'authorized documents sa LexTrack'
+                ? 'documents sa LexTrack'
                 : $plural . ' na may status na ' . $statusLabel;
             $reply = $yesNo
                 ? ($count > 0 ? 'Oo, mayroon kang ' . $count . ' ' . $subject . '.' : 'Wala kang ' . $subject . '.')
                 : 'Mayroon kang ' . $count . ' ' . $subject . '.';
         } else {
             $subject = $statusLabel === null
-                ? 'authorized documents in LexTrack'
+                ? 'documents in LexTrack'
                 : $plural . ' with status ' . $statusLabel;
             $reply = $yesNo
                 ? ($count > 0 ? 'Yes, you have ' . $count . ' ' . $subject . '.' : 'No, you have no ' . $subject . '.')
@@ -1585,6 +2045,125 @@ class ChatbotController extends Controller
         );
     }
 
+    private function documentListReply(
+        Request $request,
+        User $user,
+        ClientDocumentLookupService $documents,
+        ?string $status,
+        string $language,
+    ): JsonResponse {
+        try {
+            $records = $documents->authorizedDocumentList($user, $status);
+        } catch (Throwable $exception) {
+            return $this->safeDocumentFailure($exception);
+        }
+
+        $statusLabel = match ($status) {
+            'in_progress' => 'In Progress',
+            'pending' => 'Pending',
+            'outgoing' => 'Outgoing',
+            'completed' => 'Completed',
+            'returned' => 'Returned',
+            'rejected' => 'Rejected',
+            'archived' => 'Archived',
+            default => null,
+        };
+
+        if ($records === []) {
+            $reply = $language === 'filipino'
+                ? ($statusLabel === null
+                    ? 'Wala kang naisumiteng document.'
+                    : 'Wala kang naisumiteng document na may status na ' . $statusLabel . '.')
+                : ($language === 'taglish'
+                    ? ($statusLabel === null
+                        ? 'Wala kang submitted documents.'
+                        : 'Wala kang submitted documents na may status na ' . $statusLabel . '.')
+                    : ($statusLabel === null
+                        ? 'You have no submitted documents.'
+                        : 'You have no submitted documents with status ' . $statusLabel . '.'));
+
+            return $this->privateReply($request, $reply);
+        }
+
+        $count = count($records);
+        $heading = $language === 'filipino'
+            ? 'Narito ang iyong ' . $count . ' na dokumentong naisumite:'
+            : ($language === 'taglish'
+                ? 'Narito ang ' . $count . ' submitted documents mo:'
+                : 'Here are your ' . $count . ' submitted documents:');
+        $lines = [$heading];
+
+        foreach ($records as $index => $record) {
+            $name = filled($record['display_name'] ?? null) ? (string) $record['display_name'] : 'Not recorded';
+            $type = filled($record['document_type'] ?? null) ? (string) $record['document_type'] : 'Not recorded';
+            $recordStatus = filled($record['status_label'] ?? null) ? (string) $record['status_label'] : 'Unavailable';
+            $laoNumber = filled($record['lao_number'] ?? null) ? (string) $record['lao_number'] : 'Not yet assigned';
+            $submittedAt = filled($record['submitted_at'] ?? null) ? (string) $record['submitted_at'] : 'Date unavailable';
+
+            $lines[] = ($index + 1) . '. ' . $this->listField(
+                $language,
+                'Document name',
+                'Pangalan ng document',
+                'Document name',
+                $name,
+            ) . "\n   " . $this->listField(
+                $language,
+                'Document type',
+                'Uri ng document',
+                'Document type',
+                $type,
+            ) . "\n   " . $this->listField(
+                $language,
+                'Status',
+                'Status',
+                'Status',
+                $recordStatus,
+            ) . "\n   " . $this->listField(
+                $language,
+                'LAO number',
+                'LAO number',
+                'LAO number',
+                $laoNumber,
+            ) . "\n   " . $this->listField(
+                $language,
+                'Submitted',
+                'Isinumite',
+                'Submitted',
+                $submittedAt,
+            );
+        }
+
+        $reply = implode("\n\n", $lines) . "\n\n" . $this->listInstruction(
+            $language,
+            'Reply with a number if you want to check one document in detail.',
+            'I-type ang numero kung gusto mong tingnan ang detalye ng isang document.',
+            'I-type ang number kung gusto mong i-check ang details ng isang document.',
+        );
+        $response = $this->privateReply($request, $reply);
+
+        // Keep the explicit list selectable for a short period. The IDs are
+        // scoped to this authenticated user and conversation, and the final
+        // document lookup still rechecks ownership and permitted fields.
+        $request->session()->put(self::DOCUMENT_CHOICES_KEY, [
+            'user_id' => (string) $user->getKey(),
+            'conversation_id' => $this->conversationId($request, $request->input('conversation_id')),
+            'document_ids' => array_values(array_map(
+                static fn (array $record): int => (int) $record['document_id'],
+                $records,
+            )),
+            'expires_at' => now()->addMinutes(self::DOCUMENT_CONTEXT_TTL_MINUTES)->getTimestamp(),
+        ]);
+        $this->putPendingAction(
+            $request,
+            $user,
+            $this->conversationId($request, $request->input('conversation_id')),
+            'select_document',
+            'status',
+        );
+
+        return $response;
+    }
+
     private function lookupByDocumentStatus(
         Request $request,
         User $user,
@@ -1617,10 +2196,10 @@ class ChatbotController extends Controller
 
         if ($choices === []) {
             $reply = $language === 'filipino'
-                ? 'Wala akong nakitang authorized na document na may status na ' . $statusLabel . '.'
+                ? 'Wala akong nakitang document na may status na ' . $statusLabel . '.'
                 : ($language === 'taglish'
-                    ? 'Wala akong nakitang authorized document na may status na ' . $statusLabel . '.'
-                    : 'I found no authorized documents currently marked as ' . $statusLabel . '.');
+                    ? 'Wala akong nakitang document na may status na ' . $statusLabel . '.'
+                    : 'I found no documents currently marked as ' . $statusLabel . '.');
 
             return $this->privateReply($request, $reply);
         }
@@ -1634,6 +2213,7 @@ class ChatbotController extends Controller
                 'status_filter',
                 $choices,
                 $statusLabel,
+                $documents->countDocumentsByStatus($user, $status),
             );
         }
 
@@ -1698,19 +2278,30 @@ class ChatbotController extends Controller
 
         return $this->documentContextReply(
             $request,
-            fn (): array => $action === 'get_document_type'
-                ? $documents->detailsByDocumentIdResult(
+            fn (): array => match ($action) {
+                'get_document_type' => $documents->detailsByDocumentIdResult(
                     $user,
                     (int) $choices[0]['document_id'],
                     'document_type',
                     $language,
-                )
-                : $documents->statusByDocumentIdResult(
+                ),
+                'document_processing_status' => $documents->processingStatusByDocumentIdResult(
+                    $user,
+                    (int) $choices[0]['document_id'],
+                    $language,
+                ),
+                'document_completion_date' => $documents->completionDateByDocumentIdResult(
+                    $user,
+                    (int) $choices[0]['document_id'],
+                    $language,
+                ),
+                default => $documents->statusByDocumentIdResult(
                     $user,
                     (int) $choices[0]['document_id'],
                     $searchField === 'created_at' ? null : $name,
                     $language,
                 ),
+            },
         );
     }
 
@@ -1833,6 +2424,8 @@ class ChatbotController extends Controller
         string $purpose = 'status',
         ?array $providedChoices = null,
         ?string $topic = null,
+        ?int $totalCount = null,
+        ?string $responseLanguage = null,
     ): JsonResponse {
         $this->clearGeneralHistory($request);
         $request->session()->put(self::PRIVATE_CONTEXT_KEY, true);
@@ -1850,13 +2443,13 @@ class ChatbotController extends Controller
             $request->session()->forget(self::DOCUMENT_CHOICES_KEY);
 
             return response()->json([
-                'reply' => 'I could not find any authorized documents to select. You can review your submissions in the Documents page. If a document is Pending and has no LAO number yet, ask about your latest submitted document.',
+                'reply' => 'I could not find any documents to select. You can review your submissions in the Documents page. If a document is Pending and has no LAO number yet, ask about your latest submitted document.',
             ]);
         }
 
         $documentIds = [];
-        $language = $this->chatbotLanguage($request);
-        $lines = [$this->documentChoicesHeading($language, count($choices), $purpose, $topic)];
+        $language = $responseLanguage ?? $this->chatbotLanguage($request);
+        $lines = [$this->documentChoicesHeading($language, $totalCount ?? count($choices), $purpose, $topic)];
 
         foreach ($choices as $index => $choice) {
             $documentIds[] = $choice['document_id'];
@@ -1935,18 +2528,18 @@ class ChatbotController extends Controller
         if ($purpose === 'rejection_reason') {
             return $this->listHeading(
                 $language,
-                'I found ' . $count . ' authorized ' . $documentNoun . ' to check.',
-                'May nakita akong ' . $count . ' authorized na ' . $documentNoun . ' para i-check.',
-                'May nakita akong ' . $count . ' authorized ' . $documentNoun . ' para i-check.',
+                'I found ' . $count . ' ' . $documentNoun . ' to check.',
+                'May nakita akong ' . $count . ' ' . $documentNoun . ' para i-check.',
+                'May nakita akong ' . $count . ' ' . $documentNoun . ' para i-check.',
             );
         }
 
         if ($purpose === 'status_filter' && filled($topic)) {
             return $this->listHeading(
                 $language,
-                'I found ' . $count . ' authorized ' . $topic . ' ' . $documentNoun . '.',
-                'May nakita akong ' . $count . ' authorized na ' . $topic . ' ' . $documentNoun . '.',
-                'May nakita akong ' . $count . ' authorized ' . $topic . ' ' . $documentNoun . '.',
+                'I found ' . $count . ' ' . $topic . ' ' . $documentNoun . '.',
+                'May nakita akong ' . $count . ' ' . $topic . ' ' . $documentNoun . '.',
+                'May nakita akong ' . $count . ' ' . $topic . ' ' . $documentNoun . '.',
             );
         }
 
@@ -1961,9 +2554,9 @@ class ChatbotController extends Controller
 
         return $this->listHeading(
             $language,
-            'I found ' . $count . ' authorized ' . $documentNoun . '.',
-            'May nakita akong ' . $count . ' authorized na dokumento.',
-            'May nakita akong ' . $count . ' authorized ' . $documentNoun . '.',
+            'I found ' . $count . ' ' . $documentNoun . '.',
+            'May nakita akong ' . $count . ' dokumento.',
+            'May nakita akong ' . $count . ' ' . $documentNoun . '.',
         );
     }
 
@@ -1990,7 +2583,7 @@ class ChatbotController extends Controller
     private function chatbotLanguage(Request $request): string
     {
         $message = mb_strtolower((string) $request->input('message'), 'UTF-8');
-        $hasFilipino = preg_match('/\b(?:ano|ang|ng|ba|ko|mo|sa|akin|ito|iyon|yan|jan|diyan|paano|pano|kailan|ilan|ilang|may|mayroon|meron|doon|dun|hindi|opo|oo|kamusta|kumusta|mabuti|mensahe|dokumento|hiling|tungkol|para|paki|natin|namin)\b/u', $message) === 1;
+        $hasFilipino = preg_match('/\b(?:ano|ang|ng|ba|ko|mo|sa|akin|ito|iyon|yan|jan|diyan|paano|pano|kailan|ilan|ilang|may|mayroon|meron|doon|dun|hindi|opo|oo|kamusta|kumusta|mabuti|mensahe|dokumento|serbisyo|mga|hiling|tungkol|para|paki|natin|namin)\b/u', $message) === 1;
         $hasEnglish = preg_match('/\b(?:what|how|when|where|why|which|many|request|requests|document|documents|status|accepted|pending|message|messages|latest|count|have|do|does|is|are|the|my|about|copy|pickup|download)\b/u', $message) === 1;
 
         return $hasFilipino && $hasEnglish ? 'taglish' : ($hasFilipino ? 'filipino' : 'english');
@@ -2005,6 +2598,7 @@ class ChatbotController extends Controller
         int $selectionIndex,
         string $conversationId,
         ?array $pendingAction,
+        string $language = 'english',
     ): JsonResponse {
         if (! is_array($choices) || ! isset($choices[$selectionIndex])) {
             return $this->ambiguousDocumentReply(
@@ -2034,9 +2628,11 @@ class ChatbotController extends Controller
 
         return $this->documentContextReply(
             $request,
-            fn (): array => ($pendingAction['purpose'] ?? null) === 'rejection_reason'
-                ? $documents->rejectionReasonByDocumentIdResult($user, (int) $documentId)
-                : $documents->statusByDocumentIdResult($user, (int) $documentId),
+            fn (): array => match ($pendingAction['purpose'] ?? null) {
+                'rejection_reason' => $documents->rejectionReasonByDocumentIdResult($user, (int) $documentId),
+                'completion_status_date' => $documents->processingAndCompletionDateResult($user, (int) $documentId, $language),
+                default => $documents->statusByDocumentIdResult($user, (int) $documentId, null, $language),
+            },
         );
     }
 
@@ -2051,11 +2647,11 @@ class ChatbotController extends Controller
     ): JsonResponse {
         if (! $assistant->hasApprovedKnowledgeBase()) {
             return response()->json([
-                'reply' => 'The workflow explanation is unavailable right now. Please check the Client Portal guide or contact the Legal Affairs Office.',
+                'reply' => 'The workflow explanation is temporarily unavailable. Please check the Client Portal or contact the Legal Affairs Office.',
             ]);
         }
 
-        $prompt = $language === 'filipino'
+        $prompt = $this->isFilipinoLike($language)
             ? 'Ipaliwanag nang maikli kung paano nagiging In Progress ang isang Pending document.'
             : 'Briefly explain how a Pending document becomes In Progress.';
 
@@ -2147,6 +2743,121 @@ class ChatbotController extends Controller
         return $conversationId;
     }
 
+    private function resolvePendingSelectionInput(
+        Request $request,
+        User $user,
+        ClientDocumentLookupService $documents,
+        ClientDocumentRequestLookupService $documentRequests,
+        array $choices,
+        array $requestChoices,
+        ?array $pendingAction,
+        string $conversationId,
+        string $message,
+        ChatbotIntentRouter $intents,
+    ): ?JsonResponse {
+        $type = $pendingAction['type'] ?? null;
+        $language = $this->chatbotLanguage($request);
+
+        if ($type === 'select_document') {
+            if ($choices === []) {
+                $this->clearPendingAction($request);
+
+                return null;
+            }
+
+            if ($intents->confirmationValue($message) === false) {
+                $this->clearPendingAction($request);
+                $request->session()->forget(self::DOCUMENT_CHOICES_KEY);
+
+                return $this->privateReply($request, 'Okay. I cancelled the document selection.');
+            }
+
+            $selectionIndex = $intents->documentSelectionIndex($message);
+
+            if ($selectionIndex !== null) {
+                if ($selectionIndex >= count($choices)) {
+                    return $this->selectionRangeReply($request, $language, count($choices));
+                }
+
+                return $this->documentSelection(
+                    $request,
+                    $user,
+                    $documents,
+                    $choices,
+                    $selectionIndex,
+                    $conversationId,
+                    $pendingAction,
+                    $language,
+                );
+            }
+
+            if ($intents->isClearTopicChange($message)) {
+                $this->clearPendingAction($request);
+                $request->session()->forget(self::DOCUMENT_CHOICES_KEY);
+
+                return null;
+            }
+
+            return $this->selectionRangeReply($request, $language, count($choices));
+        }
+
+        if ($type === 'select_request') {
+            if ($requestChoices === []) {
+                $this->clearPendingAction($request);
+
+                return null;
+            }
+
+            if ($intents->confirmationValue($message) === false) {
+                $this->clearPendingAction($request);
+                $request->session()->forget(self::REQUEST_CHOICES_KEY);
+
+                return $this->privateReply($request, 'Okay. I cancelled the request selection.');
+            }
+
+            $selectionIndex = $intents->documentSelectionIndex($message);
+
+            if ($selectionIndex !== null) {
+                if ($selectionIndex >= count($requestChoices)) {
+                    return $this->selectionRangeReply($request, $language, count($requestChoices));
+                }
+
+                return $this->requestSelection(
+                    $request,
+                    $user,
+                    $documentRequests,
+                    $requestChoices,
+                    $selectionIndex,
+                    $conversationId,
+                    $language,
+                );
+            }
+
+            if ($intents->isClearTopicChange($message)) {
+                $this->clearPendingAction($request);
+                $request->session()->forget(self::REQUEST_CHOICES_KEY);
+
+                return null;
+            }
+
+            return $this->selectionRangeReply($request, $language, count($requestChoices));
+        }
+
+        return null;
+    }
+
+    private function selectionRangeReply(Request $request, string $language, int $count): JsonResponse
+    {
+        $maximum = max(1, $count);
+        $reply = match ($language) {
+            'filipino' => 'Pumili ng numero mula 1 hanggang ' . $maximum . '.',
+            'taglish' => 'Pumili ng number mula 1 hanggang ' . $maximum . '.',
+            default => 'Please choose a number from 1 to ' . $maximum . '.',
+        };
+
+        return $this->privateReply($request, $reply);
+    }
+
     private function resolvePendingShortAnswer(
         Request $request,
         User $user,
@@ -2157,6 +2868,55 @@ class ChatbotController extends Controller
         ChatbotIntentRouter $intents,
     ): ?JsonResponse {
         $type = $pendingAction['type'] ?? null;
+
+        if ($type === 'service_scope') {
+            $scope = $this->serviceScopeOption($message, $intents);
+            $language = is_string($pendingAction['language'] ?? null)
+                ? $pendingAction['language']
+                : $this->chatbotLanguage($request);
+
+            if ($scope !== null) {
+                $this->clearPendingAction($request);
+
+                return $this->serviceScopeReply(
+                    $request,
+                    $language,
+                    $scope,
+                );
+            }
+
+            if ($intents->isClearTopicChange($message)) {
+                $this->clearPendingAction($request);
+            } else {
+                return response()->json(['reply' => match ($language) {
+                    'filipino' => 'Sumagot ng A para sa LexTrack system features o B para sa services ng Legal Affairs Office.',
+                    'taglish' => 'Please reply A for LexTrack system features or B for Legal Affairs Office services.',
+                    default => 'Please reply A for LexTrack system features or B for Legal Affairs Office services.',
+                }]);
+            }
+        }
+
+        if ($type === 'legal_policy_scope') {
+            $topic = $this->legalPolicyScopeOption($message, $intents);
+
+            if ($topic !== null) {
+                $this->clearPendingAction($request);
+
+                return $this->legalPolicyScopeReply(
+                    $request,
+                    $this->chatbotLanguage($request),
+                    $topic,
+                );
+            }
+
+            if ($intents->isClearTopicChange($message)) {
+                $this->clearPendingAction($request);
+            } else {
+                return response()->json([
+                    'reply' => 'Please choose a policy topic: general, privacy, procedures, notifications, or Legal Affairs Office responsibilities.',
+                ]);
+            }
+        }
 
         if ($type === 'rejection_reference') {
             if (($quickIntent['intent'] ?? null) === 'rejection_reason_lookup') {
@@ -2201,6 +2961,32 @@ class ChatbotController extends Controller
         return null;
     }
 
+    private function serviceScopeOption(string $message, ChatbotIntentRouter $intents): ?string
+    {
+        return match ($intents->normalize($message)) {
+            'a', 'option a', 'a option', 'lextrack', 'system', 'system features', 'feature', 'features', 'portal' => 'lextrack',
+            'b', 'option b', 'b option', 'legal', 'office', 'legal affairs', 'legal affairs office', 'serbisyo ng legal', 'mga serbisyo ng legal' => 'office',
+            default => null,
+        };
+    }
+
+    private function legalPolicyScopeOption(string $message, ChatbotIntentRouter $intents): ?string
+    {
+        return match ($intents->normalize($message)) {
+            'a', 'office', 'legal', 'legal affairs', 'legal affairs office', 'responsibilities', 'office responsibilities' => 'office',
+            'b', 'general', 'general policy', 'general policies', 'overall', 'lextrack' => 'general',
+            'privacy', 'privacy policy', 'data', 'data handling', 'privacy and data handling' => 'privacy',
+            'procedure', 'procedures', 'submission', 'submissions', 'request', 'requests', 'submission procedures', 'request procedures' => 'procedures',
+            'notification', 'notifications', 'email', 'email notifications', 'notification rules' => 'notifications',
+            'pangkalahatan' => 'general',
+            'pribasiya', 'datos', 'pangasiwa ng datos' => 'privacy',
+            'pamamaraan', 'proseso', 'pagsusumite' => 'procedures',
+            'abiso', 'mga abiso' => 'notifications',
+            'opisina', 'tungkulin' => 'office',
+            default => null,
+        };
+    }
+
     private function putPendingAction(
         Request $request,
         User $user,
@@ -2209,6 +2995,7 @@ class ChatbotController extends Controller
         ?string $purpose = null,
         ?array $slots = null,
         ?string $question = null,
+        ?string $language = null,
     ): void {
         $request->session()->put(self::PENDING_ACTION_KEY, array_filter([
             'user_id' => (string) $user->getKey(),
@@ -2217,11 +3004,12 @@ class ChatbotController extends Controller
             'purpose' => $purpose,
             'slots' => $slots,
             'question' => $question,
+            'language' => $language,
             'expires_at' => now()->addMinutes(self::DOCUMENT_CONTEXT_TTL_MINUTES)->getTimestamp(),
         ], static fn (mixed $value): bool => $value !== null));
     }
 
-    /** @return array{user_id: string, conversation_id: string, type: string, purpose?: string, expires_at: int}|null */
+    /** @return array{user_id: string, conversation_id: string, type: string, purpose?: string, slots?: list<string>, question?: string, language?: string, expires_at: int}|null */
     private function activePendingAction(
         Request $request,
         User $user,
@@ -2262,6 +3050,10 @@ class ChatbotController extends Controller
 
         if (isset($action['question']) && is_string($action['question'])) {
             $activeAction['question'] = $action['question'];
+        }
+
+        if (isset($action['language']) && is_string($action['language'])) {
+            $activeAction['language'] = $action['language'];
         }
 
         return $activeAction;
@@ -2328,6 +3120,17 @@ class ChatbotController extends Controller
         ];
     }
 
+    private function thirdPartyDocumentReply(Request $request, string $language): JsonResponse
+    {
+        $reply = match ($language) {
+            'filipino' => 'Mga dokumentong awtorisado para sa naka-login mong account lang ang maa-access ko.',
+            'taglish' => 'Only documents authorized for your logged-in account ang maa-access ko.',
+            default => 'I can only access documents authorized for your logged-in account.',
+        };
+
+        return $this->privateReply($request, $reply);
+    }
+
     private function unsupportedReply(Request $request): JsonResponse
     {
         $this->clearGeneralHistory($request);
@@ -2339,7 +3142,7 @@ class ChatbotController extends Controller
         $request->session()->forget(self::PRIVATE_REQUEST_CONTEXT_KEY);
 
         return response()->json([
-            'reply' => 'I can explain LexTrack using its approved guide, but I cannot provide personal legal advice, read uploaded files or private Messages, reveal rejection reasons or full record contents, or change document records. For a document status, provide its LAO number or choose one of your authorized documents.',
+            'reply' => 'I can explain LexTrack and its available features, but I cannot provide personal legal advice, read uploaded files or private Messages, reveal rejection reasons or full record contents, or change document records. For a document status, provide its LAO number or choose one of your authorized documents.',
         ]);
     }
 
@@ -2366,7 +3169,7 @@ class ChatbotController extends Controller
 
         if (! $assistant->hasApprovedKnowledgeBase()) {
             return response()->json([
-                'reply' => 'General answers are unavailable until the LexTrack knowledge base is approved. Please check the Client Portal guide or contact the Legal Affairs Office.',
+                'reply' => 'General answers are temporarily unavailable. Please check the Client Portal or contact the Legal Affairs Office.',
             ]);
         }
 
@@ -2378,7 +3181,7 @@ class ChatbotController extends Controller
             model: 'gpt-5-mini',
             timeout: 30,
         );
-        $reply = (string) $response;
+        $reply = $this->clientFacingGeneralReply((string) $response);
 
         $history[] = [
             'question' => $message,
@@ -2390,6 +3193,18 @@ class ChatbotController extends Controller
         );
 
         return response()->json(['reply' => $reply]);
+    }
+
+    private function clientFacingGeneralReply(string $reply): string
+    {
+        $reply = preg_replace([
+            '/\baccording to (?:the )?(?:approved )?(?:lextrack )?(?:guide|knowledge base)[,:]?\s*/iu',
+            '/\bthe (?:approved )?lextrack guide (?:states|says|explains|describes) that\s*/iu',
+            '/\bbased on (?:the )?(?:approved )?(?:lextrack )?(?:guide|knowledge base|lextrack-guide\.md)[,:]?\s*/iu',
+            '/\b(?:as stated|as described) in (?:the )?(?:approved )?(?:lextrack )?(?:guide|knowledge base)[,:]?\s*/iu',
+        ], '', $reply) ?? $reply;
+
+        return trim(preg_replace("/\n{3,}/", "\n\n", $reply) ?? $reply);
     }
 
     /**

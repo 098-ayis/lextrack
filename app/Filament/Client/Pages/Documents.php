@@ -18,6 +18,7 @@ use Filament\Tables\Table;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\ViewColumn;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use chillerlan\QRCode\Output\QROutputInterface;
 use chillerlan\QRCode\QRCode;
 use chillerlan\QRCode\QROptions;
@@ -40,6 +41,7 @@ class Documents extends Page implements HasTable
     public string $documentType = '';
     public string $documentStatus = '';
     public ?int $qrCodeDocumentId = null;
+    public ?string $qrCodeDocumentName = null;
     public ?string $qrCodeSvg = null;
 
     public function getHeading(): string
@@ -148,6 +150,7 @@ class Documents extends Page implements HasTable
             $qrPayload = DocumentQrToken::encode($document);
 
             $this->qrCodeDocumentId = $documentId;
+            $this->qrCodeDocumentName = trim((string) ($document->document_name ?: 'Document')) ?: 'Document';
             $this->qrCodeSvg = (new QRCode(new QROptions([
                 'outputType' => QROutputInterface::MARKUP_SVG,
                 'outputBase64' => false,
@@ -169,12 +172,16 @@ class Documents extends Page implements HasTable
     public function closeQrCode(): void
     {
         $this->qrCodeDocumentId = null;
+        $this->qrCodeDocumentName = null;
         $this->qrCodeSvg = null;
     }
 
     protected function documentsQuery(): Builder
     {
-        $query = Document::query();
+        $query = Document::query()->with([
+            'clientViews' => fn (HasMany $viewQuery) => $viewQuery
+                ->where('user_id', auth()->id()),
+        ]);
 
         if ($this->activeTab === 'all') {
             $query
@@ -245,6 +252,8 @@ class Documents extends Page implements HasTable
             ->where('user_id', auth()->id())
             ->with([
                 'document.latestVersion',
+                'document.clientViews' => fn (HasMany $viewQuery) => $viewQuery
+                    ->where('user_id', auth()->id()),
             ])
             ->when(
                 $this->documentStatus !== '',
@@ -278,8 +287,23 @@ class Documents extends Page implements HasTable
                     });
                 }
             )
+            ->orderByDesc(
+                Document::select('updated_at')
+                    ->whereColumn('documents.document_id', 'document_requests.document_id')
+            )
             ->latest('date_of_request')
             ->latest('request_id');
+    }
+
+    protected function documentHasUnviewedUpdate(?Document $document): bool
+    {
+        if (! $document?->updated_at) {
+            return false;
+        }
+
+        $viewedAt = $document->clientViews->first()?->viewed_at;
+
+        return ! $viewedAt || $viewedAt->lt($document->updated_at);
     }
 
     protected function hasDocumentsForCurrentTable(): bool
@@ -295,7 +319,7 @@ class Documents extends Page implements HasTable
 
         return $record->documentRequests()
             ->where('user_id', auth()->id())
-            ->where('status', 'accepted')
+            ->where('status', 'completed')
             ->exists();
     }
 
@@ -337,7 +361,7 @@ class Documents extends Page implements HasTable
                     )
                 )
                 ->visible(
-                    fn (DocumentRequest $record): bool => $record->status === 'accepted'
+                    fn (DocumentRequest $record): bool => $record->status === 'completed'
                         && $record->copy_type === 'soft_copy'
                         && filled($record->document?->latestVersion?->file_path)
                 )
@@ -355,7 +379,7 @@ class Documents extends Page implements HasTable
                     )
                 )
                 ->visible(
-                    fn (DocumentRequest $record): bool => $record->status === 'accepted'
+                    fn (DocumentRequest $record): bool => $record->status === 'completed'
                         && $record->copy_type === 'soft_copy'
                         && filled($record->document?->latestVersion?->file_path)
                 )
@@ -379,7 +403,7 @@ class Documents extends Page implements HasTable
         return $table
             ->query($this->requestedDocumentsQuery())
             ->recordUrl(
-                fn (DocumentRequest $record): ?string => $record->status === 'accepted' &&
+                fn (DocumentRequest $record): ?string => $record->status === 'completed' &&
                     $record->copy_type === 'soft_copy' &&
                     filled($record->document?->latestVersion?->file_path)
                     ? ViewDocument::getUrl([
@@ -390,10 +414,18 @@ class Documents extends Page implements HasTable
                     : null
             )
             ->recordClasses(
-                fn (DocumentRequest $record): string => $this->highlightedDocumentId !== null &&
-                    (int) $record->document_id === $this->highlightedDocumentId
-                    ? 'document-highlighted'
-                    : ''
+                function (DocumentRequest $record): string {
+                    $classes = $this->highlightedDocumentId !== null &&
+                        (int) $record->document_id === $this->highlightedDocumentId
+                        ? 'document-highlighted'
+                        : '';
+
+                    if ($this->documentHasUnviewedUpdate($record->document)) {
+                        $classes .= ' latest-document-unviewed';
+                    }
+
+                    return trim($classes);
+                }
             )
             ->columns([
                 ViewColumn::make('document_icon')
@@ -586,7 +618,8 @@ class Documents extends Page implements HasTable
         return $table
             ->query(
                 $this->documentsQuery()
-                    ->latest()
+                    ->latest('updated_at')
+                    ->latest('document_id')
             )
             ->recordUrl(
                 fn (Document $record): string => ViewDocument::getUrl([
@@ -596,10 +629,18 @@ class Documents extends Page implements HasTable
                 ])
             )
             ->recordClasses(
-                fn (Document $record): string => $this->highlightedDocumentId !== null &&
-                    (int) $record->document_id === $this->highlightedDocumentId
-                    ? 'document-highlighted'
-                    : ''
+                function (Document $record): string {
+                    $classes = $this->highlightedDocumentId !== null &&
+                        (int) $record->document_id === $this->highlightedDocumentId
+                        ? 'document-highlighted'
+                        : '';
+
+                    if ($this->documentHasUnviewedUpdate($record)) {
+                        $classes .= ' latest-document-unviewed';
+                    }
+
+                    return trim($classes);
+                }
             )
             ->columns([
                 TextColumn::make('lao_number')

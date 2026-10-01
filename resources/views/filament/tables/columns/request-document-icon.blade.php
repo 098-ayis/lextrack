@@ -1,5 +1,5 @@
 @php
-    $hasUploadedSoftCopy = $record->status === 'accepted'
+    $hasUploadedSoftCopy = $record->status === 'completed'
         && $record->copy_type === 'soft_copy'
         && filled($record->document?->latestVersion?->file_path);
 @endphp

@@ -9,7 +9,6 @@ use App\Models\RejectedDocument;
 use Carbon\Carbon;
 use App\Notifications\DocumentRejectedNotification;
 use App\Notifications\DocumentAcceptedNotification;
-use App\Notifications\DocumentPendingNotification;
 use App\Notifications\DocumentCompletedNotification;
 use Filament\Pages\Page;
 use Filament\Notifications\Notification;
@@ -107,10 +106,9 @@ class Document extends Page implements HasTable
     public ?string $acceptedDocumentUploader = null;
 
     public ?int $qrCodeDocumentId = null;
+    public ?string $qrCodeDocumentName = null;
 
     public ?string $qrCodeSvg = null;
-
-    public bool $qrCodeCanSendToClient = false;
 
     public static function getNavigationBadge(): ?string
     {
@@ -827,12 +825,12 @@ class Document extends Page implements HasTable
             $qrPayload = DocumentQrToken::encode($document);
 
             $this->qrCodeDocumentId = $documentId;
+            $this->qrCodeDocumentName = trim((string) ($document->document_name ?: 'Document')) ?: 'Document';
             $this->qrCodeSvg = (new QRCode(new QROptions([
                 'outputType' => QROutputInterface::MARKUP_SVG,
                 'outputBase64' => false,
                 'scale' => 5,
             ])))->render($qrPayload);
-            $this->qrCodeCanSendToClient = $document->hasClientRecipient();
         } catch (\Throwable $exception) {
             report($exception);
 
@@ -849,68 +847,8 @@ class Document extends Page implements HasTable
     public function closeQrCode(): void
     {
         $this->qrCodeDocumentId = null;
+        $this->qrCodeDocumentName = null;
         $this->qrCodeSvg = null;
-        $this->qrCodeCanSendToClient = false;
-    }
-
-    public function sendQrCodeToClient(): void
-    {
-        $document = DocumentModel::query()
-            ->with('user')
-            ->findOrFail($this->qrCodeDocumentId);
-
-        if (! $document->isAvailableForMessaging()) {
-            Notification::make()
-                ->warning()
-                ->title('QR code could not be sent')
-                ->body('Messaging is unavailable until the document is accepted.')
-                ->send();
-
-            return;
-        }
-
-        if (! $document->hasClientRecipient()) {
-            Notification::make()
-                ->warning()
-                ->title('QR code could not be sent')
-                ->body('This document has no client recipient.')
-                ->send();
-
-            return;
-        }
-
-        DB::transaction(function () use ($document): void {
-            $conversation = Conversation::firstOrCreate(
-                ['document_id' => $document->document_id],
-                [
-                    'created_by' => auth()->id(),
-                    'status' => 'active',
-                ]
-            );
-
-            $conversation->participants()->syncWithoutDetaching([
-                $document->user_id => ['joined_at' => now()],
-                auth()->id() => ['joined_at' => now()],
-            ]);
-
-            Message::create([
-                'conversation_id' => $conversation->id,
-                'sender_id' => auth()->id(),
-                'body' => 'document_qr',
-            ]);
-
-            $conversation->touch();
-        });
-
-        $clientName = $document->user?->name ?? 'the client';
-
-        $this->closeQrCode();
-
-        Notification::make()
-            ->success()
-            ->title('QR code sent to client')
-            ->body('The document QR code was sent to ' . $clientName . '.')
-            ->send();
     }
 
     public function addDocumentAction(): Action
@@ -1418,16 +1356,38 @@ class Document extends Page implements HasTable
                                     ->searchable()
                                     ->preload()
                                     ->live()
-                                    ->disabled()
                                     ->visible(fn (Get $get): bool => $get('returned_from_mode') !== self::OTHER_RETURNED_FROM)
                                     ->dehydrated(fn (Get $get): bool => $get('returned_from_mode') !== self::OTHER_RETURNED_FROM)
+                                    ->afterStateUpdated(function (Set $set, ?string $state): void {
+                                        if ($state === self::OTHER_RETURNED_FROM) {
+                                            $set('returned_from_mode', self::OTHER_RETURNED_FROM);
+                                            $set('returned_from', null);
+
+                                            return;
+                                        }
+
+                                        $set('returned_from_mode', 'select');
+                                    })
                                     ->required(),
 
                                 TextInput::make('returned_from')
                                     ->label('Returned From')
-                                    ->placeholder('Matches Sent To')
+                                    ->placeholder('Enter the returning office/unit')
                                     ->maxLength(255)
-                                    ->readOnly()
+                                    ->live()
+                                    ->afterStateUpdated(function (Set $set, ?string $state): void {
+                                        $set('returned_from_mode', self::OTHER_RETURNED_FROM);
+                                        $set('returned_from', $state);
+                                    })
+                                    ->suffixAction(
+                                        Action::make('chooseListedReturnedFrom')
+                                            ->icon(Heroicon::ChevronDown)
+                                            ->tooltip('Choose from listed offices/units')
+                                            ->action(function (Set $set): void {
+                                                $set('returned_from_mode', 'select');
+                                                $set('returned_from', null);
+                                            }),
+                                    )
                                     ->visible(fn (Get $get): bool => $get('returned_from_mode') === self::OTHER_RETURNED_FROM)
                                     ->dehydrated(fn (Get $get): bool => $get('returned_from_mode') === self::OTHER_RETURNED_FROM)
                                     ->required(fn (Get $get): bool => $get('returned_from_mode') === self::OTHER_RETURNED_FROM),
@@ -1443,6 +1403,7 @@ class Document extends Page implements HasTable
                         ->schema([
                             TextInput::make('lao_number')
                                 ->label('LAO Number')
+                                ->readonly()
                                 ->required(),
 
                             TextInput::make('document_name')
@@ -1486,25 +1447,17 @@ class Document extends Page implements HasTable
                                 ->preload()
                                 ->required(),
 
-                            Select::make('status')
-                                ->label('Status')
-                                ->options([
-                                    'pending' => 'Pending',
-                                    'in_progress' => 'Incoming',
-                                    'completed' => 'Completed',
-                                    'returned' => 'Returned',
-                                    'outgoing' => 'Outgoing',
-                                ])
-                                ->required(),
 
                             DatePicker::make('deadline')
                                 ->label('Deadline')
                                 ->default(now()->toDateString()),
 
-                            Textarea::make('particulars')
+                            
+                        ]),
+
+                    Textarea::make('particulars')
                                 ->label('Particulars')
                                 ->required(),
-                        ]),
 
                     FileUpload::make('file_path')
                         ->label('Upload New Revision')
@@ -1537,8 +1490,8 @@ class Document extends Page implements HasTable
                         ? self::OTHER_SENT_TO
                         : 'select',
 
-                    'returned_from_mode' => filled($document->sent_to) && ! OfficeUnit::query()
-                        ->where('name', $document->sent_to)
+                    'returned_from_mode' => filled($document->returned_from) && ! OfficeUnit::query()
+                        ->where('name', $document->returned_from)
                         ->exists()
                         ? self::OTHER_RETURNED_FROM
                         : 'select',
@@ -1553,16 +1506,12 @@ class Document extends Page implements HasTable
                     'outgoing_date' => $document->outgoing_date,
                     'sent_to' => $document->sent_to,
                     'sent_date' => $document->sent_date,
-                    'returned_from' => $document->sent_to,
+                    'returned_from' => $document->returned_from,
                     'date_returned' => $document->date_returned,
                 ];
             })
             ->action(function (array $data, array $arguments, ?DocumentModel $record = null): void {
                 $document = $this->resolveDocumentActionRecord($arguments, $record);
-
-                if ($document->status === 'outgoing') {
-                    $data['returned_from'] = $data['sent_to'] ?? null;
-                }
 
                 $filePaths = array_values(array_filter(
                     (array) ($data['file_path'] ?? []),
@@ -2045,23 +1994,9 @@ class Document extends Page implements HasTable
                     default => 'in_progress',
                 };
 
-                $wasReturnedFromRejected = $this->activeSection === 'rejected'
-                    && $destination === 'pending';
-
-                $document->loadMissing('user');
-
                 $document->update([
                     'status' => $status,
-                    ...($wasReturnedFromRejected
-                        ? ['rejection_reason' => null]
-                        : []),
                 ]);
-
-                if ($wasReturnedFromRejected && $document->user) {
-                    $document->user->notify(
-                        new DocumentPendingNotification($document)
-                    );
-                }
 
                 $this->recordDocumentActivity(
                     $document->document_id,

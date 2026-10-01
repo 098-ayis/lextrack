@@ -192,6 +192,11 @@ class Document extends Model
             'document_id');
     }
 
+    public function clientViews(): HasMany
+    {
+        return $this->hasMany(DocumentView::class, 'document_id', 'document_id');
+    }
+
     public function getDateAccomplishedAttribute(): ?\Carbon\CarbonInterface
     {
         $log = $this->activityLogs

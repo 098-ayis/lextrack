@@ -28,7 +28,7 @@
         </RouterLink>
 
         <!-- Desktop Navigation -->
-        <nav class="hidden lg:flex gap-10 font-bold text-[13px] tracking-wider">
+        <nav class="hidden lg:flex gap-10 font-bold text-[14px] tracking-wider">
           <RouterLink
             v-for="link in links"
             :key="link.path"

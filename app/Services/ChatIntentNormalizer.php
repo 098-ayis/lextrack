@@ -53,7 +53,6 @@ class ChatIntentNormalizer
             return $this->clarificationResult($normalized, $language, 'Please ask a LexTrack question.');
         }
 
-        $clauses = $this->segment($message);
         $aggregate = $this->isAggregateQuestion($normalized);
         $routerContext = [
             'hasPrivateDocumentContext' => (bool) ($context['hasPrivateDocumentContext'] ?? false) && ! $aggregate,
@@ -63,17 +62,37 @@ class ChatIntentNormalizer
             'hasRequestChoices' => (bool) ($context['hasRequestChoices'] ?? false),
         ];
 
-        $classifications = array_map(
-            fn (string $clause): array => $this->router->classify(
-                $clause,
-                hasPrivateDocumentContext: $routerContext['hasPrivateDocumentContext'],
-                hasPrivateMessageContext: $routerContext['hasPrivateMessageContext'],
-                hasDocumentChoices: $routerContext['hasDocumentChoices'],
-                hasRequestChoices: $routerContext['hasRequestChoices'],
-                hasPrivateRequestContext: $routerContext['hasPrivateRequestContext'],
-            ),
-            $clauses,
+        $wholeClassification = $this->router->classify(
+            $message,
+            hasPrivateDocumentContext: $routerContext['hasPrivateDocumentContext'],
+            hasPrivateMessageContext: $routerContext['hasPrivateMessageContext'],
+            hasDocumentChoices: $routerContext['hasDocumentChoices'],
+            hasRequestChoices: $routerContext['hasRequestChoices'],
+            hasPrivateRequestContext: $routerContext['hasPrivateRequestContext'],
         );
+        $wholeIntent = (string) ($wholeClassification['intent'] ?? 'general_knowledge');
+        $keepAsOneIntent = in_array($wholeIntent, [
+            'message_content',
+            'payment_inquiry',
+            'email_delivery',
+            'unsupported',
+            'compare_lao_numbers',
+        ], true);
+        $clauses = $keepAsOneIntent ? [trim($message)] : $this->segment($message);
+
+        $classifications = $keepAsOneIntent
+            ? [$wholeClassification]
+            : array_map(
+                fn (string $clause): array => $this->router->classify(
+                    $clause,
+                    hasPrivateDocumentContext: $routerContext['hasPrivateDocumentContext'],
+                    hasPrivateMessageContext: $routerContext['hasPrivateMessageContext'],
+                    hasDocumentChoices: $routerContext['hasDocumentChoices'],
+                    hasRequestChoices: $routerContext['hasRequestChoices'],
+                    hasPrivateRequestContext: $routerContext['hasPrivateRequestContext'],
+                ),
+                $clauses,
+            );
 
         $intentRows = [];
         foreach ($clauses as $index => $clause) {
@@ -216,6 +235,7 @@ class ChatIntentNormalizer
         return array_filter([
             'status' => $status ?? ($classification['status'] ?? null),
             'latest' => $this->hasLatestCue($message),
+            'most_recently_updated' => $name === 'get_most_recently_updated_document',
             'count' => $this->hasCountCue($message) || $name === 'request_count' || $name === 'document_count',
             'yes_no' => $this->hasYesNoCue($message),
             'request_id' => $requestId,
@@ -241,7 +261,7 @@ class ChatIntentNormalizer
             return ['type' => 'none'];
         }
 
-        if ($aggregate && in_array($classification['intent'] ?? null, ['request_count', 'document_count'], true)) {
+        if ($aggregate && in_array($classification['intent'] ?? null, ['request_count', 'document_count', 'document_list'], true)) {
             return ['type' => 'aggregate', 'record' => $domain === 'document_requests' ? 'request' : 'document'];
         }
 
@@ -255,7 +275,7 @@ class ChatIntentNormalizer
             return ['type' => 'explicit', 'record' => 'document', 'validated' => true];
         }
 
-        if (in_array($classification['intent'] ?? null, ['document_name_lookup', 'rejection_reason_lookup'], true)
+        if (in_array($classification['intent'] ?? null, ['document_name_lookup', 'rejection_reason_lookup', 'document_processing_status', 'document_completion_date'], true)
             && filled($classification['document_name'] ?? null)) {
             $reference = [
                 'type' => $classification['reference_type'] ?? 'search_text',
@@ -273,7 +293,8 @@ class ChatIntentNormalizer
 
         return match ($classification['intent'] ?? null) {
             'latest_status', 'latest_submission_date', 'latest_request' => ['type' => 'latest', 'record' => $domain === 'document_requests' ? 'request' : 'document'],
-            'document_context_status', 'document_context_details', 'document_context_guidance', 'document_context_rejection_reason', 'request_context_details' => ['type' => 'context', 'record' => $domain === 'document_requests' ? 'request' : 'document'],
+            'get_most_recently_updated_document' => ['type' => 'latest_updated', 'record' => 'document'],
+            'document_context_status', 'document_context_details', 'document_context_guidance', 'document_context_rejection_reason', 'document_context_processing_status', 'document_completion_date', 'request_context_details' => ['type' => 'context', 'record' => $domain === 'document_requests' ? 'request' : 'document'],
             'document_status_filter' => [
                 'type' => 'status_filter',
                 'record' => 'document',
@@ -297,9 +318,11 @@ class ChatIntentNormalizer
 
         if (in_array($intent, [
             'document_count',
+            'document_list',
             'document_status_filter',
             'latest_status',
             'latest_submission_date',
+            'get_most_recently_updated_document',
             'lao_lookup',
             'lao_rejection_reason',
             'compare_lao_numbers',
@@ -314,6 +337,10 @@ class ChatIntentNormalizer
             'document_context_status',
             'document_context_details',
             'document_context_guidance',
+            'document_context_processing_status',
+            'document_processing_status',
+            'document_completion_date',
+            'third_party_document_inquiry',
             'ambiguous_document',
             'invalid_lao',
         ], true)) {
@@ -334,8 +361,7 @@ class ChatIntentNormalizer
             return $classification;
         }
 
-        if ($this->hasRequestDomain($wholeMessage)
-            && ($this->hasCountCue($clause) || $this->statusFilter($clause) !== null)) {
+        if ($this->hasRequestDomain($wholeMessage) && $this->hasCountCue($clause)) {
             return [
                 'intent' => 'request_count',
                 'status' => $this->statusFilter($clause),
@@ -354,7 +380,7 @@ class ChatIntentNormalizer
         }
 
         if ($this->hasDocumentDomain($wholeMessage)) {
-            if ($this->hasCountCue($clause) || $this->statusFilter($clause) !== null) {
+            if ($this->hasCountCue($clause)) {
                 return [
                     'intent' => 'document_count',
                     'status' => $this->statusFilter($clause),
@@ -520,7 +546,7 @@ class ChatIntentNormalizer
 
     private function hasLatestCue(string $message): bool
     {
-        return preg_match('/\b(?:latest|last|most recent|newest|recent|pinakabago|pinakahuli|pinakalatest|kamakailan|kaka submit|kaka upload)\b/', $message) === 1;
+        return preg_match('/\b(?:latest|last|most recent|newest|recent|recently|lately|pinakabago|pinakahuli|pinakalatest|kamakailan|kaka submit|kaka upload)\b/', $message) === 1;
     }
 
     private function hasCountCue(string $message): bool
@@ -539,11 +565,13 @@ class ChatIntentNormalizer
             'in_progress' => '/\b(?:in progress|inprogress|processing|pinoproseso|nasa proseso)\b/',
             'pending' => '/\b(?:pending|awaiting|waiting|nakabinbin|hinihintay)\b/',
             'outgoing' => '/\b(?:outgoing|sent out|naipadala|na forward)\b/',
+            'ready_for_pickup' => '/\b(?:ready for pickup|ready to pick up|pickup ready|handa nang kunin|pwede nang kunin)\b/',
+            'for_release' => '/\b(?:for release)\b/',
+            'accepted' => '/\b(?:accepted|approved|approve|tinanggap|na approve|naaprubahan)\b/',
             'completed' => '/\b(?:completed|complete|finished|natapos|nakumpleto)\b/',
             'returned' => '/\b(?:returned|ibinalik|naibalik)\b/',
             'rejected' => '/\b(?:rejected|reject|tinanggihan|na reject|nareject)\b/',
             'archived' => '/\b(?:archived|archive|naka archive)\b/',
-            'accepted' => '/\b(?:accepted|approved|approve|tinanggap|na approve|naaprubahan)\b/',
         ] as $status => $pattern) {
             if (preg_match($pattern, $message) === 1) {
                 return $status;
@@ -571,10 +599,10 @@ class ChatIntentNormalizer
     private function responseLanguage(string $message): string
     {
         $tagalog = preg_match('/\\b(?:ano|ang|ng|ba|ko|mo|sa|akin|ito|iyon|yan|jan|diyan|paano|pano|kailan|ilan|ilang|may|mayroon|meron|doon|dun|hindi|opo|oo|kamusta|kumusta|mabuti|na|mensahe|dokumento|hiling|tungkol|ibig sabihin|paki|natin|namin|bayad|bayaran|babayaran|magbayad|magkano|singil|gastos)\\b/', $message) === 1;
-        $english = preg_match('/\\b(?:what|how|when|where|why|which|many|request|requests|document|documents|status|accepted|pending|message|messages|latest|count|have|do|does|is|are|the|my|about|copy|pickup|download|pay|paid|payment|payments|fee|fees|processing|charge|charges|cost|costs|price|prices|amount|how much)\\b/', $message) === 1;
+        $englishGrammar = preg_match('/\\b(?:what|how|when|where|why|which|many|count|have|do|does|is|are|the|my|about|how much)\\b/', $message) === 1;
+        $englishPhrase = preg_match('/\b(?:in progress|document pickup|requests?)\b/', $message) === 1;
 
-
-        return $tagalog && $english ? 'taglish' : ($tagalog ? 'filipino' : 'english');
+        return $tagalog && ($englishGrammar || $englishPhrase) ? 'taglish' : ($tagalog ? 'filipino' : 'english');
     }
 
     private function clarificationQuestion(string $intent, string $language): ?string

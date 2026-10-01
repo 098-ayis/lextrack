@@ -26,7 +26,8 @@
         /* Keep table action dropdowns anchored correctly, matching the client
          * documents page. Fixed dropdown coordinates are incorrect inside the
          * zoomed admin content container. */
-        .fi-main:has(.admin-documents-page) {
+        .fi-main:has(.admin-documents-page),
+        .fi-main:has(.admin-document-requests-page) {
             zoom: 1;
         }
 

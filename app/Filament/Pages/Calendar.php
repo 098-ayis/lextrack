@@ -623,7 +623,7 @@ class Calendar extends Page
 
         $matches = DocumentRequest::query()
             ->with('user')
-            ->where('status', 'accepted')
+            ->where('status', 'ready_for_pickup')
             ->whereNotNull('pickup_at')
             ->where('pickup_at', $oldPickupAt->format('Y-m-d H:i:s'))
             ->where(function ($query): void {

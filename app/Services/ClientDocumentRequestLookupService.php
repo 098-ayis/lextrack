@@ -72,7 +72,7 @@ class ClientDocumentRequestLookupService
     /** @return array<string, int> */
     public function countsByStatus(User $user): array
     {
-        $statuses = ['pending', 'accepted', 'rejected'];
+        $statuses = ['pending', 'for_release', 'ready_for_pickup', 'completed', 'rejected'];
         $counts = $this->ownedRequests($user)
             ->select('status')
             ->selectRaw('COUNT(*) as aggregate')
@@ -107,7 +107,9 @@ class ClientDocumentRequestLookupService
     {
         return match ($status) {
             'pending' => 'pending document requests',
-            'accepted' => 'accepted document requests',
+            'for_release' => 'requests for release',
+            'ready_for_pickup' => 'requests ready for pickup',
+            'completed' => 'completed document requests',
             'rejected' => 'rejected document requests',
             default => 'document requests',
         };
@@ -151,6 +153,7 @@ class ClientDocumentRequestLookupService
             'date_of_request',
             'date_processed',
             'rejection_reason',
+            'attachment_path',
         ];
     }
 
@@ -172,7 +175,7 @@ class ClientDocumentRequestLookupService
         if ($request->copy_type === 'soft_copy') {
             $reply .= $language === 'filipino' ? ' Soft copy ang hiniling.' : ' Soft copy requested.';
 
-            if ($request->status === 'accepted') {
+            if ($request->status === 'completed') {
                 $reply .= ' ' . $this->downloadSentence($user, $request, $language);
             }
         } elseif ($request->copy_type === 'original') {
@@ -217,17 +220,17 @@ class ClientDocumentRequestLookupService
         $label = $this->requestLabel($request, $language);
         if ($request->copy_type !== 'soft_copy') {
             return $language === 'filipino'
-                ? "{$label} ay hindi Soft copy request. Ang download availability ay para lamang sa accepted soft copies."
-                : "{$label} is not a Soft copy request. Download availability applies only to accepted soft copies.";
+                ? "{$label} ay hindi Soft copy request. Ang download availability ay para lamang sa completed soft copies."
+                : "{$label} is not a Soft copy request. Download availability applies only to completed soft copies.";
         }
 
-        if ($request->status !== 'accepted') {
+        if ($request->status !== 'completed') {
             return $language === 'filipino'
-                ? "{$label} ay {$this->statusLabel((string) $request->status)}. Hindi available ang soft-copy download hangga’t hindi accepted ang request."
-                : "{$label} is {$this->statusLabel((string) $request->status)}. A soft-copy download is not available until the request is accepted.";
+                ? "{$label} ay {$this->statusLabel((string) $request->status)}. Hindi pa available ang soft-copy download hangga’t hindi completed ang request."
+                : "{$label} is {$this->statusLabel((string) $request->status)}. A soft-copy download is not available until the request is completed.";
         }
 
-        return ($language === 'filipino' ? "{$label} ay Accepted. " : "{$label} is Accepted. ")
+        return ($language === 'filipino' ? "{$label} ay Completed. " : "{$label} is Completed. ")
             . $this->downloadSentence($user, $request, $language);
     }
 
@@ -291,7 +294,9 @@ class ClientDocumentRequestLookupService
     {
         return match ($status) {
             'pending' => 'Pending',
-            'accepted' => 'Accepted',
+            'for_release' => 'For Release',
+            'ready_for_pickup' => 'Ready for Pickup',
+            'completed' => 'Completed',
             'rejected' => 'Rejected',
             default => 'Unavailable',
         };

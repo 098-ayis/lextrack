@@ -102,7 +102,7 @@
         </nav>
     </div>
 
-    {{-- FILTER PILLS --}}
+    {{-- SEARCH AND FILTER --}}
     <div class="mb-0 flex w-full flex-wrap items-center gap-3 border-x border-gray-300 bg-white px-3 py-7 shadow-sm sm:flex-nowrap sm:justify-start">
         {{-- Search --}}
         <div class="relative w-full sm:w-96">
@@ -262,19 +262,19 @@
                             NO.
                         </th>
 
-                        <th class="min-w-[280px] px-4 py-4 text-left text-sm font-bold">
+                        <th class="min-w-[280px] px-4 py-4 text-left text-xs font-bold">
                             DOCUMENT
                         </th>
 
-                        <th class="min-w-[160px] px-4 py-4 text-left text-sm font-bold">
+                        <th class="min-w-[160px] px-4 py-4 text-left text-xs font-bold">
                             DOCUMENT TYPE
                         </th>
 
-                        <th class="min-w-[180px] px-4 py-4 text-left text-sm font-bold">
+                        <th class="min-w-[180px] px-4 py-4 text-left text-xs font-bold">
                             UPLOADED BY
                         </th>
 
-                        <th class="min-w-[190px] px-4 py-4 text-center text-sm font-bold">
+                        <th class="min-w-[190px] px-4 py-4 text-center text-xs font-bold">
                             ACTION
                         </th>
 
@@ -531,31 +531,31 @@
                 <thead class="sticky top-0 z-10 bg-white">
                     <tr class="border-b border-gray-300 bg-white">
 
-                        <th class="w-16 px-4 py-4 text-sm font-bold">
+                        <th class="w-16 px-4 py-4 text-xs font-bold">
                             NO.
                         </th>
 
-                        <th class="min-w-[280px] px-4 py-4 text-left text-sm font-bold">
+                        <th class="min-w-[280px] px-4 py-4 text-left text-xs font-bold">
                             DOCUMENT
                         </th>
 
-                        <th class="min-w-[160px] px-4 py-4 text-sm font-bold">
+                        <th class="min-w-[160px] px-4 py-4 text-xs font-bold">
                             DOCUMENT TYPE
                         </th>
 
-                        <th class="min-w-[170px] px-4 py-4 text-sm font-bold">
+                        <th class="min-w-[170px] px-4 py-4 text-xs font-bold">
                             OUTGOING DATE
                         </th>
 
-                        <th class="min-w-[220px] px-4 py-4 text-sm font-bold">
+                        <th class="min-w-[220px] px-4 py-4 text-xs font-bold">
                             SENT
                         </th>
 
-                        <th class="min-w-[220px] px-4 py-4 text-sm font-bold">
+                        <th class="min-w-[220px] px-4 py-4 text-xs font-bold">
                             RETURNED
                         </th>
 
-                        <th class="min-w-[190px] px-4 py-4 text-sm font-bold">
+                        <th class="min-w-[190px] px-4 py-4 text-xs font-bold">
                             ACTION
                         </th>
 
@@ -848,41 +848,41 @@
 
                 <thead class="sticky top-0 z-10 bg-white">
                     <tr class="border-b border-gray-300 bg-white">
-                        <th class="w-20 px-4 py-4 text-left text-sm font-bold">
+                        <th class="w-20 px-4 py-4 text-left text-xs font-bold">
                             NO
                         </th>
 
-                        <th class="px-4 py-4 text-left text-sm font-bold">
+                        <th class="px-4 py-4 text-left text-xs font-bold">
                             DOCUMENTS
                         </th>
 
-                        <th class="px-4 py-4 text-left text-sm font-bold">
+                        <th class="px-4 py-4 text-left text-xs font-bold">
                             DOCUMENT TYPE
                         </th>
 
                         @if ($activeSection === 'completed')
-                            <th class="px-4 py-4 text-left text-sm font-bold">
+                            <th class="px-4 py-4 text-left text-xs font-bold">
                                 LAST UPDATE
                             </th>
                         @endif
 
                         @if ($activeSection === 'rejected')
-                            <th class="px-4 py-4 text-left text-sm font-bold">
+                            <th class="px-4 py-4 text-left text-xs font-bold">
                                 REJECTION REASON
                             </th>
                         @endif
 
                         @if ($activeSection !== 'completed')
-                            <th class="px-4 py-4 text-left text-sm font-bold">
+                            <th class="px-4 py-4 text-left text-xs font-bold">
                                 ACTION TAKEN
                             </th>
 
-                            <th class="px-4 py-4 text-left text-sm font-bold">
+                            <th class="px-4 py-4 text-left text-xs font-bold">
                                 DEADLINE
                             </th>
                         @endif
 
-                        <th class="w-52 px-4 py-4 text-center text-sm font-bold">
+                        <th class="w-52 px-4 py-4 text-center text-xs font-bold">
                             ACTION
                         </th>
                     </tr>

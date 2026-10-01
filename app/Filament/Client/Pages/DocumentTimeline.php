@@ -3,6 +3,7 @@
 namespace App\Filament\Client\Pages;
 
 use App\Models\Document;
+use App\Models\DocumentView;
 use App\Services\DocumentStatusTimeline;
 use Filament\Pages\Page;
 use Filament\Support\Enums\Width;
@@ -18,7 +19,7 @@ class DocumentTimeline extends Page
     public Document $documentRecord;
 
     /**
-     * @var array<int, array{status: string, title: string, description: string, time: string, date: string}>
+     * @var array<int, array{status: string, title: string, description: string, time: string, date: string, color: string}>
      */
     public array $statusTimeline = [];
 
@@ -66,6 +67,16 @@ class DocumentTimeline extends Page
                     ->oldest('log_id'),
             ])
             ->firstOrFail();
+
+        DocumentView::updateOrCreate(
+            [
+                'document_id' => $this->documentRecord->document_id,
+                'user_id' => auth()->id(),
+            ],
+            [
+                'viewed_at' => now(),
+            ]
+        );
 
         $this->statusTimeline = app(DocumentStatusTimeline::class)
             ->build($this->documentRecord);

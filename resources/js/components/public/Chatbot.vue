@@ -1,10 +1,19 @@
 <script setup>
-import { nextTick, ref } from 'vue'
+import { computed, nextTick, ref } from 'vue'
+import {
+  CHATBOT_VALIDATION_ERROR,
+  canSendChatbotMessage,
+  hasProhibitedChatbotTerm
+} from '../../utils/chatbotMessagePolicy'
 
 const props = defineProps({
   sessionKey: {
     type: String,
     default: ''
+  },
+  prohibitedTerms: {
+    type: Array,
+    default: () => []
   }
 })
 
@@ -74,6 +83,14 @@ const isOpen = ref(false)
 const chatMessages = ref(null)
 const conversationId = ref(savedChat?.conversationId || newConversationId())
 const messages = ref(savedChat?.messages || [{ ...WELCOME_MESSAGE }])
+const messageValidationError = computed(() => hasProhibitedChatbotTerm(message.value, props.prohibitedTerms)
+  ? CHATBOT_VALIDATION_ERROR
+  : '')
+const canSendMessage = computed(() => canSendChatbotMessage(
+  message.value,
+  loading.value,
+  props.prohibitedTerms,
+))
 
 async function scrollToLatest() {
   await nextTick()
@@ -97,7 +114,7 @@ async function openChat() {
 async function sendMessage() {
   const text = message.value.trim()
 
-  if (!text || loading.value) return
+  if (!canSendMessage.value) return
 
   messages.value.push({ role: 'user', content: text })
   persistChatState()
@@ -130,6 +147,16 @@ async function sendMessage() {
 
     if (typeof data.reply === 'string' && data.reply.trim() !== '') {
       failureReply = data.reply
+    }
+
+    if (response.status === 422 && typeof data.reply === 'string' && data.reply.trim() !== '') {
+      messages.value.push({
+        role: 'assistant',
+        content: data.reply
+      })
+      persistChatState()
+      await scrollToLatest()
+      return
     }
 
     if (!response.ok) {
@@ -213,16 +240,22 @@ async function sendMessage() {
       </div>
 
       <form class="chat-form" @submit.prevent="sendMessage">
-        <input
-          v-model="message"
-          type="text"
-          placeholder="Ask a question..."
-          maxlength="1000"
-          :disabled="loading"
-          aria-label="Message LexTrack Assistant"
-        />
+        <div class="chat-input-field">
+          <input
+            v-model="message"
+            type="text"
+            placeholder="Ask a question..."
+            maxlength="1000"
+            :disabled="loading"
+            :aria-invalid="messageValidationError ? 'true' : 'false'"
+            aria-label="Message LexTrack Assistant"
+          />
+          <p v-if="messageValidationError" class="chat-input-error" role="alert">
+            {{ messageValidationError }}
+          </p>
+        </div>
 
-        <button type="submit" :disabled="loading || !message.trim()">
+        <button type="submit" :disabled="!canSendMessage">
           <span>{{ loading ? 'Sending…' : 'Send' }}</span>
         </button>
       </form>
@@ -435,7 +468,14 @@ async function sendMessage() {
   border-top: 1px solid #e2e8f0;
 }
 
+.chat-input-field {
+  min-width: 0;
+  flex: 1;
+}
+
 .chat-form input {
+  width: 100%;
+  box-sizing: border-box;
   min-width: 0;
   flex: 1;
   padding: 11px 12px;
@@ -446,6 +486,13 @@ async function sendMessage() {
   outline: none;
   font: inherit;
   font-size: 13px;
+}
+
+.chat-input-error {
+  margin: 5px 2px 0;
+  color: #b91c1c;
+  font-size: 11px;
+  line-height: 1.3;
 }
 
 .chat-form input:focus {

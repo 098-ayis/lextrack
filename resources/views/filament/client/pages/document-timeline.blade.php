@@ -14,22 +14,31 @@
 
             <div class="min-w-0">
                 <h1 class="text-lg font-semibold text-gray-900 dark:text-white">Status Timeline</h1>
-                <p class="truncate text-sm text-gray-500 dark:text-gray-400">
-                    {{ $documentRecord->description ?: $documentRecord->particulars ?: 'Document status history' }}
-                </p>
             </div>
         </div>
 
-        <div class="p-5 md:p-8">
-            @if ($statusTimeline !== [])
-                <div class="space-y-0">
-                    @foreach ($statusTimeline as $update)
-                        @php
-                            $timelineMarker = $loop->last
-                                ? 'bg-emerald-700 text-white'
-                                : 'bg-emerald-100 text-emerald-700';
-                        @endphp
+        @php($displayTimeline = $statusTimeline)
 
+        <div class="p-5 md:p-8">
+            @if ($documentRecord->status === 'rejected')
+                <div class="mb-6 flex flex-col gap-3 rounded-lg border border-red-200 bg-red-50 p-4 sm:flex-row sm:items-center sm:justify-between dark:border-red-900/60 dark:bg-red-950/30">
+                    <div>
+                        <h2 class="text-sm font-semibold text-red-800 dark:text-red-200">Document rejected</h2>
+                        <p class="mt-1 text-sm text-red-700 dark:text-red-300">You may submit the document again for review.</p>
+                    </div>
+
+                    <a
+                        href="{{ \App\Filament\Client\Pages\Upload::getUrl() }}"
+                        class="inline-flex shrink-0 items-center justify-center rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 dark:bg-red-500 dark:hover:bg-red-400 dark:focus:ring-offset-gray-800"
+                    >
+                        Resubmit Document
+                    </a>
+                </div>
+            @endif
+
+            @if ($displayTimeline !== [])
+                <div class="space-y-0">
+                    @foreach ($displayTimeline as $update)
                         <article
                             class="relative grid grid-cols-[4.5rem_2.75rem_minmax(0,1fr)] gap-3 pb-6 last:pb-0 md:grid-cols-[6rem_3rem_minmax(0,1fr)]"
                             wire:key="client-document-status-{{ $loop->index }}"
@@ -46,7 +55,11 @@
                                 ></span>
                             @endunless
 
-                            <span class="relative z-10 inline-flex h-7 w-7 items-center justify-center justify-self-center self-start rounded-full {{ $timelineMarker }} ring-4 ring-white dark:ring-gray-800" aria-hidden="true">
+                            <span
+                                class="relative z-10 inline-flex h-7 w-7 items-center justify-center justify-self-center self-start rounded-full text-white ring-4 ring-white dark:ring-gray-800"
+                                style="background-color: {{ $update['color'] ?? '#64748b' }};"
+                                aria-hidden="true"
+                            >
                                 <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="m5 12 4.5 4.5L19 7" />
                                 </svg>

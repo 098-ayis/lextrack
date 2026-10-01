@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Models\ActionType;
+use App\Models\ActivityLog;
 use App\Models\Document;
 use App\Models\DocumentRequest;
 use App\Models\DocumentType;
@@ -14,7 +15,9 @@ use App\Models\DocumentVersion;
 use App\Models\Conversation;
 use App\Notifications\DocumentRequestRejectedNotification;
 use App\Notifications\DocumentRequestFulfilledNotification;
+use App\Notifications\DocumentRequestAcceptedNotification;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
@@ -70,7 +73,7 @@ class DocumentRequests extends Page implements HasTable
     public static function getNavigationBadge(): ?string
     {
         $count = DocumentRequest::query()
-            ->where('status', 'pending')
+            ->whereIn('status', ['pending', 'for_release'])
             ->count();
 
         return $count > 0 ? (string) $count : null;
@@ -89,7 +92,8 @@ class DocumentRequests extends Page implements HasTable
             $section,
             [
                 'pending',
-                'accepted',
+                'ready_for_pickup',
+                'completed',
                 'rejected',
             ],
             true
@@ -112,8 +116,9 @@ class DocumentRequests extends Page implements HasTable
             ->pluck('count', 'status');
 
         return [
-            'pending' => (int) ($counts['pending'] ?? 0),
-            'accepted' => (int) ($counts['accepted'] ?? 0),
+            'pending' => (int) ($counts['pending'] ?? 0) + (int) ($counts['for_release'] ?? 0),
+            'ready_for_pickup' => (int) ($counts['ready_for_pickup'] ?? 0),
+            'completed' => (int) ($counts['completed'] ?? 0),
             'rejected' => (int) ($counts['rejected'] ?? 0),
         ];
     }
@@ -152,10 +157,11 @@ class DocumentRequests extends Page implements HasTable
 
     protected function getDocumentRequestTableQuery(): Builder
     {
-        $status = match ($this->activeSection) {
-            'accepted' => 'accepted',
-            'rejected' => 'rejected',
-            default => 'pending',
+        $statuses = match ($this->activeSection) {
+            'ready_for_pickup' => ['ready_for_pickup'],
+            'completed' => ['completed'],
+            'rejected' => ['rejected'],
+            default => ['pending', 'for_release'],
         };
 
         return DocumentRequest::query()
@@ -164,7 +170,7 @@ class DocumentRequests extends Page implements HasTable
                 'document.latestVersion',
                 'user',
             ])
-            ->where('status', $status)
+            ->whereIn('status', $statuses)
             ->when(trim($this->search) !== '', function (Builder $query): void {
                 $search = '%' . trim($this->search) . '%';
 
@@ -259,6 +265,7 @@ class DocumentRequests extends Page implements HasTable
 
             TextColumn::make('copy_type')
                 ->label('TYPE')
+                ->visible(fn (): bool => $this->activeSection !== 'ready_for_pickup')
                 ->formatStateUsing(
                     fn (?string $state): string => match ($state) {
                         'original' => 'Original',
@@ -269,17 +276,6 @@ class DocumentRequests extends Page implements HasTable
                 ->alignLeft()
                 ->extraHeaderAttributes(['class' => 'min-w-[140px]']),
 
-            ...($this->activeSection !== 'rejected' ? [
-                TextColumn::make('pickup_at')
-                    ->label('PICKUP')
-                    ->state(
-                        fn (DocumentRequest $record): string =>
-                            $record->pickup_at?->format('M d, Y g:i A') ?? '—'
-                    )
-                    ->alignCenter()
-                    ->width('12rem')
-                    ->extraHeaderAttributes(['class' => 'min-w-[170px]']),
-            ] : []),
 
             ViewColumn::make('requested_by')
                 ->label('REQUESTED BY')
@@ -295,9 +291,17 @@ class DocumentRequests extends Page implements HasTable
                 ->extraHeaderAttributes(['class' => 'min-w-[150px]']),
         ];
 
-        if ($this->activeSection !== 'pending') {
+        if ($this->activeSection === 'ready_for_pickup') {
+            $columns[] = TextColumn::make('pickup_at')
+                ->label('PICKUP STATUS')
+                ->state(fn (DocumentRequest $record): string => $this->pickupState($record))
+                ->badge()
+                ->color(fn (DocumentRequest $record): string => $this->isPickupOverdue($record) ? 'danger' : 'success')
+                ->alignCenter()
+                ->extraHeaderAttributes(['class' => 'min-w-[150px]']);
+        } elseif ($this->activeSection !== 'pending') {
             $columns[] = TextColumn::make('date_processed')
-                ->label('DATE ' . strtoupper($this->activeSection))
+                ->label('PICKUP DATE')
                 ->date('F d, Y')
                 ->placeholder('Unknown date')
                 ->alignCenter()
@@ -320,23 +324,55 @@ class DocumentRequests extends Page implements HasTable
         return $columns;
     }
 
+    protected function isPickupOverdue(DocumentRequest $record): bool
+    {
+        return $record->status === 'ready_for_pickup'
+            && $record->copy_type === 'original'
+            && $record->claimed_at === null
+            && $record->pickup_at?->isPast() === true;
+    }
+
+    protected function pickupState(DocumentRequest $record): string
+    {
+        if (! $this->isPickupOverdue($record)) {
+            return 'Ready for Pickup';
+        }
+
+        $hasNoShow = ActivityLog::query()
+            ->where('request_id', $record->request_id)
+            ->where('action_type', 'pickup_no_show')
+            ->where('old_value', $record->pickup_at?->toDateTimeString())
+            ->exists();
+
+        return $hasNoShow ? 'No-Show' : 'Pickup Overdue';
+    }
+
     protected function getDocumentRequestTableActions(): array
     {
         if ($this->activeSection === 'pending') {
             return [
-                $this->acceptRequestAction(),
+
+                $this->acceptTransitionAction(),
                 $this->rejectRequestAction(),
-                $this->messageRequestAction(),
+                $this->requestOptionsAction(),
             ];
         }
 
-        return $this->activeSection === 'accepted'
-            ? [
-                $this->messageRequestAction(),
-            ]
-            : [
-                $this->messageRequestAction(),
-            ];
+        return match ($this->activeSection) {
+            'ready_for_pickup' => [
+                $this->markClaimedAction(),
+                $this->requestOptionsAction($this->reschedulePickupAction(), $this->markNoShowAction()),
+            ],
+            'completed' => [
+                $this->replaceFileAction(),
+                $this->requestOptionsAction(),
+            ],
+            'rejected' => [
+                $this->restoreRequestAction(),
+                $this->requestOptionsAction(),
+            ],
+            default => [$this->requestOptionsAction()],
+        };
     }
 
     protected function pickupTimeOptions(): array
@@ -357,7 +393,8 @@ class DocumentRequests extends Page implements HasTable
     {
         if (! in_array($section, [
             'pending',
-            'accepted',
+            'ready_for_pickup',
+            'completed',
             'rejected',
         ], true)) {
             return;
@@ -371,7 +408,7 @@ class DocumentRequests extends Page implements HasTable
         $this->resetTable();
     }
 
-    public function acceptRequestAction(): Action
+    /* public function acceptRequestAction(): Action
     {
         return Action::make('acceptRequest')
             ->label('Accept')
@@ -449,6 +486,210 @@ class DocumentRequests extends Page implements HasTable
                         $filePath = $data['file_path'] ?? [];
                     } else {
                         $pickupAt = \Carbon\Carbon::createFromFormat(
+    */
+    public function acceptTransitionAction(): Action
+    {
+        return Action::make('acceptTransition')->label('Accept')->color('gray')->button()->size('sm')
+            ->extraAttributes(['class' => 'w-[80px] !h-9 !min-h-9 justify-center rounded-md border border-emerald-200 bg-emerald-100 text-emerald-700 hover:bg-emerald-200', 'style' => 'width: 80px; min-width: 80px; height: 36px; min-height: 36px; padding-left: 16px; padding-right: 16px; border-radius: 6px; box-sizing: border-box;'])
+            ->modalHeading(fn (DocumentRequest $record): string => $record->copy_type === 'soft_copy' ? 'Accept Soft Copy Request' : 'Accept Hard Copy Request')
+            ->modalDescription(fn (DocumentRequest $record): string => $record->copy_type === 'soft_copy' ? 'Upload the file to complete this soft-copy request.' : 'Set the pickup schedule to make this request ready for pickup.')
+            ->modalSubmitActionLabel(fn (DocumentRequest $record): string => $record->copy_type === 'soft_copy' ? 'Upload and Complete' : 'Accept and Schedule')
+            ->schema(fn (DocumentRequest $record): array => $record->copy_type === 'soft_copy'
+                ? [FileUpload::make('file_path')->label('Requested document')->multiple()->appendFiles()->panelLayout('compact')->disk('local')->directory('documents/requested')->preserveFilenames()->acceptedFileTypes(['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'])->maxSize(5120)->required()]
+                : $this->pickupScheduleSchema())
+            ->action(function (array $data, DocumentRequest $record): void {
+                $pickupAt = $record->copy_type === 'soft_copy' ? null : $this->pickupDateTime($data);
+                if ($pickupAt?->isPast()) { Notification::make()->title('Invalid pickup schedule')->body('The pickup date and time must be in the future.')->danger()->send(); return; }
+                $this->fulfillRequest($record->request_id, $record->copy_type === 'soft_copy' ? ($data['file_path'] ?? null) : null, $pickupAt?->toDateTimeString());
+            });
+    }
+
+    public function uploadFileAction(): Action
+    {
+        return Action::make('uploadFile')->label('Upload File')->color('success')->button()
+            ->visible(fn (DocumentRequest $record): bool => $record->copy_type === 'soft_copy')
+            ->schema([FileUpload::make('file_path')->label('File')->multiple()->appendFiles()->panelLayout('compact')->disk('local')->directory('documents/requested')->preserveFilenames()->acceptedFileTypes(['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'])->maxSize(5120)->required()])
+            ->action(fn (array $data, DocumentRequest $record) => $this->fulfillRequest($record->request_id, $data['file_path'] ?? null));
+    }
+
+    public function schedulePickupAction(): Action
+    {
+        return Action::make('schedulePickup')->label('Set Schedule')->color('primary')->button()
+            ->visible(fn (DocumentRequest $record): bool => $record->copy_type === 'original')
+            ->schema($this->pickupScheduleSchema())
+            ->action(function (array $data, DocumentRequest $record): void {
+                $pickupAt = $this->pickupDateTime($data);
+                if ($pickupAt?->isPast()) { Notification::make()->title('Invalid pickup schedule')->body('The pickup date and time must be in the future.')->danger()->send(); return; }
+                $this->fulfillRequest($record->request_id, null, $pickupAt?->toDateTimeString());
+            });
+    }
+
+    public function markClaimedAction(): Action
+    {
+        return Action::make('markClaimed')->label('Mark as Claimed')->color('success')->button()->requiresConfirmation()
+            ->size('sm')
+            ->extraAttributes(['class' => 'w-[130px] !h-9 !min-h-9 justify-center rounded-md', 'style' => 'width: 130px; min-width: 130px; height: 36px; min-height: 36px; padding-left: 16px; padding-right: 16px; border-radius: 6px; box-sizing: border-box;'])
+            ->visible(fn (DocumentRequest $record): bool => $record->copy_type === 'original')
+            ->action(fn (DocumentRequest $record) => $this->markClaimed($record->request_id));
+    }
+
+    public function reschedulePickupAction(): Action
+    {
+        return Action::make('reschedulePickup')->label('Reschedule')->icon('heroicon-o-calendar-days')->color('gray')
+            ->visible(fn (DocumentRequest $record): bool => $record->copy_type === 'original')
+            ->schema($this->pickupScheduleSchema())
+            ->action(function (array $data, DocumentRequest $record): void {
+                $pickupAt = $this->pickupDateTime($data);
+                if ($pickupAt?->isPast()) { Notification::make()->title('Invalid pickup schedule')->body('The pickup date and time must be in the future.')->danger()->send(); return; }
+                $this->reschedulePickup($record->request_id, $pickupAt?->toDateTimeString());
+            });
+    }
+
+    public function markNoShowAction(): Action
+    {
+        return Action::make('markNoShow')->label('Mark as No-Show')->icon('heroicon-o-user-minus')->color('gray')
+            ->visible(fn (DocumentRequest $record): bool => $this->isPickupOverdue($record))
+            ->requiresConfirmation()
+            ->modalHeading('Mark Pickup as No-Show')
+            ->modalDescription('Confirm that the client did not appear for the scheduled pickup.')
+            ->action(fn (DocumentRequest $record) => $this->markNoShow($record->request_id));
+    }
+
+    public function replaceFileAction(): Action
+    {
+        return Action::make('replaceFile')->label('Replace File')->color('warning')->button()
+            ->size('sm')
+            ->extraAttributes(['class' => 'w-[80px] !h-9 !min-h-9 justify-center rounded-md', 'style' => 'width: 80px; min-width: 80px; height: 36px; min-height: 36px; padding-left: 16px; padding-right: 16px; border-radius: 6px; box-sizing: border-box;'])
+            ->visible(fn (DocumentRequest $record): bool => $record->copy_type === 'soft_copy')
+            ->schema([FileUpload::make('file_path')->label('Replacement file')->multiple()->appendFiles()->panelLayout('compact')->disk('local')->directory('documents/requested')->preserveFilenames()->acceptedFileTypes(['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'])->maxSize(5120)->required()])
+            ->action(fn (array $data, DocumentRequest $record) => $this->fulfillRequest($record->request_id, $data['file_path'] ?? null));
+    }
+
+    public function restoreRequestAction(): Action
+    {
+        return Action::make('restoreRequest')->label('Restore Request')->color('success')->button()->requiresConfirmation()
+            ->size('sm')
+            ->extraAttributes(['class' => 'w-[130px] !h-9 !min-h-9 justify-center rounded-md', 'style' => 'width: 130px; min-width: 130px; height: 36px; min-height: 36px; padding-left: 16px; padding-right: 16px; border-radius: 6px; box-sizing: border-box;'])
+            ->action(fn (DocumentRequest $record) => $this->restoreRequest($record->request_id));
+    }
+
+    public function historyAction(): Action
+    {
+        return Action::make('history')->label('History')->icon('heroicon-o-clock')->color('gray')
+            ->modalHeading('Request History')->modalSubmitAction(false)->modalCancelActionLabel('Close')
+            ->modalContent(fn (DocumentRequest $record) => view('filament.pages.request-history', ['logs' => ActivityLog::with('user')->where('request_id', $record->request_id)->latest()->get()]));
+    }
+    public function requestOptionsAction(?Action $additionalAction = null, ?Action $secondAdditionalAction = null): ActionGroup
+    {
+        return ActionGroup::make(array_filter([
+            $additionalAction,
+            $secondAdditionalAction,
+            $this->messageRequestAction(),
+            $this->historyAction(),
+        ]))->icon('heroicon-m-ellipsis-vertical')->tooltip('More options')->color('gray');
+    }
+
+
+    protected function pickupScheduleSchema(): array
+    {
+        return [DatePicker::make('pickup_date')->label('Pickup date')->native(false)->displayFormat('M d, Y')->minDate(today())->default(today()->addDay()->toDateString())->required(), Select::make('pickup_time')->label('Pickup time')->options(fn (): array => $this->pickupTimeOptions())->native(false)->searchable()->required()];
+    }
+
+    protected function pickupDateTime(array $data): ?\Carbon\Carbon
+    {
+        return filled($data['pickup_date'] ?? null) && filled($data['pickup_time'] ?? null) ? \Carbon\Carbon::createFromFormat('Y-m-d H:i', $data['pickup_date'] . ' ' . $data['pickup_time']) : null;
+    }
+
+    public function acceptRequest(int $requestId): void
+    {
+        $request = DB::transaction(function () use ($requestId): ?DocumentRequest {
+            $request = DocumentRequest::with('user')->lockForUpdate()->findOrFail($requestId);
+            if ($request->status !== 'pending') return null;
+            $request->update(['status' => 'for_release', 'date_processed' => now()->toDateString()]);
+            $this->recordRequestActivity($request, 'request_accepted', 'Accepted the document request.', 'pending', 'for_release');
+            return $request->fresh('user');
+        });
+        if (! $request) return;
+        $this->notifyRequester($request, new DocumentRequestAcceptedNotification($request), 'Request accepted', 'The requester has been notified.');
+        $this->redirect(self::getUrl(['section' => 'for_release']));
+    }
+
+    public function markClaimed(int $requestId): void
+    {
+        $request = DB::transaction(function () use ($requestId): ?DocumentRequest {
+            $request = DocumentRequest::lockForUpdate()->findOrFail($requestId);
+            if ($request->status !== 'ready_for_pickup') return null;
+            $request->update(['status' => 'completed', 'claimed_at' => now()]);
+            $this->recordRequestActivity($request, 'request_claimed', 'Marked the hard copy request as claimed.', 'ready_for_pickup', 'completed');
+            return $request;
+        });
+        if ($request) { Notification::make()->title('Request claimed')->success()->send(); $this->resetTable(); }
+    }
+
+    public function reschedulePickup(int $requestId, string $pickupAt): void
+    {
+        $request = DB::transaction(function () use ($requestId, $pickupAt): ?DocumentRequest {
+            $request = DocumentRequest::with(['user', 'document'])->lockForUpdate()->findOrFail($requestId);
+            if ($request->status !== 'ready_for_pickup') return null;
+            $old = $request->pickup_at?->toDateTimeString();
+            $request->update(['pickup_at' => $pickupAt]);
+            $this->recordRequestActivity($request, 'pickup_rescheduled', 'Rescheduled the pickup time.', $old, $pickupAt);
+            return $request->fresh(['user', 'document']);
+        });
+        if ($request) { $this->notifyRequester($request, new DocumentRequestFulfilledNotification($request, $request->document), 'Pickup rescheduled', 'The requester has been notified of the new pickup schedule.'); $this->resetTable(); }
+    }
+
+    public function markNoShow(int $requestId): void
+    {
+        $request = DB::transaction(function () use ($requestId): ?DocumentRequest {
+            $request = DocumentRequest::lockForUpdate()->findOrFail($requestId);
+
+            if (! $this->isPickupOverdue($request)) {
+                return null;
+            }
+
+            $pickupAt = $request->pickup_at->toDateTimeString();
+            $this->recordRequestActivity(
+                $request,
+                'pickup_no_show',
+                'Client did not appear for the scheduled pickup.',
+                $pickupAt,
+                null,
+            );
+
+            return $request;
+        });
+
+        if ($request) {
+            Notification::make()->title('Pickup marked as no-show')->success()->send();
+            $this->resetTable();
+        }
+    }
+
+    public function restoreRequest(int $requestId): void
+    {
+        $request = DB::transaction(function () use ($requestId): ?DocumentRequest {
+            $request = DocumentRequest::lockForUpdate()->findOrFail($requestId);
+            if ($request->status !== 'rejected') return null;
+            $request->update(['status' => 'pending', 'date_processed' => null, 'rejection_reason' => null]);
+            $this->recordRequestActivity($request, 'request_restored', 'Restored the request to Pending.', 'rejected', 'pending');
+            return $request;
+        });
+        if ($request) $this->redirect(self::getUrl(['section' => 'pending']));
+    }
+
+    protected function recordRequestActivity(DocumentRequest $request, string $actionType, string $details, ?string $old = null, ?string $new = null): void
+    {
+        ActivityLog::create(['user_id' => auth()->id(), 'document_id' => $request->document_id, 'request_id' => $request->request_id, 'action_type' => $actionType, 'action_details' => $details, 'old_value' => $old, 'new_value' => $new]);
+    }
+
+    protected function notifyRequester(DocumentRequest $request, object $notification, string $title, string $body): void
+    {
+        try { $request->user?->notify($notification); } catch (TransportExceptionInterface $exception) { report($exception); }
+        Notification::make()->title($title)->body($body)->success()->send();
+    }
+
+    /*
                             'Y-m-d H:i',
                             $data['pickup_date'] . ' ' . $data['pickup_time']
                         );
@@ -469,12 +710,15 @@ class DocumentRequests extends Page implements HasTable
             });
     }
 
+    */
     public function rejectRequestAction(): Action
     {
         return Action::make('rejectRequest')
             ->label('Reject')
-            ->color('danger')
+            ->color('gray')
             ->button()
+            ->size('sm')
+            ->extraAttributes(['class' => 'w-[80px] !h-9 !min-h-9 justify-center rounded-md border border-red-200 bg-red-100 text-red-700 hover:bg-red-200', 'style' => 'width: 80px; min-width: 80px; height: 36px; min-height: 36px; padding-left: 16px; padding-right: 16px; border-radius: 6px; box-sizing: border-box;'])
             ->modalHeading('Reject Document Request')
             ->modalIcon('heroicon-o-x-circle')
             ->modalIconColor('danger')
@@ -509,7 +753,6 @@ class DocumentRequests extends Page implements HasTable
             ->label('Message')
             ->icon('heroicon-o-chat-bubble-left-right')
             ->color('gray')
-            ->iconButton()
             ->tooltip('Message requester')
             ->url(
                 fn (DocumentRequest $record): string => Messages::getUrl([
@@ -558,7 +801,7 @@ class DocumentRequests extends Page implements HasTable
                 ->lockForUpdate()
                 ->findOrFail($requestId);
 
-            if ($request->status !== 'pending') {
+            if (! in_array($request->status, ['pending', 'for_release', 'completed'], true)) {
                 return null;
             }
 
@@ -631,13 +874,25 @@ class DocumentRequests extends Page implements HasTable
                 }
             }
 
+            $oldStatus = $request->status;
             $request->update([
-                'status' => 'accepted',
+                'status' => $request->copy_type === 'soft_copy' ? 'completed' : 'ready_for_pickup',
                 'date_processed' => now()->toDateString(),
                 'pickup_at' => $request->copy_type !== 'soft_copy'
                     ? $pickupAt
                     : null,
+                'attachment_path' => $request->copy_type === 'soft_copy' ? json_encode($filePaths) : $request->attachment_path,
             ]);
+            if ($oldStatus === 'pending') {
+                $this->recordRequestActivity($request, 'request_accepted', 'Accepted the document request.', 'pending', $request->status);
+            }
+            $this->recordRequestActivity(
+                $request,
+                $request->copy_type === 'soft_copy' ? ($oldStatus === 'completed' ? 'soft_copy_replaced' : 'soft_copy_uploaded') : 'pickup_scheduled',
+                $request->copy_type === 'soft_copy' ? 'Uploaded a soft copy file.' : 'Scheduled the pickup.',
+                $oldStatus,
+                $request->status,
+            );
 
             if ($request->copy_type !== 'soft_copy' && $pickupAt) {
                 $pickupDateTime = \Carbon\Carbon::parse($pickupAt);
@@ -785,6 +1040,7 @@ class DocumentRequests extends Page implements HasTable
                 'rejection_reason' => $reason,
                 'date_processed' => now()->toDateString(),
             ]);
+            $this->recordRequestActivity($request, 'request_rejected', 'Rejected the document request.', 'pending', 'rejected');
 
             return $request->fresh('user');
         });

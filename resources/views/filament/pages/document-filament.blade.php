@@ -69,7 +69,7 @@
         </div>
 
         {{-- FILTER PILLS --}}
-        <div class="mb-0 flex w-full flex-wrap items-center gap-3 border-x border-gray-300 bg-white px-3 py-7 shadow-sm dark:border-gray-700 dark:bg-gray-900 sm:flex-nowrap sm:justify-start">
+        <div class="mb-0 flex w-full flex-wrap items-center gap-3 border-x border-gray-300 bg-white px-3 py-4 shadow-sm dark:border-gray-700 dark:bg-gray-900 sm:flex-nowrap sm:justify-start">
             <div class="relative w-full sm:w-96">
                 <input
                     type="text"
@@ -467,13 +467,9 @@
                     </div>
                     <div x-ref="qrCode" class="mx-auto mt-5 flex h-64 w-64 items-center justify-center overflow-hidden rounded-lg border border-gray-200 bg-white p-2 dark:border-gray-600">{!! $qrCodeSvg !!}</div>
                     <p class="mt-4 text-sm text-gray-600 dark:text-gray-300">
-                        @if ($qrCodeCanSendToClient)
-                            Scan this code on the public Track page to view the document status and details.
-                        @else
-                            This document has no client assigned. You can download the QR code, but it cannot be sent to a client.
-                        @endif
+                        Scan this code on the public Track page to view the document status and details.
                     </p>
-                    <div class="mt-5 grid grid-cols-2 gap-2">
+                    <div class="mt-5 flex justify-center">
                         <button
                             type="button"
                             x-on:click="
@@ -500,7 +496,7 @@
                                         const downloadUrl = URL.createObjectURL(jpegBlob);
                                         const link = document.createElement('a');
                                         link.href = downloadUrl;
-                                        link.download = 'document-qr-code-{{ $qrCodeDocumentId }}.jpg';
+                                        link.download = @js($qrCodeDocumentName . ' QR code.jpg');
                                         document.body.appendChild(link);
                                         link.click();
                                         link.remove();
@@ -516,23 +512,6 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v12m0 0 4-4m-4 4-4-4M5 18v3h14v-3" />
                             </svg>
                             <span class="truncate">Download QR</span>
-                        </button>
-                        <button
-                            type="button"
-                            wire:click="sendQrCodeToClient"
-                            @disabled(! $qrCodeCanSendToClient)
-                            wire:loading.attr="disabled"
-                            wire:target="sendQrCodeToClient"
-                            class="flex min-w-0 items-center justify-center gap-1.5 rounded-lg bg-indigo-500 px-2 py-2.5 text-xs font-semibold text-white transition hover:bg-indigo-600 disabled:cursor-not-allowed disabled:opacity-60"
-                            title="{{ $qrCodeCanSendToClient ? 'Send QR code to the client' : 'This document has no client recipient' }}"
-                        >
-                            <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="m4 4 16 8-16 8 3-8-3-8Zm3 8h13" />
-                            </svg>
-                            <span class="truncate">
-                                <span wire:loading.remove wire:target="sendQrCodeToClient">{{ $qrCodeCanSendToClient ? 'Send to client' : 'No client assigned' }}</span>
-                                <span wire:loading wire:target="sendQrCodeToClient">Sending...</span>
-                            </span>
                         </button>
                     </div>
                 </div>

@@ -17,7 +17,7 @@
         : \App\Filament\Pages\Document::getUrl(['section' => 'incoming']);
     $softCopyRequestPurpose = $document->documentRequests()
         ->where('copy_type', 'soft_copy')
-        ->where('status', 'accepted')
+        ->where('status', 'completed')
         ->latest('date_of_request')
         ->value('purpose');
 @endphp

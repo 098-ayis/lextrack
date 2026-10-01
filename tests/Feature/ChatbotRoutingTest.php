@@ -8,10 +8,12 @@ use App\Services\ChatIntentNormalizer;
 use App\Services\ClientMessageAvailabilityService;
 use App\Services\ClientDocumentLookupService;
 use App\Services\ChatbotIntentRouter;
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\RateLimiter;
 use Laravel\Ai\Enums\Lab;
 use Laravel\Ai\Responses\AgentResponse;
 use Laravel\Ai\Responses\Data\Meta;
@@ -35,10 +37,10 @@ class ChatbotRoutingTest extends TestCase
     {
         $instructions = (new LexTrackAssistant)->instructions();
 
-        $this->assertStringContainsString('start with a direct Yes/No or Oo/Hindi answer', $instructions);
-        $this->assertStringContainsString('Do not repeat a procedure', $instructions);
-        $this->assertStringContainsString('append office contact information', $instructions);
-        $this->assertStringContainsString('Do not claim personal-email notification support', $instructions);
+        $this->assertStringContainsString('For yes/no questions, answer Yes/No or Oo/Hindi first.', $instructions);
+        $this->assertStringContainsString('Avoid repetitive explanations', $instructions);
+        $this->assertStringContainsString('unrelated contact information', $instructions);
+        $this->assertStringContainsString('Never assume personal-email notification support.', $instructions);
     }
 
     protected function setUp(): void
@@ -52,6 +54,10 @@ class ChatbotRoutingTest extends TestCase
         ]);
         DB::purge('sqlite');
 
+
+        // Keep the production throttle configured on the route, but isolate
+        // this high-volume feature suite from shared rate-limit state.
+        RateLimiter::for('chatbot', static fn () => Limit::none());
         Schema::connection('sqlite')->create('documents', function (Blueprint $table): void {
             $table->id('document_id');
             $table->unsignedBigInteger('user_id');
@@ -72,6 +78,18 @@ class ChatbotRoutingTest extends TestCase
             $table->id('type_id');
             $table->string('type_name');
             $table->text('type_desc')->nullable();
+            $table->timestamps();
+        });
+
+        Schema::connection('sqlite')->create('activity_logs', function (Blueprint $table): void {
+            $table->id('log_id');
+            $table->unsignedBigInteger('user_id');
+            $table->unsignedBigInteger('document_id');
+            $table->unsignedBigInteger('request_id')->nullable();
+            $table->string('action_type');
+            $table->text('action_details');
+            $table->text('old_value')->nullable();
+            $table->text('new_value')->nullable();
             $table->timestamps();
         });
 
@@ -230,6 +248,82 @@ class ChatbotRoutingTest extends TestCase
             ->assertDontSee('Which one do you mean?');
     }
 
+    public function test_latest_submitted_and_latest_updated_are_separate_intents(): void
+    {
+        $normalizer = app(ChatIntentNormalizer::class);
+
+        $updated = $normalizer->interpret('What document has been updated lately?');
+        $submitted = $normalizer->interpret('What is the status of my latest submitted document?');
+
+        $this->assertSame('get_most_recently_updated_document', $updated['intents'][0]['name']);
+        $this->assertSame('documents', $updated['intents'][0]['domain']);
+        $this->assertSame('latest_updated', $updated['intents'][0]['reference']['type']);
+        $this->assertSame('latest_status', $submitted['intents'][0]['name']);
+        $this->assertSame('latest', $submitted['intents'][0]['reference']['type']);
+    }
+
+    public function test_most_recently_updated_lookup_uses_updated_at_and_stays_owner_scoped(): void
+    {
+        $this->actingAsClient(17);
+        $mostRecentlySubmitted = now()->subDay();
+        $mostRecentlyUpdated = now()->subHour();
+
+        $olderSubmission = 701;
+        $this->insertDocument(17, 'in_progress', now()->subDays(3), [
+            'document_id' => 701,
+            'document_name' => 'Older Submission',
+            'lao_number' => 'LAO-26-701',
+            'updated_at' => $mostRecentlyUpdated,
+        ]);
+        $this->insertDocument(17, 'pending', $mostRecentlySubmitted, [
+            'document_id' => 702,
+            'document_name' => 'Newer Submission',
+            'lao_number' => 'LAO-26-702',
+            'updated_at' => now()->subDays(2),
+        ]);
+        $this->insertDocument(29, 'completed', now(), [
+            'document_id' => 703,
+            'document_name' => 'Other Client Update',
+            'lao_number' => 'LAO-26-703',
+            'updated_at' => now()->addHour(),
+        ]);
+
+        DB::table('activity_logs')->insert([
+            'user_id' => 17,
+            'document_id' => $olderSubmission,
+            'action_type' => 'Document updated',
+            'action_details' => 'Status changed',
+            'old_value' => json_encode(['status' => 'pending']),
+            'new_value' => json_encode(['status' => 'in_progress']),
+            'created_at' => $mostRecentlyUpdated,
+            'updated_at' => $mostRecentlyUpdated,
+        ]);
+
+        $assistant = Mockery::mock(LexTrackAssistant::class);
+        $assistant->shouldNotReceive('hasApprovedKnowledgeBase');
+        $assistant->shouldNotReceive('prompt');
+        $this->app->instance(LexTrackAssistant::class, $assistant);
+
+        $this->postJson('/chatbot/message', [
+            'message' => 'What document has been updated lately?',
+        ])
+            ->assertOk()
+            ->assertSee('Most recently updated document: Older Submission')
+            ->assertSee('Status: In Progress')
+            ->assertSee('LAO number: LAO-26-701')
+            ->assertSee('Latest verified activity: Status updated to In Progress.')
+            ->assertSee('Updated: ' . $mostRecentlyUpdated->format('F j, Y g:i A'))
+            ->assertDontSee('Newer Submission')
+            ->assertDontSee('Other Client Update');
+
+        $this->postJson('/chatbot/message', [
+            'message' => 'What is the status of my latest submitted document?',
+        ])
+            ->assertOk()
+            ->assertJsonPath('reply', 'Your latest submitted document "Newer Submission" is Pending.')
+            ->assertDontSee('Older Submission');
+    }
+
     public function test_latest_doc_shortcut_returns_the_newest_document_without_a_selection_list(): void
     {
         $this->actingAsClient(17);
@@ -342,7 +436,7 @@ class ChatbotRoutingTest extends TestCase
 
         $this->postJson('/chatbot/message', ['message' => 'Accepted na ba siya?'])
             ->assertOk()
-            ->assertExactJson(['reply' => 'No. It is still Pending and awaiting its initial review.']);
+            ->assertExactJson(['reply' => 'Hindi pa. Pending pa ang submission at naghihintay ito ng initial review.']);
     }
 
     public function test_rejection_reason_without_rejected_documents_returns_a_generic_private_reply(): void
@@ -431,7 +525,7 @@ class ChatbotRoutingTest extends TestCase
 
         $this->postJson('/chatbot/message', ['message' => 'rejction reason'])
             ->assertOk()
-            ->assertSee('I found 2 authorized documents to check.')
+            ->assertSee('I found 2 documents to check.')
             ->assertSee('Rejected Filing One')
             ->assertSee('Rejected Filing Two')
             ->assertDontSee('Active Filing')
@@ -596,7 +690,7 @@ class ChatbotRoutingTest extends TestCase
             'conversation_id' => 'rejection-flow',
         ])
             ->assertOk()
-            ->assertSee('I found 3 authorized documents to check.')
+            ->assertSee('I found 3 documents to check.')
             ->assertSee('LAO number: LAO-26-101')
             ->assertSee('LAO number: LAO-26-103')
             ->assertDontSee('LAO-26-999')
@@ -628,8 +722,8 @@ class ChatbotRoutingTest extends TestCase
 
         foreach ([
             ['no-flow', 'no', 'Okay. Open Documents'],
-            ['oo-flow', 'oo', 'May nakita akong 1 authorized na document para i-check.'],
-            ['opo-flow', 'opo', 'May nakita akong 1 authorized na document para i-check.'],
+            ['oo-flow', 'oo', 'May nakita akong 1 document para i-check.'],
+            ['opo-flow', 'opo', 'May nakita akong 1 document para i-check.'],
         ] as [$conversationId, $answer, $expected]) {
             $this->postJson('/chatbot/message', [
                 'message' => 'Nareject ang document ko, what should I do now?',
@@ -682,7 +776,7 @@ class ChatbotRoutingTest extends TestCase
                 'conversation_id' => 'selection-flow',
             ])
             ->assertOk()
-            ->assertSee('I found 1 authorized document to check.')
+            ->assertSee('Please choose a number from 1 to 1.')
             ->assertDontSee('PRIVATE_REASON_117')
             ->assertDontSee('OTHER_CLIENT_REASON');
 
@@ -791,7 +885,7 @@ class ChatbotRoutingTest extends TestCase
 
         $this->postJson('/chatbot/message', ['message' => 'How many documents do I have?'])
             ->assertOk()
-            ->assertExactJson(['reply' => 'You have 3 authorized documents in LexTrack.']);
+            ->assertExactJson(['reply' => 'You have 3 documents in LexTrack.']);
     }
 
     public function test_english_status_count_is_not_answered_as_a_status_definition(): void
@@ -965,7 +1059,7 @@ class ChatbotRoutingTest extends TestCase
         $this->postJson('/chatbot/message', ['message' => 'What are my completed docs?'])
             ->assertOk()
             ->assertExactJson([
-                'reply' => 'I found no authorized documents currently marked as Completed.',
+                'reply' => 'I found no documents currently marked as Completed.',
             ])
             ->assertDontSee('Rejected One')
             ->assertDontSee('Pending One');
@@ -1141,11 +1235,14 @@ class ChatbotRoutingTest extends TestCase
             $this->postJson('/chatbot/message', ['message' => $message])->assertOk();
         }
 
-        $this->postJson('/chatbot/message', ['message' => 'Did I receive an email for my document?'])
-            ->assertOk()
-            ->assertSee('can’t verify delivery of a specific email')
-            ->assertSee('@bicol-u.edu.ph')
+        $response = $this->postJson('/chatbot/message', ['message' => 'Did I receive an email for my document?']);
+        $response->assertOk()
             ->assertDontSee('PRIVATE_EMAIL');
+        $this->assertStringContainsString(
+            'can’t verify delivery of a specific email',
+            (string) $response->json('reply'),
+        );
+        $this->assertStringContainsString('@bicol-u.edu.ph', (string) $response->json('reply'));
     }
 
     public function test_conversational_messages_stay_local_and_do_not_reuse_private_context(): void
@@ -1158,8 +1255,11 @@ class ChatbotRoutingTest extends TestCase
         $this->app->instance(LexTrackAssistant::class, $assistant);
 
         $this->postJson('/chatbot/message', ['message' => 'mama mo blure'])
-            ->assertOk()
-            ->assertSee('LexTrack');
+            ->assertStatus(422)
+            ->assertExactJson([
+                'message' => 'Please use respectful language. Offensive or prohibited words are not allowed.',
+                'reply' => 'Please use respectful language. Offensive or prohibited words are not allowed.',
+            ]);
 
         $this->postJson('/chatbot/message', ['message' => 'mabuti'])
             ->assertOk()
@@ -1184,6 +1284,64 @@ class ChatbotRoutingTest extends TestCase
             ->assertExactJson([
                 'reply' => 'Could you clarify your question about LexTrack?',
             ]);
+    }
+
+    public function test_prohibited_message_is_rejected_before_intent_routing_or_openai(): void
+    {
+        $this->actingAsClient(17);
+
+        $assistant = Mockery::mock(LexTrackAssistant::class);
+        $assistant->shouldNotReceive('hasApprovedKnowledgeBase');
+        $assistant->shouldNotReceive('prompt');
+        $this->app->instance(LexTrackAssistant::class, $assistant);
+
+        $this->postJson('/chatbot/message', ['message' => 'fuck'])
+            ->assertStatus(422)
+            ->assertExactJson([
+                'message' => 'Please use respectful language. Offensive or prohibited words are not allowed.',
+                'reply' => 'Please use respectful language. Offensive or prohibited words are not allowed.',
+            ]);
+    }
+
+    public function test_prohibited_message_with_punctuation_and_spacing_is_rejected(): void
+    {
+        $this->actingAsClient(17);
+
+        $assistant = Mockery::mock(LexTrackAssistant::class);
+        $assistant->shouldNotReceive('prompt');
+        $this->app->instance(LexTrackAssistant::class, $assistant);
+
+        $this->postJson('/chatbot/message', ['message' => 'f.u c.k'])
+            ->assertStatus(422)
+            ->assertJsonPath('reply', 'Please use respectful language. Offensive or prohibited words are not allowed.');
+
+        foreach (['tangina', 'panget', 'bobo', 'engot', 'baliw', 'kingina', 'shitttttttttttttt', 'putsngins tslsgs', '8080 k ba'] as $message) {
+            $this->postJson('/chatbot/message', ['message' => $message])
+                ->assertStatus(422)
+                ->assertJsonPath('reply', 'Please use respectful language. Offensive or prohibited words are not allowed.');
+        }
+    }
+
+    public function test_valid_lextrack_terms_are_not_blocked(): void
+    {
+        $this->actingAsClient(17);
+
+        $assistant = Mockery::mock(LexTrackAssistant::class);
+        $assistant->shouldNotReceive('prompt');
+        $this->app->instance(LexTrackAssistant::class, $assistant);
+
+        foreach (['request', 'original', 'clearance', 'transmittal', 'thanks', 'okay'] as $message) {
+            $this->postJson('/chatbot/message', ['message' => $message])->assertOk();
+        }
+    }
+
+    public function test_empty_chatbot_message_returns_validation_error(): void
+    {
+        $this->actingAsClient(17);
+
+        $this->postJson('/chatbot/message', ['message' => ''])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['message']);
     }
 
     public function test_client_cannot_retrieve_another_users_document_status(): void
@@ -1346,7 +1504,7 @@ class ChatbotRoutingTest extends TestCase
         $this->postJson('/chatbot/message', [
             'message' => 'What is the status of LAO-26-009?',
         ])
-            ->assertStatus(503)
+            ->assertOk()
             ->assertExactJson([
                 'reply' => 'I can’t retrieve your document information right now. Please try again later or use the Documents page.',
             ])
@@ -1429,8 +1587,6 @@ class ChatbotRoutingTest extends TestCase
         $questions = [
             'What is the Legal Affairs Office?',
             'What is legal office?',
-            'Legal services',
-            'Legal policies',
             'What is the Messages page?',
             'ano ibig sabihin ng outgoing?',
             'Ano ang transmittal?',
@@ -1488,9 +1644,73 @@ class ChatbotRoutingTest extends TestCase
     {
         $router = app(ChatbotIntentRouter::class);
 
-        $this->assertSame('general_knowledge', $router->classify('legal services')['intent']);
+        $this->assertSame('legal_services_information', $router->classify('legal services')['intent']);
         $this->assertSame('legal_policy_information', $router->classify('legal policies')['intent']);
         $this->assertSame('legal_policy_information', $router->classify('legal pollicoes')['intent']);
+        $this->assertSame('legal_policy_clarification', $router->classify('policies')['intent']);
+        $this->assertSame('service_scope_clarification', $router->classify('services')['intent']);
+    }
+
+    public function test_service_clarification_resolves_short_follow_up_without_openai(): void
+    {
+        $this->actingAsClient(17);
+
+        $assistant = Mockery::mock(LexTrackAssistant::class);
+        $assistant->shouldNotReceive('hasApprovedKnowledgeBase');
+        $assistant->shouldNotReceive('prompt');
+        $this->app->instance(LexTrackAssistant::class, $assistant);
+
+        $this->postJson('/chatbot/message', ['message' => 'services'])
+            ->assertOk()
+            ->assertSee('LexTrack system features')
+            ->assertSee('services provided by the Legal Affairs Office');
+
+        $this->postJson('/chatbot/message', ['message' => 'yes'])
+            ->assertOk()
+            ->assertSee('Please reply A for LexTrack system features or B for Legal Affairs Office services.')
+            ->assertDontSee('Could you clarify your question about LexTrack?');
+
+        $this->postJson('/chatbot/message', ['message' => 'b'])
+            ->assertOk()
+            ->assertSee('The Legal Affairs Office handles university legal representation')
+            ->assertDontSee('Could you clarify');
+    }
+
+    public function test_legal_services_are_answered_directly_without_openai(): void
+    {
+        $this->actingAsClient(17);
+
+        $assistant = Mockery::mock(LexTrackAssistant::class);
+        $assistant->shouldNotReceive('hasApprovedKnowledgeBase');
+        $assistant->shouldNotReceive('prompt');
+        $this->app->instance(LexTrackAssistant::class, $assistant);
+
+        $this->postJson('/chatbot/message', ['message' => 'legal services'])
+            ->assertOk()
+            ->assertSee('The Legal Affairs Office handles university legal representation')
+            ->assertDontSee('Could you clarify');
+    }
+
+    public function test_standalone_policy_question_accepts_general_as_a_local_follow_up(): void
+    {
+        $this->actingAsClient(17);
+
+        $assistant = Mockery::mock(LexTrackAssistant::class);
+        $assistant->shouldNotReceive('hasApprovedKnowledgeBase');
+        $assistant->shouldNotReceive('prompt');
+        $this->app->instance(LexTrackAssistant::class, $assistant);
+
+        $this->postJson('/chatbot/message', ['message' => 'policies'])
+            ->assertOk()
+            ->assertSee('Which policy topic do you want explained')
+            ->assertSee('general LexTrack policies')
+            ->assertDontSee('Could you clarify');
+
+        $this->postJson('/chatbot/message', ['message' => 'general'])
+            ->assertOk()
+            ->assertSee('General LexTrack policies focus on proper document submission')
+            ->assertDontSee('Could you clarify')
+            ->assertDontSee('Please choose a policy topic');
     }
 
     public function test_legal_policy_questions_and_old_policy_choices_are_handled_locally(): void
@@ -1504,7 +1724,7 @@ class ChatbotRoutingTest extends TestCase
 
         $this->postJson('/chatbot/message', ['message' => 'legal pollicoes'])
             ->assertOk()
-            ->assertSee('LexTrack supports document submission, tracking, document requests, and Messages.')
+            ->assertSee('General LexTrack policies focus on proper document submission')
             ->assertDontSee('Do you mean')
             ->assertDontSee('Could you clarify');
 
@@ -1527,8 +1747,31 @@ class ChatbotRoutingTest extends TestCase
             ]],
         ])->postJson('/chatbot/message', ['message' => 'b'])
             ->assertOk()
-            ->assertSee('LexTrack supports document submission')
+            ->assertSee('LexTrack supports document submission, tracking, document requests, and Messages')
             ->assertDontSee('Could you clarify');
+    }
+
+    public function test_general_ai_reply_does_not_expose_internal_source_wording(): void
+    {
+        $this->actingAsClient(17);
+
+        $assistant = Mockery::mock(LexTrackAssistant::class);
+        $assistant->shouldReceive('hasApprovedKnowledgeBase')->once()->andReturn(true);
+        $assistant->shouldReceive('prompt')->once()->andReturn(
+            new AgentResponse(
+                'test-invocation',
+                'According to the LexTrack guide, LexTrack is a document tracking system.',
+                new Usage,
+                new Meta(Lab::OpenAI->value, 'gpt-5-mini'),
+            ),
+        );
+        $this->app->instance(LexTrackAssistant::class, $assistant);
+
+        $this->postJson('/chatbot/message', ['message' => 'What is LexTrack?'])
+            ->assertOk()
+            ->assertSee('LexTrack is a document tracking system.')
+            ->assertDontSee('According to')
+            ->assertDontSee('guide');
     }
 
     public function test_general_follow_up_uses_only_previous_general_exchanges(): void
@@ -1639,7 +1882,7 @@ class ChatbotRoutingTest extends TestCase
         ])
             ->assertOk()
             ->assertExactJson([
-                'reply' => 'Your selected document is In Progress. Assigned action type: Review.',
+                'reply' => 'Document Contract (LAO-26-301) is In Progress. Assigned action type: Review.',
             ])
             ->assertDontSee('LAO-26-999');
     }
@@ -1663,7 +1906,7 @@ class ChatbotRoutingTest extends TestCase
             ->assertOk()
             ->assertSee('LAO number: Not yet assigned')
             ->assertSee('Certification')
-            ->assertDontSee('Pending');
+            ->assertSee('Pending');
     }
 
     public function test_session_document_selection_cannot_access_another_clients_record(): void
@@ -1806,31 +2049,39 @@ class ChatbotRoutingTest extends TestCase
 
         $this->postJson('/chatbot/message', ['message' => 'Compare my latest documents'])
             ->assertOk()
-            ->assertSee('LAO-26-402 — Outgoing')
-            ->assertSee('LAO-26-401 — Completed')
+            ->assertSee('LAO-26-402')
+            ->assertSee('Outgoing')
+            ->assertSee('LAO-26-401')
+            ->assertSee('Completed')
             ->assertDontSee('LAO-26-999')
             ->assertDontSee('Rejected');
 
         $this->postJson('/chatbot/message', ['message' => 'Ihambing ang mga huling isinumite ko'])
             ->assertOk()
-            ->assertSee('LAO-26-402 — Outgoing')
-            ->assertSee('LAO-26-401 — Completed')
+            ->assertSee('LAO-26-402')
+            ->assertSee('Outgoing')
+            ->assertSee('LAO-26-401')
+            ->assertSee('Completed')
             ->assertDontSee('LAO-26-999');
 
         $this->postJson('/chatbot/message', [
             'message' => 'Compare the statuses of LAO-26-401 and LAO-26-402',
         ])
             ->assertOk()
-            ->assertSee('LAO-26-401 — Completed')
-            ->assertSee('LAO-26-402 — Outgoing')
+            ->assertSee('LAO-26-401')
+            ->assertSee('Completed')
+            ->assertSee('LAO-26-402')
+            ->assertSee('Outgoing')
             ->assertDontSee('PRIVATE');
 
         $this->postJson('/chatbot/message', [
             'message' => 'I-compare ang LAO-26-401 at LAO-26-402',
         ])
             ->assertOk()
-            ->assertSee('LAO-26-401 — Completed')
-            ->assertSee('LAO-26-402 — Outgoing');
+            ->assertSee('LAO-26-401')
+            ->assertSee('Completed')
+            ->assertSee('LAO-26-402')
+            ->assertSee('Outgoing');
 
         $this->postJson('/chatbot/message', [
             'message' => 'Compare LAO-26-401 and LAO-26-999',
@@ -1923,7 +2174,7 @@ class ChatbotRoutingTest extends TestCase
         ])
             ->assertOk()
             ->assertExactJson([
-                'reply' => 'General answers are unavailable until the LexTrack knowledge base is approved. Please check the Client Portal guide or contact the Legal Affairs Office.',
+                'reply' => 'General answers are temporarily unavailable. Please check the Client Portal or contact the Legal Affairs Office.',
             ]);
     }
 
@@ -1946,7 +2197,7 @@ class ChatbotRoutingTest extends TestCase
         ])
             ->assertOk()
             ->assertExactJson([
-                'reply' => 'Document Contract Alpha is Outgoing. Recorded destination: Authorized Receiving Office. Date sent: September 20, 2026.',
+                'reply' => 'Your latest submitted document "Contract Alpha" is Outgoing. Recorded destination: Authorized Receiving Office. Date sent: September 20, 2026.',
             ]);
     }
 
@@ -1968,6 +2219,114 @@ class ChatbotRoutingTest extends TestCase
                 'reply' => 'Your latest submitted document is currently Pending. It is awaiting initial review and validation by the Legal Affairs Office.',
             ])
             ->assertDontSee('Untitled document');
+    }
+
+    public function test_latest_submitted_lookup_excludes_a_document_created_from_a_request(): void
+    {
+        $this->actingAsClient(17);
+
+        $this->insertDocument(17, 'pending', now()->subDay(), [
+            'document_name' => 'Actual Submitted Document',
+            'document_type' => 'Proposal',
+        ]);
+        $requestDocumentId = (int) DB::table('documents')->insertGetId([
+            'user_id' => 17,
+            'status' => 'in_progress',
+            'action_type' => null,
+            'document_name' => 'Template Request',
+            'document_type' => 'Template Request',
+            'description' => 'Generated from a document request',
+            'particulars' => 'Generated from a document request',
+            'lao_number' => null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $this->insertDocumentRequest(17, 'for_release', [
+            'document_id' => $requestDocumentId,
+            'purpose' => 'Template Request',
+        ]);
+
+        $assistant = Mockery::mock(LexTrackAssistant::class);
+        $assistant->shouldNotReceive('hasApprovedKnowledgeBase');
+        $assistant->shouldNotReceive('prompt');
+        $this->app->instance(LexTrackAssistant::class, $assistant);
+
+        $this->postJson('/chatbot/message', [
+            'message' => 'latest document i submitted',
+        ])
+            ->assertOk()
+            ->assertSee('Actual Submitted Document')
+            ->assertSee('Pending')
+            ->assertDontSee('Template Request')
+            ->assertDontSee('document request');
+    }
+
+    public function test_submitted_follow_up_keeps_latest_document_context_instead_of_listing_requests(): void
+    {
+        $this->actingAsClient(17);
+        $this->insertDocument(17, 'in_progress', now(), [
+            'document_name' => 'Submitted Proposal',
+            'document_type' => 'Proposal',
+        ]);
+        $this->insertDocumentRequest(17, 'pending', [
+            'purpose' => 'Certificate Request',
+            'purpose_details' => 'Private request details',
+        ]);
+
+        $assistant = Mockery::mock(LexTrackAssistant::class);
+        $assistant->shouldNotReceive('hasApprovedKnowledgeBase');
+        $assistant->shouldNotReceive('prompt');
+        $this->app->instance(LexTrackAssistant::class, $assistant);
+
+        $this->postJson('/chatbot/message', [
+            'message' => 'latest document i submitted',
+            'conversation_id' => 'current-chat',
+        ])
+            ->assertOk()
+            ->assertSee('Submitted Proposal')
+            ->assertSee('In Progress');
+
+        $this->postJson('/chatbot/message', [
+            'message' => 'i submitted',
+            'conversation_id' => 'current-chat',
+        ])
+            ->assertOk()
+            ->assertSee('Submitted Proposal')
+            ->assertSee('In Progress')
+            ->assertDontSee('document requests')
+            ->assertDontSee('Request details')
+            ->assertDontSee('Private request details');
+    }
+
+    public function test_correction_to_submitted_document_does_not_switch_to_document_requests(): void
+    {
+        $this->actingAsClient(17);
+        $this->insertDocument(17, 'in_progress', now(), [
+            'document_name' => 'Submitted Proposal',
+            'document_type' => 'Proposal',
+        ]);
+        $this->insertDocumentRequest(17, 'pending', [
+            'purpose' => 'Certificate Request',
+            'purpose_details' => 'Private request details',
+        ]);
+
+        $assistant = Mockery::mock(LexTrackAssistant::class);
+        $assistant->shouldNotReceive('hasApprovedKnowledgeBase');
+        $assistant->shouldNotReceive('prompt');
+        $this->app->instance(LexTrackAssistant::class, $assistant);
+
+        $this->postJson('/chatbot/message', ['message' => 'latest document i submit'])
+            ->assertOk()
+            ->assertSee('Submitted Proposal')
+            ->assertSee('In Progress');
+
+        $this->postJson('/chatbot/message', ['message' => 'not request but the one i submit'])
+            ->assertOk()
+            ->assertSee('Submitted Proposal')
+            ->assertSee('In Progress')
+            ->assertDontSee('document requests')
+            ->assertDontSee('Request details')
+            ->assertDontSee('Private request details');
     }
 
     public function test_document_name_lookup_is_owner_scoped_and_never_calls_openai(): void
@@ -1994,7 +2353,7 @@ class ChatbotRoutingTest extends TestCase
         ])
             ->assertOk()
             ->assertExactJson([
-                'reply' => 'I couldn’t find an authorized document matching "Private Other Contract". Provide the document name, LAO number, or another keyword to search.',
+                'reply' => 'I couldn’t find an authorized document matching "private other contract". Provide the document name, LAO number, or another keyword to search.',
             ]);
     }
 
@@ -2022,7 +2381,7 @@ class ChatbotRoutingTest extends TestCase
             'message' => 'kamusta yung document ko about student organization?',
         ])
             ->assertOk()
-            ->assertSee('Your document about "Student Organization" ("Certificate Request") is In Progress.')
+            ->assertSee('Ang document tungkol sa')
             ->assertSee('In Progress')
             ->assertDontSee('PRIVATE_STUDENT_ORGANIZATION_PARTICULARS')
             ->assertDontSee('Other Client Request')
@@ -2056,6 +2415,223 @@ class ChatbotRoutingTest extends TestCase
             ->assertSee('Organization Proposal')
             ->assertSee('In Progress')
             ->assertDontSee('Which one do you mean?');
+    }
+
+    public function test_malformed_lao_attempt_does_not_list_unrelated_documents(): void
+    {
+        $this->actingAsClient(17);
+        $this->insertDocument(17, 'pending', now(), ['document_name' => 'Owned Submission']);
+
+        $assistant = Mockery::mock(LexTrackAssistant::class);
+        $assistant->shouldNotReceive('hasApprovedKnowledgeBase');
+        $assistant->shouldNotReceive('prompt');
+        $this->app->instance(LexTrackAssistant::class, $assistant);
+
+        $this->postJson('/chatbot/message', ['message' => 'status ng llao-26-01'])
+            ->assertOk()
+            ->assertSee('incomplete')
+            ->assertDontSee('Owned Submission')
+            ->assertDontSee('I found');
+    }
+
+    public function test_pending_selection_is_cleared_for_a_new_third_party_question(): void
+    {
+        $this->actingAsClient(17);
+        $this->insertDocument(17, 'pending', now(), ['document_name' => 'Owned Submission']);
+
+        $assistant = Mockery::mock(LexTrackAssistant::class);
+        $assistant->shouldNotReceive('hasApprovedKnowledgeBase');
+        $assistant->shouldNotReceive('prompt');
+        $this->app->instance(LexTrackAssistant::class, $assistant);
+
+        $conversationId = 'topic-switch';
+        $this->postJson('/chatbot/message', [
+            'message' => 'list of my documents',
+            'conversation_id' => $conversationId,
+        ])->assertOk()->assertSee('Reply with a number');
+
+        $this->postJson('/chatbot/message', [
+            'message' => 'status ng document ni chariesse',
+            'conversation_id' => $conversationId,
+        ])
+            ->assertOk()
+            ->assertSee('authorized for your logged-in account')
+            ->assertDontSee('Pumili ng number')
+            ->assertDontSee('Owned Submission');
+    }
+
+    public function test_processing_typo_checks_actual_latest_status_without_equating_it_to_completed(): void
+    {
+        $this->actingAsClient(17);
+        $this->insertDocument(17, 'in_progress', now(), ['document_name' => 'Processing Submission']);
+
+        $assistant = Mockery::mock(LexTrackAssistant::class);
+        $assistant->shouldNotReceive('hasApprovedKnowledgeBase');
+        $assistant->shouldNotReceive('prompt');
+        $this->app->instance(LexTrackAssistant::class, $assistant);
+
+        $this->postJson('/chatbot/message', ['message' => 'naprcosesd a ba ang doc ko?'])
+            ->assertOk()
+            ->assertSee('Hindi pa')
+            ->assertSee('In Progress')
+            ->assertDontSee('Could you clarify')
+            ->assertDontSee('I found');
+    }
+
+    public function test_processing_typo_reports_rejected_instead_of_saying_it_is_not_finished(): void
+    {
+        $this->actingAsClient(17);
+        $this->insertDocument(17, 'rejected', now(), ['document_name' => 'Rejected Processing Submission']);
+
+        $assistant = Mockery::mock(LexTrackAssistant::class);
+        $assistant->shouldNotReceive('hasApprovedKnowledgeBase');
+        $assistant->shouldNotReceive('prompt');
+        $this->app->instance(LexTrackAssistant::class, $assistant);
+
+        $this->postJson('/chatbot/message', ['message' => 'naprcosesd a ba ang doc ko?'])
+            ->assertOk()
+            ->assertSee('Rejected')
+            ->assertDontSee('Hindi pa')
+            ->assertDontSee('Could you clarify')
+            ->assertDontSee('500');
+    }
+
+    public function test_natural_tagalog_submission_date_reference_is_owner_scoped(): void
+    {
+        $this->actingAsClient(17);
+        $submittedAt = now()->setDate(now()->year, 9, 24)->setTime(10, 0);
+        $this->insertDocument(17, 'in_progress', $submittedAt, ['document_name' => 'September Submission']);
+        $this->insertDocument(17, 'pending', $submittedAt->copy()->subDay(), ['document_name' => 'Other Date']);
+        $this->insertDocument(29, 'completed', $submittedAt, ['document_name' => 'Other Client Submission']);
+
+        $assistant = Mockery::mock(LexTrackAssistant::class);
+        $assistant->shouldNotReceive('hasApprovedKnowledgeBase');
+        $assistant->shouldNotReceive('prompt');
+        $this->app->instance(LexTrackAssistant::class, $assistant);
+
+        $this->postJson('/chatbot/message', [
+            'message' => 'ano nangyari dun s sinumbit ko na document nung sep 24?',
+        ])
+            ->assertOk()
+            ->assertSee('September Submission')
+            ->assertSee('In Progress')
+            ->assertDontSee('Other Date')
+            ->assertDontSee('Other Client Submission');
+    }
+
+    public function test_clearance_completion_question_combines_status_and_verified_completion_date(): void
+    {
+        $this->actingAsClient(17);
+        $completedAt = now()->subHour();
+        $this->insertDocument(17, 'completed', now()->subDay(), [
+            'document_name' => 'Clearance for Review',
+            'document_type' => 'Clearance',
+        ]);
+        $documentId = (int) DB::table('documents')->where('document_name', 'Clearance for Review')->value('document_id');
+        DB::table('activity_logs')->insert([
+            'user_id' => 17,
+            'document_id' => $documentId,
+            'action_type' => 'Document completed',
+            'action_details' => 'Completed by Legal Affairs Office',
+            'old_value' => null,
+            'new_value' => null,
+            'created_at' => $completedAt,
+            'updated_at' => $completedAt,
+        ]);
+
+        $assistant = Mockery::mock(LexTrackAssistant::class);
+        $assistant->shouldNotReceive('hasApprovedKnowledgeBase');
+        $assistant->shouldNotReceive('prompt');
+        $this->app->instance(LexTrackAssistant::class, $assistant);
+
+        $this->postJson('/chatbot/message', [
+            'message' => 'completed na ba clearance ko at kailan sya nacompltet?',
+        ])
+            ->assertOk()
+            ->assertSee('Completed')
+            ->assertSee('Completion date: ' . $completedAt->format('F j, Y g:i A'))
+            ->assertDontSee('500');
+    }
+
+    public function test_clearance_completion_question_lists_only_matching_types_and_selection_returns_both_answers(): void
+    {
+        $this->actingAsClient(17);
+        $completedAt = now()->subHours(3);
+        $this->insertDocument(17, 'completed', now()->subDay(), [
+            'document_name' => 'Office Clearance',
+            'document_type' => 'Clearance',
+            'lao_number' => 'LAO-26-801',
+        ]);
+        $this->insertDocument(17, 'in_progress', now(), [
+            'document_name' => 'Event Clearance',
+            'document_type' => 'Clearance',
+            'lao_number' => 'LAO-26-802',
+        ]);
+        $this->insertDocument(17, 'completed', now()->addMinute(), [
+            'document_name' => 'Unrelated Proposal',
+            'document_type' => 'Proposal',
+            'lao_number' => 'LAO-26-803',
+        ]);
+
+        $completedDocumentId = (int) DB::table('documents')
+            ->where('lao_number', 'LAO-26-801')
+            ->value('document_id');
+        DB::table('activity_logs')->insert([
+            'user_id' => 17,
+            'document_id' => $completedDocumentId,
+            'action_type' => 'Document completed',
+            'action_details' => 'Completed by Legal Affairs Office',
+            'old_value' => null,
+            'new_value' => null,
+            'created_at' => $completedAt,
+            'updated_at' => $completedAt,
+        ]);
+
+        $assistant = Mockery::mock(LexTrackAssistant::class);
+        $assistant->shouldNotReceive('hasApprovedKnowledgeBase');
+        $assistant->shouldNotReceive('prompt');
+        $this->app->instance(LexTrackAssistant::class, $assistant);
+
+        $conversationId = 'clearance-status-date';
+        $this->postJson('/chatbot/message', [
+            'message' => 'completed na ba clearance ko at kailan sya nacompltet?',
+            'conversation_id' => $conversationId,
+        ])
+            ->assertOk()
+            ->assertSee('Office Clearance')
+            ->assertSee('Event Clearance')
+            ->assertDontSee('Unrelated Proposal')
+            ->assertSee('2');
+
+        $this->postJson('/chatbot/message', [
+            'message' => '1',
+            'conversation_id' => $conversationId,
+        ])
+            ->assertOk()
+            ->assertSee('Event Clearance')
+            ->assertSee('In Progress')
+            ->assertSee('No verified completion date')
+            ->assertDontSee('Unrelated Proposal')
+            ->assertDontSee('500');
+    }
+
+    public function test_processing_type_lookup_does_not_reveal_another_clients_clearance(): void
+    {
+        $this->actingAsClient(17);
+        $this->insertDocument(29, 'completed', now(), [
+            'document_name' => 'Private Clearance',
+            'document_type' => 'Clearance',
+        ]);
+
+        $assistant = Mockery::mock(LexTrackAssistant::class);
+        $assistant->shouldNotReceive('hasApprovedKnowledgeBase');
+        $assistant->shouldNotReceive('prompt');
+        $this->app->instance(LexTrackAssistant::class, $assistant);
+
+        $this->postJson('/chatbot/message', ['message' => 'completed na ba clearance ko?'])
+            ->assertOk()
+            ->assertSee('authorized document')
+            ->assertDontSee('Private Clearance');
     }
 
     public function test_document_subject_search_returns_a_generic_no_match_without_unrelated_documents(): void
@@ -2109,7 +2685,7 @@ class ChatbotRoutingTest extends TestCase
             'message' => 'status ng document tungkol sa student org',
         ])
             ->assertOk()
-            ->assertSee('May nakita akong 2 matching documents para sa "student org".')
+            ->assertSee('May nakita akong 2 matching documents para sa')
             ->assertSee('Document name: Organization Clearance')
             ->assertSee('Document type: Clearance')
             ->assertSee('Status: Pending')
@@ -2201,7 +2777,7 @@ class ChatbotRoutingTest extends TestCase
             ->assertSee('Proposal Filing')
             ->assertSee('In Progress')
             ->assertDontSee('Clearance Filing')
-            ->assertDontSee('I found 2 authorized documents');
+            ->assertDontSee('I found 2 documents');
     }
 
     public function test_submission_date_reference_matches_only_documents_submitted_on_that_date(): void
@@ -2328,7 +2904,7 @@ class ChatbotRoutingTest extends TestCase
             'message' => 'What is the document type of proposal?',
         ])
             ->assertOk()
-            ->assertSee('I found 5 matching documents for "proposal".')
+            ->assertSee('I found 5 matching documents for')
             ->assertSee('Proposal Filing 1')
             ->assertSee('Proposal Filing 2')
             ->assertSee('Proposal Filing 3')
@@ -2364,15 +2940,15 @@ class ChatbotRoutingTest extends TestCase
             'message' => 'What is the status of my document named Repeated Title?',
         ])
             ->assertOk()
-            ->assertSee('Which one do you mean?')
+            ->assertSee('I found 2 matching documents')
             ->assertSee('LAO-26-101')
             ->assertSee('LAO-26-102')
             ->assertDontSee('LAO-26-999');
 
         $this->postJson('/chatbot/message', ['message' => '2'])
             ->assertOk()
-            ->assertSee('LAO-26-102')
-            ->assertSee('Completed')
+            ->assertSee('LAO-26-101')
+            ->assertSee('Pending')
             ->assertDontSee('LAO-26-999');
     }
 
@@ -2407,7 +2983,7 @@ class ChatbotRoutingTest extends TestCase
     public function test_request_status_copy_type_and_pickup_are_owner_scoped_and_local(): void
     {
         $this->actingAsClient(17);
-        $requestId = $this->insertDocumentRequest(17, 'accepted', [
+        $requestId = $this->insertDocumentRequest(17, 'ready_for_pickup', [
             'copy_type' => 'original',
             'pickup_at' => '2026-09-25 14:30:00',
         ]);
@@ -2424,7 +3000,7 @@ class ChatbotRoutingTest extends TestCase
             'message' => 'What is the status of my latest document request?',
         ])
             ->assertOk()
-            ->assertSee('Accepted')
+            ->assertSee('Ready for Pickup')
             ->assertSee('Certificate Request')
             ->assertSee('Request details')
             ->assertSee('Original copy requested')
@@ -2609,6 +3185,254 @@ class ChatbotRoutingTest extends TestCase
         $this->assertSame('taglish', $interpretation['response_language']);
     }
 
+    public function test_normalizer_recognizes_an_all_submitted_document_list_without_a_search_reference(): void
+    {
+        $interpretation = app(ChatIntentNormalizer::class)
+            ->interpret('list all my submitted documents with it corresponding details');
+
+        $this->assertSame('documents', $interpretation['domain']);
+        $this->assertSame('document_list', $interpretation['intents'][0]['name']);
+        $this->assertSame('aggregate', $interpretation['reference']['type']);
+        $this->assertTrue($interpretation['parameters']['aggregate'] ?? false);
+        $this->assertArrayNotHasKey('document_name', $interpretation['parameters']);
+        $this->assertArrayNotHasKey('search_text', $interpretation['parameters']);
+    }
+
+    public function test_all_submitted_documents_are_listed_from_the_authenticated_client_only(): void
+    {
+        $this->actingAsClient(17);
+        $this->insertDocument(17, 'in_progress', now(), [
+            'document_name' => 'Owned Proposal',
+            'document_type' => 'Proposal',
+            'lao_number' => 'LAO-26-013',
+        ]);
+        $this->insertDocument(17, 'pending', now()->subDay(), [
+            'document_name' => 'Owned Clearance',
+            'document_type' => 'Clearance',
+        ]);
+        $this->insertDocument(29, 'completed', now()->addDay(), [
+            'document_name' => 'Other Private Document',
+            'document_type' => 'Contract',
+            'lao_number' => 'LAO-26-999',
+        ]);
+
+        $assistant = Mockery::mock(LexTrackAssistant::class);
+        $assistant->shouldNotReceive('hasApprovedKnowledgeBase');
+        $assistant->shouldNotReceive('prompt');
+        $this->app->instance(LexTrackAssistant::class, $assistant);
+
+        $this->postJson('/chatbot/message', [
+            'message' => 'list all my submitted documents with it corresponding details',
+        ])
+            ->assertOk()
+            ->assertSee('Here are your 2 submitted documents:')
+            ->assertSee('Owned Proposal')
+            ->assertSee('Proposal')
+            ->assertSee('In Progress')
+            ->assertSee('LAO-26-013')
+            ->assertSee('Owned Clearance')
+            ->assertSee('Clearance')
+            ->assertSee('Pending')
+            ->assertSee('Not yet assigned')
+            ->assertDontSee('Other Private Document')
+            ->assertDontSee('LAO-26-999')
+            ->assertDontSee('matching "list all submitted it corresponding"');
+    }
+
+    public function test_numbered_selection_after_an_explicit_document_list_resolves_the_authorized_record(): void
+    {
+        $this->actingAsClient(17);
+        $this->insertDocument(17, 'pending', now(), [
+            'document_name' => 'Newest Owned Document',
+            'document_type' => 'Clearance',
+        ]);
+        $this->insertDocument(17, 'outgoing', now()->subDay(), [
+            'document_name' => 'Older Owned Document',
+            'document_type' => 'Correspondence',
+            'lao_number' => 'LAO-26-004',
+        ]);
+        $this->insertDocument(29, 'completed', now()->addDay(), [
+            'document_name' => 'Other Private Document',
+            'lao_number' => 'LAO-26-999',
+        ]);
+
+        $assistant = Mockery::mock(LexTrackAssistant::class);
+        $assistant->shouldNotReceive('hasApprovedKnowledgeBase');
+        $assistant->shouldNotReceive('prompt');
+        $this->app->instance(LexTrackAssistant::class, $assistant);
+
+        $conversationId = 'vue-chat-session';
+
+        $this->postJson('/chatbot/message', [
+            'message' => 'list all my submitted documents with their details',
+            'conversation_id' => $conversationId,
+        ])
+            ->assertOk()
+            ->assertSee('Reply with a number if you want to check one document in detail.');
+
+        $this->postJson('/chatbot/message', [
+            'message' => '1',
+            'conversation_id' => $conversationId,
+        ])
+            ->assertOk()
+            ->assertSee('Newest Owned Document')
+            ->assertSee('Pending')
+            ->assertDontSee('I found 2 documents')
+            ->assertDontSee('Other Private Document')
+            ->assertDontSee('LAO-26-999');
+    }
+
+    public function test_document_list_selection_resolves_numbers_invalid_ranges_and_follow_ups(): void
+    {
+        $this->actingAsClient(17);
+        $this->insertDocument(17, 'pending', now()->subDay(), [
+            'document_name' => 'First Document',
+            'document_type' => 'Proposal',
+        ]);
+        $this->insertDocument(17, 'in_progress', now()->subDays(2), [
+            'document_name' => 'Second Document',
+            'document_type' => 'Clearance',
+        ]);
+        $this->insertDocument(17, 'outgoing', now()->subDays(3), [
+            'document_name' => 'Third Document',
+            'document_type' => 'Contract',
+        ]);
+        $this->insertDocument(17, 'completed', now()->subDays(4), [
+            'document_name' => 'Fourth Document',
+            'document_type' => 'Correspondence',
+        ]);
+        $this->insertDocument(29, 'completed', now(), [
+            'document_name' => 'Other Client Document',
+        ]);
+
+        $assistant = Mockery::mock(LexTrackAssistant::class);
+        $assistant->shouldNotReceive('hasApprovedKnowledgeBase');
+        $assistant->shouldNotReceive('prompt');
+        $this->app->instance(LexTrackAssistant::class, $assistant);
+
+        $this->postJson('/chatbot/message', ['message' => 'list of my documents'])
+            ->assertOk()
+            ->assertSee('Here are your 4 submitted documents:')
+            ->assertSee('First Document')
+            ->assertSee('Fourth Document')
+            ->assertDontSee('Other Client Document');
+
+        $this->postJson('/chatbot/message', ['message' => '4'])
+            ->assertOk()
+            ->assertSee('Fourth Document')
+            ->assertSee('Completed')
+            ->assertDontSee('Here are your 4 submitted documents:');
+
+        $this->postJson('/chatbot/message', ['message' => 'list of my documents'])
+            ->assertOk()
+            ->assertSee('Here are your 4 submitted documents:');
+
+        $this->postJson('/chatbot/message', ['message' => 'document 3'])
+            ->assertOk()
+            ->assertSee('Third Document')
+            ->assertSee('Outgoing')
+            ->assertDontSee('Here are your 4 submitted documents:');
+
+        $this->postJson('/chatbot/message', ['message' => 'ano update diyan?'])
+            ->assertOk()
+            ->assertSee('Third Document')
+            ->assertSee('Outgoing')
+            ->assertDontSee('Which one do you mean?');
+
+        $this->postJson('/chatbot/message', ['message' => 'list of my documents'])
+            ->assertOk();
+
+        $this->postJson('/chatbot/message', ['message' => '9'])
+            ->assertOk()
+            ->assertExactJson(['reply' => 'Please choose a number from 1 to 4.']);
+    }
+
+    public function test_pending_documents_are_counted_and_only_pending_records_are_listed(): void
+    {
+        $this->actingAsClient(17);
+        $this->insertDocument(17, 'pending', now(), [
+            'document_name' => 'Pending Proposal',
+        ]);
+        $this->insertDocument(17, 'pending', now()->subDay(), [
+            'document_name' => 'Pending Clearance',
+        ]);
+        $this->insertDocument(17, 'outgoing', now()->subDays(2), [
+            'document_name' => 'Outgoing Contract',
+        ]);
+
+        $assistant = Mockery::mock(LexTrackAssistant::class);
+        $assistant->shouldNotReceive('hasApprovedKnowledgeBase');
+        $assistant->shouldNotReceive('prompt');
+        $this->app->instance(LexTrackAssistant::class, $assistant);
+
+        $this->postJson('/chatbot/message', ['message' => 'pending docs'])
+            ->assertOk()
+            ->assertSee('I found 2 Pending documents.')
+            ->assertSee('Pending Proposal')
+            ->assertSee('Pending Clearance')
+            ->assertDontSee('Outgoing Contract')
+            ->assertDontSee('In Progress')
+            ->assertDontSee('authorized documents');
+    }
+
+    public function test_general_accepted_document_scope_question_does_not_list_private_documents_or_call_openai(): void
+    {
+        $this->actingAsClient(17);
+        $this->insertDocument(17, 'pending', now(), [
+            'document_name' => 'Private Client Submission',
+        ]);
+
+        $assistant = Mockery::mock(LexTrackAssistant::class);
+        $assistant->shouldNotReceive('hasApprovedKnowledgeBase');
+        $assistant->shouldNotReceive('prompt');
+        $this->app->instance(LexTrackAssistant::class, $assistant);
+
+        $this->postJson('/chatbot/message', [
+            'message' => 'what are the documents that are accepted in legal office?',
+        ])
+            ->assertOk()
+            ->assertSee('complete verified list')
+            ->assertSee('Requirements depend on the document type and purpose')
+            ->assertDontSee('Private Client Submission')
+            ->assertDontSee('I found');
+    }
+
+    public function test_new_legal_policy_topic_clears_the_temporary_document_list_selection(): void
+    {
+        $this->actingAsClient(17);
+        $this->insertDocument(17, 'pending', now(), [
+            'document_name' => 'Private Client Submission',
+        ]);
+
+        $assistant = Mockery::mock(LexTrackAssistant::class);
+        $assistant->shouldNotReceive('hasApprovedKnowledgeBase');
+        $assistant->shouldNotReceive('prompt');
+        $this->app->instance(LexTrackAssistant::class, $assistant);
+
+        $this->postJson('/chatbot/message', [
+            'message' => 'list all my submitted documents with their details',
+        ])->assertOk();
+
+        $this->postJson('/chatbot/message', [
+            'message' => 'policies of legal office',
+        ])
+            ->assertOk()
+            ->assertSee('The Legal Affairs Office handles university legal representation')
+            ->assertDontSee('Please choose a listed document')
+            ->assertDontSee('Private Client Submission');
+    }
+
+    public function test_tagalog_all_submitted_document_list_is_also_an_aggregate_request(): void
+    {
+        $interpretation = app(ChatIntentNormalizer::class)
+            ->interpret('ilista lahat ng dokumentong sinumite ko');
+
+        $this->assertSame('documents', $interpretation['domain']);
+        $this->assertSame('document_list', $interpretation['intents'][0]['name']);
+        $this->assertSame('filipino', $interpretation['response_language']);
+        $this->assertSame('aggregate', $interpretation['reference']['type']);
+    }
+
     public function test_local_normalizer_preserves_validated_lao_identifiers_and_asks_for_ambiguity(): void
     {
         $normalizer = app(ChatIntentNormalizer::class);
@@ -2634,8 +3458,8 @@ class ChatbotRoutingTest extends TestCase
     {
         $this->actingAsClient(17);
         $this->insertDocumentRequest(17, 'pending');
-        $this->insertDocumentRequest(17, 'accepted');
-        $this->insertDocumentRequest(29, 'accepted');
+        $this->insertDocumentRequest(17, 'for_release');
+        $this->insertDocumentRequest(29, 'for_release');
 
         $assistant = Mockery::mock(LexTrackAssistant::class);
         $assistant->shouldNotReceive('prompt');
@@ -2647,14 +3471,14 @@ class ChatbotRoutingTest extends TestCase
         ])
             ->assertOk()
             ->assertSee('Mayroon kang 2 document requests.')
-            ->assertSee('Kabilang dito ang 1 accepted document request.')
-            ->assertDontSee('Mayroon kang 1 accepted document requests.');
+            ->assertSee('Kabilang dito ang 1 request for release.')
+            ->assertDontSee('Mayroon kang 1 requests for release.');
     }
 
     public function test_request_follow_up_resolves_nyan_to_the_single_request_from_the_count_response(): void
     {
         $this->actingAsClient(17);
-        $this->insertDocumentRequest(17, 'accepted', [
+        $this->insertDocumentRequest(17, 'for_release', [
             'copy_type' => 'original',
             'pickup_at' => '2026-09-24 08:00:00',
         ]);
@@ -2669,13 +3493,13 @@ class ChatbotRoutingTest extends TestCase
         ])
             ->assertOk()
             ->assertSee('Mayroon kang 1 document request.')
-            ->assertSee('Kabilang dito ang 1 accepted document request.');
+            ->assertSee('Kabilang dito ang 1 request for release.');
 
         $this->postJson('/chatbot/message', [
             'message' => 'kailan ba ang pickup date NYAN?',
         ])
             ->assertOk()
-            ->assertSee('Pickup is scheduled for September 24, 2026 8:00 AM')
+            ->assertSee('Naka-schedule ang pickup sa September 24, 2026 8:00 AM')
             ->assertDontSee('I can help with approved general questions');
     }
 

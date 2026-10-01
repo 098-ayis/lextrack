@@ -728,7 +728,18 @@
                            @dblclick.prevent="window.open($el.href, '_blank', 'noopener')"
                            wire:key="cabinet-document-{{ $document['copy_key'] ?? $document['id'] }}"
                            @contextmenu.prevent="$dispatch('cabinet-context', { id: {{ $document['id'] }}, name: @js($displayName), url: $el.href, x: $event.currentTarget.getBoundingClientRect().right + 8, y: $event.currentTarget.getBoundingClientRect().top }); $wire.selectItem(@js($displayName), {{ $document['id'] }}, {{ $copyId }})"
-                           class="{{ $viewMode === 'tiles' ? 'group rounded-xl border border-gray-200 bg-white p-5 text-left transition hover:border-indigo-300 hover:bg-indigo-50/40 hover:shadow-sm dark:bg-gray-900 dark:hover:border-indigo-500 dark:hover:bg-indigo-500/5' : 'cabinet-list-row grid w-full cursor-pointer grid-cols-[minmax(0,1fr)_120px_160px_60px] items-center border-b border-gray-100 px-5 py-4 text-left transition hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800' }}">
+                           class="{{ $viewMode === 'tiles' ? 'group relative rounded-xl border border-gray-200 bg-white p-5 text-left transition hover:border-indigo-300 hover:bg-indigo-50/40 hover:shadow-sm dark:bg-gray-900 dark:hover:border-indigo-500 dark:hover:bg-indigo-500/5' : 'cabinet-list-row grid w-full cursor-pointer grid-cols-[minmax(0,1fr)_120px_160px_60px] items-center border-b border-gray-100 px-5 py-4 text-left transition hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800' }}">
+                            @if ($viewMode === 'tiles' && $currentType === 'Recycle Bin')
+                                <button
+                                    type="button"
+                                    @click.stop.prevent="$wire.selectItem(@js($displayName), {{ $document['id'] }}, {{ $copyId }}); $dispatch('cabinet-context', { id: {{ $document['id'] }}, name: @js($displayName), url: $el.closest('a').href, x: $el.closest('a').getBoundingClientRect().right + 8, y: $el.closest('a').getBoundingClientRect().top })"
+                                    class="absolute right-3 top-3 z-10 inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-800 dark:hover:text-gray-200"
+                                    aria-label="More actions for {{ $displayName }}"
+                                    title="More actions"
+                                >
+                                    <x-heroicon-m-ellipsis-vertical class="h-5 w-5" />
+                                </button>
+                            @endif
                             <div class="{{ $viewMode === 'tiles' ? 'flex h-14 w-14 items-center justify-center rounded-xl bg-red-50 text-red-500 dark:bg-red-500/10 dark:text-red-400' : 'flex min-w-0 items-center gap-3' }}">
                                 <x-dynamic-component :component="$iconComponent" class="{{ $viewMode === 'tiles' ? 'h-8 w-8' : 'h-6 w-6 shrink-0 text-red-500' }}" />
                                 <div class="{{ $viewMode === 'tiles' ? 'hidden' : 'min-w-0' }}"><p class="truncate text-sm font-medium text-gray-900 dark:text-white">{{ $displayName }}</p><p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{{ $document['type'] }}</p></div>

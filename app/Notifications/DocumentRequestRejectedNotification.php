@@ -29,7 +29,7 @@ class DocumentRequestRejectedNotification extends Notification
             ->greeting('Hello, ' . $notifiable->name . '!')
             ->line('Your document request was rejected by the Legal Affairs Office.')
             ->line('Purpose: ' . $this->request->purpose)
-            ->line('Reason: ' . $this->reason)
+            ->line('Please review the request in LexTrack for more information.')
             ->action(
                 'Open Messages',
                 url('/client/messages?request=' . $this->request->request_id)
@@ -42,7 +42,7 @@ class DocumentRequestRejectedNotification extends Notification
         return [
             ...FilamentNotification::make()
                 ->title('Document request rejected')
-                ->body('Reason: ' . $this->reason)
+                ->body('Your document request was rejected. Please review the request in LexTrack for more information.')
                 ->danger()
                 ->getDatabaseMessage(),
             'redirect_url' => url(

@@ -112,7 +112,7 @@ Route::get('/client/document-preview/{document}', function (string $document) {
         || $documentRecord
             ->documentRequests()
             ->where('user_id', auth()->id())
-            ->where('status', 'accepted')
+            ->where('status', 'completed')
             ->exists(),
         404
     );
@@ -161,7 +161,7 @@ Route::get('/client/document-thumbnail/{document}', function (string $document) 
         || $documentRecord
             ->documentRequests()
             ->where('user_id', auth()->id())
-            ->where('status', 'accepted')
+            ->where('status', 'completed')
             ->exists(),
         404
     );
@@ -205,7 +205,7 @@ Route::get('/client/document-download/{document}', function (string $document) {
         || $documentRecord
             ->documentRequests()
             ->where('user_id', auth()->id())
-            ->where('status', 'accepted')
+            ->where('status', 'completed')
             ->exists(),
         404
     );
@@ -250,7 +250,7 @@ Route::get('/client/document-version/{document}/{version}/preview', function (
         || $documentRecord
             ->documentRequests()
             ->where('user_id', auth()->id())
-            ->where('status', 'accepted')
+            ->where('status', 'completed')
             ->exists(),
         404,
     );
@@ -296,7 +296,7 @@ Route::get('/client/document-version/{document}/{version}/download', function (
         || $documentRecord
             ->documentRequests()
             ->where('user_id', auth()->id())
-            ->where('status', 'accepted')
+            ->where('status', 'completed')
             ->exists(),
         404,
     );
@@ -337,7 +337,7 @@ Route::get('/client/document-transmittal/{document}/preview', function (string $
         || $documentRecord
             ->documentRequests()
             ->where('user_id', auth()->id())
-            ->where('status', 'accepted')
+            ->where('status', 'completed')
             ->exists(),
         404,
     );
@@ -364,7 +364,7 @@ Route::get('/client/document-transmittal/{document}/download', function (string 
         || $documentRecord
             ->documentRequests()
             ->where('user_id', auth()->id())
-            ->where('status', 'accepted')
+            ->where('status', 'completed')
             ->exists(),
         404,
     );
@@ -394,7 +394,7 @@ Route::get('/client/document-transmittal/{document}/{attachment}/preview', funct
         || $documentRecord
             ->documentRequests()
             ->where('user_id', auth()->id())
-            ->where('status', 'accepted')
+            ->where('status', 'completed')
             ->exists(),
         404,
     );
@@ -428,7 +428,7 @@ Route::get('/client/document-transmittal/{document}/{attachment}/download', func
         || $documentRecord
             ->documentRequests()
             ->where('user_id', auth()->id())
-            ->where('status', 'accepted')
+            ->where('status', 'completed')
             ->exists(),
         404,
     );

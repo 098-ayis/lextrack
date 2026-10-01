@@ -132,10 +132,11 @@ class AdminPanelProvider extends PanelProvider
                 PanelsRenderHook::BODY_START,
                 fn () => view('filament.admin.sidebar-default-state'),
             )
-            ->renderHook(
+            /*->renderHook(
                 PanelsRenderHook::BODY_START,
                 fn () => view('filament.admin.windows-scale'),
-            )
+            )*/
+            
             ->renderHook(
                 PanelsRenderHook::SIDEBAR_NAV_END,
                 fn () => view('filament.admin.sidebar-badge-poll'),

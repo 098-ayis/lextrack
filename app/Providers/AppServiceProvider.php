@@ -5,12 +5,14 @@ namespace App\Providers;
 use App\Http\Responses\LogoutResponse;
 use App\Models\Conversation;
 use App\Models\User;
+use App\Services\CloudflareTurnstileClient;
 use App\Support\RoleSecurity;
 use BezhanSalleh\FilamentShield\Facades\FilamentShield;
 use Filament\Auth\Http\Responses\Contracts\LogoutResponse as LogoutResponseContract;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\ValidationException;
+use RyanChandler\LaravelCloudflareTurnstile\Contracts\ClientInterface;
 use Spatie\Permission\Models\Role;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -24,6 +26,13 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $this->app->scoped(
+            ClientInterface::class,
+            fn (): CloudflareTurnstileClient => new CloudflareTurnstileClient(
+                (string) config('services.turnstile.secret'),
+            ),
+        );
+
         $this->app->bind(
             LogoutResponseContract::class,
             LogoutResponse::class,

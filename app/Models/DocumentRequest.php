@@ -16,6 +16,7 @@ class DocumentRequest extends Model
         'purpose_details',
         'copy_type',
         'pickup_at',
+        'claimed_at',
         'rejection_reason',
         'attachment_path',
         'user_id',
@@ -30,6 +31,7 @@ class DocumentRequest extends Model
             'date_of_request' => 'date',
             'date_processed' => 'date',
             'pickup_at' => 'datetime',
+            'claimed_at' => 'datetime',
         ];
     }
 

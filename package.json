@@ -5,6 +5,7 @@
     "scripts": {
         "build": "vite build",
         "dev": "vite",
+        "test:chatbot": "node --test tests/javascript/chatbotMessagePolicy.test.js",
         "postinstall": "node scripts/ensure-report-browser.mjs --postinstall"
     },
     "devDependencies": {

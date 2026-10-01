@@ -12,6 +12,6 @@
             <img src="{{ $qrUrl }}" alt="QR code for {{ $document->lao_number }}" width="200" height="200" style="display: block; width: 200px; height: 200px; max-width: 100%; background: white;">
         </a>
         <p style="margin: 10px 0; font-size: 13px;">Scan this QR code to view your document status.</p>
-        <a href="{{ $qrUrl }}" download="document-{{ $document->document_id }}-qr.png" style="color: #4f46e5; font-weight: 600; font-size: 14px;">Download QR code</a>
+        <a href="{{ $qrUrl }}" download="{{ trim((string) ($document->document_name ?: 'Document')) }} QR code.png" style="color: #4f46e5; font-weight: 600; font-size: 14px;">Download QR code</a>
     </section>
 @endif

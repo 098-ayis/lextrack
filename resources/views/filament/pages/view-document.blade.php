@@ -60,9 +60,7 @@
                 ? $displayedVersionNumber
                 : 'v' . $displayedVersionNumber)
             : null;
-        $latestRejection = $documentRecord->status === 'rejected'
-            ? $documentRecord->rejections->sortByDesc('created_at')->first()
-            : null;
+        $latestRejection = $documentRecord->rejections->sortByDesc('created_at')->first();
         $allVersions = $documentRecord->versions;
         $revisionVersionNumbers = $documentRecord->revisionVersionNumbers();
         $submittedFiles = $allVersions
@@ -93,7 +91,7 @@
             ->values();
         $softCopyRequest = $documentRecord->documentRequests
             ->where('copy_type', 'soft_copy')
-            ->where('status', 'accepted')
+            ->where('status', 'completed')
             ->sortByDesc('date_of_request')
             ->first();
     @endphp
@@ -586,13 +584,13 @@
         .document-version-upload-files .filepond--item[data-filepond-item-state="processing-complete"] .filepond--file-status-sub { color: #14532d !important; }
         .document-viewer-page { position: fixed; z-index: 10; inset: 4rem 0 0 var(--collapsed-sidebar-width); padding: 1rem; overflow: hidden; background: #f3f4f6; }
         .fi-body-has-topbar:has(#fi-main-sidebar.fi-sidebar-open) .document-viewer-page { inset-inline-start: var(--sidebar-width); }
-        .document-viewer-layout { display: grid; width: 100%; height: 100%; min-height: 0; grid-template-columns: minmax(0, 1.35fr) minmax(360px, 0.85fr); gap: 0; overflow: hidden; border: 1px solid #9ca3af; border-radius: 18px; background: #fff; }
-        .document-viewer-layout.document-request-viewer-layout { grid-template-columns: minmax(0, 1.35fr) minmax(360px, 0.85fr); }
+        .document-viewer-layout { display: grid; width: 100%; height: 100%; min-height: 0; grid-template-columns: minmax(0, 1.5fr) minmax(320px, 0.7fr); gap: 0; overflow: hidden; border: 1px solid #9ca3af; border-radius: 18px; background: #fff; }
+        .document-viewer-layout.document-request-viewer-layout { grid-template-columns: minmax(0, 1.5fr) minmax(320px, 0.7fr); }
         .document-panel-card { min-width: 0; min-height: 0; overflow: hidden; border: 0; border-radius: 0; background: #fff; }
         .document-side-panel { display: flex; height: 100%; min-height: 0; flex-direction: column; overflow: hidden; border-left: 1px solid #d1d5db; }
         .document-side-tabs { display: grid; height: 64px; min-height: 64px; flex-shrink: 0; grid-template-columns: repeat(4, minmax(0, 1fr)); border-bottom: 1px solid #d1d5db; background: #fff; box-sizing: border-box; }
         .document-side-tabs-two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-        .document-side-tabs button { height: 100%; min-height: 0; border: 0; border-bottom: 2px solid transparent; background: #fff; padding: 0.7rem 0.45rem; color: #737b8c; font-size: 0.78rem; font-weight: 650; cursor: pointer; }
+        .document-side-tabs button { height: 100%; min-height: 0; border: 0; border-bottom: 2px solid transparent; background: #fff; padding: 0.7rem 0.45rem; color: #737b8c; font-size: 1rem; font-weight: 650; cursor: pointer; }
         .document-side-tabs button:hover { background: #f8fafc; color: #4f46e5; }
         .document-side-tabs button.is-active { border-bottom-color: #6366f1; color: #4f46e5; }
         .document-side-content { display: flex; min-height: 0; flex: 1; overflow: hidden; }
@@ -748,7 +746,7 @@
         .dark .document-history-change h4, .dark .document-history-change-value { color: #e5e7eb; }
         .document-history-empty { padding: 1rem 0.25rem; color: #858b98; font-size: 0.8rem; text-align: center; }
         @media (max-width: 1200px) {
-            .document-viewer-layout { grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.85fr); }
+            .document-viewer-layout { grid-template-columns: minmax(0, 1.3fr) minmax(300px, 0.7fr); }
             .document-viewer-page { padding: 0.7rem; }
             .document-detail-row { grid-template-columns: minmax(95px, 0.8fr) minmax(0, 1.2fr); gap: 0.4rem; }
         }
