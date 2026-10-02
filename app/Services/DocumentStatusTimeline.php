@@ -12,7 +12,7 @@ class DocumentStatusTimeline
      *
      * @return array<int, array{status: string, title: string, description: string, time: string, date: string, color: string}>
      */
-    public function build(Document $document): array
+    public function build(Document $document, bool $includeClientRevisions = false): array
     {
         $timeline = [
             $this->timelineEntry(
@@ -23,7 +23,23 @@ class DocumentStatusTimeline
             ),
         ];
 
-        foreach ($document->activityLogs as $log) {
+        $events = $document->activityLogs->collect();
+
+        if ($includeClientRevisions) {
+            $revisionMessages = $document->conversation?->messages
+                ->filter(fn ($message): bool => (int) $message->sender_id === (int) $document->user_id
+                    && (str_starts_with($message->body, 'A revised document was uploaded as version ')
+                        || str_starts_with($message->body, 'Revised documents were uploaded as versions ')))
+                ->map(fn ($message): object => (object) [
+                    'action_type' => 'client_revision_submitted',
+                    'action_details' => $message->body,
+                    'created_at' => $message->created_at,
+                ]) ?? collect();
+
+            $events = $events->concat($revisionMessages)->sortBy('created_at')->values();
+        }
+
+        foreach ($events as $log) {
             $entry = $this->timelineEntryFromActivity($log, $document);
 
             if ($entry === null) {
@@ -34,6 +50,7 @@ class DocumentStatusTimeline
 
             if (
                 $lastEntry
+                && $log->action_type !== 'client_revision_submitted'
                 && $lastEntry['status'] === $entry['status']
                 && $lastEntry['title'] === $entry['title']
             ) {
@@ -65,6 +82,19 @@ class DocumentStatusTimeline
         $action = strtolower(trim((string) $log->action_type));
         $details = trim((string) ($log->action_details ?? ''));
         $timestamp = $log->created_at ?? $document->updated_at ?? $document->created_at;
+
+        if ($action === 'client_revision_submitted') {
+            return $this->timelineEntry(
+                'in_progress',
+                'New Version Submitted',
+                str_replace(
+                    ['A revised document was uploaded', 'Revised documents were uploaded'],
+                    ['You submitted a revised document', 'You submitted revised documents'],
+                    $details,
+                ),
+                $timestamp,
+            );
+        }
 
         if (str_contains($action, 'accepted')) {
             return $this->timelineEntry(
