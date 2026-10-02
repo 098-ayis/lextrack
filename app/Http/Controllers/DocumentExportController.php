@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Document;
 use App\Services\DocumentSpreadsheetService;
+use App\Services\AuditLogService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -78,6 +79,11 @@ class DocumentExportController extends Controller
                 'message' => 'The document export could not be generated. Please try again.',
             ], 500);
         }
+
+        app(AuditLogService::class)->record(
+            'Report exported',
+            'Document report exported.',
+        );
 
         return response()->streamDownload(
             static function () use ($xlsx): void {

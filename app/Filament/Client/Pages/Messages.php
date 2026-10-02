@@ -8,6 +8,7 @@ use App\Models\Message;
 use App\Models\MessageAttachment;
 use App\Models\MessageReaction;
 use App\Models\User;
+use App\Services\SystemSettingService;
 use Filament\Pages\Page;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -33,6 +34,8 @@ class Messages extends Page
     public string $newMessage = '';
 
     public array $attachments = [];
+
+    public string $attachmentError = '';
 
     public string $attachmentKind = '';
 
@@ -433,9 +436,11 @@ class Messages extends Page
             ],
             'attachments.*' => [
                 'file',
-                'max:25600',
+                'max:'.app(SystemSettingService::class)->uploadSizeLimitKb(),
                 $attachmentRule,
             ],
+        ], [
+            'attachments.*.max' => 'Each attachment must be '.app(SystemSettingService::class)->uploadSizeLimitMb().' MB or smaller.',
         ]);
 
         $conversation = Conversation::findOrFail(
@@ -497,6 +502,7 @@ class Messages extends Page
     public function clearAttachment(): void
     {
         $this->attachments = [];
+        $this->attachmentError = '';
         $this->attachmentKind = '';
         $this->resetValidation('attachments');
         $this->resetValidation('attachments.*');

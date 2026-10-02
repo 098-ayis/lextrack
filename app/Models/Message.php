@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\AuditLogService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -16,6 +17,17 @@ class Message extends Model
         'body',
         'reply_to_message_id',
     ];
+
+    protected static function booted(): void
+    {
+        static::created(function (self $message): void {
+            app(AuditLogService::class)->record(
+                'Message sent',
+                'A message was sent in a conversation.',
+                $message->conversation,
+            );
+        });
+    }
 
     protected function casts(): array
     {

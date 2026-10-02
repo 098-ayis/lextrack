@@ -4,6 +4,7 @@ namespace App\Notifications;
 
 use App\Models\Document;
 use App\Models\DocumentRequest;
+use App\Services\SystemSettingService;
 use Filament\Notifications\Notification as FilamentNotification;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -20,6 +21,10 @@ class DocumentRequestFulfilledNotification extends Notification
 
     public function via(object $notifiable): array
     {
+        if (! SystemSettingService::notificationsEnabled()) {
+            return [];
+        }
+
         return ['mail', 'database'];
     }
 

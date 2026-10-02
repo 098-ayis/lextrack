@@ -54,7 +54,26 @@ class UserRoleAssignmentService
             return;
         }
 
+        $currentRoleIds = $this->currentRoleIds($target);
         $target->syncRoles($roles);
+        $requestedRoleIds = $roles
+            ->map(fn (Role $role): int => (int) $role->getKey())
+            ->all();
+
+        $addedRoleIds = array_diff($requestedRoleIds, $currentRoleIds);
+        $removedRoleIds = array_diff($currentRoleIds, $requestedRoleIds);
+
+        if ($addedRoleIds !== [] || $removedRoleIds !== []) {
+            $action = $addedRoleIds !== [] && $removedRoleIds !== []
+                ? 'Role assignment changed'
+                : ($addedRoleIds !== [] ? 'Role assigned' : 'Role revoked');
+
+            app(AuditLogService::class)->record(
+                $action,
+                'User role assignment changed.',
+                $target,
+            );
+        }
     }
 
     private function normalizeSelection(mixed $selection): Collection

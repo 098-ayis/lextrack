@@ -16,6 +16,7 @@ use App\Models\Conversation;
 use App\Notifications\DocumentRequestRejectedNotification;
 use App\Notifications\DocumentRequestFulfilledNotification;
 use App\Notifications\DocumentRequestAcceptedNotification;
+use App\Services\SystemSettingService;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Forms\Components\DatePicker;
@@ -35,6 +36,7 @@ use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
+use App\Support\RoleSecurity;
 use UnitEnum;
 // use BezhanSalleh\FilamentShield\Traits\HasPageShield;
 
@@ -55,6 +57,11 @@ class DocumentRequests extends Page implements HasTable
     protected static ?string $title = 'Document Requests';
 
     protected string $view = 'filament.pages.document-requests';
+
+    public static function canAccess(): bool
+    {
+        return auth()->user()?->hasRole(RoleSecurity::LEGAL_STAFF) ?? false;
+    }
 
     public string $activeSection = 'pending';
 
@@ -454,8 +461,8 @@ class DocumentRequests extends Page implements HasTable
                                 'application/pdf',
                                 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
                             ])
-                            ->maxSize(5120)
-                            ->helperText('Accepted files: PDF or DOCX. Maximum file size: 5 MB.')
+                            ->maxSize(app(SystemSettingService::class)->uploadSizeLimitKb())
+                            ->helperText(fn (): string => 'Accepted files: PDF or DOCX. Maximum file size: '.app(SystemSettingService::class)->uploadSizeLimitMb().' MB.')
                             ->required(),
                     ]
                     : [

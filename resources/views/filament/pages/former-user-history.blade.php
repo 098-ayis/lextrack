@@ -48,13 +48,13 @@
             </div>
             <div class="divide-y divide-gray-100 dark:divide-gray-800">
                 @forelse ($documents as $document)
-                    <a href="{{ \App\Filament\Pages\ViewDocument::getUrl(['document' => $document->getPublicRouteKey()]) }}" class="block px-5 py-4 hover:bg-gray-50 dark:hover:bg-gray-800">
+                    <div class="block px-5 py-4">
                         <div class="flex flex-wrap items-center justify-between gap-2">
-                            <span class="font-medium text-primary-600 dark:text-primary-400">{{ $document->document_name ?: $document->particulars ?: $document->lao_number ?: 'Untitled document' }}</span>
+                            <span class="font-medium text-gray-800 dark:text-gray-100">Document #{{ $document->getKey() }}</span>
                             <span class="text-xs text-gray-500 dark:text-gray-400">{{ $document->created_at?->format('M d, Y g:i A') }}</span>
                         </div>
                         <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ $document->lao_number ?: 'No LAO number' }} · {{ ucfirst(str_replace('_', ' ', (string) $document->status)) }}</p>
-                    </a>
+                    </div>
                 @empty
                     <p class="px-5 py-4 text-sm text-gray-500 dark:text-gray-400">No documents found.</p>
                 @endforelse
@@ -67,14 +67,13 @@
             </div>
             <div class="divide-y divide-gray-100 dark:divide-gray-800">
                 @forelse ($requests as $request)
-                    <a href="{{ \App\Filament\Pages\DocumentRequests::getUrl(['section' => $request->status]) }}" class="block px-5 py-4 hover:bg-gray-50 dark:hover:bg-gray-800">
+                    <div class="block px-5 py-4">
                         <div class="flex flex-wrap items-center justify-between gap-2">
-                            <span class="font-medium text-primary-600 dark:text-primary-400">Request #{{ $request->getKey() }}</span>
+                            <span class="font-medium text-gray-800 dark:text-gray-100">Request #{{ $request->getKey() }}</span>
                             <span class="text-xs text-gray-500 dark:text-gray-400">{{ $request->date_of_request?->format('M d, Y') }}</span>
                         </div>
-                        <p class="mt-1 text-sm text-gray-700 dark:text-gray-200">{{ $request->purpose ?: 'No purpose recorded' }}</p>
-                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ ucfirst((string) $request->status) }}{{ $request->document?->lao_number ? ' · '.$request->document->lao_number : '' }}</p>
-                    </a>
+                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ ucfirst((string) $request->status) }}</p>
+                    </div>
                 @empty
                     <p class="px-5 py-4 text-sm text-gray-500 dark:text-gray-400">No document requests found.</p>
                 @endforelse
@@ -93,12 +92,7 @@
                             <span class="font-medium text-gray-800 dark:text-gray-100">Conversation #{{ $message->conversation_id }}</span>
                             <span class="text-xs text-gray-500 dark:text-gray-400">{{ $message->created_at?->format('M d, Y g:i A') }}</span>
                         </div>
-                        <p class="mt-2 whitespace-pre-wrap text-sm text-gray-700 dark:text-gray-200">{{ \Illuminate\Support\Str::limit((string) $message->body, 240) }}</p>
-                        @if ($message->conversation?->document)
-                            <a href="{{ \App\Filament\Pages\ViewDocument::getUrl(['document' => $message->conversation->document->getPublicRouteKey()]) }}" class="mt-2 inline-block text-xs font-medium text-primary-600 hover:underline dark:text-primary-400">Open related document →</a>
-                        @elseif ($message->conversation?->documentRequest)
-                            <a href="#requests" class="mt-2 inline-block text-xs font-medium text-primary-600 hover:underline dark:text-primary-400">Open related request history →</a>
-                        @endif
+                        <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">Message activity recorded. Message content is hidden.</p>
                     </div>
                 @empty
                     <p class="px-5 py-4 text-sm text-gray-500 dark:text-gray-400">No messages found.</p>
@@ -113,14 +107,11 @@
             <div class="divide-y divide-gray-100 dark:divide-gray-800">
                 @forelse ($notes as $note)
                     <div class="px-5 py-4">
-                        <p class="text-sm text-gray-700 dark:text-gray-200">{{ \Illuminate\Support\Str::limit((string) $note->note, 240) }}</p>
                         <div class="mt-2 flex flex-wrap items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                            <span>Note activity recorded for Document #{{ $note->document_id }}</span>
                             <span>{{ $note->created_at?->format('M d, Y g:i A') }}</span>
-                            @if ($note->document)
-                                <span>·</span>
-                                <a href="{{ \App\Filament\Pages\ViewDocument::getUrl(['document' => $note->document->getPublicRouteKey()]) }}" class="font-medium text-primary-600 hover:underline dark:text-primary-400">Open related document →</a>
-                            @endif
                         </div>
+                        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Note content is hidden.</p>
                     </div>
                 @empty
                     <p class="px-5 py-4 text-sm text-gray-500 dark:text-gray-400">No notes found.</p>
@@ -139,10 +130,7 @@
                             <span class="font-medium text-gray-800 dark:text-gray-100">{{ $log->action_type }}</span>
                             <span class="text-xs text-gray-500 dark:text-gray-400">{{ $log->created_at?->format('M d, Y g:i A') }}</span>
                         </div>
-                        <p class="mt-1 text-sm text-gray-700 dark:text-gray-200">{{ $log->action_details }}</p>
-                        @if ($log->document)
-                            <a href="{{ \App\Filament\Pages\ViewDocument::getUrl(['document' => $log->document->getPublicRouteKey()]) }}" class="mt-2 inline-block text-xs font-medium text-primary-600 hover:underline dark:text-primary-400">Open related document →</a>
-                        @endif
+                        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Administrative activity recorded. Confidential details are hidden.</p>
                     </div>
                 @empty
                     <p class="px-5 py-4 text-sm text-gray-500 dark:text-gray-400">No audit logs found.</p>
@@ -156,11 +144,11 @@
                     <h3 class="font-semibold text-gray-950 dark:text-white">Versions uploaded</h3>
                 </div>
                 <div class="divide-y divide-gray-100 dark:divide-gray-800">
-                    @forelse ($versions as $version)
-                        <a href="{{ $version->document ? \App\Filament\Pages\ViewDocument::getUrl(['document' => $version->document->getPublicRouteKey()]) : '#' }}" class="block px-5 py-3 text-sm hover:bg-gray-50 dark:hover:bg-gray-800">
-                            <span class="font-medium text-primary-600 dark:text-primary-400">Version {{ $version->version_number }}</span>
+                @forelse ($versions as $version)
+                        <div class="block px-5 py-3 text-sm">
+                            <span class="font-medium text-gray-800 dark:text-gray-100">Version {{ $version->version_number }} of Document #{{ $version->document_id }}</span>
                             <span class="mt-1 block text-xs text-gray-500 dark:text-gray-400">{{ $version->created_at?->format('M d, Y g:i A') }}</span>
-                        </a>
+                        </div>
                     @empty
                         <p class="px-5 py-4 text-sm text-gray-500 dark:text-gray-400">No versions found.</p>
                     @endforelse
@@ -176,8 +164,8 @@
                         <div class="px-5 py-3 text-sm">
                             <span class="font-medium text-gray-800 dark:text-gray-100">Conversation #{{ $conversation->getKey() }}</span>
                             <span class="mt-1 block text-xs text-gray-500 dark:text-gray-400">
-                                {{ $conversation->creator?->historical_display_name ?: 'Unknown creator' }}
-                                · {{ $conversation->participants->count() }} participant(s)
+                                {{ $conversation->participants_count }} participant(s)
+                                · Conversation metadata only
                             </span>
                         </div>
                     @empty
@@ -193,7 +181,7 @@
                 <div class="divide-y divide-gray-100 dark:divide-gray-800">
                     @forelse ($calendarEvents as $event)
                         <div class="px-5 py-3 text-sm">
-                            <span class="font-medium text-gray-800 dark:text-gray-100">{{ $event->event }}</span>
+                            <span class="font-medium text-gray-800 dark:text-gray-100">Calendar activity recorded</span>
                             <span class="mt-1 block text-xs text-gray-500 dark:text-gray-400">{{ $event->date?->format('M d, Y') }}{{ $event->time ? ' · '.$event->time->format('g:i A') : '' }}</span>
                         </div>
                     @empty

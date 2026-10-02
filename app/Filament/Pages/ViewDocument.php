@@ -14,6 +14,7 @@ use App\Models\Message;
 use App\Models\RejectedDocument;
 use App\Models\User;
 use App\Rules\UniqueDocumentVersionUpload;
+use App\Services\SystemSettingService;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
@@ -34,6 +35,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Js;
 use Illuminate\Validation\Rule;
+use App\Support\RoleSecurity;
 // use BezhanSalleh\FilamentShield\Traits\HasPageShield;
 
 class ViewDocument extends Page implements HasForms
@@ -59,6 +61,11 @@ class ViewDocument extends Page implements HasForms
     protected static ?string $slug = 'documents/{document}';
 
     protected string $view = 'filament.pages.view-document';
+
+    public static function canAccess(): bool
+    {
+        return auth()->user()?->hasRole(RoleSecurity::LEGAL_STAFF) ?? false;
+    }
 
     public Document $documentRecord;
 
@@ -166,7 +173,7 @@ class ViewDocument extends Page implements HasForms
                     ->multiple()
                     ->appendFiles()
                     ->panelLayout('compact')
-                    ->maxSize(5120)
+                    ->maxSize(app(SystemSettingService::class)->uploadSizeLimitKb())
                     ->nestedRecursiveRule(new UniqueDocumentVersionUpload(
                         $this->documentRecord->document_id,
                         auth()->id(),
@@ -730,7 +737,7 @@ class ViewDocument extends Page implements HasForms
                         ->preserveFilenames()
                         ->multiple()
                         ->appendFiles()
-                        ->maxSize(5120)
+                        ->maxSize(app(SystemSettingService::class)->uploadSizeLimitKb())
                         ->acceptedFileTypes([
                             'application/pdf',
                             'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -1025,7 +1032,7 @@ JS;
                     ->preserveFilenames()
                     ->multiple()
                     ->appendFiles()
-                    ->maxSize(5120)
+                    ->maxSize(app(SystemSettingService::class)->uploadSizeLimitKb())
                     ->nestedRecursiveRule(new UniqueDocumentVersionUpload(
                         $this->documentRecord->document_id,
                         auth()->id(),
@@ -1802,6 +1809,8 @@ JS;
         ActivityLog::create([
             'user_id' => auth()->id(),
             'document_id' => $this->documentRecord->document_id,
+            'subject_type' => Document::class,
+            'subject_id' => $this->documentRecord->getKey(),
             'action_type' => $actionType,
             'action_details' => $actionDetails !== ''
                 ? $actionDetails

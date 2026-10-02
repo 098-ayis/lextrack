@@ -6,6 +6,7 @@ use App\Filament\Clusters\SettingsCluster;
 use App\Filament\Resources\ActionTypes\Pages\CreateActionType;
 use App\Filament\Resources\ActionTypes\Pages\ListActionTypes;
 use App\Models\ActionType;
+use App\Support\RoleSecurity;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\ViewField;
 use Filament\Resources\Resource;
@@ -26,6 +27,11 @@ class ActionTypeResource extends Resource
     protected static ?string $navigationLabel = 'Action Types';
 
     protected static ?int $navigationSort = 1;
+
+    public static function canAccess(): bool
+    {
+        return auth()->user()?->hasRole(RoleSecurity::SUPER_ADMIN) ?? false;
+    }
 
     public static function form(Schema $schema): Schema
     {

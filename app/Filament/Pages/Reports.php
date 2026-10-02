@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Models\Document;
+use App\Support\RoleSecurity;
 use Filament\Pages\Page;
 use Livewire\WithPagination;
 use UnitEnum;
@@ -20,6 +21,11 @@ class Reports extends Page
     protected string $view = 'filament.pages.reports';
 
     protected \Filament\Support\Enums\Width|string|null $maxContentWidth = \Filament\Support\Enums\Width::Full;
+
+    public static function canAccess(): bool
+    {
+        return auth()->user()?->hasRole(RoleSecurity::LEGAL_STAFF) ?? false;
+    }
 
     public string $from = '';
 
@@ -80,8 +86,4 @@ class Reports extends Page
         ];
     }
 
-    public static function canAccess(): bool
-    {
-        return auth()->user()?->isAdmin() ?? false;
-    }
 }

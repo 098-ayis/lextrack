@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class ActivityLog extends Model
 {
@@ -13,6 +14,8 @@ class ActivityLog extends Model
         'user_id',
         'document_id',
         'request_id',
+        'subject_type',
+        'subject_id',
         'action_type',
         'action_details',
         'old_value',
@@ -31,6 +34,15 @@ class ActivityLog extends Model
 
     public function request(): BelongsTo
     {
-        return $this->belongsTo(DocumentRequest::class, 'request_id', 'request_id');
+        return $this->belongsTo(
+            DocumentRequest::class,
+            'request_id',
+            'request_id'
+        );
+    }
+
+    public function subject(): MorphTo
+    {
+        return $this->morphTo();
     }
 }

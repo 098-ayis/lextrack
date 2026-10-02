@@ -4,6 +4,7 @@ namespace App\Providers\Filament;
 
 use App\Http\Middleware\FilamentAuthenticate;
 use App\Livewire\DatabaseNotifications;
+use App\Services\SystemSettingService;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
@@ -44,6 +45,7 @@ class ClientPanelProvider extends PanelProvider
             )
 
             ->brandLogo(fn () => view('filament.components.brand'))
+            ->brandName(fn () => app(SystemSettingService::class)->systemName())
             ->brandLogoHeight('3rem')
             ->favicon(asset('images/lextrack-logo.png.png'))
 

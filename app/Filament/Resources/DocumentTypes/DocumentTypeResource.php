@@ -6,6 +6,7 @@ use App\Filament\Clusters\SettingsCluster;
 use App\Filament\Resources\DocumentTypes\Pages\CreateDocumentType;
 use App\Filament\Resources\DocumentTypes\Pages\ListDocumentTypes;
 use App\Models\DocumentType;
+use App\Support\RoleSecurity;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\ViewField;
@@ -25,6 +26,11 @@ class DocumentTypeResource extends Resource
     protected static string|\BackedEnum|null $navigationIcon = Heroicon::OutlinedDocumentText;
 
     protected static ?string $navigationLabel = 'Document Types';
+
+    public static function canAccess(): bool
+    {
+        return auth()->user()?->hasRole(RoleSecurity::SUPER_ADMIN) ?? false;
+    }
 
     protected static ?int $navigationSort = 2;
 
