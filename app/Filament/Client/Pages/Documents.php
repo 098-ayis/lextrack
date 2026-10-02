@@ -665,7 +665,7 @@ class Documents extends Page implements HasTable
                     ->state(fn (Document $record): string => (string) (
                         $record->particulars ?: $record->description ?: '—'
                     ))
-                    ->limit(32)
+                    ->wrap()
                     ->tooltip(fn (Document $record): ?string => filled($record->particulars ?: $record->description)
                         ? (string) ($record->particulars ?: $record->description)
                         : null)

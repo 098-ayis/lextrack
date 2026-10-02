@@ -730,13 +730,13 @@ class ClientDocumentLookupService
         string $reference,
         ?string $referenceType = null,
     ): array {
+        $configuredType = $this->configuredDocumentType($reference);
+
+        if ($configuredType !== null) {
+            return $this->authorizedDocumentChoicesByDocumentType($user, $configuredType);
+        }
+
         if ($referenceType === 'document_type') {
-            $configuredType = $this->configuredDocumentType($reference);
-
-            if ($configuredType !== null) {
-                return $this->authorizedDocumentChoicesByDocumentType($user, $configuredType);
-            }
-
             // Even when the deployment has not populated document_types,
             // preserve the caller's type intent and search only the actual
             // document_type column. Never broaden a recognized type into

@@ -1029,6 +1029,42 @@ class ChatbotRoutingTest extends TestCase
             ->assertDontSee('Could you clarify');
     }
 
+    public function test_misspelled_configured_document_type_is_resolved_from_natural_phrasing(): void
+    {
+        $this->actingAsClient(17);
+        DB::table('document_types')->insert([
+            'type_name' => 'Contract',
+            'type_desc' => 'Contract documents',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $this->insertDocument(17, 'in_progress', now(), [
+            'document_name' => 'Service Agreement',
+            'document_type' => 'Contract',
+        ]);
+        $this->insertDocument(17, 'pending', now()->subDay(), [
+            'document_name' => 'Office Clearance',
+            'document_type' => 'Clearance',
+        ]);
+        $this->insertDocument(29, 'completed', now(), [
+            'document_name' => 'Other Client Contract',
+            'document_type' => 'Contract',
+        ]);
+
+        $assistant = Mockery::mock(LexTrackAssistant::class);
+        $assistant->shouldNotReceive('hasApprovedKnowledgeBase');
+        $assistant->shouldNotReceive('prompt');
+        $this->app->instance(LexTrackAssistant::class, $assistant);
+
+        $this->postJson('/chatbot/message', ['message' => 'update wth my ccontract'])
+            ->assertOk()
+            ->assertSee('Service Agreement')
+            ->assertSee('In Progress')
+            ->assertDontSee('Office Clearance')
+            ->assertDontSee('Other Client Contract')
+            ->assertDontSee('couldn’t find');
+    }
+
     public function test_status_filter_returns_only_matching_records_and_handles_zero_results(): void
     {
         $this->actingAsClient(17);

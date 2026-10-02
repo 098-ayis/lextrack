@@ -13,7 +13,8 @@
             <nav class="flex w-full min-w-[720px] items-center justify-start gap-1 p-2 text-base" aria-label="Document request status">
                 @foreach ([
                     'pending' => ['label' => 'Pending', 'icon' => 'heroicon-o-document-text'],
-                    'accepted' => ['label' => 'Accepted', 'icon' => 'heroicon-o-check-circle'],
+                    'ready_for_pickup' => ['label' => 'Ready for Pickup', 'icon' => 'heroicon-o-clock'],
+                    'completed' => ['label' => 'Completed', 'icon' => 'heroicon-o-check-circle'],
                     'rejected' => ['label' => 'Rejected', 'icon' => 'heroicon-o-x-circle'],
                 ] as $section => $item)
                     <button
@@ -216,8 +217,10 @@
                     min-width: 17rem !important;
                 }
 
-                .admin-document-requests-accepted .fi-ta-table > thead > tr:last-child > th:last-child,
-                .admin-document-requests-accepted .fi-ta-table > tbody > tr:not(.fi-ta-group-header-row) > td:last-child,
+                .admin-document-requests-ready_for_pickup .fi-ta-table > thead > tr:last-child > th:last-child,
+                .admin-document-requests-ready_for_pickup .fi-ta-table > tbody > tr:not(.fi-ta-group-header-row) > td:last-child,
+                .admin-document-requests-completed .fi-ta-table > thead > tr:last-child > th:last-child,
+                .admin-document-requests-completed .fi-ta-table > tbody > tr:not(.fi-ta-group-header-row) > td:last-child,
                 .admin-document-requests-rejected .fi-ta-table > thead > tr:last-child > th:last-child,
                 .admin-document-requests-rejected .fi-ta-table > tbody > tr:not(.fi-ta-group-header-row) > td:last-child {
                     width: 8rem !important;

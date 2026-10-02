@@ -351,16 +351,16 @@
             color: #ffffff !important;
         }
 
-        /* Keep descriptions on one line and reveal the full text through the
-         * table tooltip when the truncated value is hovered. */
+        /* Show complete descriptions and wrap them within their table cells. */
         .client-documents-page .fi-ta-cell-particulars > .fi-ta-col,
         .client-documents-page .fi-ta-cell-particulars .fi-ta-text,
         .client-documents-page .fi-ta-cell-particulars .fi-ta-text-item {
             min-width: 0 !important;
             max-width: 100%;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap !important;
+            overflow: visible;
+            text-overflow: clip;
+            overflow-wrap: anywhere;
+            white-space: normal !important;
         }
 
         .client-documents-page .client-documents-table-rejected .fi-ta-table th:first-child,

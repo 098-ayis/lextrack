@@ -594,7 +594,7 @@
         .document-side-panel { display: flex; height: 100%; min-height: 0; flex-direction: column; overflow: hidden; border-left: 1px solid #d1d5db; }
         .document-side-tabs { display: grid; height: 64px; min-height: 64px; flex-shrink: 0; grid-template-columns: repeat(4, minmax(0, 1fr)); border-bottom: 1px solid #d1d5db; background: #fff; box-sizing: border-box; }
         .document-side-tabs-two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-        .document-side-tabs button { height: 100%; min-height: 0; border: 0; border-bottom: 2px solid transparent; background: #fff; padding: 0.7rem 0.45rem; color: #737b8c; font-size: 1rem; font-weight: 650; cursor: pointer; }
+        .document-side-tabs button { height: 100%; min-height: 0; border: 0; border-bottom: 2px solid transparent; background: #fff; padding: 0.7rem 0.45rem; color: #737b8c; font-size: 0.8rem; font-weight: 650; cursor: pointer; }
         .document-side-tabs button:hover { background: #f8fafc; color: #4f46e5; }
         .document-side-tabs button.is-active { border-bottom-color: #6366f1; color: #4f46e5; }
         .document-side-content { display: flex; min-height: 0; flex: 1; overflow: hidden; }

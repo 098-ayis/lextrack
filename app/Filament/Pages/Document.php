@@ -557,7 +557,6 @@ class Document extends Page implements HasTable
             $columns[] = TextColumn::make('description')
                 ->label('DESCRIPTION')
                 ->placeholder('No description')
-                ->limit(25)
                 ->tooltip(fn (DocumentModel $record): ?string => filled($record->description)
                     ? $record->description
                     : null)
