@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Ai\Agents\LexTrackAssistant;
 use App\Models\User;
+use App\Services\ActionTypeKnowledgeService;
 use App\Services\ChatIntentNormalizer;
 use App\Services\ClientMessageAvailabilityService;
 use App\Services\ClientDocumentLookupService;
@@ -42,6 +43,95 @@ class ChatbotRoutingTest extends TestCase
         $this->assertStringContainsString('unrelated contact information', $instructions);
         $this->assertStringContainsString('Never assume personal-email notification support.', $instructions);
     }
+
+    public function test_all_approved_action_type_definitions_route_as_general_knowledge(): void
+    {
+        $knowledge = app(ActionTypeKnowledgeService::class);
+        $router = app(ChatbotIntentRouter::class);
+        $normalizer = app(ChatIntentNormalizer::class);
+
+        $expected = [
+            'For Action',
+            'For Comments',
+            'For Endorsement',
+            'For Filing',
+            'For Information',
+            'For Legal Opinion',
+            'For Review',
+            'For Signature',
+        ];
+
+        $this->assertEqualsCanonicalizing($expected, $knowledge->approvedActionTypes());
+
+        foreach ($expected as $actionType) {
+            $classification = $router->classify('What does ' . $actionType . ' mean?');
+
+            $this->assertSame('general_knowledge', $classification['intent'], $actionType);
+            $this->assertSame($actionType, $classification['action_type'], $actionType);
+        }
+
+        $variants = [
+            'what is for review means?' => ['For Review', 'english'],
+            'what does for review mean?' => ['For Review', 'english'],
+            'ano ibig sabihin ng for review?' => ['For Review', 'filipino'],
+            'meaning ng for legal opinion' => ['For Legal Opinion', 'filipino'],
+            'para saan ang for signature?' => ['For Signature', 'filipino'],
+        ];
+
+        foreach ($variants as $question => [$actionType, $language]) {
+            $classification = $router->classify($question);
+
+            $this->assertSame('general_knowledge', $classification['intent'], $question);
+            $this->assertSame($actionType, $classification['action_type'], $question);
+            $this->assertSame($language, $classification['language'], $question);
+        }
+
+        $interpretation = $normalizer->interpret('what is for review means?');
+
+        $this->assertSame('general_knowledge', $interpretation['domain']);
+        $this->assertSame('general_knowledge', $interpretation['intents'][0]['name']);
+        $this->assertSame('For Review', $interpretation['intents'][0]['parameters']['action_type']);
+        $this->assertSame('none', $interpretation['reference']['type']);
+    }
+
+    public function test_for_review_definition_is_answered_from_general_knowledge(): void
+    {
+        $this->actingAsClient(17);
+
+        $assistant = Mockery::mock(LexTrackAssistant::class);
+        $assistant->shouldReceive('hasApprovedKnowledgeBase')->once()->andReturn(true);
+        $assistant->shouldReceive('prompt')->once()->andReturn(new AgentResponse(
+            'action-type-definition',
+            'For Review means the document requires examination, assessment, or evaluation before further action or disposition can be made.',
+            new Usage,
+            new Meta(Lab::OpenAI->value, 'gpt-5-mini'),
+        ));
+        $this->app->instance(LexTrackAssistant::class, $assistant);
+
+        $this->postJson('/chatbot/message', ['message' => 'what is for review means?'])
+            ->assertOk()
+            ->assertExactJson([
+                'reply' => 'For Review means the document requires examination, assessment, or evaluation before further action or disposition can be made.',
+            ])
+            ->assertDontSee('Could you clarify')
+            ->assertDontSee('authorized document');
+    }
+
+    public function test_unknown_action_type_definition_asks_for_the_exact_type(): void
+    {
+        $this->actingAsClient(17);
+
+        $assistant = Mockery::mock(LexTrackAssistant::class);
+        $assistant->shouldNotReceive('hasApprovedKnowledgeBase');
+        $assistant->shouldNotReceive('prompt');
+        $this->app->instance(LexTrackAssistant::class, $assistant);
+
+        $this->postJson('/chatbot/message', ['message' => 'what does for approval routing mean?'])
+            ->assertOk()
+            ->assertSee('provide the exact action type shown in LexTrack')
+            ->assertDontSee('authorized document');
+    }
+
 
     protected function setUp(): void
     {

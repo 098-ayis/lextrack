@@ -244,6 +244,7 @@ class ChatIntentNormalizer
             'document_name' => $classification['document_name'] ?? null,
             'search_text' => $classification['document_name'] ?? null,
             'reference_field' => $classification['reference_field'] ?? null,
+            'action_type' => $classification['action_type'] ?? null,
             'topic' => $classification['topic'] ?? null,
             'kind' => $classification['kind'] ?? null,
             'aggregate' => $aggregate || $this->hasAggregateCue($wholeMessage),

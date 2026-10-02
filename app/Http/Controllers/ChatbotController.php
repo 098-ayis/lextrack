@@ -182,6 +182,7 @@ class ChatbotController extends Controller
                 'unsupported',
                 'acceptance_definition',
                 'rejection_definition',
+                'action_type_clarification',
                 'request_scope_clarification',
                 'copy_type_clarification',
                 'payment_inquiry',
@@ -204,6 +205,7 @@ class ChatbotController extends Controller
                 'conversational_reply' => $this->conversationalReply($quickLanguage),
                 'acceptance_definition' => $this->acceptanceDefinitionReply($request, $quickLanguage),
                 'rejection_definition' => $this->rejectionDefinitionReply($request, $quickLanguage),
+                'action_type_clarification' => $this->actionTypeClarificationReply($quickLanguage),
                 'request_scope_clarification' => $this->requestScopeClarificationReply(
                     $request,
                     $user,
@@ -443,6 +445,7 @@ class ChatbotController extends Controller
             'conversational_reply' => $this->conversationalReply($intent['language']),
             'acceptance_definition' => $this->acceptanceDefinitionReply($request, $intent['language']),
             'rejection_definition' => $this->rejectionDefinitionReply($request, $intent['language']),
+            'action_type_clarification' => $this->actionTypeClarificationReply($intent['language']),
             'request_scope_clarification' => $this->requestScopeClarificationReply(
                 $request,
                 $user,
@@ -950,6 +953,17 @@ class ChatbotController extends Controller
                 ? 'Pwede mo bang linawin ang tanong mo tungkol sa LexTrack?'
                 : 'Could you clarify your question about LexTrack?',
         ]);
+    }
+
+    private function actionTypeClarificationReply(string $language): JsonResponse
+    {
+        $reply = match ($language) {
+            'filipino' => 'Hindi ko nakilala ang action type na iyon. Pakibigay ang eksaktong action type na nakikita mo sa LexTrack.',
+            'taglish' => 'Hindi ko nakilala ang action type na iyon. Please provide the exact action type shown in LexTrack.',
+            default => 'I don’t recognize that action type. Please provide the exact action type shown in LexTrack.',
+        };
+
+        return response()->json(['reply' => $reply]);
     }
 
     private function paymentInquiryReply(Request $request, string $language): JsonResponse

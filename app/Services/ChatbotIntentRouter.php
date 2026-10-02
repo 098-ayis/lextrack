@@ -10,7 +10,10 @@ use Carbon\Carbon;
  */
 class ChatbotIntentRouter
 {
-    public function __construct(private readonly ChatbotMessagePolicy $messagePolicy)
+    public function __construct(
+        private readonly ChatbotMessagePolicy $messagePolicy,
+        private readonly ActionTypeKnowledgeService $actionTypes,
+    )
     {
     }
 
@@ -265,6 +268,23 @@ class ChatbotIntentRouter
         if ($this->isStandaloneAcceptanceTerm($normalized)) {
             return [
                 'intent' => 'acceptance_definition',
+                'language' => $this->responseLanguage($normalized),
+            ];
+        }
+
+        // Action-type definitions are approved general knowledge, not a
+        // status filter or a lookup of the client's private documents.
+        if (($actionType = $this->actionTypes->matchDefinitionQuestion($normalized)) !== null) {
+            return [
+                'intent' => 'general_knowledge',
+                'action_type' => $actionType,
+                'language' => $this->responseLanguage($normalized),
+            ];
+        }
+
+        if ($this->actionTypes->looksLikeDefinitionQuestion($normalized)) {
+            return [
+                'intent' => 'action_type_clarification',
                 'language' => $this->responseLanguage($normalized),
             ];
         }
@@ -2030,7 +2050,7 @@ class ChatbotIntentRouter
 
     private function responseLanguage(string $message): string
     {
-        $filipino = preg_match('/\\b(?:salamat|sige|opo|oo|po|ko|ba|ano|paano|pano|kailan|ilan|ilang|kamusta|kumusta|mabuti|mensahe|serbisyo|mga|hindi|nakatanggap|dokumentong?|bayad|bayaran|babayaran|magbayad|magkano|singil|gastos|mayroon|meron)\\b/', $message) === 1;
+        $filipino = preg_match('/\\b(?:salamat|sige|opo|oo|po|ko|ba|ano|ang|ng|paano|pano|kailan|ilan|ilang|kamusta|kumusta|mabuti|mensahe|serbisyo|mga|hindi|nakatanggap|dokumentong?|bayad|bayaran|babayaran|magbayad|magkano|singil|gastos|mayroon|meron|ibig sabihin|para saan)\\b/', $message) === 1;
         $englishGrammar = preg_match('/\\b(?:what|how|when|where|why|which|many|have|do|does|is|are|the|my|about|how much)\\b/', $message) === 1;
         $englishPhrase = preg_match('/\b(?:in progress|document pickup|requests?)\b/', $message) === 1;
 
