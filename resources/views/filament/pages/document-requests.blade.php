@@ -10,7 +10,7 @@
     >
         {{-- STATUS HEADER --}}
         <div class="mb-0 w-full overflow-x-auto border border-gray-300 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
-            <nav class="flex w-full min-w-[720px] items-center justify-start gap-1 p-2 text-base" aria-label="Document request status">
+            <nav class="flex w-full min-w-[720px] items-stretch justify-start gap-2 px-3 py-2" aria-label="Document request status">
                 @foreach ([
                     'pending' => ['label' => 'Pending', 'icon' => 'heroicon-o-document-text'],
                     'ready_for_pickup' => ['label' => 'Ready for Pickup', 'icon' => 'heroicon-o-clock'],
@@ -23,13 +23,13 @@
                         wire:loading.attr="disabled"
                         x-on:click="window.history.replaceState({}, '', $el.dataset.sectionUrl)"
                         data-section-url="{{ \App\Filament\Pages\DocumentRequests::getUrl(['section' => $section]) }}"
-                        class="group relative flex h-10 flex-none items-center justify-start gap-2 rounded-md px-4 py-2 text-base font-semibold whitespace-nowrap transition-colors
+                        class="group relative flex h-10 flex-none items-center justify-start gap-2 border-b-2 border-transparent px-3 text-sm font-medium whitespace-nowrap transition-colors
                             {{ $activeSection === $section
                                 ? 'rounded-md bg-[#0F172A] text-white dark:bg-[#6366F1]'
                                 : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white' }}"
                         aria-current="{{ $activeSection === $section ? 'page' : 'false' }}"
                     >
-                        <x-filament::icon :icon="$item['icon']" class="h-4 w-4 shrink-0" />
+                        <x-filament::icon :icon="$item['icon']" class="h-5 w-5 shrink-0" />
                         <span>{{ $item['label'] }}</span>
                         <span
                             class="ml-0.5 flex items-center justify-center rounded-full px-2 py-0.5 text-xs font-semibold {{ $activeSection === $section
@@ -44,24 +44,24 @@
         </div>
 
         {{-- SEARCH + FILTERS --}}
-        <div class="mb-0 flex w-full flex-wrap items-center gap-3 border-x border-gray-300 bg-white px-3 py-7 shadow-sm dark:border-gray-700 dark:bg-gray-900 sm:flex-nowrap sm:justify-start">
+        <div class="mb-0 flex w-full flex-wrap items-center gap-3 border-x border-gray-300 bg-white px-3 py-4 shadow-sm dark:border-gray-700 dark:bg-gray-900 sm:flex-nowrap sm:justify-start">
             <div class="relative w-full sm:w-96">
                 <input
                     type="text"
                     wire:model.live.debounce.400ms="search"
                     placeholder="Search Document"
-                    class="h-10 w-full rounded-full border border-gray-300 bg-white pl-4 pr-11 text-sm text-gray-900 focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:placeholder:text-gray-400"
+                    class="h-9 w-full rounded-full border border-gray-300 bg-white pl-3 pr-9 text-xs text-gray-900 focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:placeholder:text-gray-400"
                 >
-                <svg class="absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-800 dark:text-gray-200" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                <svg class="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-800 dark:text-gray-200" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M21 21l-4.35-4.35M17 11a6 6 0 1 1-12 0 6 6 0 0 1 12 0Z" />
                 </svg>
             </div>
 
             <div class="flex items-center gap-1.5">
-                <div class="relative w-full sm:w-60">
+                <div class="relative w-full sm:w-44">
                     <select
                         wire:model.live="typeFilter"
-                        class="h-10 w-full appearance-none rounded-full border border-gray-300 bg-white pl-4 pr-12 text-sm font-semibold text-gray-900 focus:outline-none focus:ring-0 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                        class="h-10 w-full appearance-none rounded-full border border-gray-300 bg-white pl-3 pr-9 text-xs font-semibold text-gray-900 focus:outline-none focus:ring-0 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
                     >
                         <option value="">All Document Types</option>
                         @foreach (\App\Models\DocumentType::orderBy('type_name')->get() as $type)
@@ -93,7 +93,7 @@
                     type="date"
                     wire:model.live="dateFilter"
                     aria-label="Filter by request date"
-                    class="peer h-10 w-full appearance-none rounded-full border border-gray-300 bg-white pl-10 pr-4 text-sm text-gray-500 focus:border-primary-500 focus:text-gray-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200"
+                    class="peer h-9 w-full appearance-none rounded-full border border-gray-300 bg-white pl-9 pr-3 text-xs focus:border-primary-500 focus:text-gray-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200"
                 >
                 <svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500 dark:text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
                     <rect x="3.5" y="5" width="17" height="15.5" rx="2" />
@@ -242,14 +242,34 @@
 
             .admin-document-requests-page .fi-ta-table td:has(> .fi-ta-actions) {
                 padding-left: 1rem;
-                padding-right: 0.5rem;
+                padding-right: 1rem;
                 white-space: nowrap;
             }
 
-            .admin-document-requests-page .fi-ta-actions {
+            .admin-document-requests-page .fi-ta-table td:has(> .fi-ta-actions) > .fi-ta-actions {
+                display: flex !important;
+                flex-wrap: nowrap !important;
+                align-items: center !important;
+                width: 100%;
+                margin-left: 0;
                 justify-content: center !important;
-                gap: 0.375rem;
-                margin-inline: auto;
+                gap: 0.5rem;
+                white-space: nowrap;
+            }
+
+            .admin-document-requests-page .fi-ta-table td:has(> .fi-ta-actions) > .fi-ta-actions > * {
+                width: auto !important;
+                min-width: 0 !important;
+                flex: 0 0 auto !important;
+                flex-shrink: 0 !important;
+                margin: 0 !important;
+            }
+
+            .admin-document-requests-page .fi-ta-table td:has(> .fi-ta-actions) > .fi-ta-actions > .request-review-action {
+                width: 4.25rem !important;
+                min-width: 4.25rem !important;
+                height: 2.25rem !important;
+                box-sizing: border-box;
             }
 
             .admin-document-requests-page .fi-ta-table thead tr:last-child > th:last-child,
@@ -271,7 +291,7 @@
             }
 
             .admin-document-requests-page .fi-ta-group-heading {
-                font-size: 0.75rem;
+                font-size: 0.6875rem;
                 font-weight: 600;
             }
 

@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Models\Document;
+use App\Models\DocumentView;
 use App\Models\Note;
 use App\Models\DocumentVersion;
 use App\Models\ActivityLog;
@@ -136,6 +137,16 @@ class ViewDocument extends Page implements HasForms
                 ->with('user')
                 ->orderBy('version_id')
                 ->get(),
+        );
+
+        DocumentView::updateOrCreate(
+            [
+                'document_id' => $this->documentRecord->document_id,
+                'user_id' => auth()->id(),
+            ],
+            [
+                'viewed_at' => now(),
+            ],
         );
 
         $this->previewUrl = $this->generatePreview();

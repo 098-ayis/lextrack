@@ -489,8 +489,8 @@ class DocumentRequests extends Page implements HasTable
     */
     public function acceptTransitionAction(): Action
     {
-        return Action::make('acceptTransition')->label('Accept')->color('gray')->button()->size('sm')
-            ->extraAttributes(['class' => 'w-[80px] !h-9 !min-h-9 justify-center rounded-md border border-emerald-200 bg-emerald-100 text-emerald-700 hover:bg-emerald-200', 'style' => 'width: 80px; min-width: 80px; height: 36px; min-height: 36px; padding-left: 16px; padding-right: 16px; border-radius: 6px; box-sizing: border-box;'])
+        return Action::make('acceptTransition')->label('Accept')->color('success')->button()->size('xs')
+            ->extraAttributes(['class' => 'request-review-action inline-flex h-9 items-center justify-center rounded-md border !border-green-200 !bg-green-100 px-3 text-xs font-semibold !text-green-800 transition hover:!bg-green-200 dark:!border-green-800 dark:!bg-green-900/30 dark:!text-green-300 dark:hover:!bg-green-900/50'])
             ->modalHeading(fn (DocumentRequest $record): string => $record->copy_type === 'soft_copy' ? 'Accept Soft Copy Request' : 'Accept Hard Copy Request')
             ->modalDescription(fn (DocumentRequest $record): string => $record->copy_type === 'soft_copy' ? 'Upload the file to complete this soft-copy request.' : 'Set the pickup schedule to make this request ready for pickup.')
             ->modalSubmitActionLabel(fn (DocumentRequest $record): string => $record->copy_type === 'soft_copy' ? 'Upload and Complete' : 'Accept and Schedule')
@@ -715,10 +715,10 @@ class DocumentRequests extends Page implements HasTable
     {
         return Action::make('rejectRequest')
             ->label('Reject')
-            ->color('gray')
+            ->color('danger')
             ->button()
-            ->size('sm')
-            ->extraAttributes(['class' => 'w-[80px] !h-9 !min-h-9 justify-center rounded-md border border-red-200 bg-red-100 text-red-700 hover:bg-red-200', 'style' => 'width: 80px; min-width: 80px; height: 36px; min-height: 36px; padding-left: 16px; padding-right: 16px; border-radius: 6px; box-sizing: border-box;'])
+            ->size('xs')
+            ->extraAttributes(['class' => 'request-review-action inline-flex h-9 items-center justify-center rounded-md border !border-red-200 !bg-red-100 px-3 text-xs font-semibold !text-red-800 transition hover:!bg-red-200 dark:!border-red-800 dark:!bg-red-900/30 dark:!text-red-300 dark:hover:!bg-red-900/50'])
             ->modalHeading('Reject Document Request')
             ->modalIcon('heroicon-o-x-circle')
             ->modalIconColor('danger')

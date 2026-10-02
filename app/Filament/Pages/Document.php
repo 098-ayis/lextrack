@@ -49,9 +49,9 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\ViewColumn;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
-use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Filament\Schemas\Components\Grid;
 // use BezhanSalleh\FilamentShield\Traits\HasPageShield;
 
@@ -199,6 +199,17 @@ class Document extends Page implements HasTable
         return Width::Full;
     }
 
+    protected function documentHasUnviewedUpdate(DocumentModel $document): bool
+    {
+        if (! $document->updated_at) {
+            return false;
+        }
+
+        $viewedAt = $document->views->first()?->viewed_at;
+
+        return ! $viewedAt || $viewedAt->lt($document->updated_at);
+    }
+
     public function getStats(): array
     {
         return [
@@ -237,13 +248,13 @@ class Document extends Page implements HasTable
     protected function getLatestDocumentMarker(): ?string
     {
         $document = DocumentModel::query()
-            ->select(['document_id', 'created_at'])
-            ->latest('created_at')
+            ->select(['document_id', 'updated_at'])
+            ->latest('updated_at')
             ->latest('document_id')
             ->first();
 
         return $document
-            ? $document->created_at->format('Y-m-d H:i:s.u') . '|' . $document->document_id
+            ? ($document->updated_at?->format('Y-m-d H:i:s.u') ?? '') . '|' . $document->document_id
             : null;
     }
 
@@ -454,7 +465,13 @@ class Document extends Page implements HasTable
         };
 
         return DocumentModel::query()
-            ->with(['user', 'rejections', 'latestVersion'])
+            ->with([
+                'user',
+                'rejections',
+                'latestVersion',
+                'views' => fn (HasMany $viewQuery) => $viewQuery
+                    ->where('user_id', auth()->id()),
+            ])
             ->where('status', $status)
             // Requests are managed on the Document Requests page. Once a
             // request is fulfilled it is linked through document_requests,
@@ -482,7 +499,8 @@ class Document extends Page implements HasTable
             ->when($this->dateFilter !== '', function (Builder $query): void {
                 $query->whereDate('created_at', $this->dateFilter);
             })
-            ->latest('created_at');
+            ->latest('updated_at')
+            ->latest('document_id');
     }
 
     public function table(Table $table): Table
@@ -498,24 +516,20 @@ class Document extends Page implements HasTable
                 'return_to' => static::getUrl(['section' => $this->activeSection]),
             ]))
             ->recordClasses(
-                fn (DocumentModel $record): string => $this->highlightedDocumentId !== null &&
-                    (int) $record->document_id === $this->highlightedDocumentId
-                    ? 'document-highlighted'
-                    : ''
+                function (DocumentModel $record): string {
+                    $classes = $this->highlightedDocumentId !== null &&
+                        (int) $record->document_id === $this->highlightedDocumentId
+                        ? 'document-highlighted'
+                        : '';
+
+                    if ($this->documentHasUnviewedUpdate($record)) {
+                        $classes .= ' document-unread';
+                    }
+
+                    return trim($classes);
+                }
             )
-            ->groups([
-                Group::make('created_at')
-                    ->date()
-                    ->label('Uploaded')
-                    ->titlePrefixedWithLabel(false)
-                    ->getTitleFromRecordUsing(
-                        fn (DocumentModel $record): \Illuminate\Contracts\Support\Htmlable =>
-                            new \Illuminate\Support\HtmlString('Uploaded ' . $record->created_at->format('F d, Y'))
-                    ),
-            ])
-            ->defaultGroup('created_at')
-            ->groupingSettingsHidden()
-            ->defaultSort('created_at', 'desc')
+            ->defaultSort('updated_at', 'desc')
             ->paginationPageOptions([10, 25, 50])
             ->defaultPaginationPageOption(10)
             ->searchable(false)
@@ -552,6 +566,13 @@ class Document extends Page implements HasTable
                 ->alignLeft()
                 ->width('9rem')
                 ->extraHeaderAttributes(['class' => 'min-w-[140px]']);
+
+        $columns[] = TextColumn::make('created_at')
+            ->label('UPLOAD DATE')
+            ->dateTime('M d, Y h:i A')
+            ->placeholder('Unknown date')
+            ->alignCenter()
+            ->extraHeaderAttributes(['class' => 'min-w-[155px]']);
 
         if ($this->activeSection === 'pending') {
             $columns[] = TextColumn::make('description')

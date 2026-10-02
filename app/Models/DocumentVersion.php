@@ -10,6 +10,12 @@ class DocumentVersion extends Model
 {
     protected $primaryKey = 'version_id';
 
+    /**
+     * A new file version is also a document update. Touching the parent keeps
+     * document lists ordered by the latest staff upload or edit.
+     */
+    protected $touches = ['document'];
+
     protected $fillable = [
         'user_id',
         'document_id',
