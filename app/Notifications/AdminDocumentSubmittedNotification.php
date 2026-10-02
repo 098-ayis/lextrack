@@ -3,6 +3,7 @@
 namespace App\Notifications;
 
 use App\Models\Document;
+use App\Services\SystemSettingService;
 use Filament\Notifications\Notification as FilamentNotification;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -20,6 +21,10 @@ class AdminDocumentSubmittedNotification extends Notification implements ShouldQ
 
     public function via(object $notifiable): array
     {
+        if (! SystemSettingService::notificationsEnabled()) {
+            return [];
+        }
+
         // The database channel is persisted immediately by
         // InAppNotificationService; only email is queued from the submission.
         return ['mail'];

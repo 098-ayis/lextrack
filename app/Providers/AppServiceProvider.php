@@ -6,6 +6,8 @@ use App\Http\Responses\LogoutResponse;
 use App\Models\Conversation;
 use App\Models\User;
 use App\Services\CloudflareTurnstileClient;
+use App\Services\AuditLogService;
+use App\Services\SystemSettingService;
 use App\Support\RoleSecurity;
 use BezhanSalleh\FilamentShield\Facades\FilamentShield;
 use Filament\Auth\Http\Responses\Contracts\LogoutResponse as LogoutResponseContract;
@@ -14,6 +16,7 @@ use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\ValidationException;
 use RyanChandler\LaravelCloudflareTurnstile\Contracts\ClientInterface;
 use Spatie\Permission\Models\Role;
+use Spatie\Permission\Models\Permission;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
@@ -60,6 +63,54 @@ class AppServiceProvider extends ServiceProvider
                 || ! $role->isDirty(['name', 'guard_name']);
         });
         Role::deleting(fn (Role $role): bool => ! RoleSecurity::isProtectedRole($role));
+
+        Role::created(function (Role $role): void {
+            app(AuditLogService::class)->record(
+                'Role created',
+                'A role was created.',
+                $role,
+            );
+        });
+
+        Role::updated(function (Role $role): void {
+            app(AuditLogService::class)->record(
+                'Role updated',
+                'A role was updated.',
+                $role,
+            );
+        });
+
+        Role::deleted(function (Role $role): void {
+            app(AuditLogService::class)->record(
+                'Role deleted',
+                'A role was deleted.',
+                $role,
+            );
+        });
+
+        Permission::created(function (Permission $permission): void {
+            app(AuditLogService::class)->record(
+                'Permission created',
+                'A permission was created.',
+                $permission,
+            );
+        });
+
+        Permission::updated(function (Permission $permission): void {
+            app(AuditLogService::class)->record(
+                'Permission updated',
+                'A permission was updated.',
+                $permission,
+            );
+        });
+
+        Permission::deleted(function (Permission $permission): void {
+            app(AuditLogService::class)->record(
+                'Permission deleted',
+                'A permission was deleted.',
+                $permission,
+            );
+        });
 
         FilamentShield::buildPermissionKeyUsing(
             function (
@@ -108,8 +159,9 @@ class AppServiceProvider extends ServiceProvider
         });
 
         RateLimiter::for('google-login', function (Request $request) {
-        return Limit::perMinute(10)
-            ->by($request->ip());
+            return Limit::perMinute(
+                app(SystemSettingService::class)->loginRateLimitPerMinute()
+            )->by($request->ip());
         });
 
         RateLimiter::for('document-submit', function (Request $request) {

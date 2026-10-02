@@ -86,41 +86,43 @@ class FormerUserHistory extends Page
 
         return [
             'documents' => Document::query()
+                ->select(['document_id', 'lao_number', 'status', 'created_at'])
                 ->where('user_id', $userId)
                 ->latest('created_at')
                 ->get(),
             'requests' => DocumentRequest::query()
-                ->with('document')
+                ->select(['request_id', 'status', 'date_of_request'])
                 ->where('user_id', $userId)
                 ->latest('date_of_request')
                 ->latest('request_id')
                 ->get(),
             'versions' => DocumentVersion::query()
-                ->with('document')
+                ->select(['version_id', 'document_id', 'version_number', 'created_at'])
                 ->where('user_id', $userId)
                 ->latest('created_at')
                 ->latest('version_id')
                 ->get(),
             'messages' => Message::query()
-                ->with('conversation.document', 'conversation.documentRequest')
+                ->select(['id', 'conversation_id', 'created_at'])
                 ->where('sender_id', $userId)
                 ->latest('created_at')
                 ->latest('id')
                 ->get(),
             'notes' => Note::query()
-                ->with('document')
+                ->select(['note_id', 'document_id', 'created_at'])
                 ->where('user_id', $userId)
                 ->latest('created_at')
                 ->latest('note_id')
                 ->get(),
             'auditLogs' => ActivityLog::query()
-                ->with('document')
+                ->select(['log_id', 'action_type', 'created_at'])
                 ->where('user_id', $userId)
                 ->latest('created_at')
                 ->latest('log_id')
                 ->get(),
             'conversations' => Conversation::query()
-                ->with('document', 'documentRequest', 'creator', 'participants')
+                ->select(['id', 'created_by', 'created_at'])
+                ->withCount('participants')
                 ->where(function (Builder $query) use ($userId): void {
                     $query
                         ->where('created_by', $userId)
@@ -132,7 +134,7 @@ class FormerUserHistory extends Page
                 ->latest('id')
                 ->get(),
             'calendarEvents' => CalendarModel::query()
-                ->with('documentRequest')
+                ->select(['sched_id', 'date', 'time'])
                 ->where('user_id', $userId)
                 ->latest('date')
                 ->latest('sched_id')

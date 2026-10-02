@@ -17,9 +17,11 @@ use App\Http\Controllers\Auth\VerifyUserEmailController;
 use App\Http\Controllers\UserExportController;
 use App\Http\Controllers\DocumentExportController;
 use App\Http\Middleware\AdminMiddleware;
+use App\Http\Middleware\EnsureSuperAdmin;
 use App\Services\DocumentDownloadService;
 use App\Services\DocumentQrToken;
 use App\Services\DocumentStatusTimeline;
+use App\Services\AuditLogService;
 use RyanChandler\LaravelCloudflareTurnstile\Rules\Turnstile;
 use App\Http\Middleware\EnsureLegalStaff;
 
@@ -55,6 +57,12 @@ Route::get('/api/user', function (Request $request) {
 })->middleware('auth');
 
 Route::post('/logout', function (Request $request) {
+    app(AuditLogService::class)->record(
+        'User logged out',
+        'Administrator logged out.',
+        $request->user(),
+    );
+
     Auth::logout();
 
     $request->session()->invalidate();
@@ -66,15 +74,15 @@ Route::post('/logout', function (Request $request) {
 })->middleware('auth');
 
 Route::get('/admin/users/export', [UserExportController::class, '__invoke'])
-    ->middleware(['auth', AdminMiddleware::class])
+    ->middleware(['auth', AdminMiddleware::class, EnsureSuperAdmin::class])
     ->name('admin.users.export');
 
 Route::get('/admin/document-export', [DocumentExportController::class, '__invoke'])
-    ->middleware(['auth', AdminMiddleware::class])
+    ->middleware(['auth', AdminMiddleware::class, EnsureLegalStaff::class])
     ->name('admin.documents.export');
 
 Route::get('/admin/reports/monthly', App\Http\Controllers\MonthlyReportController::class)
-    ->middleware(['auth', AdminMiddleware::class])
+    ->middleware(['auth', AdminMiddleware::class, EnsureLegalStaff::class])
     ->name('admin.reports.monthly');
 
 Route::get('/document-status/{document}', function (int $document) {
@@ -564,7 +572,7 @@ Route::get('/admin/documents/{document}/thumbnail', function (string $document) 
 
     return app(\App\Services\DocumentPreviewService::class)->thumbnail($disk->path($filePath));
 })
-    ->middleware(['auth', AdminMiddleware::class])
+    ->middleware(['auth', AdminMiddleware::class, EnsureLegalStaff::class])
     ->name('admin.documents.thumbnail');
 
 Route::get('/admin/documents/{document}/transmittal-preview', function (string $document) {
@@ -629,7 +637,7 @@ Route::get('/admin/documents/{document}/transmittals/{attachment}/preview', func
         $disk->path($attachmentRecord->file_path)
     );
 })
-    ->middleware(['auth', AdminMiddleware::class])
+    ->middleware(['auth', AdminMiddleware::class, EnsureLegalStaff::class])
     ->name('admin.documents.transmittal-attachment.preview');
 
 Route::get('/admin/documents/{document}/transmittals/{attachment}/download', function (
@@ -653,7 +661,7 @@ Route::get('/admin/documents/{document}/transmittals/{attachment}/download', fun
         basename($attachmentRecord->file_path),
     );
 })
-    ->middleware(['auth', AdminMiddleware::class])
+    ->middleware(['auth', AdminMiddleware::class, EnsureLegalStaff::class])
     ->name('admin.documents.transmittal-attachment.download');
 
 Route::get('/admin/documents/{document}/download', function (string $document) {

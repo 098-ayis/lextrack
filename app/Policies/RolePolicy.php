@@ -12,7 +12,7 @@ class RolePolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->can('ViewAny:Role');
+        return $user->hasRole(RoleSecurity::SUPER_ADMIN);
     }
 
     public function view(User $user, Role $role): bool

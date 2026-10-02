@@ -1,5 +1,9 @@
 <x-filament-panels::page>
 
+@php
+    $messageUploadLimitMb = app(\App\Services\SystemSettingService::class)->uploadSizeLimitMb();
+@endphp
+
 <style>
     [x-cloak] {
         display: none !important;
@@ -1225,6 +1229,19 @@
             transform 0.28s ease;
     }
 
+    .message-attachment-limit {
+        margin: 5px 8px 0;
+        color: #6b7280;
+        font-size: 11px;
+    }
+
+    .message-attachment-error {
+        margin: 0 8px 8px;
+        color: #dc2626;
+        font-size: 12px;
+        font-weight: 500;
+    }
+
     .message-drawer-action,
     .thread-footer .message-composer-menu-toggle {
         position: relative;
@@ -1518,6 +1535,14 @@
 
     .dark .message-action-drawer {
         border-color: #374151;
+    }
+
+    .dark .message-attachment-limit {
+        color: #9ca3af;
+    }
+
+    .dark .message-attachment-error {
+        color: #f87171;
     }
 
     .dark .message-composer-input input {
@@ -2739,6 +2764,24 @@
 
                 <div class="thread-footer">
 
+                    @if ($attachmentError)
+                        <div class="message-attachment-error">
+                            {{ $attachmentError }}
+                        </div>
+                    @endif
+
+                    @error('attachments')
+                        <div class="message-attachment-error">
+                            {{ $message }}
+                        </div>
+                    @enderror
+
+                    @error('attachments.*')
+                        <div class="message-attachment-error">
+                            {{ $message }}
+                        </div>
+                    @enderror
+
                     <div
                         class="message-composer-shell"
                         x-data="{ open: false, hasText: false }"
@@ -2945,6 +2988,16 @@
                             accept=".jpg,.jpeg,.png,image/jpeg,image/png"
                             wire:model="attachments"
                             wire:change="$set('attachmentKind', 'image')"
+                            x-on:change.capture="
+                                    const oversized = Array.from($event.target.files || []).some(file => file.size > {{ $messageUploadLimitMb }} * 1024 * 1024);
+                                if (oversized) {
+                                    $event.stopImmediatePropagation();
+                                    $event.target.value = '';
+                                    $wire.set('attachmentError', 'Each attachment must be {{ $messageUploadLimitMb }} MB or smaller.');
+                                } else {
+                                    $wire.set('attachmentError', '');
+                                }
+                            "
                             class="hidden"
                         >
 
@@ -2955,43 +3008,27 @@
                             accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                             wire:model="attachments"
                             wire:change="$set('attachmentKind', 'document')"
+                            x-on:change.capture="
+                                    const oversized = Array.from($event.target.files || []).some(file => file.size > {{ $messageUploadLimitMb }} * 1024 * 1024);
+                                if (oversized) {
+                                    $event.stopImmediatePropagation();
+                                    $event.target.value = '';
+                                    $wire.set('attachmentError', 'Each attachment must be {{ $messageUploadLimitMb }} MB or smaller.');
+                                } else {
+                                    $wire.set('attachmentError', '');
+                                }
+                            "
                             class="hidden"
                         >
 
                     </div>
 
+                    <p class="message-attachment-limit">Attachments: JPG, PNG, PDF, or DOCX · max {{ $messageUploadLimitMb }} MB each.</p>
+
                 </div>
 
 
                 @error('newMessage')
-
-                    <div
-                        style="
-                            color: #dc2626;
-                            font-size: 12px;
-                            padding: 0 18px 12px;
-                        "
-                    >
-                        {{ $message }}
-                    </div>
-
-                @enderror
-
-                @error('attachments')
-
-                    <div
-                        style="
-                            color: #dc2626;
-                            font-size: 12px;
-                            padding: 0 18px 12px;
-                        "
-                    >
-                        {{ $message }}
-                    </div>
-
-                @enderror
-
-                @error('attachments.*')
 
                     <div
                         style="

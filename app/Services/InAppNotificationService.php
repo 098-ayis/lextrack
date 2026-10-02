@@ -11,6 +11,10 @@ class InAppNotificationService
 {
     public function send(User $recipient, Notification $notification): void
     {
+        if (! $this->settings()->systemNotificationsEnabled()) {
+            return;
+        }
+
         // Persist the bell notification independently of SMTP delivery.
         $recipient->notifyNow($notification, ['database']);
         DatabaseNotificationsSent::dispatch($recipient);
@@ -28,5 +32,10 @@ class InAppNotificationService
                 report($exception);
             }
         }
+    }
+
+    private function settings(): SystemSettingService
+    {
+        return app(SystemSettingService::class);
     }
 }

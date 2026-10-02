@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\AuditLogService;
+use App\Services\SystemSettingService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -37,8 +39,10 @@ class GoogleAuthController extends Controller
     {
         $email = strtolower(trim($email));
 
+        $domain = app(SystemSettingService::class)->allowedEmailDomain();
+
         return filter_var($email, FILTER_VALIDATE_EMAIL)
-            && str_ends_with($email, '@bicol-u.edu.ph');
+            && str_ends_with($email, '@'.$domain);
     }
 
     /**
@@ -73,7 +77,7 @@ class GoogleAuthController extends Controller
             if (! $this->isValidEmailDomain($email)) {
                 abort(
                     403,
-                    'Unauthorized email domain. Only Bicol University accounts are allowed.'
+                    'Unauthorized email domain. Only @'.app(SystemSettingService::class)->allowedEmailDomain().' accounts are allowed.'
                 );
             }
 
@@ -182,6 +186,12 @@ class GoogleAuthController extends Controller
             |--------------------------------------------------------------------------
             */
             Auth::login($user);
+
+            app(AuditLogService::class)->record(
+                'User logged in',
+                'Administrator authenticated successfully.',
+                $user,
+            );
 
             // Regenerate session ID after authentication
             request()->session()->regenerate();

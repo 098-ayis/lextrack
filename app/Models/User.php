@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Database\Factories\UserFactory;
+use App\Services\AuditLogService;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Models\Contracts\HasAvatar;
 use Filament\Panel;
@@ -40,6 +41,45 @@ class User extends Authenticatable implements FilamentUser, HasAvatar, MustVerif
 
     /** @use HasFactory<UserFactory> */
     use HasApiTokens, HasFactory, HasRoles, MustVerifyEmailTrait, Notifiable, SoftDeletes;
+
+    protected static function booted(): void
+    {
+        static::created(function (self $user): void {
+            app(AuditLogService::class)->record(
+                'Account created',
+                'User account created.',
+                $user,
+            );
+        });
+
+        static::updated(function (self $user): void {
+            if ($user->wasChanged('status')) {
+                app(AuditLogService::class)->record(
+                    'Account status changed',
+                    'User account status changed.',
+                    $user,
+                );
+            }
+        });
+
+        static::deleted(function (self $user): void {
+            app(AuditLogService::class)->record(
+                $user->isForceDeleting() ? 'Account permanently deleted' : 'Account soft-deleted',
+                $user->isForceDeleting()
+                    ? 'User account permanently deleted.'
+                    : 'User account soft-deleted.',
+                $user,
+            );
+        });
+
+        static::restored(function (self $user): void {
+            app(AuditLogService::class)->record(
+                'Account restored',
+                'User account restored.',
+                $user,
+            );
+        });
+    }
 
     protected $fillable = [
         'name',

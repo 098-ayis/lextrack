@@ -14,6 +14,7 @@ use App\Notifications\AdminDocumentRequestSubmittedNotification;
 use App\Notifications\AdminDocumentSubmittedNotification;
 use App\Notifications\CalendarEventReminder;
 use App\Notifications\DocumentDeadlineReminder;
+use App\Services\SystemSettingService;
 use App\Support\RoleSecurity;
 use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -197,6 +198,7 @@ class AdminPanelProvider extends PanelProvider
             ->databaseNotificationsPolling('5s')
 
             ->brandLogo(fn () => view('filament.components.brand'))
+            ->brandName(fn () => app(SystemSettingService::class)->systemName())
             ->brandLogoHeight('3rem')
             ->favicon(asset('images/lextrack-logo.png.png'))
 

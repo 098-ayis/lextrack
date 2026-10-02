@@ -6,6 +6,7 @@ use App\Models\Calendar;
 use App\Models\Document;
 use App\Models\DocumentType;
 use App\Models\ActivityLog;
+use App\Support\RoleSecurity;
 use Carbon\Carbon;
 use Filament\Pages\Page;
 use Illuminate\Support\Facades\DB;
@@ -26,6 +27,11 @@ class Dashboard extends Page
     protected static ?int $navigationSort = 1;
 
     protected string $view = 'filament.pages.dashboard';
+
+    public static function canAccess(): bool
+    {
+        return auth()->user()?->hasRole(RoleSecurity::LEGAL_STAFF) ?? false;
+    }
 
     public string $search = '';
 

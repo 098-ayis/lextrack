@@ -20,6 +20,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\UploadedFile;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
+use App\Support\RoleSecurity;
 use UnitEnum;
 // use BezhanSalleh\FilamentShield\Traits\HasPageShield;
 
@@ -38,6 +39,11 @@ class Cabinet extends Page
     protected static ?string $title = 'Cabinet';
 
     protected string $view = 'filament.pages.cabinet';
+
+    public static function canAccess(): bool
+    {
+        return auth()->user()?->hasRole(RoleSecurity::LEGAL_STAFF) ?? false;
+    }
 
     public array $cabinet = [];
 

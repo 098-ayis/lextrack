@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\AuditLogService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -18,6 +19,33 @@ class Calendar extends Model
         'category',
         'details',
     ];
+
+    protected static function booted(): void
+    {
+        static::created(function (self $event): void {
+            app(AuditLogService::class)->record(
+                'Calendar event created',
+                'A calendar event was created.',
+                $event,
+            );
+        });
+
+        static::updated(function (self $event): void {
+            app(AuditLogService::class)->record(
+                'Calendar event updated',
+                'A calendar event was updated.',
+                $event,
+            );
+        });
+
+        static::deleted(function (self $event): void {
+            app(AuditLogService::class)->record(
+                'Calendar event deleted',
+                'A calendar event was deleted.',
+                $event,
+            );
+        });
+    }
 
     protected $casts = [
         'date' => 'date',

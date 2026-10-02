@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\AuditLogService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -15,6 +16,31 @@ class Conversation extends Model
         'created_by',
         'status',
     ];
+
+    protected static function booted(): void
+    {
+        static::created(function (self $conversation): void {
+            app(AuditLogService::class)->record(
+                'Conversation created',
+                'A conversation was created.',
+                $conversation,
+            );
+        });
+
+        static::updated(function (self $conversation): void {
+            if ($conversation->wasChanged('status')) {
+                app(AuditLogService::class)->record(
+                    $conversation->status === 'closed'
+                        ? 'Conversation closed'
+                        : 'Conversation status changed',
+                    $conversation->status === 'closed'
+                        ? 'A conversation was closed.'
+                        : 'Conversation status changed.',
+                    $conversation,
+                );
+            }
+        });
+    }
 
     public function document(): BelongsTo
     {

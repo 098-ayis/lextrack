@@ -43,6 +43,8 @@ use App\Models\Message;
 use App\Models\User;
 use App\Services\DocumentDownloadService;
 use App\Services\DocumentQrToken;
+use App\Services\SystemSettingService;
+use App\Support\RoleSecurity;
 use Illuminate\Support\Facades\DB;
 use Filament\Actions\ActionGroup;
 use Filament\Tables\Columns\TextColumn;
@@ -52,6 +54,7 @@ use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Model;
 use Filament\Schemas\Components\Grid;
 // use BezhanSalleh\FilamentShield\Traits\HasPageShield;
 
@@ -83,6 +86,11 @@ class Document extends Page implements HasTable
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-inbox';
 
     protected string $view = 'filament.pages.document-filament';
+
+    public static function canAccess(): bool
+    {
+        return auth()->user()?->hasRole(RoleSecurity::LEGAL_STAFF) ?? false;
+    }
 
     public string $search = '';
 
@@ -1043,13 +1051,13 @@ class Document extends Page implements HasTable
                     ->multiple()
                     ->appendFiles()
                     ->panelLayout('integrated')
-                    ->maxSize(5120)
+                    ->maxSize(app(SystemSettingService::class)->uploadSizeLimitKb())
                     ->acceptedFileTypes([
                         'application/pdf',
                         'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
                     ])
                     ->rules(['mimes:pdf,docx'])
-                    ->helperText('Optional. PDF or DOCX only, up to 5 MB each.')
+                    ->helperText(fn (): string => 'Optional. PDF or DOCX only, up to '.app(SystemSettingService::class)->uploadSizeLimitMb().' MB each.')
                     ->preserveFilenames()
                     ->extraAttributes(['class' => 'admin-document-upload-files'])
                     ->columnSpanFull(),
@@ -1061,13 +1069,13 @@ class Document extends Page implements HasTable
                     ->panelLayout('integrated')
                     ->disk('local')
                     ->directory('documents')
-                    ->maxSize(5120)
+                    ->maxSize(app(SystemSettingService::class)->uploadSizeLimitKb())
                     ->acceptedFileTypes([
                         'application/pdf',
                         'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
                     ])
                     ->rules(['mimes:pdf,docx'])
-                    ->helperText('Select one or more PDF or DOCX files. Maximum file size: 5 MB each; each file is added as a revision.')
+                    ->helperText(fn (): string => 'Select one or more PDF or DOCX files. Maximum file size: '.app(SystemSettingService::class)->uploadSizeLimitMb().' MB each; each file is added as a revision.')
                     ->preserveFilenames()
                     ->extraAttributes(['class' => 'admin-document-upload-files'])
                     ->live()
@@ -2229,11 +2237,13 @@ class Document extends Page implements HasTable
     public function messageDocument(int $documentId): void
     {
         $document = DocumentModel::findOrFail($documentId);
+        $conversation = $document->conversation()->first();
 
         $this->recordDocumentActivity(
             $document->document_id,
             'Message opened',
-            'Opened the document conversation.'
+            'Opened the document conversation.',
+            subject: $conversation,
         );
 
         $this->redirect(
@@ -2248,11 +2258,14 @@ class Document extends Page implements HasTable
         string $actionType,
         string $actionDetails = '',
         ?string $oldValue = null,
-        ?string $newValue = null
+        ?string $newValue = null,
+        ?Model $subject = null,
     ): void {
         ActivityLog::create([
             'user_id' => auth()->id(),
             'document_id' => $documentId,
+            'subject_type' => $subject ? get_class($subject) : DocumentModel::class,
+            'subject_id' => $subject?->getKey() ?? $documentId,
             'action_type' => $actionType,
             'action_details' => $actionDetails !== ''
                 ? $actionDetails

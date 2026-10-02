@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\AuditLogService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -24,6 +25,35 @@ class DocumentRequest extends Model
         'date_of_request',
         'date_processed',
     ];
+
+    protected static function booted(): void
+    {
+        static::created(function (self $request): void {
+            app(AuditLogService::class)->record(
+                'Request submitted',
+                'A document request was submitted.',
+                $request,
+            );
+        });
+
+        static::updated(function (self $request): void {
+            if ($request->wasChanged('status')) {
+                app(AuditLogService::class)->record(
+                    'Request status changed',
+                    'Document request status changed.',
+                    $request,
+                );
+            }
+        });
+
+        static::deleted(function (self $request): void {
+            app(AuditLogService::class)->record(
+                'Request deleted',
+                'Document request deleted.',
+                $request,
+            );
+        });
+    }
 
     protected function casts(): array
     {

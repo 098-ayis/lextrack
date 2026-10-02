@@ -2,6 +2,8 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\SystemSettingService;
+use App\Services\AuditLogService;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -13,7 +15,7 @@ class IdleTimeout
         Request $request,
         Closure $next,
     ): Response {
-        $minutes = config('session.inactivity_timeout', 60);
+        $minutes = app(SystemSettingService::class)->sessionTimeoutMinutes();
 
         if (! Auth::check()) {
             return $next($request);
@@ -25,6 +27,12 @@ class IdleTimeout
             $lastActivity !== null &&
             (time() - $lastActivity) >= ($minutes * 60)
         ) {
+            app(AuditLogService::class)->record(
+                'User logged out',
+                'Administrator session ended due to inactivity.',
+                $request->user(),
+            );
+
             Auth::logout();
 
             $request->session()->invalidate();

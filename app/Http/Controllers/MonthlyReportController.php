@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Services\MonthlyReportPdfService;
 use App\Services\MonthlyReportService;
 use App\Services\MonthlyReportWordService;
+use App\Services\AuditLogService;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\Response;
@@ -19,6 +20,11 @@ class MonthlyReportController extends Controller
         $report['paperSize'] = $validated['paper'] ?? 'a4';
         $format = $validated['format'] ?? null;
         if (in_array($format, ['docx', 'pdf'], true)) {
+            app(AuditLogService::class)->record(
+                'Report exported',
+                'Monthly report exported.',
+            );
+
             $service = $format === 'pdf' ? MonthlyReportPdfService::class : MonthlyReportWordService::class;
             $content = app($service)->build($report, $request->user()->name);
 
@@ -29,6 +35,11 @@ class MonthlyReportController extends Controller
                 'X-Content-Type-Options' => 'nosniff',
             ]);
         }
+
+        app(AuditLogService::class)->record(
+            'Report generated',
+            'Monthly report generated.',
+        );
 
         return view('reports.monthly', $report + ['reportMonth' => $validated['month']]);
     }

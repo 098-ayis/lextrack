@@ -5,6 +5,7 @@ namespace App\Filament\Client\Pages;
 use App\Models\Document;
 use App\Models\DocumentVersion;
 use App\Models\Message;
+use App\Services\SystemSettingService;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
@@ -73,12 +74,12 @@ class ReviseDocument extends Page implements HasForms
                         'application/pdf',
                         'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
                     ])
-                    ->maxSize(5120)
+                    ->maxSize(app(SystemSettingService::class)->uploadSizeLimitKb())
                     ->validationAttribute('revised document file')
                     ->validationMessages([
                         'required' => 'Please select the revised document before submitting.',
                         'mimetypes' => 'This file type is not supported. Please upload a PDF or DOCX file.',
-                        'max' => 'The revised document is too large. Please choose a file up to 5 MB.',
+                        'max' => 'The revised document is too large. Please choose a file up to '.app(SystemSettingService::class)->uploadSizeLimitMb().' MB.',
                         'file' => 'The selected document could not be uploaded. Please choose a valid file.',
                     ])
                     ->disk('local')
@@ -87,7 +88,7 @@ class ReviseDocument extends Page implements HasForms
                     // Validate and store the temporary upload in submit(). This
                     // keeps the Livewire temporary file available for hashing.
                     ->storeFiles(false)
-                    ->helperText('Accepted files: PDF or DOCX. Maximum file size: 5 MB.')
+                    ->helperText(fn (): string => 'Accepted files: PDF or DOCX. Maximum file size: '.app(SystemSettingService::class)->uploadSizeLimitMb().' MB.')
                     ->required(),
             ])
             ->statePath('data');

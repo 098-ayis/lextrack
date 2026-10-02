@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Services\AuditLogService;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -10,6 +11,11 @@ class UserExportController extends Controller
 {
     public function __invoke(): StreamedResponse
     {
+        app(AuditLogService::class)->record(
+            'Report exported',
+            'User report exported.',
+        );
+
         return response()->streamDownload(function (): void {
             $handle = fopen('php://output', 'w');
 

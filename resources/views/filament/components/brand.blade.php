@@ -1,3 +1,7 @@
+@php
+    $systemSettings = app(\App\Services\SystemSettingService::class);
+@endphp
+
 <div class="lextrack-brand">
     <img
         src="{{ asset('images/lextrack-logo.png.png') }}"
@@ -6,11 +10,11 @@
     >
 
     <div class="lextrack-brand-text">
-        <div class="lextrack-brand-title">LexTrack</div>
+        <div class="lextrack-brand-title">{{ $systemSettings->systemName() }}</div>
 
         <div class="lextrack-brand-subtitle">
             <span class="lextrack-brand-b">B</span><span class="lextrack-brand-u">U</span>
-            <span class="lextrack-brand-office">Legal Office</span>
+            <span class="lextrack-brand-office">{{ $systemSettings->officeInformation() }}</span>
         </div>
     </div>
 </div>

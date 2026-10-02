@@ -3,6 +3,7 @@
 namespace App\Notifications;
 
 use App\Models\Document;
+use App\Services\SystemSettingService;
 use Filament\Notifications\Notification as FilamentNotification;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
@@ -15,6 +16,10 @@ class DocumentCompletedNotification extends Notification
 
     public function via(object $notifiable): array
     {
+        if (! SystemSettingService::notificationsEnabled()) {
+            return [];
+        }
+
         return ['mail', 'database'];
     }
 

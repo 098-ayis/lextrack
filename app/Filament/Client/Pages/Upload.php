@@ -16,6 +16,7 @@ use App\Models\DocumentTransmittal;
 use App\Models\DocumentType;
 use App\Models\OfficeUnit;
 use App\Services\AdminDocumentNotificationService;
+use App\Services\SystemSettingService;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\HtmlString;
@@ -106,18 +107,18 @@ class Upload extends Page implements HasForms
                         'application/pdf',
                         'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
                     ])
-                    ->maxSize(5120)
+                    ->maxSize(app(SystemSettingService::class)->uploadSizeLimitKb())
                     ->validationAttribute('transmittal/endorsement file')
                     ->validationMessages([
                         'required' => 'Please select a transmittal/endorsement file before submitting.',
                         'mimetypes' => 'This file type is not supported. Please upload a PDF or DOCX file.',
-                        'max' => 'The transmittal/endorsement file is too large. Please choose a file up to 5 MB.',
+                        'max' => 'The transmittal/endorsement file is too large. Please choose a file up to '.app(SystemSettingService::class)->uploadSizeLimitMb().' MB.',
                         'file' => 'The selected transmittal/endorsement file could not be uploaded. Please choose a valid file.',
                     ])
                     ->disk('local')
                     ->directory('client-transmittals')
                     ->preserveFilenames()
-                    ->helperText('Accepted files: PDF or DOCX. Upload 1 file, maximum 5 MB.')
+                    ->helperText(fn (): string => 'Accepted files: PDF or DOCX. Upload 1 file, maximum '.app(SystemSettingService::class)->uploadSizeLimitMb().' MB.')
                     ->columnSpan('full')
                     ->required(),
 
@@ -134,18 +135,18 @@ class Upload extends Page implements HasForms
                         'application/pdf',
                         'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
                     ])
-                    ->maxSize(5120)
+                    ->maxSize(app(SystemSettingService::class)->uploadSizeLimitKb())
                     ->validationAttribute('document file/s')
                     ->validationMessages([
                         'required' => 'Please select at least one document file before submitting.',
                         'mimetypes' => 'This file type is not supported. Please upload a PDF or DOCX file.',
-                        'max' => 'A document file is too large. Please choose a file up to 5 MB.',
+                        'max' => 'A document file is too large. Please choose a file up to '.app(SystemSettingService::class)->uploadSizeLimitMb().' MB.',
                         'file' => 'A selected document file could not be uploaded. Please choose a valid file.',
                     ])
                     ->disk('local')
                     ->directory('client-documents')
                     ->preserveFilenames()
-                    ->helperText('Accepted files: PDF or DOCX. Upload up to 5 files, maximum 5 MB each.')
+                    ->helperText(fn (): string => 'Accepted files: PDF or DOCX. Upload up to 5 files, maximum '.app(SystemSettingService::class)->uploadSizeLimitMb().' MB each.')
                     ->columnSpan('full')
                     ->required(),
                             ])

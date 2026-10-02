@@ -7,6 +7,7 @@ use App\Models\Document;
 use App\Notifications\CalendarEventReminder;
 use App\Services\AdminDocumentNotificationService;
 use App\Services\InAppNotificationService;
+use App\Services\SystemSettingService;
 use App\Support\RoleSecurity;
 use App\Models\User;
 use Carbon\Carbon;
@@ -20,6 +21,12 @@ class SendCalendarReminders extends Command
 
     public function handle(AdminDocumentNotificationService $notifications): int
     {
+        if (! app(SystemSettingService::class)->reminderNotificationsEnabled()) {
+            $this->info('Reminder notifications are disabled in System Settings.');
+
+            return self::SUCCESS;
+        }
+
         $now = now();
 
         $events = Calendar::with('user')

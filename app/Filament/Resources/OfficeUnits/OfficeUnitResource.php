@@ -6,6 +6,7 @@ use App\Filament\Clusters\SettingsCluster;
 use App\Filament\Resources\OfficeUnits\Pages\CreateOfficeUnit;
 use App\Filament\Resources\OfficeUnits\Pages\ListOfficeUnits;
 use App\Models\OfficeUnit;
+use App\Support\RoleSecurity;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -22,6 +23,11 @@ class OfficeUnitResource extends Resource
     protected static string|\BackedEnum|null $navigationIcon = Heroicon::OutlinedBuildingOffice;
 
     protected static ?string $navigationLabel = 'Office Units';
+
+    public static function canAccess(): bool
+    {
+        return auth()->user()?->hasRole(RoleSecurity::SUPER_ADMIN) ?? false;
+    }
 
     protected static ?int $navigationSort = 3;
 

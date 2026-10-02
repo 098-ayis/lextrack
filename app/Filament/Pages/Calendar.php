@@ -18,6 +18,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Url;
 use Filament\Support\Enums\Alignment;
+use App\Support\RoleSecurity;
 use UnitEnum;
 // use BezhanSalleh\FilamentShield\Traits\HasPageShield;
 
@@ -37,6 +38,11 @@ class Calendar extends Page
     protected static ?string $title = 'Calendar';
 
     protected string $view = 'filament.pages.calendar';
+
+    public static function canAccess(): bool
+    {
+        return auth()->user()?->hasRole(RoleSecurity::LEGAL_STAFF) ?? false;
+    }
 
     public int $year;
 
