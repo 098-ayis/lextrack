@@ -57,7 +57,8 @@ class DocumentExportController extends Controller
                 ->when($dateFilter !== '', function ($query) use ($dateFilter): void {
                     $query->whereDate('created_at', $dateFilter);
                 })
-                ->latest('created_at')
+                ->latest('updated_at')
+                ->latest('document_id')
                 ->get();
 
             $sectionLabel = ucfirst($section);

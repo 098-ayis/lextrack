@@ -301,6 +301,16 @@
                 font-size: 0.75rem;
             }
 
+            .admin-documents-page .document-type-badge {
+                width: 8rem;
+                min-width: 8rem;
+            }
+
+            .admin-documents-page .action-type-badge {
+                width: 10rem;
+                min-width: 10rem;
+            }
+
             /* Distribute the rejected-table columns across the full panel. */
             @media (min-width: 64rem) {
                 .admin-documents-section-rejected .fi-ta-table {
@@ -434,6 +444,32 @@
 
             .dark .admin-documents-page .fi-ta-table tbody tr.fi-ta-group-header-row > td {
                 background-color: transparent !important;
+            }
+
+            /* Read documents stay white; unread/newly updated documents are
+             * lightly gray so staff can identify them at a glance. */
+            .admin-documents-page .fi-ta-table tbody tr:not(.document-unread) > td {
+                background-color: #ffffff !important;
+            }
+
+            .admin-documents-page .fi-ta-table tbody tr.document-unread > td {
+                background-color: #f5f6f8 !important;
+            }
+
+            .admin-documents-page .fi-ta-table tbody tr.document-unread:hover > td {
+                background-color: #f0f0ff !important;
+            }
+
+            .dark .admin-documents-page .fi-ta-table tbody tr:not(.document-unread) > td {
+                background-color: rgb(17 24 39) !important;
+            }
+
+            .dark .admin-documents-page .fi-ta-table tbody tr.document-unread > td {
+                background-color: #20252d !important;
+            }
+
+            .dark .admin-documents-page .fi-ta-table tbody tr.document-unread:hover > td {
+                background-color: #25253d !important;
             }
         </style>
 
