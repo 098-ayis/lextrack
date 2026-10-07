@@ -114,11 +114,26 @@ class ClientDocumentRequestLookupService
             default => 'document requests',
         };
     }
+    public function displayStatusLabelForChat(string $status): string
+    {
+        return $this->statusLabel($status);
+    }
+
 
     /** @return list<array{request_id: int, status: string, copy_type: ?string, purpose: ?string, purpose_details: ?string, requested_at: string}> */
-    public function authorizedChoices(User $user, int $limit = 10): array
+    public function authorizedChoices(User $user, int $limit = 10, ?string $status = null): array
     {
-        return $this->ownedRequests($user)
+        $allowedStatuses = ['pending', 'for_release', 'ready_for_pickup', 'completed', 'rejected'];
+        if ($status !== null && ! in_array($status, $allowedStatuses, true)) {
+            return [];
+        }
+
+        $query = $this->ownedRequests($user);
+        if ($status !== null) {
+            $query->where('status', $status);
+        }
+
+        return $query
             ->latest('date_of_request')
             ->latest('request_id')
             ->limit(max(1, min($limit, 10)))

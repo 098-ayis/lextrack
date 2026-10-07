@@ -301,6 +301,11 @@ class ChatIntentNormalizer
                 'record' => 'document',
                 'status' => $classification['status'] ?? null,
             ],
+            'request_status_filter' => [
+                'type' => 'status_filter',
+                'record' => 'request',
+                'status' => $classification['status'] ?? null,
+            ],
             'ambiguous_document', 'ambiguous_request', 'invalid_lao' => ['type' => 'ambiguous'],
             'document_selection', 'request_selection' => ['type' => 'selection', 'validated' => true],
             default => ['type' => 'none'],

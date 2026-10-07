@@ -975,6 +975,7 @@ class ClientDocumentLookupService
                 'sent_date',
                 'lao_number',
                 'created_at',
+                'updated_at',
             ]);
 
         if (! $document) {
@@ -995,9 +996,30 @@ class ClientDocumentLookupService
                     ? 'Hindi nakatala ang uri ng document.'
                     : 'The document type is not recorded.');
         } elseif ($topic === 'submission_date') {
+            $name = $this->documentDisplayName($document) ?: 'this document';
             $reply = $document->created_at?->format('F j, Y') !== null
-                ? 'Submitted on ' . $document->created_at->format('F j, Y') . '.'
-                : 'The submission date is not recorded.';
+                ? (in_array($language, ['filipino', 'taglish'], true)
+                    ? 'Isinumite mo ang ' . $name . ' noong ' . $document->created_at->format('F j, Y') . '.'
+                    : 'You submitted ' . $name . ' on ' . $document->created_at->format('F j, Y') . '.')
+                : (in_array($language, ['filipino', 'taglish'], true)
+                    ? 'Walang nakatalang submission date para sa document na ito.'
+                    : 'The submission date is not recorded.');
+        } elseif ($topic === 'lao_number') {
+            $reply = filled($document->lao_number)
+                ? 'LAO number: ' . $document->lao_number . '.'
+                : (in_array($language, ['filipino', 'taglish'], true)
+                    ? 'Wala pang assigned LAO number ang document na ito.'
+                    : 'This document does not have an assigned LAO number yet.');
+        } elseif ($topic === 'updates') {
+            $activity = $this->latestVerifiedActivity(
+                $document,
+                in_array($language, ['filipino', 'taglish'], true),
+            );
+            $updated = $document->updated_at?->format('F j, Y g:i A') ?? 'date unavailable';
+            $statusLabel = $this->statusLabel($status);
+            $reply = in_array($language, ['filipino', 'taglish'], true)
+                ? "{$this->filipinoDocumentLabel($this->documentDisplayName($document), filled($document->lao_number) ? (string) $document->lao_number : null)} ay {$statusLabel}.\nPinakabagong verified activity: {$activity}\nNa-update: {$updated}."
+                : "{$label} is {$statusLabel}.\nLatest verified activity: {$activity}\nUpdated: {$updated}.";
         } elseif ($topic === 'action_type') {
             $statusLabel = $this->statusLabel($status);
             $reply = $status !== 'in_progress'
@@ -1011,7 +1033,7 @@ class ClientDocumentLookupService
                 (int) $document->document_id,
                 $status,
                 filled($document->lao_number) ? (string) $document->lao_number : null,
-                $label,
+                $this->documentDisplayName($document),
                 null,
                 $language,
             );

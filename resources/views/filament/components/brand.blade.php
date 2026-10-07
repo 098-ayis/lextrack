@@ -14,7 +14,7 @@
 
         <div class="lextrack-brand-subtitle">
             <span class="lextrack-brand-b">B</span><span class="lextrack-brand-u">U</span>
-            <span class="lextrack-brand-office">{{ $systemSettings->officeInformation() }}</span>
+            <span class="lextrack-brand-office">Legal Affairs Office</span>
         </div>
     </div>
 </div>
