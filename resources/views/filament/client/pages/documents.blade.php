@@ -264,6 +264,26 @@
             font-size: 0.75rem;
         }
 
+        /* Keep every rendered table value on the same 12px scale, including
+         * custom column views and action links that add their own utilities. */
+        .client-documents-page .fi-ta-table :where(th, td, th *, td *) {
+            font-size: 0.75rem !important;
+        }
+
+        .client-documents-page .document-type-badge {
+            width: 8rem;
+            min-width: 8rem;
+            border: 1px solid color-mix(in srgb, var(--badge-color) 18%, transparent);
+            background-color: color-mix(in srgb, var(--badge-color) 14%, white);
+            color: var(--badge-color);
+        }
+
+        .dark .client-documents-page .document-type-badge {
+            border-color: color-mix(in srgb, var(--badge-color) 42%, #4b5563) !important;
+            background-color: color-mix(in srgb, var(--badge-color) 24%, #111827) !important;
+            color: color-mix(in srgb, var(--badge-color) 55%, white) !important;
+        }
+
         .client-documents-page .fi-ta-table th,
         .client-documents-page .fi-ta-table td {
             padding-left: 0.75rem;
