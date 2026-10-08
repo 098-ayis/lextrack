@@ -133,6 +133,16 @@
             class="documents-table-container"
             x-data
             x-init="$nextTick(() => { const row = $el.querySelector('.document-highlighted'); if (row) row.scrollIntoView({ behavior: 'smooth', block: 'center' }); })"
+            x-on:click="
+                const row = $event.target.closest('tbody > tr:not(.fi-ta-group-header-row)');
+                if (!row || !$el.contains(row)) return;
+                if ($event.target.closest('a, button, input, select, textarea, [role=\'button\'], [contenteditable=\'true\'], .fi-ta-actions')) return;
+
+                const documentLink = row.querySelector('.fi-ta-cell-document-details a[href]')
+                    || row.querySelector('a[href]');
+
+                if (documentLink) documentLink.click();
+            "
         >
             {{ $this->table }}
         </div>
@@ -301,34 +311,157 @@
                 font-size: 0.75rem;
             }
 
+            /* Keep the page controls and every piece of table text on one
+             * shared 12px scale. Some Filament columns and custom cell views
+             * add their own text-size
+             * utility classes, so normalize the rendered table descendants
+             * here without changing their existing weights or colors. */
+            .admin-documents-page :where(button, button *, a, a *, input, select, option) {
+                font-size: 0.75rem !important;
+            }
+
+            .admin-documents-page .fi-ta-table :where(th, td, th *, td *) {
+                font-size: 0.75rem !important;
+            }
+
             .admin-documents-page .document-type-badge {
                 width: 8rem;
                 min-width: 8rem;
+                background-color: color-mix(in srgb, var(--badge-color) 14%, white);
+                color: var(--badge-color);
+                border: 1px solid color-mix(in srgb, var(--badge-color) 18%, transparent);
+            }
+
+            .dark .admin-documents-page .document-type-badge {
+                background-color: color-mix(in srgb, var(--badge-color) 24%, #111827) !important;
+                color: color-mix(in srgb, var(--badge-color) 55%, white) !important;
+                border-color: color-mix(in srgb, var(--badge-color) 42%, #4b5563) !important;
             }
 
             .admin-documents-page .action-type-badge {
                 width: 10rem;
                 min-width: 10rem;
+                background-color: color-mix(in srgb, var(--badge-color) 14%, white);
+                color: var(--badge-color);
+                border: 1px solid color-mix(in srgb, var(--badge-color) 18%, transparent);
             }
 
-            /* Distribute the rejected-table columns across the full panel. */
+            .dark .admin-documents-page .action-type-badge {
+                background-color: color-mix(in srgb, var(--badge-color) 24%, #111827) !important;
+                color: color-mix(in srgb, var(--badge-color) 55%, white) !important;
+                border-color: color-mix(in srgb, var(--badge-color) 42%, #4b5563) !important;
+            }
+
+            /* Keep the shared headers anchored while tab-specific columns
+             * use the remaining space. */
             @media (min-width: 64rem) {
-                .admin-documents-section-rejected .fi-ta-table {
+                .admin-documents-page .fi-ta-table {
                     width: 100%;
                     min-width: 0;
                     table-layout: fixed;
                 }
 
-                .admin-documents-section-rejected .fi-ta-table .fi-ta-header-cell-document-details,
-                .admin-documents-section-rejected .fi-ta-table .fi-ta-cell-document-details,
-                .admin-documents-section-rejected .fi-ta-table .fi-ta-header-cell-document-type,
-                .admin-documents-section-rejected .fi-ta-table .fi-ta-cell-document-type,
+                .admin-documents-page .fi-ta-table .fi-ta-header-cell-document-details,
+                .admin-documents-page .fi-ta-table .fi-ta-cell-document-details {
+                    width: 18% !important;
+                    min-width: 0 !important;
+                }
+
+                .admin-documents-page .fi-ta-table .fi-ta-header-cell-document-type,
+                .admin-documents-page .fi-ta-table .fi-ta-cell-document-type {
+                    width: 10% !important;
+                    min-width: 0 !important;
+                }
+
+                .admin-documents-page .fi-ta-table .fi-ta-header-cell-created-at,
+                .admin-documents-page .fi-ta-table .fi-ta-cell-created-at {
+                    width: 16% !important;
+                    min-width: 0 !important;
+                }
+
+                .admin-documents-page .fi-ta-table > thead > tr:last-child > th:last-child,
+                .admin-documents-page .fi-ta-table > tbody > tr:not(.fi-ta-group-header-row) > td:last-child {
+                    width: 12% !important;
+                    min-width: 12rem !important;
+                }
+
+                .admin-documents-page .fi-ta-table .fi-ta-header-cell-description,
+                .admin-documents-page .fi-ta-table .fi-ta-cell-description,
+                .admin-documents-page .fi-ta-table .fi-ta-header-cell-transmittal,
+                .admin-documents-page .fi-ta-table .fi-ta-cell-transmittal,
+                .admin-documents-page .fi-ta-table .fi-ta-header-cell-uploaded-by,
+                .admin-documents-page .fi-ta-table .fi-ta-cell-uploaded-by,
+                .admin-documents-page .fi-ta-table .fi-ta-header-cell-subjects,
+                .admin-documents-page .fi-ta-table .fi-ta-cell-subjects,
+                .admin-documents-page .fi-ta-table .fi-ta-header-cell-action-type,
+                .admin-documents-page .fi-ta-table .fi-ta-cell-action-type,
+                .admin-documents-page .fi-ta-table .fi-ta-header-cell-deadline-details,
+                .admin-documents-page .fi-ta-table .fi-ta-cell-deadline-details,
+                .admin-documents-page .fi-ta-table .fi-ta-header-cell-outgoing-date,
+                .admin-documents-page .fi-ta-table .fi-ta-cell-outgoing-date,
+                .admin-documents-page .fi-ta-table .fi-ta-header-cell-sent-details,
+                .admin-documents-page .fi-ta-table .fi-ta-cell-sent-details,
+                .admin-documents-page .fi-ta-table .fi-ta-header-cell-returned-details,
+                .admin-documents-page .fi-ta-table .fi-ta-cell-returned-details,
+                .admin-documents-page .fi-ta-table .fi-ta-header-cell-updated-at,
+                .admin-documents-page .fi-ta-table .fi-ta-cell-updated-at,
+                .admin-documents-page .fi-ta-table .fi-ta-header-cell-rejection-reason,
+                .admin-documents-page .fi-ta-table .fi-ta-cell-rejection-reason,
+                .admin-documents-page .fi-ta-table .fi-ta-header-cell-archived-at,
+                .admin-documents-page .fi-ta-table .fi-ta-cell-archived-at {
+                    min-width: 0 !important;
+                }
+
+                .admin-documents-section-pending .fi-ta-table .fi-ta-header-cell-description,
+                .admin-documents-section-pending .fi-ta-table .fi-ta-cell-description,
+                .admin-documents-section-pending .fi-ta-table .fi-ta-header-cell-transmittal,
+                .admin-documents-section-pending .fi-ta-table .fi-ta-cell-transmittal,
+                .admin-documents-section-pending .fi-ta-table .fi-ta-header-cell-uploaded-by,
+                .admin-documents-section-pending .fi-ta-table .fi-ta-cell-uploaded-by,
+                .admin-documents-section-outgoing .fi-ta-table .fi-ta-header-cell-outgoing-date,
+                .admin-documents-section-outgoing .fi-ta-table .fi-ta-cell-outgoing-date,
+                .admin-documents-section-outgoing .fi-ta-table .fi-ta-header-cell-sent-details,
+                .admin-documents-section-outgoing .fi-ta-table .fi-ta-cell-sent-details,
+                .admin-documents-section-outgoing .fi-ta-table .fi-ta-header-cell-returned-details,
+                .admin-documents-section-outgoing .fi-ta-table .fi-ta-cell-returned-details {
+                    width: 14.6667% !important;
+                }
+
+                .admin-documents-section-incoming .fi-ta-table .fi-ta-header-cell-action-type,
+                .admin-documents-section-incoming .fi-ta-table .fi-ta-cell-action-type,
+                .admin-documents-section-incoming .fi-ta-table .fi-ta-header-cell-deadline-details,
+                .admin-documents-section-incoming .fi-ta-table .fi-ta-cell-deadline-details {
+                    width: 11.3333% !important;
+                }
+
+                .admin-documents-section-completed .fi-ta-table .fi-ta-header-cell-updated-at,
+                .admin-documents-section-completed .fi-ta-table .fi-ta-cell-updated-at,
                 .admin-documents-section-rejected .fi-ta-table .fi-ta-header-cell-rejection-reason,
                 .admin-documents-section-rejected .fi-ta-table .fi-ta-cell-rejection-reason,
-                .admin-documents-section-rejected .fi-ta-table > thead > tr:last-child > th:last-child,
-                .admin-documents-section-rejected .fi-ta-table > tbody > tr:not(.fi-ta-group-header-row) > td:last-child {
-                    width: 25% !important;
-                    min-width: 0 !important;
+                .admin-documents-section-archived .fi-ta-table .fi-ta-header-cell-archived-at,
+                .admin-documents-section-archived .fi-ta-table .fi-ta-cell-archived-at {
+                    width: 44% !important;
+                }
+
+                .admin-documents-section-completed .fi-ta-table .fi-ta-header-cell-updated-at,
+                .admin-documents-section-completed .fi-ta-table .fi-ta-cell-updated-at {
+                    text-align: left;
+                }
+
+                .admin-documents-section-completed .fi-ta-table .fi-ta-header-cell-updated-at > div,
+                .admin-documents-section-completed .fi-ta-table .fi-ta-cell-updated-at > .fi-ta-col {
+                    justify-content: flex-start;
+                    text-align: left;
+                }
+
+                .admin-documents-section-incoming .fi-ta-table .fi-ta-header-cell-document-type,
+                .admin-documents-section-incoming .fi-ta-table .fi-ta-cell-document-type {
+                    width: 10% !important;
+                }
+
+                .admin-documents-section-incoming .fi-ta-table .fi-ta-header-cell-subjects,
+                .admin-documents-section-incoming .fi-ta-table .fi-ta-cell-subjects {
+                    width: 21.3333% !important;
                 }
 
             }
@@ -353,6 +486,9 @@
             .admin-documents-page .rejection-reason-cell > .fi-ta-col {
                 justify-content: flex-start;
                 text-align: left;
+                min-width: 0;
+                overflow-wrap: anywhere;
+                white-space: normal;
             }
 
             .admin-documents-page .outgoing-date-cell .fi-ta-placeholder {
@@ -386,6 +522,7 @@
             }
 
             .admin-documents-page .fi-ta-table tbody tr:not(.fi-ta-group-header-row) {
+                cursor: pointer;
                 transition: background-color 150ms ease-in-out;
             }
 
@@ -446,18 +583,27 @@
                 background-color: transparent !important;
             }
 
-            /* Read documents stay white; unread/newly updated documents are
-             * lightly gray so staff can identify them at a glance. */
+            /* Gmail-style document state: unopened rows use the same shade as
+             * a selected conversation and bold their contents. */
             .admin-documents-page .fi-ta-table tbody tr:not(.document-unread) > td {
                 background-color: #ffffff !important;
             }
 
             .admin-documents-page .fi-ta-table tbody tr.document-unread > td {
-                background-color: #f5f6f8 !important;
+                background-color: #f0f1ff !important;
             }
 
             .admin-documents-page .fi-ta-table tbody tr.document-unread:hover > td {
-                background-color: #f0f0ff !important;
+                background-color: #f0f1ff !important;
+            }
+
+            .admin-documents-page .fi-ta-table tbody tr.document-unread > td:first-child {
+                border-left: 3px solid #6366f1;
+            }
+
+            .admin-documents-page .fi-ta-table tbody tr.document-unread > td,
+            .admin-documents-page .fi-ta-table tbody tr.document-unread > td * {
+                font-weight: 700 !important;
             }
 
             .dark .admin-documents-page .fi-ta-table tbody tr:not(.document-unread) > td {
@@ -465,7 +611,7 @@
             }
 
             .dark .admin-documents-page .fi-ta-table tbody tr.document-unread > td {
-                background-color: #20252d !important;
+                background-color: #25253d !important;
             }
 
             .dark .admin-documents-page .fi-ta-table tbody tr.document-unread:hover > td {

@@ -275,8 +275,8 @@
 }
 
 .fi-no-database .fi-no-notification-unread-ctn::before {
-    background: #cbd5e1;
-    width: 2px;
+    background: #6366f1;
+    width: 3px;
 }
 
 .fi-no-database .fi-no-notification {
@@ -406,19 +406,47 @@
 }
 
 .fi-no-database .fi-no-notifications > [role='listitem'].fi-no-notification-unread-ctn {
-    background-color: #f5f6f8;
+    background-color: #f0f1ff;
 }
 
-.fi-no-database .fi-no-notification-unread-ctn .fi-no-notification-title {
+/* Keep the inner notification surface aligned with the admin Documents table.
+ * Filament's status-color surface otherwise paints over the read/unread row. */
+.fi-no-database .fi-no-notification-read-ctn > .fi-no-notification {
+    background-color: #ffffff !important;
+}
+
+.fi-no-database .fi-no-notification-unread-ctn > .fi-no-notification {
+    background-color: #f0f1ff !important;
+}
+
+.fi-no-database .fi-no-notification-read-ctn .fi-no-notification-title,
+.fi-no-database .fi-no-notification-read-ctn .fi-no-notification-body,
+.fi-no-database .fi-no-notification-read-ctn .fi-no-notification-date {
+    font-weight: 400 !important;
+}
+
+.fi-no-database .fi-no-notification-unread-ctn .fi-no-notification-title,
+.fi-no-database .fi-no-notification-unread-ctn .fi-no-notification-body,
+.fi-no-database .fi-no-notification-unread-ctn .fi-no-notification-date {
     color: #111827;
     font-weight: 700;
 }
 
 .dark .fi-no-database .fi-no-notifications > [role='listitem'].fi-no-notification-unread-ctn {
-    background-color: #20252d;
+    background-color: #1e1b4b;
 }
 
-.dark .fi-no-database .fi-no-notification-unread-ctn .fi-no-notification-title {
+.dark .fi-no-database .fi-no-notification-read-ctn > .fi-no-notification {
+    background-color: #111827 !important;
+}
+
+.dark .fi-no-database .fi-no-notification-unread-ctn > .fi-no-notification {
+    background-color: #1e1b4b !important;
+}
+
+.dark .fi-no-database .fi-no-notification-unread-ctn .fi-no-notification-title,
+.dark .fi-no-database .fi-no-notification-unread-ctn .fi-no-notification-body,
+.dark .fi-no-database .fi-no-notification-unread-ctn .fi-no-notification-date {
     color: #f3f4f6;
 }
 

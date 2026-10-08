@@ -578,7 +578,7 @@ class Document extends Page implements HasTable
             ViewColumn::make('document_type')
                 ->label('DOCUMENT TYPE')
                 ->view('filament.tables.columns.document-type')
-                ->alignLeft()
+                ->alignCenter()
                 ->width('9rem')
                 ->extraHeaderAttributes(['class' => 'min-w-[140px]']);
 
@@ -634,11 +634,15 @@ class Document extends Page implements HasTable
                 ->view('filament.tables.columns.returned-details')
                 ->alignCenter();
         } elseif ($this->activeSection === 'completed') {
+            // Keep Last Update directly beside Upload Date, matching the
+            // wide, left-aligned detail column used for rejection reasons.
             $columns[] = TextColumn::make('updated_at')
                 ->label('LAST UPDATE')
                 ->date('F d, Y')
                 ->placeholder('Unknown date')
-                ->alignCenter();
+                ->alignLeft()
+                ->extraHeaderAttributes(['class' => 'min-w-[180px]'])
+                ->extraCellAttributes(['class' => 'completed-last-update-cell']);
         } elseif ($this->activeSection === 'rejected') {
             $columns[] = TextColumn::make('rejection_reason')
                 ->label('REJECTION REASON')

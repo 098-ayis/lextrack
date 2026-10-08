@@ -131,10 +131,19 @@
         border-left: 3px solid #6366f1;
     }
 
-    .msg-item.unread .m-preview,
-    .msg-item.unread .m-name {
-        font-weight: 700;
+    .msg-item.unread .m-sub {
+        font-weight: 700 !important;
+    }
+
+    .msg-item.unread .m-name > .unread-particulars,
+    .msg-item.unread .m-preview-text {
+        font-weight: 700 !important;
         color: #111827;
+    }
+
+    .msg-item:not(.unread) .m-name > .read-particulars {
+        font-weight: 600 !important;
+        color: #4b5563;
     }
 
 
@@ -221,6 +230,14 @@
         flex-shrink: 0;
     }
 
+    .m-meta {
+        display: inline-flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 6px;
+        flex-shrink: 0;
+    }
+
     .m-sub {
         font-size: 11px;
         color: #6366f1;
@@ -229,9 +246,17 @@
     }
 
     .m-preview {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
         font-size: 12px;
         color: #6b7280;
+        min-width: 0;
+    }
 
+    .m-preview-text {
+        min-width: 0;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -408,7 +433,7 @@
         width: fit-content;
         max-width: 70%;
 
-        margin: 0;
+        margin: 0 0 8px;
     }
 
     .t-msg-row:hover,
@@ -417,7 +442,7 @@
     }
 
     .t-msg-row.message-continuation {
-        margin-top: -8px;
+        margin-top: 0;
     }
 
     /* Messages from anyone else = LEFT */
@@ -488,6 +513,17 @@
         flex-direction: column;
 
         position: relative;
+
+        width: fit-content;
+        max-width: 100%;
+        min-width: 0;
+    }
+
+    .t-message-body {
+        position: relative;
+
+        display: flex;
+        flex-direction: column;
 
         width: fit-content;
         max-width: 100%;
@@ -1173,17 +1209,46 @@
 
 
     /* =========================
-       MESSAGE TIME
+       MESSAGE TIME SEPARATOR
     ========================== */
 
-    .t-time {
-        font-size: 10.5px;
+    .message-time-separator {
+        width: 100%;
+        padding: 10px 16px 8px;
         color: #6b7280;
-        margin-top: 4px;
+        font-size: 12px;
+        font-weight: 500;
+        text-align: center;
     }
 
-    .t-msg-row.own .t-time {
+    .t-hover-time {
+        position: absolute;
+        top: calc(100% + 4px);
+        z-index: 10;
+
+        color: #6b7280;
+        font-size: 11px;
+        line-height: 1.3;
+        white-space: nowrap;
+
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.15s ease;
+    }
+
+    .t-msg-row.incoming .t-hover-time {
+        left: 0;
+        text-align: left;
+    }
+
+    .t-msg-row.own .t-hover-time {
+        right: 0;
         text-align: right;
+    }
+
+    .t-msg-row:hover .t-hover-time,
+    .t-msg-row:focus-within .t-hover-time {
+        opacity: 1;
     }
 
 
@@ -1562,7 +1627,8 @@
     .dark .m-time,
     .dark .m-preview,
     .dark .t-sub,
-    .dark .t-time,
+    .dark .message-time-separator,
+    .dark .t-hover-time,
     .dark .empty-thread {
         color: #9ca3af;
     }
@@ -1581,8 +1647,14 @@
     }
 
     .dark .msg-item.unread .m-name,
-    .dark .msg-item.unread .m-preview {
+    .dark .msg-item.unread .m-preview,
+    .dark .msg-item.unread .m-name > .unread-particulars,
+    .dark .msg-item.unread .m-preview-text {
         color: #f9fafb;
+    }
+
+    .dark .msg-item:not(.unread) .m-name > .read-particulars {
+        color: #d1d5db;
     }
 
     .dark .m-sub {
@@ -1902,6 +1974,17 @@
                         ->sortBy('created_at')
                         ->last();
 
+                    $messageTimeLabel = '';
+                    if ($latestMessage?->created_at) {
+                        $messageAgeInMinutes = (int) floor($latestMessage->created_at->diffInSeconds(now()) / 60);
+                        $messageTimeLabel = match (true) {
+                            $messageAgeInMinutes < 1 => 'Now',
+                            $messageAgeInMinutes < 60 => $messageAgeInMinutes . ($messageAgeInMinutes === 1 ? ' min' : ' mins'),
+                            $messageAgeInMinutes < 1440 => (int) floor($messageAgeInMinutes / 60) . 'h',
+                            default => $latestMessage->created_at->format('M d'),
+                        };
+                    }
+
                     $latestIsRevisionRequest = $latestMessage && (
                         $latestMessage->body === 'revision_request'
                         || str_contains(
@@ -1946,14 +2029,6 @@
                     wire:click="selectConversation({{ $conversation->id }})"
                 >
 
-                @if ($conversation->unread_messages_count > 0)
-
-                    <span class="unread-count">
-                        {{ $conversation->unread_messages_count }}
-                    </span>
-
-                @endif
-
                     <div class="m-avatar">
 
                            <div class="m-avatar-icon">
@@ -1990,26 +2065,21 @@
 
                         <div class="m-name">
 
-                            <span>
+                            <span class="{{ $conversation->unread_messages_count > 0 ? 'unread-particulars' : 'read-particulars' }}">
                                 {{ $documentTitle }}
                             </span>
 
-                            <span class="m-time">
-
-                                @if ($latestMessage)
-
-                                    {{ $latestMessage
-                                        ->created_at
-                                        ->format('M d') }}
-
-                                @endif
-
-                            </span>
+                            @if ($conversation->unread_messages_count > 0)
+                                <span class="unread-count">
+                                    {{ $conversation->unread_messages_count }}
+                                </span>
+                            @endif
 
                         </div>
 
 
                         <div class="m-preview">
+                            <span class="m-preview-text">
 
                             @if ($latestMessage)
 
@@ -2036,6 +2106,12 @@
                                 No messages yet
 
                             @endif
+
+                            </span>
+
+                            <span class="m-meta">
+                                <span class="m-time">{{ $messageTimeLabel }}</span>
+                            </span>
 
                         </div>
 
@@ -2345,14 +2421,52 @@
                         $previousMessage = $messages->get($loop->index - 1);
                         $nextMessage = $messages->get($loop->index + 1);
 
+                        $messageGapInMinutes = $previousMessage
+                            ? (int) floor(
+                                $previousMessage->created_at->diffInSeconds($message->created_at) / 60
+                            )
+                            : null;
+
+                        $showMessageTime = ! $previousMessage
+                            || ($messageGapInMinutes ?? 0) >= 15
+                            || ! $message->created_at->isSameDay($previousMessage->created_at);
+
+                        $messageTimeLabel = $message->created_at->isToday()
+                            ? $message->created_at->format('g:i A')
+                            : ($message->created_at->isYesterday()
+                                ? 'Yesterday ' . $message->created_at->format('g:i A')
+                                : $message->created_at->format('D g:i A'));
+
+                        $currentWeekStart = now()->startOfWeek();
+                        $currentWeekEnd = now()->endOfWeek();
+                        $hoverMessageTimeLabel = $message->created_at->betweenIncluded(
+                            $currentWeekStart,
+                            $currentWeekEnd
+                        )
+                            ? $message->created_at->format('l g:i A')
+                            : $message->created_at->format('M d, Y, g:i A');
+
                         $isSameSenderAsPrevious = $previousMessage
                             && (int) $previousMessage->sender_id === (int) $message->sender_id;
 
                         $isSameSenderAsNext = $nextMessage
                             && (int) $nextMessage->sender_id === (int) $message->sender_id;
 
-                        $showSenderName = ! $isSameSenderAsPrevious;
-                        $showSenderProfile = ! $isSameSenderAsNext;
+                        $nextMessageGapInMinutes = $nextMessage
+                            ? (int) floor(
+                                $message->created_at->diffInSeconds($nextMessage->created_at) / 60
+                            )
+                            : null;
+
+                        $nextMessageStartsNewTimeGroup = $nextMessage
+                            && (
+                                ($nextMessageGapInMinutes ?? 0) >= 15
+                                || ! $nextMessage->created_at->isSameDay($message->created_at)
+                            );
+
+                        $showSenderProfile = ! $nextMessage
+                            || ! $isSameSenderAsNext
+                            || $nextMessageStartsNewTimeGroup;
 
                         $senderName = $sender?->historical_display_name ?? 'Unknown User';
 
@@ -2371,6 +2485,12 @@
                             ->take(2)
                             ->join('');
                     @endphp
+
+                    @if ($showMessageTime)
+                        <div class="message-time-separator">
+                            {{ $messageTimeLabel }}
+                        </div>
+                    @endif
 
                     <div
                         class="
@@ -2408,11 +2528,11 @@
 
                         <div class="t-message-content">
 
-                            @if ($showSenderName)
-                                <div class="t-sender-name">
-                                    {{ $senderName }}
-                                </div>
-                            @endif
+                            <div class="t-sender-name">
+                                {{ $senderName }}
+                            </div>
+
+                            <div class="t-message-body">
 
                             @php
                                 $isRevisionRequest =
@@ -2685,8 +2805,10 @@
                                 </div>
                             </div>
 
-                            <div class="t-time">
-                                {{ $message->created_at->format('M d, g:i A') }}
+                            <div class="t-hover-time">
+                                {{ $hoverMessageTimeLabel }}
+                            </div>
+
                             </div>
 
                         </div>

@@ -567,14 +567,6 @@
             transition: background-color 150ms ease-in-out;
         }
 
-        .client-documents-page .fi-ta-table tbody tr:first-child.latest-document-unviewed > td {
-            background-color: rgb(243 244 246) !important;
-        }
-
-        .client-documents-page .fi-ta-table tbody tr:first-child.latest-document-unviewed:hover > td {
-            background-color: rgb(229 231 235) !important;
-        }
-
         .client-documents-page .fi-ta-table tbody tr:hover {
             background-color: rgb(239 246 255);
         }
@@ -740,13 +732,42 @@
                 background: #1f2937;
             }
 
-            .dark .client-documents-page .fi-ta-table tbody tr:first-child.latest-document-unviewed > td {
-                background-color: rgb(55 65 81) !important;
-            }
+        }
 
-            .dark .client-documents-page .fi-ta-table tbody tr:first-child.latest-document-unviewed:hover > td {
-                background-color: rgb(75 85 99) !important;
-            }
+        /* Gmail-style document state: unopened rows use the same selected
+         * conversation shade as the Messages page and bold their contents.
+         * Once opened, rows return to the normal white/current typography. */
+        .client-documents-page .fi-ta-table tbody tr:not(.latest-document-unviewed) > td {
+            background-color: #ffffff !important;
+        }
+
+        .client-documents-page .fi-ta-table tbody tr.latest-document-unviewed > td {
+            background-color: #f0f1ff !important;
+        }
+
+        .client-documents-page .fi-ta-table tbody tr.latest-document-unviewed:hover > td {
+            background-color: #f0f1ff !important;
+        }
+
+        .client-documents-page .fi-ta-table tbody tr.latest-document-unviewed > td:first-child {
+            border-left: 3px solid #6366f1;
+        }
+
+        .client-documents-page .fi-ta-table tbody tr.latest-document-unviewed > td,
+        .client-documents-page .fi-ta-table tbody tr.latest-document-unviewed > td * {
+            font-weight: 700 !important;
+        }
+
+        .dark .client-documents-page .fi-ta-table tbody tr:not(.latest-document-unviewed) > td {
+            background-color: #1f2937 !important;
+        }
+
+        .dark .client-documents-page .fi-ta-table tbody tr.latest-document-unviewed > td {
+            background-color: #25253d !important;
+        }
+
+        .dark .client-documents-page .fi-ta-table tbody tr.latest-document-unviewed:hover > td {
+            background-color: #25253d !important;
         }
     </style>
 

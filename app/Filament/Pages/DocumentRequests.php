@@ -29,10 +29,8 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\ViewColumn;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
-use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
 use Filament\Support\Enums\Width;
-use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\Mailer\Exception\TransportExceptionInterface;
@@ -106,7 +104,29 @@ class DocumentRequests extends Page implements HasTable
             true
         ) ? $section : 'pending';
 
+        $this->markRequestSectionAsViewed($this->activeSection);
         $this->latestRequestMarker = $this->getLatestRequestMarker();
+    }
+
+    protected function markRequestSectionAsViewed(string $section): void
+    {
+        session()->put(
+            "admin.document_requests.sections.{$section}.viewed_at",
+            now()->toIso8601String()
+        );
+    }
+
+    protected function requestHasUnviewedUpdate(DocumentRequest $request): bool
+    {
+        if (! $request->created_at) {
+            return false;
+        }
+
+        $viewedAt = session(
+            "admin.document_requests.sections.{$this->activeSection}.viewed_at"
+        );
+
+        return ! $viewedAt || $request->created_at->gt(\Carbon\Carbon::parse($viewedAt));
     }
 
     public function getMaxContentWidth(): Width
@@ -226,22 +246,12 @@ class DocumentRequests extends Page implements HasTable
             ->columns($this->getDocumentRequestTableColumns())
             ->recordActions($this->getDocumentRequestTableActions())
             ->recordActionsColumnLabel('ACTION')
-            ->recordActionsAlignment('end')
-            ->groups([
-                Group::make('date_of_request')
-                    ->date()
-                    ->label('Requested')
-                    ->titlePrefixedWithLabel(false)
-                    ->getTitleFromRecordUsing(
-                        fn (DocumentRequest $record): Htmlable =>
-                            new \Illuminate\Support\HtmlString(
-                                'Requested ' . $record->date_of_request->format('F d, Y')
-                            )
-                    ),
-            ])
-            ->defaultGroup('date_of_request')
-            ->groupingSettingsHidden()
             ->recordActionsAlignment('center')
+            ->recordClasses(
+                fn (DocumentRequest $record): string => $this->requestHasUnviewedUpdate($record)
+                    ? 'latest-request-unread'
+                    : ''
+            )
             ->defaultSort('date_of_request', 'desc')
             ->paginationPageOptions([10, 25, 50])
             ->defaultPaginationPageOption(10)
@@ -412,6 +422,7 @@ class DocumentRequests extends Page implements HasTable
         }
 
         $this->activeSection = $section;
+        $this->markRequestSectionAsViewed($section);
         $this->resetTable();
     }
 
@@ -535,7 +546,7 @@ class DocumentRequests extends Page implements HasTable
     {
         return Action::make('markClaimed')->label('Mark as Claimed')->color('success')->button()->requiresConfirmation()
             ->size('sm')
-            ->extraAttributes(['class' => 'w-[130px] !h-9 !min-h-9 justify-center rounded-md', 'style' => 'width: 130px; min-width: 130px; height: 36px; min-height: 36px; padding-left: 16px; padding-right: 16px; border-radius: 6px; box-sizing: border-box;'])
+            ->extraAttributes(['class' => 'w-[130px] !h-9 !min-h-9 justify-center rounded-md border !border-green-300 !bg-green-100 !text-green-800 transition hover:!bg-green-200 dark:!border-green-700 dark:!bg-green-900/30 dark:!text-green-300 dark:hover:!bg-green-900/50', 'style' => 'width: 130px; min-width: 130px; height: 36px; min-height: 36px; padding-left: 16px; padding-right: 16px; border-radius: 6px; box-sizing: border-box;'])
             ->visible(fn (DocumentRequest $record): bool => $record->copy_type === 'original')
             ->action(fn (DocumentRequest $record) => $this->markClaimed($record->request_id));
     }
@@ -566,7 +577,7 @@ class DocumentRequests extends Page implements HasTable
     {
         return Action::make('replaceFile')->label('Replace File')->color('warning')->button()
             ->size('sm')
-            ->extraAttributes(['class' => 'w-[80px] !h-9 !min-h-9 justify-center rounded-md', 'style' => 'width: 80px; min-width: 80px; height: 36px; min-height: 36px; padding-left: 16px; padding-right: 16px; border-radius: 6px; box-sizing: border-box;'])
+            ->extraAttributes(['class' => 'w-[80px] !h-9 !min-h-9 justify-center rounded-md border !border-amber-300 !bg-amber-100 !text-amber-800 transition hover:!bg-amber-200 dark:!border-amber-700 dark:!bg-amber-900/30 dark:!text-amber-300 dark:hover:!bg-amber-900/50', 'style' => 'width: 80px; min-width: 80px; height: 36px; min-height: 36px; padding-left: 16px; padding-right: 16px; border-radius: 6px; box-sizing: border-box;'])
             ->visible(fn (DocumentRequest $record): bool => $record->copy_type === 'soft_copy')
             ->schema([FileUpload::make('file_path')->label('Replacement file')->multiple()->appendFiles()->panelLayout('compact')->disk('local')->directory('documents/requested')->preserveFilenames()->acceptedFileTypes(['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'])->maxSize(5120)->required()])
             ->action(fn (array $data, DocumentRequest $record) => $this->fulfillRequest($record->request_id, $data['file_path'] ?? null));
@@ -576,7 +587,7 @@ class DocumentRequests extends Page implements HasTable
     {
         return Action::make('restoreRequest')->label('Restore Request')->color('success')->button()->requiresConfirmation()
             ->size('sm')
-            ->extraAttributes(['class' => 'w-[130px] !h-9 !min-h-9 justify-center rounded-md', 'style' => 'width: 130px; min-width: 130px; height: 36px; min-height: 36px; padding-left: 16px; padding-right: 16px; border-radius: 6px; box-sizing: border-box;'])
+            ->extraAttributes(['class' => 'w-[130px] !h-9 !min-h-9 justify-center rounded-md border !border-indigo-300 !bg-indigo-100 !text-indigo-800 transition hover:!bg-indigo-200 dark:!border-indigo-700 dark:!bg-indigo-900/30 dark:!text-indigo-300 dark:hover:!bg-indigo-900/50', 'style' => 'width: 130px; min-width: 130px; height: 36px; min-height: 36px; padding-left: 16px; padding-right: 16px; border-radius: 6px; box-sizing: border-box;'])
             ->action(fn (DocumentRequest $record) => $this->restoreRequest($record->request_id));
     }
 

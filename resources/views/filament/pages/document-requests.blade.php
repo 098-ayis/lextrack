@@ -144,15 +144,16 @@
                 font-size: 0.75rem;
             }
 
+            /* Match the admin Documents table by keeping every rendered
+             * request-table text element on the same 12px scale. */
+            .admin-document-requests-page .fi-ta-table :where(th, td, th *, td *) {
+                font-size: 0.75rem !important;
+            }
+
             .admin-document-requests-page .fi-ta-table th {
                 font-size: 0.75rem;
                 font-weight: 700;
                 text-transform: uppercase;
-            }
-
-            .admin-document-requests-page .fi-ta-table td,
-            .admin-document-requests-page .fi-ta-table td * {
-                font-size: 0.75rem;
             }
 
             /* Keep the request details readable without pushing the action buttons off-screen. */
@@ -175,7 +176,7 @@
 
                 .admin-document-requests-page .fi-ta-table .fi-ta-header-cell-purpose-details,
                 .admin-document-requests-page .fi-ta-table .fi-ta-cell-purpose-details {
-                    width: 15rem !important;
+                    width: 18rem !important;
                     min-width: 0 !important;
                 }
 
@@ -213,8 +214,8 @@
 
                 .admin-document-requests-pending .fi-ta-table > thead > tr:last-child > th:last-child,
                 .admin-document-requests-pending .fi-ta-table > tbody > tr:not(.fi-ta-group-header-row) > td:last-child {
-                    width: 17rem !important;
-                    min-width: 17rem !important;
+                    width: 14rem !important;
+                    min-width: 12rem !important;
                 }
 
                 .admin-document-requests-ready_for_pickup .fi-ta-table > thead > tr:last-child > th:last-child,
@@ -225,6 +226,57 @@
                 .admin-document-requests-rejected .fi-ta-table > tbody > tr:not(.fi-ta-group-header-row) > td:last-child {
                     width: 8rem !important;
                     min-width: 8rem !important;
+                }
+
+                /* Keep the pending action column compact and give its space
+                 * to the Details column. These widths total 100% for the
+                 * visible pending columns. */
+                .admin-document-requests-pending .fi-ta-table .fi-ta-header-cell-document-details,
+                .admin-document-requests-pending .fi-ta-table .fi-ta-cell-document-details {
+                    width: 18% !important;
+                }
+
+                .admin-document-requests-pending .fi-ta-table .fi-ta-header-cell-purpose-details,
+                .admin-document-requests-pending .fi-ta-table .fi-ta-cell-purpose-details {
+                    width: 31% !important;
+                }
+
+                .admin-document-requests-pending .fi-ta-table .fi-ta-header-cell-copy-type,
+                .admin-document-requests-pending .fi-ta-table .fi-ta-cell-copy-type {
+                    width: 12% !important;
+                }
+
+                .admin-document-requests-pending .fi-ta-table .fi-ta-header-cell-requested-by,
+                .admin-document-requests-pending .fi-ta-table .fi-ta-cell-requested-by {
+                    width: 11% !important;
+                }
+
+                .admin-document-requests-pending .fi-ta-table .fi-ta-header-cell-date-of-request,
+                .admin-document-requests-pending .fi-ta-table .fi-ta-cell-date-of-request {
+                    width: 16% !important;
+                }
+
+                .admin-document-requests-pending .fi-ta-table > thead > tr:last-child > th:last-child,
+                .admin-document-requests-pending .fi-ta-table > tbody > tr:not(.fi-ta-group-header-row) > td:last-child {
+                    width: 12% !important;
+                    min-width: 12rem !important;
+                }
+
+                /* Keep the shared columns anchored when switching tabs. */
+                .admin-document-requests-page .fi-ta-table .fi-ta-header-cell-document-details,
+                .admin-document-requests-page .fi-ta-table .fi-ta-cell-document-details {
+                    width: 18% !important;
+                }
+
+                .admin-document-requests-page .fi-ta-table .fi-ta-header-cell-purpose-details,
+                .admin-document-requests-page .fi-ta-table .fi-ta-cell-purpose-details {
+                    width: 31% !important;
+                }
+
+                .admin-document-requests-page .fi-ta-table > thead > tr:last-child > th:last-child,
+                .admin-document-requests-page .fi-ta-table > tbody > tr:not(.fi-ta-group-header-row) > td:last-child {
+                    width: 12% !important;
+                    min-width: 12rem !important;
                 }
 
                 .admin-document-requests-page .fi-ta-table .fi-ta-cell-document-details .fi-ta-col,
@@ -338,6 +390,39 @@
             .dark .admin-document-requests-page .fi-ta-table th,
             .dark .admin-document-requests-page .fi-ta-table td {
                 color: rgb(229 231 235);
+            }
+
+            /* Gmail-style request state: new requests use the same selected
+             * conversation shade and bold contents until the section is
+             * opened again. */
+            .admin-document-requests-page .fi-ta-table tbody tr:not(.fi-ta-group-header-row):not(.latest-request-unread) > td {
+                background-color: #ffffff !important;
+            }
+
+            .admin-document-requests-page .fi-ta-table tbody tr.latest-request-unread > td {
+                background-color: #f0f1ff !important;
+            }
+
+            .admin-document-requests-page .fi-ta-table tbody tr.latest-request-unread:hover > td {
+                background-color: #f0f1ff !important;
+            }
+
+            .admin-document-requests-page .fi-ta-table tbody tr.latest-request-unread > td:first-child {
+                border-left: 3px solid #6366f1;
+            }
+
+            .admin-document-requests-page .fi-ta-table tbody tr.latest-request-unread > td,
+            .admin-document-requests-page .fi-ta-table tbody tr.latest-request-unread > td * {
+                font-weight: 700 !important;
+            }
+
+            .dark .admin-document-requests-page .fi-ta-table tbody tr:not(.fi-ta-group-header-row):not(.latest-request-unread) > td {
+                background-color: #1f2937 !important;
+            }
+
+            .dark .admin-document-requests-page .fi-ta-table tbody tr.latest-request-unread > td,
+            .dark .admin-document-requests-page .fi-ta-table tbody tr.latest-request-unread:hover > td {
+                background-color: #25253d !important;
             }
         </style>
     </div>
