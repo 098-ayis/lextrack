@@ -62,6 +62,11 @@ class DocumentTimeline extends Page
                     );
             })
             ->with([
+                'conversation.messages' => fn ($query) => $query
+                    ->where('sender_id', auth()->id())
+                    // Message bodies are encrypted; match revision text after hydration.
+                    ->oldest('created_at')
+                    ->oldest('id'),
                 'activityLogs' => fn ($query) => $query
                     ->oldest('created_at')
                     ->oldest('log_id'),
@@ -79,7 +84,7 @@ class DocumentTimeline extends Page
         );
 
         $this->statusTimeline = app(DocumentStatusTimeline::class)
-            ->build($this->documentRecord);
+            ->build($this->documentRecord, includeClientRevisions: true);
     }
 
     public function getHeading(): string

@@ -242,6 +242,13 @@ class ChatbotIntentRouter
             ];
         }
 
+        if ($this->isConversationStop($normalized)) {
+            return [
+                'intent' => 'conversation_stop',
+                'language' => $this->responseLanguage($normalized),
+            ];
+        }
+
         if ($this->isEmailDeliveryInquiry($normalized)) {
             return ['intent' => 'email_delivery', 'language' => $this->responseLanguage($normalized)];
         }
@@ -285,6 +292,38 @@ class ChatbotIntentRouter
         if ($this->actionTypes->looksLikeDefinitionQuestion($normalized)) {
             return [
                 'intent' => 'action_type_clarification',
+                'language' => $this->responseLanguage($normalized),
+            ];
+        }
+
+        // Resolve an authorized selected record independently from the field
+        // being requested. This must run before unsupported-action checks and
+        // generic document text extraction so “when did I submit that?” does
+        // not reuse the previous status intent or become a search for “that”.
+        $selectedFieldTopic = $this->selectedDocumentFieldTopic($normalized);
+        $usesSelectedDocument = ($documentReference['type'] ?? null) === 'contextual'
+            || ($selectedFieldTopic === 'lao_number'
+                && $this->hasContextualDocumentReference($normalized))
+            || ($selectedFieldTopic === 'submission_date'
+                && in_array(($documentReference['type'] ?? null), ['none', 'ambiguous'], true));
+
+        if ($hasPrivateDocumentContext
+            && $questionIntent !== 'workflow_explanation'
+            && ! $this->isAcceptanceGuidanceFollowUp($normalized)
+            && ! $this->isAcceptancePossibilityQuestion($normalized)
+            && ! $this->isAcceptanceStateQuestion($normalized)
+            && $selectedFieldTopic !== null
+            && $usesSelectedDocument) {
+            return [
+                'intent' => 'document_context_details',
+                'topic' => $selectedFieldTopic,
+                'language' => $this->responseLanguage($normalized),
+            ];
+        }
+
+        if ($hasPrivateDocumentContext && $this->isCorrectionMessage($normalized)) {
+            return [
+                'intent' => 'document_context_correction',
                 'language' => $this->responseLanguage($normalized),
             ];
         }
@@ -406,13 +445,18 @@ class ChatbotIntentRouter
 
         if (! $hasPrivateRequestContext
             && preg_match('/\b(?:request|requests|hiling|application)\b/', $normalized) === 1
-            && $this->hasContextualRecordReference($normalized)) {
+            && $this->hasContextualRecordReference($normalized)
+            && ! $this->isRequestStatusListInquiry($normalized)) {
             return ['intent' => 'ambiguous_request'];
         }
 
         if ($this->isPrivateDocumentRequestInquiry($normalized)) {
+            $intent = $this->isRequestCountInquiry($normalized)
+                ? 'request_count'
+                : ($this->isRequestStatusListInquiry($normalized) ? 'request_status_filter' : 'latest_request');
+
             return [
-                'intent' => $this->isRequestCountInquiry($normalized) ? 'request_count' : 'latest_request',
+                'intent' => $intent,
                 'status' => $this->requestedRequestStatus($normalized),
                 'language' => $this->responseLanguage($normalized),
             ];
@@ -606,6 +650,7 @@ class ChatbotIntentRouter
 
         $documentReferenceText = $this->extractDocumentReference($message);
         if ($documentReferenceText !== null
+            && ! ($hasPrivateDocumentContext && $documentReference['type'] === 'contextual')
             && ($this->isNamedDocumentInquiry($normalized)
                 || $this->isDocumentSearchPhrase($normalized)
                 || ($documentReferenceText['type'] ?? null) === 'document_type')) {
@@ -1542,6 +1587,18 @@ class ChatbotIntentRouter
         return preg_match('/\b(?:how many|count|number of|do i have|have i|ilan|ilang|dami|karami|may|mayroon|meron)\b/', $message) === 1;
     }
 
+    private function isRequestStatusListInquiry(string $message): bool
+    {
+        if ($this->requestedRequestStatus($message) === null) {
+            return false;
+        }
+
+        return preg_match(
+            '/\\b(?:what|which|show|list|give|display|ano|alin|ipakita)\\b.*\\b(?:requests?|hiling|kahilingan|applications?)\\b|\\b(?:requests|mga request|mga hiling|mga kahilingan|applications)\\b/',
+            $message,
+        ) === 1;
+    }
+
     private function requestedRequestStatus(string $message): ?string
     {
         foreach ([
@@ -1662,10 +1719,72 @@ class ChatbotIntentRouter
 
     private function isSubmissionDateQuestion(string $message): bool
     {
-        return preg_match(
-            '/\b(?:when did i submit|when was .* submitted|submission date|submitted date|kailan|anong petsa)\b.*\b(?:submit|submitted|sinubmit|sinumbit|sumbit|pasa|ipinasa|pinasa|sinumite)\b/',
+        $submissionCue = preg_match(
+            '/\b(?:submit|submitted|submission|received|sinubmit|sinumbit|sumbit|pasa|ipinasa|pinasa|sinumite|natanggap)\b/',
             $message,
-        ) === 1 || $this->extractSubmissionDate($message) !== null;
+        ) === 1;
+        $dateQuestion = preg_match(
+            '/\b(?:when|what date|which date|kailan|kelan|anong petsa|ano ang petsa)\b/',
+            $message,
+        ) === 1;
+
+        return ($submissionCue && $dateQuestion)
+            || preg_match('/\b(?:submission date|submitted date|date submitted|date received)\b/', $message) === 1
+            || $this->extractSubmissionDate($message) !== null;
+    }
+
+    private function selectedDocumentFieldTopic(string $message): ?string
+    {
+        $hasReference = $this->hasContextualDocumentReference($message)
+            || $this->hasDocumentTerm($message)
+            || $this->hasPersonalReference($message);
+
+        if ($this->isSubmissionDateQuestion($message)) {
+            return 'submission_date';
+        }
+
+        if (! $hasReference) {
+            return null;
+        }
+
+        if ($this->isActionTypeQuestion($message)) {
+            return 'action_type';
+        }
+
+        if (preg_match('/\b(?:document type|doc type|type of document|anong type|ano ang type|uri ng document)\b/', $message) === 1) {
+            return 'document_type';
+        }
+
+        if (preg_match('/\b(?:lao number|lao no|tracking number|reference number)\b/', $message) === 1) {
+            return 'lao_number';
+        }
+
+        if (preg_match('/\b(?:latest update|recorded update|what happened|ano(?:ng)? update|ano pang update|update niyan|update nya)\b/', $message) === 1) {
+            return 'updates';
+        }
+
+        if ($this->isDocumentStatusFollowUp($message)) {
+            return 'status';
+        }
+
+        if ($this->isDocumentDetailFollowUp($message)) {
+            return 'summary';
+        }
+
+        return null;
+    }
+
+    private function isCorrectionMessage(string $message): bool
+    {
+        return preg_match(
+            '/\b(?:you (?:answered|answer) (?:me )?wrong|that(?: is| s)? not what i asked|wrong answer|mali(?: ang)? sagot|mali sagot mo|hindi (?:yan|iyon) ang tanong ko|not asking for legal advice)\b/',
+            $message,
+        ) === 1;
+    }
+
+    private function isConversationStop(string $message): bool
+    {
+        return preg_match('/^(?:okay\s+|ok\s+|sige\s+)?(?:stop|cancel|never\s*mind|nevermind|tama na|ayoko na)[.! ]*$/', $message) === 1;
     }
 
     private function isProcessingStatusInquiry(string $message): bool
