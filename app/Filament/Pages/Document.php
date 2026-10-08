@@ -611,7 +611,10 @@ class Document extends Page implements HasTable
             $columns[] = ViewColumn::make('uploaded_by')
                 ->label('UPLOADED BY')
                 ->view('filament.tables.columns.uploaded-by')
-                ->extraHeaderAttributes(['class' => 'min-w-[180px]']);
+                ->alignCenter()
+                ->width('4.5rem')
+                ->extraHeaderAttributes(['class' => 'w-[4.5rem] min-w-[4.5rem]'])
+                ->extraCellAttributes(['class' => 'align-middle text-center']);
         } elseif ($this->activeSection === 'outgoing') {
             $columns[] = TextColumn::make('outgoing_date')
                 ->label('OUTGOING DATE')

@@ -336,6 +336,28 @@
         object-position: center;
     }
 
+    .thread-document-details {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .thread-document-link {
+        display: block;
+        width: fit-content;
+        max-width: 100%;
+        border-radius: 6px;
+        text-decoration: none;
+    }
+
+    .thread-document-link:hover .t-name {
+        color: #4f46e5;
+    }
+
+    .thread-document-link:focus-visible {
+        outline: 3px solid rgba(99, 102, 241, 0.35);
+        outline-offset: 3px;
+    }
+
     .t-name {
         color: #111827;
 
@@ -2091,6 +2113,14 @@
                     ?: $activeConversation?->documentRequest?->purpose_details
                     ?: $activeConversation?->documentRequest?->purpose
                     ?: 'Untitled Document';
+
+                $documentViewUrl = $activeConversation?->document?->public_id
+                    ? \App\Filament\Client\Pages\ViewDocument::getUrl([
+                        'document' => $activeConversation->document->public_id,
+                        'from' => 'messages',
+                        'tab' => 'all',
+                    ])
+                    : null;
                 
             @endphp
 
@@ -2098,15 +2128,12 @@
             {{-- THREAD HEADER --}}
                 <div class="thread-header">
 
-                    @if ($activeConversation?->document?->public_id)
+                    @if ($documentViewUrl)
                         <a
-                            href="{{ \App\Filament\Client\Pages\Documents::getUrl([
-                                'tab' => 'all',
-                                'document' => $activeConversation->document->public_id,
-                            ]) }}"
+                            href="{{ $documentViewUrl }}"
                             class="t-avatar transition-opacity hover:opacity-80"
-                            aria-label="View document in Documents"
-                            title="View document in Documents"
+                            aria-label="View document"
+                            title="View document"
                         >
                             <div class="m-avatar-icon">
                                 <x-heroicon-o-document-text />
@@ -2120,22 +2147,29 @@
                         </div>
                     @endif
 
-                    <div style="flex: 1;">
+                    <div class="thread-document-details">
+                        @if ($documentViewUrl)
+                            <a
+                                href="{{ $documentViewUrl }}"
+                                class="thread-document-link"
+                                aria-label="View {{ $threadName }}"
+                                title="View document"
+                            >
+                        @endif
 
-                        <div class="t-name">
-                           {{ $threadName }}
-                        </div>
+                        <div class="t-name">{{ $threadName }}</div>
 
                         <div class="t-sub">
-
                             @if ($activeConversation?->document)
                                 {{ $activeConversation->document->lao_number ?? 'Not assigned' }}
                             @elseif ($activeConversation?->documentRequest)
                                 Request #{{ $activeConversation->documentRequest->request_id }}
                             @endif
-
                         </div>
 
+                        @if ($documentViewUrl)
+                            </a>
+                        @endif
                     </div>
 
                     <button
