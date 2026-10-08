@@ -325,11 +325,16 @@
             }
 
             .admin-documents-page .document-type-badge {
+                box-sizing: border-box;
                 width: 8rem;
                 min-width: 8rem;
+                max-width: 100%;
+                overflow: hidden;
                 background-color: color-mix(in srgb, var(--badge-color) 14%, white);
                 color: var(--badge-color);
                 border: 1px solid color-mix(in srgb, var(--badge-color) 18%, transparent);
+                text-overflow: ellipsis;
+                white-space: nowrap;
             }
 
             .dark .admin-documents-page .document-type-badge {
@@ -344,6 +349,10 @@
                 background-color: color-mix(in srgb, var(--badge-color) 14%, white);
                 color: var(--badge-color);
                 border: 1px solid color-mix(in srgb, var(--badge-color) 18%, transparent);
+            }
+
+            .admin-documents-page .action-type-badge-long {
+                font-size: 0.65rem !important;
             }
 
             .dark .admin-documents-page .action-type-badge {
@@ -427,13 +436,6 @@
                     width: 14.6667% !important;
                 }
 
-                .admin-documents-section-incoming .fi-ta-table .fi-ta-header-cell-action-type,
-                .admin-documents-section-incoming .fi-ta-table .fi-ta-cell-action-type,
-                .admin-documents-section-incoming .fi-ta-table .fi-ta-header-cell-deadline-details,
-                .admin-documents-section-incoming .fi-ta-table .fi-ta-cell-deadline-details {
-                    width: 11.3333% !important;
-                }
-
                 .admin-documents-section-completed .fi-ta-table .fi-ta-header-cell-updated-at,
                 .admin-documents-section-completed .fi-ta-table .fi-ta-cell-updated-at,
                 .admin-documents-section-rejected .fi-ta-table .fi-ta-header-cell-rejection-reason,
@@ -454,28 +456,164 @@
                     text-align: left;
                 }
 
+                /* Incoming is kept inside the available panel width. Keep the
+                 * document column compact so the following columns start
+                 * earlier and remain visible without horizontal scrolling. */
+                .admin-documents-section-incoming .fi-ta-table {
+                    width: 100%;
+                    min-width: 0 !important;
+                    table-layout: fixed;
+                }
+
+                .admin-documents-section-incoming .fi-ta-table .fi-ta-header-cell-document-details,
+                .admin-documents-section-incoming .fi-ta-table .fi-ta-cell-document-details {
+                    width: 18% !important;
+                }
+
                 .admin-documents-section-incoming .fi-ta-table .fi-ta-header-cell-document-type,
                 .admin-documents-section-incoming .fi-ta-table .fi-ta-cell-document-type {
-                    width: 10% !important;
+                    width: 12% !important;
+                }
+
+                .admin-documents-section-incoming .fi-ta-table .fi-ta-header-cell-created-at,
+                .admin-documents-section-incoming .fi-ta-table .fi-ta-cell-created-at {
+                    width: 14% !important;
                 }
 
                 .admin-documents-section-incoming .fi-ta-table .fi-ta-header-cell-subjects,
                 .admin-documents-section-incoming .fi-ta-table .fi-ta-cell-subjects {
-                    width: 21.3333% !important;
+                    width: 20% !important;
+                }
+
+                .admin-documents-section-incoming .fi-ta-table .fi-ta-header-cell-action-type,
+                .admin-documents-section-incoming .fi-ta-table .fi-ta-cell-action-type,
+                .admin-documents-section-incoming .fi-ta-table .fi-ta-header-cell-deadline-details,
+                .admin-documents-section-incoming .fi-ta-table .fi-ta-cell-deadline-details {
+                    width: 11% !important;
+                }
+
+                .admin-documents-section-incoming .fi-ta-table > thead > tr:last-child > th:last-child,
+                .admin-documents-section-incoming .fi-ta-table > tbody > tr:not(.fi-ta-group-header-row) > td:last-child {
+                    width: 14% !important;
+                    min-width: 0 !important;
+                }
+
+                .admin-documents-section-incoming .document-type-badge,
+                .admin-documents-section-incoming .action-type-badge {
+                    width: 100%;
+                    min-width: 0;
+                }
+
+                .admin-documents-section-incoming .fi-ta-cell-deadline-details > .fi-ta-col > a {
+                    min-width: 0;
+                    max-width: 100%;
+                    overflow-wrap: anywhere;
+                }
+
+                /* Completed and rejected both have five columns. Keep each
+                 * column on an even share of the table so the final actions do
+                 * not sit separated by an oversized middle column. */
+                .admin-documents-section-completed .fi-ta-table,
+                .admin-documents-section-rejected .fi-ta-table {
+                    width: 100%;
+                    min-width: 0 !important;
+                    table-layout: fixed;
+                }
+
+                .admin-documents-section-completed .fi-ta-table .fi-ta-header-cell-document-details,
+                .admin-documents-section-completed .fi-ta-table .fi-ta-cell-document-details,
+                .admin-documents-section-rejected .fi-ta-table .fi-ta-header-cell-document-details,
+                .admin-documents-section-rejected .fi-ta-table .fi-ta-cell-document-details,
+                .admin-documents-section-completed .fi-ta-table .fi-ta-header-cell-document-type,
+                .admin-documents-section-completed .fi-ta-table .fi-ta-cell-document-type,
+                .admin-documents-section-rejected .fi-ta-table .fi-ta-header-cell-document-type,
+                .admin-documents-section-rejected .fi-ta-table .fi-ta-cell-document-type,
+                .admin-documents-section-completed .fi-ta-table .fi-ta-header-cell-created-at,
+                .admin-documents-section-completed .fi-ta-table .fi-ta-cell-created-at,
+                .admin-documents-section-rejected .fi-ta-table .fi-ta-header-cell-created-at,
+                .admin-documents-section-rejected .fi-ta-table .fi-ta-cell-created-at,
+                .admin-documents-section-completed .fi-ta-table .fi-ta-header-cell-updated-at,
+                .admin-documents-section-completed .fi-ta-table .fi-ta-cell-updated-at,
+                .admin-documents-section-rejected .fi-ta-table .fi-ta-header-cell-rejection-reason,
+                .admin-documents-section-rejected .fi-ta-table .fi-ta-cell-rejection-reason {
+                    width: 20% !important;
+                    min-width: 0 !important;
+                }
+
+                .admin-documents-section-completed .fi-ta-table > thead > tr:last-child > th:last-child,
+                .admin-documents-section-completed .fi-ta-table > tbody > tr:not(.fi-ta-group-header-row) > td:last-child,
+                .admin-documents-section-rejected .fi-ta-table > thead > tr:last-child > th:last-child,
+                .admin-documents-section-rejected .fi-ta-table > tbody > tr:not(.fi-ta-group-header-row) > td:last-child {
+                    width: 20% !important;
+                    min-width: 0 !important;
+                }
+
+                /* Archived also has five columns. Give Upload Date and
+                 * Archived At the same share as the surrounding columns so
+                 * the date does not sit too close to Document Type. */
+                .admin-documents-section-archived .fi-ta-table {
+                    width: 100%;
+                    min-width: 0 !important;
+                    table-layout: fixed;
+                }
+
+                .admin-documents-section-archived .fi-ta-table .fi-ta-header-cell-document-details,
+                .admin-documents-section-archived .fi-ta-table .fi-ta-cell-document-details,
+                .admin-documents-section-archived .fi-ta-table .fi-ta-header-cell-document-type,
+                .admin-documents-section-archived .fi-ta-table .fi-ta-cell-document-type,
+                .admin-documents-section-archived .fi-ta-table .fi-ta-header-cell-created-at,
+                .admin-documents-section-archived .fi-ta-table .fi-ta-cell-created-at,
+                .admin-documents-section-archived .fi-ta-table .fi-ta-header-cell-archived-at,
+                .admin-documents-section-archived .fi-ta-table .fi-ta-cell-archived-at {
+                    width: 20% !important;
+                    min-width: 0 !important;
+                }
+
+                .admin-documents-section-archived .fi-ta-table > thead > tr:last-child > th:last-child,
+                .admin-documents-section-archived .fi-ta-table > tbody > tr:not(.fi-ta-group-header-row) > td:last-child {
+                    width: 20% !important;
+                    min-width: 0 !important;
                 }
 
             }
 
             .admin-documents-page .fi-ta-table th,
             .admin-documents-page .fi-ta-table td {
-                padding-left: 0.75rem;
-                padding-right: 0.75rem;
+                padding-left: 1rem;
+                padding-right: 1rem;
+            }
+
+            /* Prevent flex-based cell content from expanding past its table
+             * column. Without an explicit zero minimum, long document names
+             * can paint underneath the next column's type badge. */
+            .admin-documents-page .fi-ta-cell-document-details > .fi-ta-col,
+            .admin-documents-page .fi-ta-cell-document-type > .fi-ta-col,
+            .admin-documents-page .fi-ta-cell-subjects > .fi-ta-col,
+            .admin-documents-page .fi-ta-cell-description > .fi-ta-col {
+                min-width: 0;
+                max-width: 100%;
+            }
+
+            .admin-documents-page .fi-ta-cell-document-details > .fi-ta-col > .flex,
+            .admin-documents-page .fi-ta-cell-document-details > .fi-ta-col > .flex > div {
+                min-width: 0;
+                max-width: 100%;
             }
 
             .admin-documents-page .fi-ta-table td:has(> .fi-ta-actions) {
                 padding-left: 1rem;
                 padding-right: 1rem;
                 white-space: nowrap;
+            }
+
+            /* Add a little more breathing room between the evenly sized
+             * columns in the Completed and Rejected tables. */
+            .admin-documents-section-completed .fi-ta-table th,
+            .admin-documents-section-completed .fi-ta-table td,
+            .admin-documents-section-rejected .fi-ta-table th,
+            .admin-documents-section-rejected .fi-ta-table td {
+                padding-left: 1.5rem !important;
+                padding-right: 1.5rem !important;
             }
 
             .admin-documents-page .rejection-reason-cell {
