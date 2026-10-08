@@ -582,12 +582,20 @@ class Document extends Page implements HasTable
                 ->width('9rem')
                 ->extraHeaderAttributes(['class' => 'min-w-[140px]']);
 
-        $columns[] = TextColumn::make('created_at')
+        $uploadDateColumn = TextColumn::make('created_at')
             ->label('UPLOAD DATE')
-            ->dateTime('M d, Y h:i A')
+            ->dateTime($this->activeSection === 'incoming' ? 'M d, Y' : 'M d, Y h:i A')
             ->placeholder('Unknown date')
             ->alignCenter()
             ->extraHeaderAttributes(['class' => 'min-w-[155px]']);
+
+        if ($this->activeSection === 'incoming') {
+            $uploadDateColumn->description(
+                fn (DocumentModel $record): ?string => $record->created_at?->format('h:i A')
+            );
+        }
+
+        $columns[] = $uploadDateColumn;
 
         if ($this->activeSection === 'pending') {
             $columns[] = TextColumn::make('description')

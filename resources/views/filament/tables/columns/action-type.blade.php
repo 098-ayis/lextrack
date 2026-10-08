@@ -7,7 +7,7 @@
 
 @if ($actionType)
     <span
-        class="action-type-badge inline-flex items-center justify-center gap-1 rounded-md px-2 py-0.5 text-center text-[11px] font-semibold leading-4"
+        class="action-type-badge {{ strcasecmp(trim((string) $actionType), 'FOR ENDORSEMENT') === 0 ? 'action-type-badge-long' : '' }} inline-flex items-center justify-center gap-1 rounded-md px-2 py-0.5 text-center text-[11px] font-semibold leading-4"
         style="--badge-color: {{ $color ?? '#64748B' }};"
     >
         {{ $actionType }}
