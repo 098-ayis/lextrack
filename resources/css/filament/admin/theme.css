@@ -1645,7 +1645,8 @@ Edit-Button
 
 .sidebar-collapse-inline,
 .sidebar-collapsed-brand-toggle,
-.sidebar-expand-empty-space {
+.sidebar-expand-empty-space,
+.sidebar-collapse-empty-space {
     display: none;
 }
 
@@ -1665,6 +1666,7 @@ Edit-Button
 
     .fi-body-has-topbar .fi-sidebar-header {
         display: flex !important;
+        position: relative;
         height: 5.5rem !important;
         justify-content: flex-start !important;
         gap: 0.3rem;
@@ -1681,6 +1683,7 @@ Edit-Button
     .fi-body-has-topbar .fi-sidebar-header-logo-ctn {
         flex: 1 1 auto;
         min-width: 0;
+        padding-inline-end: 2.5rem;
     }
 
     .fi-body-has-topbar .fi-sidebar-header-logo-ctn > a {
@@ -1768,19 +1771,24 @@ Edit-Button
     }
 
     .sidebar-collapse-inline {
+        position: absolute;
+        inset-inline-end: 0.75rem;
+        top: 50%;
+        z-index: 60;
         display: inline-flex;
         width: 1.85rem;
         height: 1.85rem;
         flex: 0 0 1.85rem;
         align-items: center;
         justify-content: center;
-        margin-inline-start: 0.6rem;
+        margin: 0;
         padding: 0;
         border: 0;
         border-radius: 0.35rem;
         background: transparent;
         color: #cbd5e1;
-        cursor: pointer;
+        cursor: w-resize;
+        transform: translateY(-50%);
         transition: background-color 150ms ease, color 150ms ease;
     }
 
@@ -1834,7 +1842,7 @@ Edit-Button
         border-radius: 0.4rem;
         background: transparent;
         color: #cbd5e1;
-        cursor: pointer;
+        cursor: e-resize;
         opacity: 0;
         transition: background-color 150ms ease, color 150ms ease, opacity 150ms ease;
     }
@@ -1866,7 +1874,43 @@ Edit-Button
         position: relative;
     }
 
-    .sidebar-expand-empty-space {
+    .fi-body-has-topbar .fi-main-sidebar.fi-sidebar-open {
+        cursor: w-resize;
+    }
+
+    .fi-body-has-topbar .fi-main-sidebar:not(.fi-sidebar-open) {
+        cursor: e-resize;
+    }
+
+    .fi-body-has-topbar .fi-main-sidebar a,
+    .fi-body-has-topbar .fi-main-sidebar button,
+    .fi-body-has-topbar .fi-main-sidebar input,
+    .fi-body-has-topbar .fi-main-sidebar select,
+    .fi-body-has-topbar .fi-main-sidebar textarea,
+    .fi-body-has-topbar .fi-main-sidebar [role='button'] {
+        cursor: pointer;
+    }
+
+    .fi-body-has-topbar .fi-main-sidebar .fi-sidebar-header-ctn,
+    .fi-body-has-topbar .fi-main-sidebar .fi-sidebar-header,
+    .fi-body-has-topbar .fi-main-sidebar .fi-sidebar-nav,
+    .fi-body-has-topbar .fi-main-sidebar .fi-sidebar-nav-groups,
+    .fi-body-has-topbar .fi-main-sidebar .fi-sidebar-group,
+    .fi-body-has-topbar .fi-main-sidebar .fi-sidebar-group-items,
+    .fi-body-has-topbar .fi-main-sidebar .fi-sidebar-footer {
+        cursor: inherit !important;
+    }
+
+    .fi-body-has-topbar .fi-main-sidebar .sidebar-collapse-inline {
+        cursor: w-resize;
+    }
+
+    .fi-body-has-topbar .fi-main-sidebar .sidebar-expand-on-logo {
+        cursor: e-resize;
+    }
+
+    .sidebar-expand-empty-space,
+    .sidebar-collapse-empty-space {
         position: absolute;
         z-index: 0;
         inset: 0;
@@ -1875,7 +1919,14 @@ Edit-Button
         height: 100%;
         border: 0;
         background: transparent;
-        cursor: pointer;
+    }
+
+    .fi-body-has-topbar .fi-main-sidebar .sidebar-expand-empty-space {
+        cursor: e-resize !important;
+    }
+
+    .fi-body-has-topbar .fi-main-sidebar .sidebar-collapse-empty-space {
+        cursor: w-resize !important;
     }
 
     .fi-body-has-topbar .fi-main-sidebar .fi-sidebar-nav-groups {
@@ -2406,6 +2457,7 @@ Edit-Button
 /* LexTrack shield logo used by the sidebar brand. */
 .fi-body-has-topbar .fi-main-sidebar .lextrack-brand {
     display: flex !important;
+    min-width: 0;
     width: 100%;
     align-items: center;
     justify-content: flex-start;
@@ -2421,11 +2473,15 @@ Edit-Button
 
 .fi-body-has-topbar .fi-main-sidebar .lextrack-brand-text {
     min-width: 0;
+    overflow: hidden;
     color: #ffffff;
     line-height: 1;
 }
 
 .fi-body-has-topbar .fi-main-sidebar .lextrack-brand-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     color: #ffffff;
     font-size: 1.1rem;
     font-weight: 700;
@@ -2436,8 +2492,10 @@ Edit-Button
     display: flex;
     align-items: baseline;
     margin-top: 0.2rem;
+    overflow: hidden;
     font-size: 0.75rem;
     font-weight: 700;
+    text-overflow: ellipsis;
     white-space: nowrap;
 }
 

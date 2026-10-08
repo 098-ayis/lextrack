@@ -12,6 +12,31 @@
             // Filament handles unavailable browser storage gracefully.
         }
     })()
+
+    if (!window.__lextrackSidebarClickHandlerInstalled) {
+        window.__lextrackSidebarClickHandlerInstalled = true
+
+        document.addEventListener('click', (event) => {
+            const target = event.target instanceof Element ? event.target : null
+            const sidebar = target?.closest('#fi-main-sidebar')
+
+            if (!sidebar || target.closest('a, button, input, select, textarea, [role="button"]')) {
+                return
+            }
+
+            const sidebarStore = window.Alpine?.store?.('sidebar')
+
+            if (!sidebarStore) {
+                return
+            }
+
+            if (sidebarStore.isOpen) {
+                sidebarStore.close()
+            } else {
+                sidebarStore.open()
+            }
+        })
+    }
 </script>
 
 <div
@@ -33,7 +58,7 @@
         aria-controls="fi-main-sidebar"
         x-bind:aria-expanded="$store.sidebar.isOpen"
         aria-label="Expand sidebar"
-        x-on:click="$store.sidebar.open()"
+        x-on:click.stop.prevent="$store.sidebar.open()"
     >
         <svg
             viewBox="0 0 24 24"

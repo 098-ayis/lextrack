@@ -7,7 +7,7 @@
     x-show="$store.sidebar.isOpen"
     x-bind:aria-expanded="$store.sidebar.isOpen"
     aria-label="Collapse sidebar"
-    x-on:click="$store.sidebar.close()"
+    x-on:click.stop.prevent="$store.sidebar.close()"
 >
     <svg
         viewBox="0 0 24 24"
