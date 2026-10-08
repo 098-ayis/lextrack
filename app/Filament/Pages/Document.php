@@ -610,7 +610,7 @@ class Document extends Page implements HasTable
 
             $columns[] = ViewColumn::make('uploaded_by')
                 ->label('UPLOADED BY')
-                ->view('filament.tables.columns.uploaded-by')
+                ->view('filament.tables.columns.uploaded-by-avatar')
                 ->alignCenter()
                 ->width('4.5rem')
                 ->extraHeaderAttributes(['class' => 'w-[4.5rem] min-w-[4.5rem]'])

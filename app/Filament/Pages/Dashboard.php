@@ -313,6 +313,10 @@ class Dashboard extends Page
         return Document::query()
             ->with(['latestVersion'])
 
+            // Request-only records are shown on the Document Requests page,
+            // so keep them out of the dashboard's Recent Documents cards.
+            ->whereDoesntHave('documentRequests')
+
             /*
             |--------------------------------------------------------------------------
             | SEARCH
