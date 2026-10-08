@@ -2754,6 +2754,35 @@ Edit-Button
     img.lextrack-brand-logo {
         margin-inline-end: 0.5rem !important;
     }
+
+    .fi-body-has-topbar .fi-main-sidebar .lextrack-brand-text,
+    .fi-body-has-topbar .fi-sidebar .lextrack-brand-text,
+    .fi-body-has-topbar .fi-sidebar-header .lextrack-brand-text,
+    .lextrack-brand-text {
+        min-width: 0 !important;
+        flex: 1 1 auto !important;
+    }
+
+    .fi-body-has-topbar .fi-main-sidebar .lextrack-brand-title,
+    .fi-body-has-topbar .fi-sidebar .lextrack-brand-title,
+    .fi-body-has-topbar .fi-sidebar-header .lextrack-brand-title,
+    .lextrack-brand-title {
+        font-size: 1rem !important;
+    }
+
+    .fi-body-has-topbar .fi-main-sidebar .lextrack-brand-subtitle,
+    .fi-body-has-topbar .fi-sidebar .lextrack-brand-subtitle,
+    .fi-body-has-topbar .fi-sidebar-header .lextrack-brand-subtitle,
+    .lextrack-brand-subtitle {
+        font-size: 0.6rem !important;
+    }
+
+    .fi-body-has-topbar .fi-main-sidebar .lextrack-brand-office,
+    .fi-body-has-topbar .fi-sidebar .lextrack-brand-office,
+    .fi-body-has-topbar .fi-sidebar-header .lextrack-brand-office,
+    .lextrack-brand-office {
+        margin-inline-start: 0.15rem !important;
+    }
 }
 
 /* On small screens, hide only the logo while the sidebar is closed. */

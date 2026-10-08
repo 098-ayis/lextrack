@@ -1049,7 +1049,9 @@ class DocumentRequests extends Page implements HasTable
                 ->lockForUpdate()
                 ->findOrFail($requestId);
 
-            if ($request->status !== 'pending') {
+            $oldStatus = $request->status;
+
+            if (! in_array($oldStatus, ['pending', 'for_release'], true)) {
                 return null;
             }
 
@@ -1058,7 +1060,7 @@ class DocumentRequests extends Page implements HasTable
                 'rejection_reason' => $reason,
                 'date_processed' => now()->toDateString(),
             ]);
-            $this->recordRequestActivity($request, 'request_rejected', 'Rejected the document request.', 'pending', 'rejected');
+            $this->recordRequestActivity($request, 'request_rejected', 'Rejected the document request.', $oldStatus, 'rejected');
 
             return $request->fresh('user');
         });

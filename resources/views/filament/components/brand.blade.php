@@ -5,7 +5,7 @@
 <div class="lextrack-brand">
     <img
         src="{{ asset('images/lextrack-logo.png.png') }}"
-        alt="LexTrack Bicol University Legal Office"
+        alt="LexTrack Bicol University Legal Affairs Office"
         class="lextrack-brand-logo"
     >
 
