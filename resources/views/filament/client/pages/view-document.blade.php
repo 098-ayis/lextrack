@@ -50,7 +50,7 @@
                 default => ucwords(str_replace('_', ' ', (string) $statusValue)),
             };
         $statusBadgeColor = match (strtolower((string) $statusValue)) {
-            'pending', 'for filing' => '#f59e0b',
+            'pending', 'for filing' => '#d97706',
             'accepted', 'completed', 'archived' => '#16a34a',
             'rejected' => '#dc2626',
             'active', 'in_progress', 'outgoing' => '#2563eb',
@@ -452,6 +452,7 @@
         .client-document-detail-row dd { min-width: 0; margin: 0; color: #374151; font-size: 0.85rem; font-weight: 700; overflow-wrap: anywhere; }
         .client-document-badge { display: inline-flex; align-items: center; border: 1px solid transparent; border-radius: 0.4rem; padding: 0.28rem 0.55rem; font-size: 0.75rem; font-weight: 700; line-height: 1.1; }
         .client-document-table-status { color: var(--badge-color); font-size: 0.85rem; font-weight: 700; }
+        .dark .client-document-table-status { color: #fbbf24; }
         .is-rejected-label, .is-rejected-value { color: #dc2626 !important; }
         .client-document-file-group + .client-document-file-group { margin-top: 1.75rem; }
         .client-document-file-group h3 { margin: 0 0 0.8rem; color: #4b5563; font-size: 0.95rem; font-weight: 700; }

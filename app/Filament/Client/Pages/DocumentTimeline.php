@@ -83,8 +83,10 @@ class DocumentTimeline extends Page
             ]
         );
 
-        $this->statusTimeline = app(DocumentStatusTimeline::class)
-            ->build($this->documentRecord, includeClientRevisions: true);
+        $this->statusTimeline = array_values(array_reverse(
+            app(DocumentStatusTimeline::class)
+                ->build($this->documentRecord, includeClientRevisions: true),
+        ));
     }
 
     public function getHeading(): string

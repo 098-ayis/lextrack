@@ -127,7 +127,7 @@
                                     @php
                                         $statusClasses = match ($document->status) {
                                             'pending' =>
-                                                'border-yellow-400 bg-yellow-100 text-yellow-800 dark:bg-yellow-950 dark:text-yellow-300',
+                                                'border-[#d97706] bg-amber-100 text-[#d97706] dark:border-[#fbbf24] dark:bg-amber-950 dark:text-[#fbbf24]',
 
                                             'in_progress' =>
                                                 'border-blue-400 bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300',
@@ -183,7 +183,7 @@
                 </div>
 
                 {{-- STATUS TIMELINE --}}
-                <div class="mt-6 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-[#17181c]">
+                <div class="client-track-status-timeline mt-6 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-[#17181c]">
                     <div class="border-b border-gray-100 px-6 py-5 dark:border-gray-700">
                         <h3 class="text-base font-bold text-gray-900 dark:text-gray-100">
                             Status updates
@@ -196,6 +196,7 @@
                     <div class="px-5 py-6 md:px-8">
                         <div class="space-y-0">
                             @foreach ($statusTimeline as $update)
+                                @php($isLatest = $loop->first)
                                 <div class="relative flex gap-4 pb-8 last:pb-0">
                                     @unless ($loop->last)
                                         <span
@@ -204,24 +205,27 @@
                                         ></span>
                                     @endunless
 
-                                    <time class="w-16 shrink-0 pt-1 text-right text-xs font-semibold leading-5 text-gray-700 dark:text-gray-300">
-                                        {{ $update['time'] }}
-                                        <span class="block text-[10px] font-medium text-gray-400 dark:text-gray-500">
-                                            {{ $update['date'] }}
+                                    <time class="w-16 shrink-0 pt-1 text-right text-sm leading-5 {{ $isLatest ? 'font-bold text-gray-900 dark:text-gray-100' : 'font-semibold text-gray-600 dark:text-gray-300' }}">
+                                        {{ $update['date'] }}
+                                        <span class="block font-normal {{ $isLatest ? 'text-gray-500 dark:text-gray-400' : 'text-gray-500 dark:text-gray-400' }}">
+                                            {{ $update['time'] }}
                                         </span>
                                     </time>
 
-                                    <span class="relative z-10 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white shadow-sm ring-4 ring-white dark:ring-[#17181c]">
+                                    <span
+                                        class="client-status-timeline-dot relative z-10 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full shadow-sm ring-4 ring-white dark:ring-[#17181c]"
+                                        style="--timeline-color: {{ $update['color'] ?? '#64748b' }};"
+                                    >
                                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="h-3.5 w-3.5" aria-hidden="true">
                                             <path stroke-linecap="round" stroke-linejoin="round" d="m5 12 4 4L19 6" />
                                         </svg>
                                     </span>
 
                                     <div class="min-w-0 flex-1 pt-0">
-                                        <h4 class="text-base font-bold text-gray-900 dark:text-gray-100">
+                                        <h4 class="text-sm {{ $isLatest ? 'font-bold text-gray-900 dark:text-gray-100' : 'font-semibold text-gray-600 dark:text-gray-300' }}">
                                             {{ $update['title'] }}
                                         </h4>
-                                        <p class="mt-1 text-sm leading-6 text-gray-500 dark:text-gray-400">
+                                        <p class="mt-1 text-sm leading-5 {{ $isLatest ? 'font-medium text-gray-600 dark:text-gray-300' : 'font-medium text-gray-500 dark:text-gray-400' }}">
                                             {{ $update['description'] }}
                                         </p>
                                     </div>

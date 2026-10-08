@@ -1631,6 +1631,20 @@ Edit-Button
     color: #d1d5db !important;
 }
 
+/* Client timeline status markers use a soft version of each status color so
+ * the newest status remains emphasized by typography instead of saturation. */
+.client-status-timeline-dot {
+    border: 1px solid color-mix(in srgb, var(--timeline-color) 28%, transparent);
+    background-color: color-mix(in srgb, var(--timeline-color) 16%, white);
+    color: var(--timeline-color);
+}
+
+.dark .client-status-timeline-dot {
+    border-color: color-mix(in srgb, var(--timeline-color) 48%, #4b5563);
+    background-color: color-mix(in srgb, var(--timeline-color) 28%, #1f2937);
+    color: color-mix(in srgb, var(--timeline-color) 60%, white);
+}
+
 /* Filament table column headers */
 .fi-ta-table thead tr,
 .fi-ta-table thead .fi-ta-header-cell,

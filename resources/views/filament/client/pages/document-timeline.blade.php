@@ -1,5 +1,5 @@
 <x-filament-panels::page>
-    <div class="mx-auto w-full max-w-4xl overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+    <div class="client-document-timeline mx-auto w-full max-w-4xl overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
         <div class="flex items-center gap-3 border-b border-gray-200 px-5 py-4 dark:border-gray-700">
             <a
                 href="{{ \App\Filament\Client\Pages\Documents::getUrl(['tab' => $returnTab]) }}"
@@ -39,13 +39,14 @@
             @if ($displayTimeline !== [])
                 <div class="space-y-0">
                     @foreach ($displayTimeline as $update)
+                        @php($isLatest = $loop->first)
                         <article
                             class="relative grid grid-cols-[4.5rem_2.75rem_minmax(0,1fr)] gap-3 pb-6 last:pb-0 md:grid-cols-[6rem_3rem_minmax(0,1fr)]"
                             wire:key="client-document-status-{{ $loop->index }}"
                         >
-                            <time class="pt-1 text-right text-sm font-semibold leading-5 text-gray-700 dark:text-gray-200">
-                                <span class="block text-sm font-semibold leading-5">{{ $update['date'] }}</span>
-                                <span class="mt-1 block font-normal text-gray-400 dark:text-gray-500">{{ $update['time'] }}</span>
+                            <time class="pt-1 text-right text-sm leading-5 {{ $isLatest ? 'font-bold text-gray-900 dark:text-gray-100' : 'font-semibold text-gray-600 dark:text-gray-300' }}">
+                                <span class="block leading-5">{{ $update['date'] }}</span>
+                                <span class="mt-1 block font-normal {{ $isLatest ? 'text-gray-500 dark:text-gray-400' : 'text-gray-500 dark:text-gray-400' }}">{{ $update['time'] }}</span>
                             </time>
 
                             @unless ($loop->last)
@@ -56,8 +57,8 @@
                             @endunless
 
                             <span
-                                class="relative z-10 inline-flex h-7 w-7 items-center justify-center justify-self-center self-start rounded-full text-white ring-4 ring-white dark:ring-gray-800"
-                                style="background-color: {{ $update['color'] ?? '#64748b' }};"
+                                class="client-status-timeline-dot relative z-10 inline-flex h-7 w-7 items-center justify-center justify-self-center self-start rounded-full ring-4 ring-white dark:ring-gray-800"
+                                style="--timeline-color: {{ $update['color'] ?? '#64748b' }};"
                                 aria-hidden="true"
                             >
                                 <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
@@ -66,8 +67,8 @@
                             </span>
 
                             <div class="min-w-0 pt-1">
-                                <h2 class="text-sm font-semibold leading-5 text-gray-900 dark:text-gray-100">{{ $update['title'] }}</h2>
-                                <p class="mt-1 text-sm leading-5 text-gray-500 dark:text-gray-400">{{ $update['description'] }}</p>
+                                <h2 class="text-sm leading-5 {{ $isLatest ? 'font-bold text-gray-900 dark:text-gray-100' : 'font-semibold text-gray-600 dark:text-gray-300' }}">{{ $update['title'] }}</h2>
+                                <p class="mt-1 text-sm leading-5 {{ $isLatest ? 'font-medium text-gray-600 dark:text-gray-300' : 'font-medium text-gray-500 dark:text-gray-400' }}">{{ $update['description'] }}</p>
                             </div>
                         </article>
                     @endforeach

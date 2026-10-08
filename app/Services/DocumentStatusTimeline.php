@@ -354,7 +354,7 @@ class DocumentStatusTimeline
     private function statusColor(string $status): string
     {
         return match ($status) {
-            'pending' => '#f59e0b',
+            'pending' => '#d97706',
             'in_progress', 'outgoing' => '#3b82f6',
             'completed', 'archived' => '#22c55e',
             'rejected' => '#ef4444',

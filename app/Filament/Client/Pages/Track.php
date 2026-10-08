@@ -62,7 +62,9 @@ class Track extends Page
             return;
         }
 
-        $this->statusTimeline = app(DocumentStatusTimeline::class)->build($this->document);
+        $this->statusTimeline = array_values(array_reverse(
+            app(DocumentStatusTimeline::class)->build($this->document),
+        ));
     }
 
     private function buildStatusTimeline(Document $document): array

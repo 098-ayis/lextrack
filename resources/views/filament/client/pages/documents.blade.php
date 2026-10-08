@@ -395,6 +395,15 @@
             text-transform: uppercase;
         }
 
+        /* Keep the table's Pending status in sync with the document details view. */
+        .client-documents-page .fi-ta-cell-status [class*='text-warning'] {
+            color: #d97706 !important;
+        }
+
+        .dark .client-documents-page .fi-ta-cell-status [class*='text-warning'] {
+            color: #fbbf24 !important;
+        }
+
         .client-documents-page .client-documents-table-all .fi-ta-table,
         .client-documents-page .client-documents-table-pending .fi-ta-table,
         .client-documents-page .client-documents-table-in_progress .fi-ta-table,
