@@ -2,27 +2,30 @@
     @php($userName = $record->user->historical_display_name)
     @php($profilePhotoUrl = $record->user->getProfilePhotoUrl())
 
-    <div class="flex items-center gap-3 text-left">
+    <div
+        class="flex items-center justify-center"
+        title="{{ $userName }}"
+        aria-label="Uploaded by {{ $userName }}"
+    >
         @if ($profilePhotoUrl)
             <img
                 src="{{ $profilePhotoUrl }}"
                 alt="{{ $userName }}"
+                title="{{ $userName }}"
                 referrerpolicy="no-referrer"
                 class="h-9 w-9 shrink-0 rounded-full border border-gray-300 object-cover dark:border-gray-600"
             >
         @else
-            <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-gray-300 bg-gray-200 dark:border-gray-600 dark:bg-gray-700">
+            <div
+                class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-gray-300 bg-gray-200 dark:border-gray-600 dark:bg-gray-700"
+                role="img"
+                aria-label="Uploaded by {{ $userName }}"
+            >
                 <span class="text-xs font-bold text-gray-600 dark:text-gray-200">
                     {{ strtoupper(substr($record->user->historical_name, 0, 1)) }}
                 </span>
             </div>
         @endif
-
-        <div class="flex min-w-0 flex-col">
-            <span class="truncate text-xs font-semibold text-gray-900 dark:text-gray-100">
-                {{ $userName }}
-            </span>
-        </div>
     </div>
 @else
     <span class="text-xs italic text-gray-500 dark:text-gray-400">
