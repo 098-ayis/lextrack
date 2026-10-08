@@ -1008,6 +1008,37 @@ class ChatbotRoutingTest extends TestCase
             ->assertDontSee('A Pending document is one');
     }
 
+    public function test_in_progress_count_explains_the_client_portal_active_section_total(): void
+    {
+        $this->actingAsClient(17);
+        $this->insertDocument(17, 'in_progress', now(), [
+            'document_name' => 'Active Review',
+        ]);
+        $this->insertDocument(17, 'outgoing', now()->subDay(), [
+            'document_name' => 'Forwarded Contract',
+        ]);
+        $this->insertDocument(17, 'outgoing', now()->subDays(2), [
+            'document_name' => 'Forwarded Clearance',
+        ]);
+        $this->insertDocument(29, 'in_progress', now(), [
+            'document_name' => 'Other Client Document',
+        ]);
+
+        $assistant = Mockery::mock(LexTrackAssistant::class);
+        $assistant->shouldNotReceive('hasApprovedKnowledgeBase');
+        $assistant->shouldNotReceive('prompt');
+        $this->app->instance(LexTrackAssistant::class, $assistant);
+
+        $this->postJson('/chatbot/message', [
+            'message' => 'how many documents are in progress?',
+        ])
+            ->assertOk()
+            ->assertExactJson([
+                'reply' => 'You have 1 document with status In Progress. The Client Portal’s In Progress section shows 3 because it also includes 2 Outgoing documents.',
+            ])
+            ->assertDontSee('Other Client Document');
+    }
+
     public function test_unique_status_count_preserves_document_context_for_pronoun_follow_ups(): void
     {
         $this->actingAsClient(17);
@@ -1057,7 +1088,7 @@ class ChatbotRoutingTest extends TestCase
     public function test_selected_document_field_follow_ups_corrections_and_stop_remain_local(): void
     {
         $this->actingAsClient(17);
-        $submittedAt = \Illuminate\Support\Carbon::parse('2026-09-24 10:15:00');
+        $submittedAt = \Illuminate\Support\Carbon::parse('2026-09-28 10:15:00');
         $this->insertDocument(17, 'pending', $submittedAt, [
             'document_name' => 'SAD Act 5 - Group 3.pdf',
             'document_type' => 'Correspondence',
@@ -1090,15 +1121,46 @@ class ChatbotRoutingTest extends TestCase
         ])
             ->assertOk()
             ->assertSee('SAD Act 5 - Group 3.pdf')
-            ->assertSee('is Pending')
+            ->assertSee('currently Pending')
             ->assertDontSee('Document Document')
             ->assertDontSee('Other Client Private Document');
 
+        $this->postJson('/chatbot/message', [
+            'message' => 'whats the details about it?',
+            'conversation_id' => $conversationId,
+        ])->assertOk()->assertExactJson([
+            'reply' => "SAD Act 5 - Group 3.pdf\nDocument type: Correspondence\nStatus: Pending\nLAO number: LAO-26-024\nSubmitted: September 28, 2026",
+        ]);
+
+        foreach (['whats the details', 'details of it', 'tell me more about it', 'ano details?', 'ano details niyan?'] as $detailsFollowUp) {
+            $this->postJson('/chatbot/message', [
+                'message' => $detailsFollowUp,
+                'conversation_id' => $conversationId,
+            ])
+                ->assertOk()
+                ->assertSee('SAD Act 5 - Group 3.pdf')
+                ->assertSee('Pending')
+                ->assertSee('September 28, 2026')
+                ->assertDontSee('I found 5 documents')
+                ->assertDontSee('Other Client Private Document');
+        }
+
+        $router = app(ChatbotIntentRouter::class);
+        $this->assertNull($router->extractDocumentReference('whats the details'));
+        $this->assertSame(
+            'document_context_details',
+            $router->classify('whats the details', hasPrivateDocumentContext: true)['intent'],
+        );
+
         foreach ([
-            'when did i submit that/' => 'You submitted SAD Act 5 - Group 3.pdf on September 24, 2026.',
-            'you answer me wrong' => 'Sorry about that. You submitted SAD Act 5 - Group 3.pdf on September 24, 2026.',
-            'i was asking if when did i submit that document' => 'You submitted SAD Act 5 - Group 3.pdf on September 24, 2026.',
-            'i am not asking for legal advice you dumb' => 'Sorry about that. You submitted SAD Act 5 - Group 3.pdf on September 24, 2026.',
+            'when did i submit that/' => 'You submitted SAD Act 5 - Group 3.pdf on September 28, 2026.',
+            'when did i submt that?' => 'You submitted SAD Act 5 - Group 3.pdf on September 28, 2026.',
+            'what date did i submit it?' => 'You submitted SAD Act 5 - Group 3.pdf on September 28, 2026.',
+            'kailan ko yan sinubmit?' => 'Isinumite mo ang SAD Act 5 - Group 3.pdf noong September 28, 2026.',
+            'kailan ko pinasa yan?' => 'Isinumite mo ang SAD Act 5 - Group 3.pdf noong September 28, 2026.',
+            'you answer me wrong' => 'Sorry about that. You submitted SAD Act 5 - Group 3.pdf on September 28, 2026.',
+            'i was asking if when did i submit that document' => 'You submitted SAD Act 5 - Group 3.pdf on September 28, 2026.',
+            'i am not asking for legal advice you dumb' => 'Sorry about that. You submitted SAD Act 5 - Group 3.pdf on September 28, 2026.',
         ] as $message => $expected) {
             $this->postJson('/chatbot/message', [
                 'message' => $message,
@@ -1186,6 +1248,38 @@ class ChatbotRoutingTest extends TestCase
         ])->assertOk()->assertExactJson([
             'reply' => 'Okay. Let me know if you need help with LexTrack later.',
         ]);
+    }
+
+    public function test_multiple_status_count_follow_up_lists_only_the_filtered_result_set(): void
+    {
+        $this->actingAsClient(17);
+        $this->insertDocument(17, 'pending', now(), ['document_name' => 'Pending Alpha.pdf']);
+        $this->insertDocument(17, 'pending', now()->subMinute(), ['document_name' => 'Pending Beta.pdf']);
+        $this->insertDocument(17, 'completed', now(), ['document_name' => 'Unrelated Completed.pdf']);
+        $this->insertDocument(29, 'pending', now(), ['document_name' => 'Other Client Pending.pdf']);
+
+        $assistant = Mockery::mock(LexTrackAssistant::class);
+        $assistant->shouldNotReceive('hasApprovedKnowledgeBase');
+        $assistant->shouldNotReceive('prompt');
+        $this->app->instance(LexTrackAssistant::class, $assistant);
+
+        $conversationId = 'pending-result-set';
+        $this->postJson('/chatbot/message', [
+            'message' => 'How many documents are still pending?',
+            'conversation_id' => $conversationId,
+        ])->assertOk()->assertExactJson([
+            'reply' => 'You have 2 documents with status Pending.',
+        ]);
+
+        $this->postJson('/chatbot/message', [
+            'message' => 'what are they?',
+            'conversation_id' => $conversationId,
+        ])
+            ->assertOk()
+            ->assertSee('Pending Alpha.pdf')
+            ->assertSee('Pending Beta.pdf')
+            ->assertDontSee('Unrelated Completed.pdf')
+            ->assertDontSee('Other Client Pending.pdf');
     }
 
     public function test_status_type_latest_and_rejected_shortcuts_use_authorized_records(): void
@@ -1621,11 +1715,35 @@ class ChatbotRoutingTest extends TestCase
             ->assertStatus(422)
             ->assertJsonPath('reply', 'Please use respectful language. Offensive or prohibited words are not allowed.');
 
-        foreach (['tangina', 'panget', 'bobo', 'engot', 'baliw', 'kingina', 'shitttttttttttttt', 'putsngins tslsgs', '8080 k ba'] as $message) {
+        foreach (['tangina', 'panget', 'bobo', 'engot', 'baliw', 'kingina', 'shitttttttttttttt', 'putsngins tslsgs', '8080 k ba', 'what the hell', 'wat the hel', 'WHAT...THE...HECK!', 'wat   the   heck'] as $message) {
             $this->postJson('/chatbot/message', ['message' => $message])
                 ->assertStatus(422)
                 ->assertJsonPath('reply', 'Please use respectful language. Offensive or prohibited words are not allowed.');
         }
+    }
+
+    public function test_prohibited_private_lookup_is_rejected_before_lookup_or_openai(): void
+    {
+        $this->actingAsClient(17);
+
+        $documents = Mockery::mock(ClientDocumentLookupService::class);
+        $documents->shouldNotReceive('latestStatusResult');
+        $documents->shouldNotReceive('statusByDocumentIdResult');
+        $this->app->instance(ClientDocumentLookupService::class, $documents);
+
+        $assistant = Mockery::mock(LexTrackAssistant::class);
+        $assistant->shouldNotReceive('hasApprovedKnowledgeBase');
+        $assistant->shouldNotReceive('prompt');
+        $this->app->instance(LexTrackAssistant::class, $assistant);
+
+        $this->postJson('/chatbot/message', [
+            'message' => 'wat the hel is the status of my latest document?',
+        ])
+            ->assertStatus(422)
+            ->assertExactJson([
+                'message' => 'Please use respectful language. Offensive or prohibited words are not allowed.',
+                'reply' => 'Please use respectful language. Offensive or prohibited words are not allowed.',
+            ]);
     }
 
     public function test_valid_lextrack_terms_are_not_blocked(): void

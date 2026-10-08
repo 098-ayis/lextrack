@@ -302,6 +302,9 @@ class ChatbotIntentRouter
         // not reuse the previous status intent or become a search for “that”.
         $selectedFieldTopic = $this->selectedDocumentFieldTopic($normalized);
         $usesSelectedDocument = ($documentReference['type'] ?? null) === 'contextual'
+            || (in_array($selectedFieldTopic, ['identity', 'summary'], true)
+                && ($this->isSelectedDocumentIdentityFollowUp($normalized)
+                    || $this->isStandaloneDocumentDetailsFollowUp($normalized)))
             || ($selectedFieldTopic === 'lao_number'
                 && $this->hasContextualDocumentReference($normalized))
             || ($selectedFieldTopic === 'submission_date'
@@ -941,6 +944,7 @@ class ChatbotIntentRouter
             'policys' => 'policies',
             'polcy' => 'policy',
             'twhats' => 'whats',
+            'what s' => 'whats',
         ] as $variant => $canonical) {
             $message = preg_replace(
                 '/\b' . preg_quote($variant, '/') . '\b/u',
@@ -1720,7 +1724,7 @@ class ChatbotIntentRouter
     private function isSubmissionDateQuestion(string $message): bool
     {
         $submissionCue = preg_match(
-            '/\b(?:submit|submitted|submission|received|sinubmit|sinumbit|sumbit|pasa|ipinasa|pinasa|sinumite|natanggap)\b/',
+            '/\b(?:subm(?:i)?t(?:t?ed)?|submission|received|sinubmit|sinumbit|sumbit|pasa|ipinasa|pinasa|sinumite|natanggap)\b/',
             $message,
         ) === 1;
         $dateQuestion = preg_match(
@@ -1735,6 +1739,14 @@ class ChatbotIntentRouter
 
     private function selectedDocumentFieldTopic(string $message): ?string
     {
+        if ($this->isSelectedDocumentIdentityFollowUp($message)) {
+            return 'identity';
+        }
+
+        if ($this->isStandaloneDocumentDetailsFollowUp($message)) {
+            return 'summary';
+        }
+
         $hasReference = $this->hasContextualDocumentReference($message)
             || $this->hasDocumentTerm($message)
             || $this->hasPersonalReference($message);
@@ -1772,6 +1784,34 @@ class ChatbotIntentRouter
         }
 
         return null;
+    }
+
+    public function isDocumentResultSetFollowUp(string $message): bool
+    {
+        $message = $this->normalize($message);
+
+        return preg_match(
+            '/^(?:what are they|what documents are they|which ones?|which documents?|show (?:them|those)|list (?:them|those)|ano(?:ng)? (?:ang )?(?:mga )?(?:yun|iyon)|alin(?: alin)?|anong mga document(?: yun| iyon)?)$/u',
+            $message,
+        ) === 1;
+    }
+
+    private function isStandaloneDocumentDetailsFollowUp(string $message): bool
+    {
+        return preg_match(
+            '/^(?:(?:what(?:s| is| are)?)(?: the| its)?\s+)?(?:details?|detalye)(?:\s+(?:about|of))?(?:\s+(?:it|this|that|yan|yun|iyon|niyan))?$/u',
+            $message,
+        ) === 1
+            || preg_match('/^ano(?:ng)? (?:ang )?(?:details?|detalye)(?: (?:niyan|nyan|yan|yun|iyon))?$/u', $message) === 1
+            || preg_match('/^tell me(?: more)? about (?:it|this|that|yan|yun|iyon|niyan)$/u', $message) === 1;
+    }
+
+    private function isSelectedDocumentIdentityFollowUp(string $message): bool
+    {
+        return preg_match(
+            '/^(?:what(?:s| is)? it|what document is it|which one|ano (?:yun|iyon)|anong document (?:yun|iyon))$/u',
+            $message,
+        ) === 1;
     }
 
     private function isCorrectionMessage(string $message): bool
@@ -2146,7 +2186,8 @@ class ChatbotIntentRouter
             'a', 'an', 'ang', 'about', 'and', 'ba', 'completed', 'complete', 'document',
             'documents', 'doc', 'dun', 'for', 'how', 'is', 'ko', 'mo', 'my', 'na', 'ng',
             'of', 'processed', 'processing', 'naprocessed', 'sa', 'status', 'the',
-            'this', 'to', 'tungkol', 'update', 'updates', 'what', 'with', 'yung',
+            'this', 'that', 'it', 'to', 'tungkol', 'update', 'updates', 'what', 'whats',
+            'detail', 'details', 'tell', 'me', 'more', 'which', 'one', 'with', 'yung',
         ];
         if ($preserveTitleWords) {
             $noise = array_values(array_diff($noise, ['my', 'our', 'a', 'an', 'the']));

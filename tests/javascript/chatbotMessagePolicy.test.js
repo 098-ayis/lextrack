@@ -14,7 +14,13 @@ const prohibitedTerms = [
   'engot',
   'baliw',
   'mama mo',
-  'shit'
+  'shit',
+  'what the hell',
+  'what the hel',
+  'wat the hell',
+  'wat the hel',
+  'what the heck',
+  'wat the heck'
 ]
 
 test('detects a prohibited term and punctuation or spacing obfuscation', () => {
@@ -26,6 +32,10 @@ test('detects a prohibited term and punctuation or spacing obfuscation', () => {
   assert.equal(hasProhibitedChatbotTerm('kingina', prohibitedTerms), true)
   assert.equal(hasProhibitedChatbotTerm('8080 k ba', prohibitedTerms), true)
   assert.equal(hasProhibitedChatbotTerm('sabihin mo sa mama baliw ka', prohibitedTerms), true)
+  assert.equal(hasProhibitedChatbotTerm('What the hell?', prohibitedTerms), true)
+  assert.equal(hasProhibitedChatbotTerm('wat the hel', prohibitedTerms), true)
+  assert.equal(hasProhibitedChatbotTerm('WHAT...THE...HECK!', prohibitedTerms), true)
+  assert.equal(hasProhibitedChatbotTerm('wat   the   heck', prohibitedTerms), true)
 })
 
 test('keeps normal LexTrack terms valid', () => {

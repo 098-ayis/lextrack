@@ -35,6 +35,8 @@ class ChatbotController extends Controller
 
     private const PRIVATE_DOCUMENT_TOPIC_KEY = 'chatbot.private_document_topic';
 
+    private const PRIVATE_DOCUMENT_RESULTS_KEY = 'chatbot.private_document_results';
+
     private const PENDING_ACTION_KEY = 'chatbot.pending_action';
 
     private const DOCUMENT_CONTEXT_TTL_MINUTES = 10;
@@ -113,9 +115,24 @@ class ChatbotController extends Controller
         $choices = $this->activeDocumentChoices($request, $user, $pendingAction, $conversationId);
         $requestChoices = $this->activeRequestChoices($request, $user, $pendingAction, $conversationId);
         $documentContext = $this->activePrivateDocumentContext($request, $user, $conversationId);
+        $documentResults = $this->activePrivateDocumentResults($request, $user, $conversationId);
         $requestContext = $this->activePrivateRequestContext($request, $user, $conversationId);
         $hasPrivateDocumentContext = $documentContext !== null;
         $hasPrivateRequestContext = $requestContext !== null;
+
+        if ($documentResults !== null
+            && count($documentResults['document_ids']) > 1
+            && $intents->isDocumentResultSetFollowUp($message)) {
+            return $this->lookupByDocumentStatus(
+                $request,
+                $user,
+                $documents,
+                $documentResults['status'],
+                $this->chatbotLanguage($request),
+                $conversationId,
+                $documentResults['document_ids'],
+            );
+        }
 
         $quickIntent = $intents->classify(
             $message,
@@ -901,6 +918,7 @@ class ChatbotController extends Controller
         $this->clearPendingAction($request);
         $request->session()->forget(self::PRIVATE_DOCUMENT_CONTEXT_KEY);
         $request->session()->forget(self::PRIVATE_DOCUMENT_TOPIC_KEY);
+        $request->session()->forget(self::PRIVATE_DOCUMENT_RESULTS_KEY);
         $request->session()->forget(self::PRIVATE_REQUEST_CONTEXT_KEY);
         $request->session()->forget(self::DOCUMENT_CHOICES_KEY);
         $request->session()->forget(self::REQUEST_CHOICES_KEY);
@@ -1051,9 +1069,11 @@ class ChatbotController extends Controller
         }
 
         $reply = match ($language) {
-            'filipino' => 'Ang LexTrack ay may Submit Document, Request Document, Documents para sa status tracking, Messages, notifications, at revision uploads sa Client Portal.',
-            'taglish' => 'LexTrack provides Submit Document, Request Document, Documents for status tracking, Messages, notifications, and revision uploads in the Client Portal.',
-            default => 'LexTrack provides Submit Document, Request Document, Documents for status tracking, Messages, notifications, and revision uploads in the Client Portal.',
+            'filipino' => 'Sa Client Portal ng LexTrack, puwede kang mag-submit at mag-request ng dokumento, i-check ang status ng mga ito, mag-message sa Legal Affairs Office, makatanggap ng notifications, at mag-upload ng revised documents.',
+
+            'taglish' => 'Sa Client Portal ng LexTrack, puwede kang mag-submit at mag-request ng documents, i-track ang status ng mga ito, mag-message sa Legal Affairs Office, makatanggap ng notifications, at mag-upload ng revised documents.',
+
+            default => 'In the LexTrack Client Portal, you can submit and request documents, track their status, message the Legal Affairs Office, receive notifications, and upload revised documents.',
         };
 
         return $this->privateReply($request, $reply);
@@ -2042,20 +2062,26 @@ class ChatbotController extends Controller
         $this->clearPendingAction($request);
         $request->session()->forget(self::PRIVATE_DOCUMENT_CONTEXT_KEY);
         $request->session()->forget(self::PRIVATE_DOCUMENT_TOPIC_KEY);
+        $request->session()->forget(self::PRIVATE_DOCUMENT_RESULTS_KEY);
         $request->session()->forget(self::PRIVATE_REQUEST_CONTEXT_KEY);
         $request->session()->forget(self::DOCUMENT_CHOICES_KEY);
         $request->session()->forget(self::REQUEST_CHOICES_KEY);
         $request->session()->put(self::PRIVATE_CONTEXT_KEY, true);
 
         $uniqueDocumentId = null;
+        $matchingDocumentIds = [];
 
         try {
             $counts = $documents->documentCountsByStatus($user);
             $count = $status === null ? array_sum($counts) : ($counts[$status] ?? 0);
 
-            if ($status !== null && $count === 1) {
+            if ($status !== null && $count > 0) {
                 $matches = $documents->authorizedDocumentChoicesByStatus($user, $status);
-                $uniqueDocumentId = isset($matches[0]['document_id'])
+                $matchingDocumentIds = array_values(array_map(
+                    static fn (array $match): int => (int) $match['document_id'],
+                    $matches,
+                ));
+                $uniqueDocumentId = $count === 1 && isset($matches[0]['document_id'])
                     ? (int) $matches[0]['document_id']
                     : null;
             }
@@ -2085,11 +2111,41 @@ class ChatbotController extends Controller
                 : 'You have ' . $count . ' ' . $subject . '.';
         }
 
+        // The Client Portal's In Progress tab intentionally groups exact
+        // In Progress records with Outgoing records. Keep the official
+        // statuses distinct while explaining why the tab total can be larger.
+        if ($status === 'in_progress' && ($counts['outgoing'] ?? 0) > 0) {
+            $outgoingCount = (int) $counts['outgoing'];
+            $activeTotal = $count + $outgoingCount;
+
+            if ($language === 'filipino') {
+                $reply .= ' May ' . $activeTotal . ' documents sa In Progress section ng Client Portal dahil kasama rito ang '
+                    . $outgoingCount . ' Outgoing ' . ($outgoingCount === 1 ? 'document' : 'documents') . '.';
+            } elseif ($language === 'taglish') {
+                $reply .= ' May ' . $activeTotal . ' documents sa In Progress section ng Client Portal dahil kasama rin dito ang '
+                    . $outgoingCount . ' Outgoing ' . ($outgoingCount === 1 ? 'document' : 'documents') . '.';
+            } else {
+                $reply .= ' The Client Portal’s In Progress section shows ' . $activeTotal
+                    . ' because it also includes ' . $outgoingCount . ' Outgoing '
+                    . ($outgoingCount === 1 ? 'document' : 'documents') . '.';
+            }
+        }
+
         if ($uniqueDocumentId !== null) {
             $request->session()->put(self::PRIVATE_DOCUMENT_CONTEXT_KEY, [
                 'user_id' => (string) $user->getKey(),
                 'conversation_id' => $this->conversationId($request, $request->input('conversation_id')),
                 'document_id' => $uniqueDocumentId,
+                'expires_at' => now()->addMinutes(self::DOCUMENT_CONTEXT_TTL_MINUTES)->getTimestamp(),
+            ]);
+        }
+
+        if ($status !== null && $matchingDocumentIds !== []) {
+            $request->session()->put(self::PRIVATE_DOCUMENT_RESULTS_KEY, [
+                'user_id' => (string) $user->getKey(),
+                'conversation_id' => $this->conversationId($request, $request->input('conversation_id')),
+                'status' => $status,
+                'document_ids' => $matchingDocumentIds,
                 'expires_at' => now()->addMinutes(self::DOCUMENT_CONTEXT_TTL_MINUTES)->getTimestamp(),
             ]);
         }
@@ -2270,6 +2326,7 @@ class ChatbotController extends Controller
         string $status,
         string $language,
         string $conversationId,
+        ?array $documentIds = null,
     ): JsonResponse {
         $status = trim($status);
         $statusLabel = match ($status) {
@@ -2288,7 +2345,9 @@ class ChatbotController extends Controller
         }
 
         try {
-            $choices = $documents->authorizedDocumentChoicesByStatus($user, $status);
+            $choices = $documentIds === null
+                ? $documents->authorizedDocumentChoicesByStatus($user, $status)
+                : $documents->authorizedDocumentChoicesByIdsAndStatus($user, $documentIds, $status);
         } catch (Throwable $exception) {
             return $this->safeDocumentFailure($exception);
         }
@@ -2553,6 +2612,7 @@ class ChatbotController extends Controller
 
         return in_array($context['topic'], [
             'status',
+            'identity',
             'summary',
             'submission_date',
             'document_type',
@@ -2571,6 +2631,7 @@ class ChatbotController extends Controller
             self::REQUEST_CHOICES_KEY,
             self::PRIVATE_DOCUMENT_CONTEXT_KEY,
             self::PRIVATE_DOCUMENT_TOPIC_KEY,
+            self::PRIVATE_DOCUMENT_RESULTS_KEY,
             self::PRIVATE_REQUEST_CONTEXT_KEY,
             self::PRIVATE_MESSAGE_CONTEXT_KEY,
             self::PENDING_ACTION_KEY,
@@ -3288,6 +3349,42 @@ class ChatbotController extends Controller
             'conversation_id' => $conversationId,
             'document_id' => (int) $documentId,
             'expires_at' => (int) $context['expires_at'],
+        ];
+    }
+
+    /** @return array{status: string, document_ids: list<int>}|null */
+    private function activePrivateDocumentResults(Request $request, User $user, string $conversationId): ?array
+    {
+        $context = $request->session()->get(self::PRIVATE_DOCUMENT_RESULTS_KEY);
+        $allowedStatuses = ['pending', 'in_progress', 'outgoing', 'completed', 'returned', 'rejected', 'archived'];
+
+        if (! is_array($context)
+            || (string) ($context['user_id'] ?? '') !== (string) $user->getKey()
+            || (string) ($context['conversation_id'] ?? 'default') !== $conversationId
+            || ! in_array($context['status'] ?? null, $allowedStatuses, true)
+            || ! is_array($context['document_ids'] ?? null)
+            || $context['document_ids'] === []
+            || ! is_numeric($context['expires_at'] ?? null)
+            || (int) $context['expires_at'] <= now()->getTimestamp()) {
+            $request->session()->forget(self::PRIVATE_DOCUMENT_RESULTS_KEY);
+
+            return null;
+        }
+
+        $documentIds = [];
+        foreach ($context['document_ids'] as $documentId) {
+            $validatedId = filter_var($documentId, FILTER_VALIDATE_INT);
+            if ($validatedId === false || $validatedId < 1) {
+                $request->session()->forget(self::PRIVATE_DOCUMENT_RESULTS_KEY);
+
+                return null;
+            }
+            $documentIds[] = (int) $validatedId;
+        }
+
+        return [
+            'status' => (string) $context['status'],
+            'document_ids' => array_values(array_unique($documentIds)),
         ];
     }
 

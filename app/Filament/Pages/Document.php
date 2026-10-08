@@ -491,8 +491,15 @@ class Document extends Page implements HasTable
                 $query->where(function (Builder $query) use ($search): void {
                     $query
                         ->where('lao_number', 'like', $search)
+                        ->orWhere('document_name', 'like', $search)
+                        ->orWhere('document_type', 'like', $search)
+                        ->orWhere('description', 'like', $search)
+                        ->orWhere('action_type', 'like', $search)
                         ->orWhere('office_unit', 'like', $search)
-                        ->orWhere('particulars', 'like', $search);
+                        ->orWhere('particulars', 'like', $search)
+                        ->orWhere('sent_to', 'like', $search)
+                        ->orWhere('returned_from', 'like', $search)
+                        ->orWhere('rejection_reason', 'like', $search);
                 });
             })
             ->when($this->typeFilter !== '', function (Builder $query): void {

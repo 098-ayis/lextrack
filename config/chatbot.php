@@ -32,6 +32,12 @@ return [
         'mama mo',
         'nanay mo',
         'your mom',
+        'what the hell',
+        'what the hel',
+        'wat the hell',
+        'wat the hel',
+        'what the heck',
+        'wat the heck',
     ],
 
     'prohibited_message' => 'Please use respectful language. Offensive or prohibited words are not allowed.',

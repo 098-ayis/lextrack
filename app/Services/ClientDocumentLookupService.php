@@ -861,6 +861,43 @@ class ClientDocumentLookupService
     }
 
     /**
+     * Re-resolve a prior filtered result set while rechecking ownership and
+     * current status. Session IDs are selectors only, never authorization.
+     *
+     * @param  list<int>  $documentIds
+     * @return list<array{document_id: int, lao_number: ?string, document_type: ?string, display_name: ?string, status_label: string, submitted_at: string}>
+     */
+    public function authorizedDocumentChoicesByIdsAndStatus(User $user, array $documentIds, string $status): array
+    {
+        $allowedStatuses = ['pending', 'in_progress', 'outgoing', 'completed', 'returned', 'rejected', 'archived'];
+        $documentIds = array_values(array_unique(array_filter(
+            array_map(static fn (mixed $documentId): int => (int) $documentId, $documentIds),
+            static fn (int $documentId): bool => $documentId > 0,
+        )));
+
+        if (! in_array($status, $allowedStatuses, true) || $documentIds === []) {
+            return [];
+        }
+
+        return $this->submittedDocuments($user)
+            ->whereIn('document_id', $documentIds)
+            ->where('status', $status)
+            ->orderByDesc('created_at')
+            ->orderByDesc('document_id')
+            ->limit(self::CHATBOT_DOCUMENT_CHOICE_LIMIT)
+            ->get($this->documentChoiceColumns())
+            ->map(fn (Document $document): array => [
+                'document_id' => (int) $document->document_id,
+                'lao_number' => filled($document->lao_number) ? (string) $document->lao_number : null,
+                'document_type' => filled($document->document_type) ? (string) $document->document_type : null,
+                'display_name' => $this->documentDisplayName($document),
+                'status_label' => $this->statusLabel((string) $document->status),
+                'submitted_at' => $document->created_at?->format('F j, Y') ?? 'date unavailable',
+            ])
+            ->all();
+    }
+
+    /**
      * Find only this client's authorized submissions made on the supplied
      * calendar date. The date is validated before it reaches the query and
      * created_at is the existing submission timestamp in the documents table.
@@ -1027,7 +1064,7 @@ class ClientDocumentLookupService
                 : (filled($document->action_type)
                 ? "{$label} is currently {$statusLabel}. Assigned action type: {$document->action_type}."
                 : "{$label} is currently {$statusLabel}. No assigned action type has been recorded.");
-        } else {
+        } elseif ($topic === 'status') {
             $reply = $this->statusResponse(
                 $user,
                 (int) $document->document_id,
@@ -1037,6 +1074,42 @@ class ClientDocumentLookupService
                 null,
                 $language,
             );
+        } elseif ($topic === 'identity') {
+            $name = $this->documentDisplayName($document) ?: 'The selected document';
+            $statusLabel = $this->statusLabel($status);
+            $reply = in_array($language, ['filipino', 'taglish'], true)
+                ? "Ang {$name} ay kasalukuyang {$statusLabel}."
+                : "{$name} is currently {$statusLabel}.";
+        } else {
+            $name = $this->documentDisplayName($document) ?: 'The selected document';
+            $statusLabel = $this->statusLabel($status);
+            $submittedAt = $document->created_at?->format('F j, Y');
+            $documentType = filled($document->document_type) ? (string) $document->document_type : 'Not recorded';
+            $laoNumber = filled($document->lao_number) ? (string) $document->lao_number : 'Not yet assigned';
+
+            if (in_array($language, ['filipino', 'taglish'], true)) {
+                $lines = [
+                    $name,
+                    "Document type: {$documentType}",
+                    "Status: {$statusLabel}",
+                    "LAO number: {$laoNumber}",
+                ];
+                if ($submittedAt !== null) {
+                    $lines[] = "Isinumite: {$submittedAt}";
+                }
+            } else {
+                $lines = [
+                    $name,
+                    "Document type: {$documentType}",
+                    "Status: {$statusLabel}",
+                    "LAO number: {$laoNumber}",
+                ];
+                if ($submittedAt !== null) {
+                    $lines[] = "Submitted: {$submittedAt}";
+                }
+            }
+
+            $reply = implode("\n", $lines);
         }
 
         return $this->documentResult($reply, (int) $document->document_id, $status);
