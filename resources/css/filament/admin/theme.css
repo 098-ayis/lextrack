@@ -2528,6 +2528,10 @@ Edit-Button
 
 /* Keep the expanded desktop sidebar brand within its fixed width. */
 @media (min-width: 64rem) {
+    .fi-body-has-topbar .fi-main-sidebar.fi-sidebar-open .lextrack-brand {
+        gap: 0.25rem !important;
+    }
+
     .fi-body-has-topbar .fi-main-sidebar.fi-sidebar-open .lextrack-brand-text {
         min-width: 0 !important;
         flex: 1 1 auto !important;
