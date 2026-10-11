@@ -26,7 +26,10 @@ class OfficeUnitResource extends Resource
 
     public static function canAccess(): bool
     {
-        return auth()->user()?->hasRole(RoleSecurity::SUPER_ADMIN) ?? false;
+        return auth()->user()?->hasAnyRole([
+            RoleSecurity::LEGAL_STAFF,
+            RoleSecurity::SUPER_ADMIN,
+        ]) ?? false;
     }
 
     protected static ?int $navigationSort = 3;
