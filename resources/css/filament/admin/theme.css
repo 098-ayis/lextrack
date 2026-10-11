@@ -2526,6 +2526,30 @@ Edit-Button
     color: #ffffff;
 }
 
+/* Keep the expanded desktop sidebar brand within its fixed width. */
+@media (min-width: 64rem) {
+    .fi-body-has-topbar .fi-main-sidebar.fi-sidebar-open .lextrack-brand-text {
+        min-width: 0 !important;
+        flex: 1 1 auto !important;
+    }
+
+    .fi-body-has-topbar .fi-main-sidebar.fi-sidebar-open .lextrack-brand-title {
+        font-size: 1rem !important;
+    }
+
+    .fi-body-has-topbar .fi-main-sidebar.fi-sidebar-open .lextrack-brand-subtitle {
+        font-size: 0.6rem !important;
+    }
+
+    .fi-body-has-topbar .fi-main-sidebar.fi-sidebar-open .lextrack-brand-logo {
+        margin-inline-start: -0.9rem !important;
+    }
+
+    .fi-body-has-topbar .fi-main-sidebar.fi-sidebar-open .lextrack-brand-office {
+        margin-inline-start: 0.15rem !important;
+    }
+}
+
 .fi-topbar .lextrack-brand {
     display: flex !important;
     align-items: center;
