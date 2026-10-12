@@ -133,6 +133,7 @@ class ViewDocument extends Page
         if ($canAccessFile && filled($previewFilePath)) {
             $this->previewUrl = route('client.document.preview', [
                 'document' => $this->documentRecord->getPublicRouteKey(),
+                'qr' => 1,
             ]);
 
             $this->downloadUrl = route('client.document.download', [

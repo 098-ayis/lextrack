@@ -65,7 +65,7 @@ class DocumentDownloadTest extends TestCase
         $outputPath = $response->getFile()->getPathname();
         try {
             $this->assertSame('application/vnd.openxmlformats-officedocument.wordprocessingml.document', $response->headers->get('Content-Type'));
-            $this->assertStringContainsString('sample document-with-qr.docx', $response->headers->get('Content-Disposition'));
+            $this->assertStringContainsString('sample document.docx', $response->headers->get('Content-Disposition'));
             $this->assertSame($hash, hash_file('sha256', $path));
             $this->assertDirectoryDoesNotExist(substr($outputPath, 0, -strlen('-with-qr.docx')));
             $output = new \ZipArchive;

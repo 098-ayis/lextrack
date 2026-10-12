@@ -60,7 +60,26 @@ class DocumentWordQrService
             $contentType->setAttribute('ContentType', 'image/png');
             $types->documentElement->appendChild($contentType);
 
-            // An inline image reserves its own space so it cannot cover document text.
+            // Word uses English Metric Units for floating drawing positions.
+            // Calculate the horizontal offset from the page width so the QR's
+            // right edge remains 1.5 cm inside the page, regardless of paper
+            // size. The fallback is the default US Letter width.
+            $qrSizeEmu = 900000;
+            $cornerMarginEmu = 540000; // 1.5 cm
+            $pageWidthTwips = (int) $xpath->evaluate(
+                'string(/w:document/w:body/w:sectPr/w:pgSz/@w:w)'
+            );
+            $pageWidthEmu = $pageWidthTwips > 0
+                ? $pageWidthTwips * 635
+                : 6120000;
+            $horizontalOffsetEmu = max(
+                $cornerMarginEmu,
+                $pageWidthEmu - $qrSizeEmu - $cornerMarginEmu,
+            );
+
+            // Anchor the tracking QR to the page's upper-right corner. Using a
+            // floating anchor keeps the original document flow intact while
+            // making the QR easy to find and scan on downloaded files.
             $paragraph = $this->xml(<<<XML
                 <w:p xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
                      xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"
@@ -68,8 +87,13 @@ class DocumentWordQrService
                      xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"
                      xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">
                   <w:pPr><w:spacing w:before="0" w:after="0"/><w:jc w:val="right"/></w:pPr>
-                  <w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0">
-                    <wp:extent cx="900000" cy="900000"/>
+                  <w:r><w:drawing><wp:anchor distT="0" distB="0" distL="0" distR="0" simplePos="0" relativeHeight="251658240" behindDoc="0" locked="0" layoutInCell="1" allowOverlap="1">
+                    <wp:simplePos x="0" y="0"/>
+                    <wp:positionH relativeFrom="page"><wp:posOffset>{$horizontalOffsetEmu}</wp:posOffset></wp:positionH>
+                    <wp:positionV relativeFrom="page"><wp:posOffset>{$cornerMarginEmu}</wp:posOffset></wp:positionV>
+                    <wp:extent cx="{$qrSizeEmu}" cy="{$qrSizeEmu}"/>
+                    <wp:effectExtent l="0" t="0" r="0" b="0"/>
+                    <wp:wrapNone/>
                     <wp:docPr id="{$drawingId}" name="Document status QR code" descr="Scan to view document status">
                       <a:hlinkClick r:id="{$id}Link"/>
                     </wp:docPr>
@@ -77,12 +101,12 @@ class DocumentWordQrService
                     <a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">
                       <pic:pic><pic:nvPicPr><pic:cNvPr id="0" name="{$id}.png"/><pic:cNvPicPr/></pic:nvPicPr>
                         <pic:blipFill><a:blip r:embed="{$id}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill>
-                        <pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="900000" cy="900000"/></a:xfrm>
+                        <pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="{$qrSizeEmu}" cy="{$qrSizeEmu}"/></a:xfrm>
                           <a:prstGeom prst="rect"><a:avLst/></a:prstGeom>
                         </pic:spPr>
                       </pic:pic>
                     </a:graphicData></a:graphic>
-                  </wp:inline></w:drawing></w:r>
+                  </wp:anchor></w:drawing></w:r>
                 </w:p>
                 XML);
             $body->insertBefore($document->importNode($paragraph->documentElement, true), $body->firstChild);

@@ -60,12 +60,12 @@
             <div class="flex items-center gap-1.5">
                 <div class="relative w-full sm:w-44">
                     <select
-                        wire:model.live="typeFilter"
+                        wire:model.live="requestTypeFilter"
                         class="h-10 w-full appearance-none rounded-full border border-gray-300 bg-white pl-3 pr-9 text-xs font-semibold text-gray-900 focus:outline-none focus:ring-0 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
                     >
-                        <option value="">All Document Types</option>
-                        @foreach (\App\Models\DocumentType::orderBy('type_name')->get() as $type)
-                            <option value="{{ $type->type_name }}">{{ $type->type_name }}</option>
+                        <option value="">All Request Types</option>
+                        @foreach ($this->getRequestTypeFilterOptions() as $requestType)
+                            <option value="{{ $requestType }}">{{ $requestType }}</option>
                         @endforeach
                     </select>
                     <svg class="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-500 dark:text-gray-400" viewBox="0 0 20 20" fill="currentColor">
@@ -73,13 +73,13 @@
                     </svg>
                 </div>
 
-                @if ($typeFilter)
+                @if ($requestTypeFilter)
                     <button
                         type="button"
-                        wire:click="clearTypeFilter"
+                        wire:click="clearRequestTypeFilter"
                         class="flex h-10 w-10 items-center justify-center rounded-full border border-gray-300 bg-white text-gray-500 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
-                        title="Clear document type"
-                        aria-label="Clear document type filter"
+                        title="Clear request type"
+                        aria-label="Clear request type filter"
                     >
                         <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
