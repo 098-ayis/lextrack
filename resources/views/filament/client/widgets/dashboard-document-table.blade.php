@@ -234,7 +234,7 @@
                             ? route('client.document.thumbnail', ['document' => $documentRouteKey])
                             : null;
                         $docxPreviewUrl = $filePath && $extension === 'docx'
-                            ? route('client.document.preview', ['document' => $documentRouteKey])
+                            ? route('client.document.preview', ['document' => $documentRouteKey, 'qr' => 1])
                             : null;
                     @endphp
 

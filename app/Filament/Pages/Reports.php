@@ -5,6 +5,8 @@ namespace App\Filament\Pages;
 use App\Models\Document;
 use App\Support\RoleSecurity;
 use Filament\Pages\Page;
+use Filament\Support\Enums\Width;
+use Illuminate\Database\Eloquent\Builder;
 use Livewire\WithPagination;
 use UnitEnum;
 
@@ -20,7 +22,7 @@ class Reports extends Page
 
     protected string $view = 'filament.pages.reports';
 
-    protected \Filament\Support\Enums\Width|string|null $maxContentWidth = \Filament\Support\Enums\Width::Full;
+    protected \Filament\Support\Enums\Width|string|null $maxContentWidth = Width::Full;
 
     public static function canAccess(): bool
     {
@@ -65,25 +67,45 @@ class Reports extends Page
 
     protected function getViewData(): array
     {
-        $query = Document::query()
-            ->whereDate('created_at', '>=', $this->from)
-            ->whereDate('created_at', '<=', $this->to)
-            ->when($this->type !== '', fn ($q) => $q->where('document_type', $this->type))
-            ->when($this->office !== '', fn ($q) => $q->where('office_unit', $this->office))
-            ->when($this->status !== '', fn ($q) => $q->where('status', $this->status))
-            ->when(trim($this->search) !== '', function ($q) {
-                $term = '%'.trim($this->search).'%';
-                $q->where(fn ($q) => $q->where('lao_number', 'like', $term)->orWhere('particulars', 'like', $term));
-            });
+        $query = $this->filteredDocumentsQuery();
         $counts = (clone $query)->selectRaw('status, COUNT(*) as total')->groupBy('status')->pluck('total', 'status');
 
         return [
             'documents' => (clone $query)->with(['user', 'activityLogs'])->latest('created_at')->orderByDesc('document_id')->paginate(15),
             'counts' => $counts,
             'total' => $counts->sum(),
-            'types' => Document::whereNotNull('document_type')->distinct()->orderBy('document_type')->pluck('document_type'),
-            'offices' => Document::whereNotNull('office_unit')->distinct()->orderBy('office_unit')->pluck('office_unit'),
+            'types' => Document::query()
+                ->whereNotNull('document_type')
+                ->where('document_type', '<>', '')
+                ->distinct()
+                ->orderBy('document_type')
+                ->pluck('document_type'),
+            'offices' => Document::query()
+                ->whereNotNull('office_unit')
+                ->where('office_unit', '<>', '')
+                ->distinct()
+                ->orderBy('office_unit')
+                ->pluck('office_unit'),
         ];
     }
 
+    private function filteredDocumentsQuery(): Builder
+    {
+        $search = trim($this->search);
+
+        return Document::query()
+            ->whereDate('created_at', '>=', $this->from)
+            ->whereDate('created_at', '<=', $this->to)
+            ->when(filled($this->type), fn (Builder $query) => $query->where('document_type', $this->type))
+            ->when(filled($this->office), fn (Builder $query) => $query->where('office_unit', $this->office))
+            ->when(filled($this->status), fn (Builder $query) => $query->where('status', $this->status))
+            ->when($search !== '', function (Builder $query) use ($search): void {
+                $term = '%'.$search.'%';
+
+                $query->where(function (Builder $query) use ($term): void {
+                    $query->where('lao_number', 'like', $term)
+                        ->orWhere('particulars', 'like', $term);
+                });
+            });
+    }
 }

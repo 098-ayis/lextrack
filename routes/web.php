@@ -151,7 +151,11 @@ Route::get('/client/document-preview/{document}', function (string $document) {
         404
     );
 
-    return app(\App\Services\DocumentPreviewService::class)->preview($disk->path($filePath));
+    return app(DocumentDownloadService::class)->preview(
+        $documentRecord,
+        $disk->path($filePath),
+        basename($filePath),
+    );
 
 })
     ->middleware('auth')
@@ -229,16 +233,7 @@ Route::get('/client/document-download/{document}', function (string $document) {
 
     abort_unless($filePath && $disk->exists($filePath), 404);
 
-    $fileName = basename($filePath);
-
-    return response()->download(
-        $disk->path($filePath),
-        $fileName,
-        [
-            'Content-Type' => $disk->mimeType($filePath)
-                ?: 'application/octet-stream',
-        ]
-    );
+    return app(DocumentDownloadService::class)->download($documentRecord, $versionRecord);
 })
     ->middleware(['auth', 'throttle:downloads'])
     ->name('client.document.download');
@@ -282,8 +277,10 @@ Route::get('/client/document-version/{document}/{version}/preview', function (
         404,
     );
 
-    return app(\App\Services\DocumentPreviewService::class)->preview(
+    return app(DocumentDownloadService::class)->preview(
+        $documentRecord,
         $versionRecord->storageDisk()->path($versionRecord->file_path),
+        basename($versionRecord->file_path),
     );
 })
     ->middleware('auth')
@@ -355,7 +352,11 @@ Route::get('/client/document-transmittal/{document}/preview', function (string $
 
     abort_unless($filePath && $disk->exists($filePath), 404);
 
-    return app(\App\Services\DocumentPreviewService::class)->preview($disk->path($filePath));
+    return app(DocumentDownloadService::class)->preview(
+        $documentRecord,
+        $disk->path($filePath),
+        basename($filePath),
+    );
 })
     ->middleware('auth')
     ->name('client.document.transmittal.preview');
@@ -414,8 +415,10 @@ Route::get('/client/document-transmittal/{document}/{attachment}/preview', funct
 
     abort_unless($disk->exists($attachmentRecord->file_path), 404);
 
-    return app(\App\Services\DocumentPreviewService::class)->preview(
+    return app(DocumentDownloadService::class)->preview(
+        $documentRecord,
         $disk->path($attachmentRecord->file_path),
+        basename($attachmentRecord->file_path),
     );
 })
     ->middleware('auth')

@@ -6,6 +6,7 @@ use App\Models\Document as DocumentModel;
 use App\Models\DocumentVersion;
 use App\Models\DocumentTransmittal;
 use App\Models\RejectedDocument;
+use App\Filament\Pages\Messages as AdminMessages;
 use Carbon\Carbon;
 use App\Notifications\DocumentRejectedNotification;
 use App\Notifications\DocumentAcceptedNotification;
@@ -559,9 +560,7 @@ class Document extends Page implements HasTable
         $columns = [
             ViewColumn::make('document_details')
                 ->label('DOCUMENT')
-                ->view('filament.tables.columns.document-details')
-                ->width('20rem')
-                ->extraHeaderAttributes(['class' => 'min-w-[240px]']),
+                ->view('filament.tables.columns.document-details'),
         ];
 
         if ($this->activeSection === 'incoming') {
@@ -569,8 +568,6 @@ class Document extends Page implements HasTable
                 ->label('DETAILS')
                 ->view('filament.tables.columns.subjects')
                 ->alignStart()
-                ->width('18rem')
-                ->extraHeaderAttributes(['class' => 'min-w-[200px]'])
                 ->extraCellAttributes(['class' => 'align-middle']);
         }
 
@@ -578,16 +575,13 @@ class Document extends Page implements HasTable
             ViewColumn::make('document_type')
                 ->label('DOCUMENT TYPE')
                 ->view('filament.tables.columns.document-type')
-                ->alignCenter()
-                ->width('9rem')
-                ->extraHeaderAttributes(['class' => 'min-w-[140px]']);
+                ->alignCenter();
 
         $uploadDateColumn = TextColumn::make('created_at')
             ->label('UPLOAD DATE')
             ->dateTime($this->activeSection === 'incoming' ? 'M d, Y' : 'M d, Y h:i A')
             ->placeholder('Unknown date')
-            ->alignCenter()
-            ->extraHeaderAttributes(['class' => 'min-w-[155px]']);
+            ->alignCenter();
 
         if ($this->activeSection === 'incoming') {
             $uploadDateColumn->description(
@@ -605,23 +599,18 @@ class Document extends Page implements HasTable
                     ? $record->description
                     : null)
                 ->wrap()
-                ->extraHeaderAttributes(['class' => 'min-w-[180px]'])
                 ->extraCellAttributes(['class' => 'align-middle']);
 
             $columns[] = ViewColumn::make('transmittal')
                 ->label('TRANSMITTAL')
                 ->view('filament.tables.columns.transmittal')
                 ->alignCenter()
-                ->width('8rem')
-                ->extraHeaderAttributes(['class' => 'min-w-[180px]'])
                 ->extraCellAttributes(['class' => 'align-middle']);
 
             $columns[] = ViewColumn::make('uploaded_by')
                 ->label('UPLOADED BY')
                 ->view('filament.tables.columns.uploaded-by-avatar')
                 ->alignCenter()
-                ->width('4.5rem')
-                ->extraHeaderAttributes(['class' => 'w-[4.5rem] min-w-[4.5rem]'])
                 ->extraCellAttributes(['class' => 'align-middle text-center']);
         } elseif ($this->activeSection === 'outgoing') {
             $columns[] = TextColumn::make('outgoing_date')
@@ -642,14 +631,13 @@ class Document extends Page implements HasTable
                 ->view('filament.tables.columns.returned-details')
                 ->alignCenter();
         } elseif ($this->activeSection === 'completed') {
-            // Keep Last Update directly beside Upload Date, matching the
-            // wide, left-aligned detail column used for rejection reasons.
+            // Keep Last Update consistent with Upload Date: centered and
+            // rendered with the same date-and-time format.
             $columns[] = TextColumn::make('updated_at')
                 ->label('LAST UPDATE')
-                ->date('F d, Y')
+                ->dateTime('M d, Y h:i A')
                 ->placeholder('Unknown date')
-                ->alignLeft()
-                ->extraHeaderAttributes(['class' => 'min-w-[180px]'])
+                ->alignCenter()
                 ->extraCellAttributes(['class' => 'completed-last-update-cell']);
         } elseif ($this->activeSection === 'rejected') {
             $columns[] = TextColumn::make('rejection_reason')
@@ -661,7 +649,7 @@ class Document extends Page implements HasTable
                 })
                 ->color('danger')
                 ->disabledClick()
-                ->alignLeft()
+                ->alignCenter()
                 ->extraCellAttributes(['class' => 'rejection-reason-cell']);
         } elseif ($this->activeSection === 'archived') {
             $columns[] = TextColumn::make('archived_at')
@@ -678,7 +666,6 @@ class Document extends Page implements HasTable
             $columns[] = ViewColumn::make('deadline_details')
                 ->label('DEADLINE')
                 ->view('filament.tables.columns.deadline')
-                ->width('13rem')
                 ->alignCenter();
         }
 
@@ -701,6 +688,7 @@ class Document extends Page implements HasTable
                 ->url(fn (DocumentModel $record): string => route('admin.documents.download', [
                     'document' => $record->getPublicRouteKey(),
                 ]))
+                ->openUrlInNewTab()
                 ->disabled(fn (DocumentModel $record): bool => blank($record->latestVersion?->file_path))
                 ->tooltip(fn (DocumentModel $record): string =>
                     filled($record->latestVersion?->file_path)
@@ -726,11 +714,15 @@ class Document extends Page implements HasTable
                 ->label('Message')
                 ->icon('heroicon-o-chat-bubble-left-right')
                 ->color('gray')
-                ->action(fn (DocumentModel $record) => $this->messageDocument($record->document_id));
+                ->url(fn (DocumentModel $record): string => AdminMessages::getUrl([
+                    'document' => $record->getPublicRouteKey(),
+                ]));
         }
 
         $options = ActionGroup::make($menuActions)
             ->icon('heroicon-m-ellipsis-vertical')
+            ->dropdownPlacement('bottom-end')
+            ->dropdownTeleport(true)
             ->tooltip('More options')
             ->color('gray');
 
@@ -741,6 +733,7 @@ class Document extends Page implements HasTable
                 ...$actions,
                 $this->acceptDocumentAction()->button(),
                 $this->rejectDocumentAction()->button(),
+                $options,
             ];
         }
 
@@ -1276,8 +1269,9 @@ class Document extends Page implements HasTable
                 'class' => 'edit-document-button',
             ])
 
-            ->schema(function (array $arguments, ?DocumentModel $record = null): array {
-                $document = $record ?? DocumentModel::find($arguments['document'] ?? null);
+            ->modalHeading('Edit Document')
+            ->schema(function (DocumentModel $record): array {
+                $document = $record;
 
                 if ($document?->status === 'outgoing') {
                     return [
@@ -1512,8 +1506,8 @@ class Document extends Page implements HasTable
                         ->columnSpanFull(),
                 ];
             })
-            ->fillForm(function (array $arguments, ?DocumentModel $record = null): array {
-                $document = $this->resolveDocumentActionRecord($arguments, $record);
+            ->fillForm(function (DocumentModel $record): array {
+                $document = $record;
 
                 return [
                     'lao_number' => $document->lao_number,
@@ -1549,8 +1543,8 @@ class Document extends Page implements HasTable
                     'date_returned' => $document->date_returned,
                 ];
             })
-            ->action(function (array $data, array $arguments, ?DocumentModel $record = null): void {
-                $document = $this->resolveDocumentActionRecord($arguments, $record);
+            ->action(function (array $data, DocumentModel $record): void {
+                $document = $record;
 
                 $filePaths = array_values(array_filter(
                     (array) ($data['file_path'] ?? []),
@@ -1966,10 +1960,17 @@ class Document extends Page implements HasTable
             return $rejection;
         });
 
+        $emailFailed = false;
+
         if ($document->user) {
-            $document->user->notify(
-                new DocumentRejectedNotification($document, $rejection)
-            );
+            try {
+                $document->user->notify(
+                    new DocumentRejectedNotification($document, $rejection)
+                );
+            } catch (TransportExceptionInterface $exception) {
+                report($exception);
+                $emailFailed = true;
+            }
         }
 
         $this->recordDocumentActivity(
@@ -1978,11 +1979,17 @@ class Document extends Page implements HasTable
             'Rejected the document: ' . $reason
         );
 
-        Notification::make()
-            ->success()
-            ->title('Document rejected')
-            ->body('The document was rejected and remains on the current table.')
-            ->send();
+        $notification = Notification::make()
+            ->title($emailFailed ? 'Document rejected, but email failed' : 'Document rejected')
+            ->body($emailFailed
+                ? 'The document was rejected, but the email notification could not be sent. Please check the mail server connection.'
+                : 'The document was rejected and remains on the current table.');
+
+        $emailFailed
+            ? $notification->warning()
+            : $notification->success();
+
+        $notification->send();
     }
 
     public function returnDocumentAction(): Action
@@ -2092,10 +2099,17 @@ class Document extends Page implements HasTable
             'status' => 'completed',
         ]);
 
+        $emailFailed = false;
+
         if ($document->user) {
-            $document->user->notify(
-                new DocumentCompletedNotification($document)
-            );
+            try {
+                $document->user->notify(
+                    new DocumentCompletedNotification($document)
+                );
+            } catch (TransportExceptionInterface $exception) {
+                report($exception);
+                $emailFailed = true;
+            }
         }
 
         $this->recordDocumentActivity(
@@ -2104,11 +2118,17 @@ class Document extends Page implements HasTable
             'Marked the document as completed.'
         );
 
-        Notification::make()
-            ->success()
-            ->title('Document completed')
-            ->body('The document was successfully marked as completed and moved to the Completed table.')
-            ->send();
+        $notification = Notification::make()
+            ->title($emailFailed ? 'Document completed, but email failed' : 'Document completed')
+            ->body($emailFailed
+                ? 'The document was completed, but the email notification could not be sent. Please check the mail server connection.'
+                : 'The document was successfully marked as completed and moved to the Completed table.');
+
+        $emailFailed
+            ? $notification->warning()
+            : $notification->success();
+
+        $notification->send();
 
     }
 
@@ -2153,10 +2173,8 @@ class Document extends Page implements HasTable
             ->modalSubmitAction(fn (Action $action): Action => $this->styleDocumentPrimarySubmitAction($action))
             ->modalSubmitActionLabel('Archive document')
             ->modalCancelActionLabel('Cancel')
-            ->action(function (array $arguments, ?DocumentModel $record = null): void {
-                $document = $this->resolveDocumentActionRecord($arguments, $record);
-
-                $this->archiveDocument($document->document_id);
+            ->action(function (DocumentModel $record): void {
+                $this->archiveDocument($record->document_id);
             });
     }
 

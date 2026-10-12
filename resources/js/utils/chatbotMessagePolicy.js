@@ -5,7 +5,8 @@ export function normalizeChatbotMessage(value) {
 
   message = message
     .normalize('NFKC')
-    .replace(/[0134578]/g, (character) => ({
+    .replace(/[@0134578]/g, (character) => ({
+      '@': 'a',
       0: 'o',
       1: 'i',
       3: 'e',
@@ -16,7 +17,8 @@ export function normalizeChatbotMessage(value) {
     })[character])
 
   message = message.replace(/[^\p{L}\p{N}]+/gu, ' ')
-  message = message.replace(/([\p{L}\p{N}])\1+/gu, '$1')
+  // Collapse exaggerated runs while preserving legitimate doubled letters.
+  message = message.replace(/([\p{L}\p{N}])\1{2,}/gu, '$1')
 
   return message.replace(/\s+/g, ' ').trim()
 }

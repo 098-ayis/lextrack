@@ -7,8 +7,26 @@ import {
 
 const prohibitedTerms = [
   'fuck',
+  'fucker',
+  'motherfucker',
   'putang ina',
+  'putangina',
+  'potangina',
   'tangina',
+  'taena',
+  'puta',
+  'pota',
+  'shuta',
+  'shet',
+  'gago',
+  'gagu',
+  'gaga',
+  'ass',
+  'asshole',
+  'bitch',
+  'dick',
+  'tarantado',
+  'son of a bitch',
   'panget',
   'bobo',
   'engot',
@@ -36,10 +54,19 @@ test('detects a prohibited term and punctuation or spacing obfuscation', () => {
   assert.equal(hasProhibitedChatbotTerm('wat the hel', prohibitedTerms), true)
   assert.equal(hasProhibitedChatbotTerm('WHAT...THE...HECK!', prohibitedTerms), true)
   assert.equal(hasProhibitedChatbotTerm('wat   the   heck', prohibitedTerms), true)
+
+  for (const message of [
+    'Tangina', 'Gago', 'Mama mo', '8080', 'Puta', 'Pota', 'Potangina',
+    'Putangina', 'taena', 'shuta', 'shet', 'gagu', 'gaga', 'T@ena',
+    'Fuck', 'Shit', 'Ass', '@ss', 'Asshole', 'Bitch', 'Dick', 'tarantado',
+    'son of a bitch', 'motherfucker', 'fucker'
+  ]) {
+    assert.equal(hasProhibitedChatbotTerm(message, prohibitedTerms), true, message)
+  }
 })
 
 test('keeps normal LexTrack terms valid', () => {
-  for (const message of ['request', 'original', 'clearance', 'transmittal', 'thanks', 'okay', 'reputation']) {
+  for (const message of ['request', 'original', 'clearance', 'transmittal', 'thanks', 'okay', 'reputation', 'as requested']) {
     assert.equal(hasProhibitedChatbotTerm(message, prohibitedTerms), false)
     assert.equal(canSendChatbotMessage(message, false, prohibitedTerms), true)
   }

@@ -357,7 +357,10 @@ class Documents extends Page implements HasTable
                 ->url(
                     fn (DocumentRequest $record): string => route(
                         'client.document.preview',
-                        ['document' => $record->document?->getPublicRouteKey() ?: $record->document_id]
+                        [
+                            'document' => $record->document?->getPublicRouteKey() ?: $record->document_id,
+                            'qr' => 1,
+                        ]
                     )
                 )
                 ->visible(
@@ -397,6 +400,8 @@ class Documents extends Page implements HasTable
                 ),
         ])
             ->icon('heroicon-m-ellipsis-vertical')
+            ->dropdownPlacement('bottom-end')
+            ->dropdownTeleport(true)
             ->tooltip('More options')
             ->color('gray');
 
@@ -603,7 +608,10 @@ class Documents extends Page implements HasTable
                 ->url(
                     fn (Document $record): string => route(
                         'client.document.preview',
-                        ['document' => $record->getPublicRouteKey()]
+                        [
+                            'document' => $record->getPublicRouteKey(),
+                            'qr' => 1,
+                        ]
                     )
                 )
                 ->visible(fn (Document $record): bool =>
@@ -612,6 +620,8 @@ class Documents extends Page implements HasTable
                 ->openUrlInNewTab(),
         ])
             ->icon('heroicon-m-ellipsis-vertical')
+            ->dropdownPlacement('bottom-end')
+            ->dropdownTeleport(true)
             ->tooltip('More options')
             ->color('gray');
 

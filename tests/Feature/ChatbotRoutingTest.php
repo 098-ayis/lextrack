@@ -1720,6 +1720,17 @@ class ChatbotRoutingTest extends TestCase
                 ->assertStatus(422)
                 ->assertJsonPath('reply', 'Please use respectful language. Offensive or prohibited words are not allowed.');
         }
+
+        foreach ([
+            'Tangina', 'Gago', 'Mama mo', '8080', 'Puta', 'Pota', 'Potangina',
+            'Putangina', 'taena', 'shuta', 'shet', 'gagu', 'gaga', 'T@ena',
+            'Fuck', 'Shit', 'Ass', '@ss', 'Asshole', 'Bitch', 'Dick', 'tarantado',
+            'son of a bitch', 'motherfucker', 'fucker',
+        ] as $message) {
+            $this->postJson('/chatbot/message', ['message' => $message])
+                ->assertStatus(422)
+                ->assertJsonPath('reply', 'Please use respectful language. Offensive or prohibited words are not allowed.');
+        }
     }
 
     public function test_prohibited_private_lookup_is_rejected_before_lookup_or_openai(): void
@@ -1754,7 +1765,7 @@ class ChatbotRoutingTest extends TestCase
         $assistant->shouldNotReceive('prompt');
         $this->app->instance(LexTrackAssistant::class, $assistant);
 
-        foreach (['request', 'original', 'clearance', 'transmittal', 'thanks', 'okay'] as $message) {
+        foreach (['request', 'original', 'clearance', 'transmittal', 'thanks', 'okay', 'as requested'] as $message) {
             $this->postJson('/chatbot/message', ['message' => $message])->assertOk();
         }
     }

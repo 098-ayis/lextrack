@@ -65,7 +65,7 @@ class DocumentRequests extends Page implements HasTable
 
     public string $search = '';
 
-    public string $typeFilter = '';
+    public string $requestTypeFilter = '';
 
     public string $actionTypeFilter = '';
 
@@ -217,10 +217,8 @@ class DocumentRequests extends Page implements HasTable
                         });
                 });
             })
-            ->when($this->typeFilter !== '', function (Builder $query): void {
-                $query->whereHas('document', function (Builder $query): void {
-                    $query->where('document_type', $this->typeFilter);
-                });
+            ->when($this->requestTypeFilter !== '', function (Builder $query): void {
+                $query->where('purpose', $this->requestTypeFilter);
             })
             ->when($this->actionTypeFilter !== '', function (Builder $query): void {
                 $query->whereHas('document', function (Builder $query): void {
@@ -604,7 +602,12 @@ class DocumentRequests extends Page implements HasTable
             $secondAdditionalAction,
             $this->messageRequestAction(),
             $this->historyAction(),
-        ]))->icon('heroicon-m-ellipsis-vertical')->tooltip('More options')->color('gray');
+        ]))
+            ->icon('heroicon-m-ellipsis-vertical')
+            ->dropdownPlacement('bottom-end')
+            ->dropdownTeleport(true)
+            ->tooltip('More options')
+            ->color('gray');
     }
 
 
@@ -1171,7 +1174,7 @@ class DocumentRequests extends Page implements HasTable
         $this->resetPage();
     }
 
-    public function updatedTypeFilter(): void
+    public function updatedRequestTypeFilter(): void
     {
         $this->resetPage();
     }
@@ -1188,7 +1191,7 @@ class DocumentRequests extends Page implements HasTable
 
     public function clearRequestFilters(): void
     {
-        $this->typeFilter = '';
+        $this->requestTypeFilter = '';
         $this->actionTypeFilter = '';
         $this->officeUnitFilter = '';
         $this->resetPage();
@@ -1199,9 +1202,9 @@ class DocumentRequests extends Page implements HasTable
         $this->resetPage();
     }
 
-    public function clearTypeFilter(): void
+    public function clearRequestTypeFilter(): void
     {
-        $this->typeFilter = '';
+        $this->requestTypeFilter = '';
     }
 
     public function updatedDateFilter(): void
@@ -1215,6 +1218,16 @@ class DocumentRequests extends Page implements HasTable
             ->orderBy('type_name')
             ->pluck('type_name', 'type_name')
             ->all();
+    }
+
+    public function getRequestTypeFilterOptions(): array
+    {
+        return [
+            'Certificate Request',
+            'Template Request',
+            'Document Request',
+            'Other Request',
+        ];
     }
 
     public function getActionTypeFilterOptions(): array

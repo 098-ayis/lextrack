@@ -63,6 +63,7 @@ class ChatbotMessagePolicy
         // removed. This remains deliberately conservative for valid LexTrack
         // terms such as request, original, and clearance.
         $message = strtr($message, [
+            '@' => 'a',
             '0' => 'o',
             '1' => 'i',
             '3' => 'e',
@@ -73,7 +74,9 @@ class ChatbotMessagePolicy
         ]);
 
         $message = preg_replace('/[^\p{L}\p{N}]+/u', ' ', $message) ?? '';
-        $message = preg_replace('/([\p{L}\p{N}])\1+/u', '$1', $message) ?? $message;
+        // Collapse exaggerated runs (for example, "shittttt") without
+        // changing legitimate doubled letters such as the "ss" in "ass".
+        $message = preg_replace('/([\p{L}\p{N}])\1{2,}/u', '$1', $message) ?? $message;
 
         return trim(preg_replace('/\s+/u', ' ', $message) ?? '');
     }
