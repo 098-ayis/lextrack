@@ -8,12 +8,13 @@ use App\Filament\Resources\Users\Pages\ListUsers;
 use App\Filament\Resources\Users\Schemas\UserForm;
 use App\Filament\Resources\Users\Tables\UsersTable;
 use App\Models\User;
+use App\Services\UserRoleAssignmentService;
 use App\Support\RoleSecurity;
-use Illuminate\Database\Eloquent\Model;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
 use UnitEnum;
 
 class UserResource extends Resource
@@ -75,7 +76,9 @@ class UserResource extends Resource
 
     public static function canDelete(Model $record): bool
     {
-        return static::canEdit($record);
+        return static::canEdit($record)
+            && $record instanceof User
+            && ! app(UserRoleAssignmentService::class)->isLastSuperAdmin($record);
     }
 
     public static function canRestore(Model $record): bool

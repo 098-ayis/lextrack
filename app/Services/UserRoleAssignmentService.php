@@ -4,16 +4,121 @@ namespace App\Services;
 
 use App\Models\User;
 use App\Support\RoleSecurity;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Spatie\Permission\Models\Role;
 
 class UserRoleAssignmentService
 {
+    public function isGrantingSuperAdmin(?User $target, mixed $selection): bool
+    {
+        $requestedRoles = $this->rolesForSelection($selection);
+
+        if (! $this->containsSuperAdminRole($requestedRoles)) {
+            return false;
+        }
+
+        return $target === null
+            || ! $this->containsSuperAdminRole($target->roles()->get());
+    }
+
+    public function isLastSuperAdmin(User $user): bool
+    {
+        return $this->containsSuperAdminRole($user->roles()->get())
+            && $this->superAdminCount() <= 1;
+    }
+
     public function validateSelection(mixed $actor, ?User $target, mixed $selection): Collection
     {
         abort_unless($actor instanceof User && $actor->hasRole(RoleSecurity::SUPER_ADMIN), 403);
 
+        $roles = $this->rolesForSelection($selection);
+        $roleIds = $roles->map(fn (Role $role): int => (int) $role->getKey());
+
+        $currentRoleIds = $target ? $this->currentRoleIds($target) : [];
+        $requestedRoleIds = $roleIds->all();
+
+        if (
+            $target !== null
+            && $this->containsSuperAdminRole($target->roles()->get())
+            && ! $this->containsSuperAdminRole($roles)
+            && $this->superAdminCount() <= 1
+        ) {
+            $this->reject('At least one Super Admin must remain.');
+        }
+
+        if ($target?->is($actor) && $this->sortedIds($requestedRoleIds) !== $this->sortedIds($currentRoleIds)) {
+            $this->reject('You cannot change your own roles.');
+        }
+
+        return $roles;
+    }
+
+    public function syncSelection(mixed $actor, User $target, mixed $selection): void
+    {
+        DB::transaction(function () use ($actor, $target, $selection): void {
+            // Serialize role changes so two concurrent requests cannot both
+            // remove the final Super Admin before either request sees it.
+            $this->lockRoleRows();
+
+            $roles = $this->validateSelection($actor, $target, $selection);
+
+            if ($target->is($actor)) {
+                return;
+            }
+
+            $currentRoles = $target->roles()->get();
+            $currentRoleIds = $currentRoles
+                ->map(fn (Role $role): int => (int) $role->getKey())
+                ->all();
+            $target->syncRoles($roles);
+            $requestedRoleIds = $roles
+                ->map(fn (Role $role): int => (int) $role->getKey())
+                ->all();
+
+            $addedRoleIds = array_diff($requestedRoleIds, $currentRoleIds);
+            $removedRoleIds = array_diff($currentRoleIds, $requestedRoleIds);
+
+            if ($addedRoleIds === [] && $removedRoleIds === []) {
+                return;
+            }
+
+            $addedRoles = $roles->filter(
+                fn (Role $role): bool => in_array((int) $role->getKey(), $addedRoleIds, true),
+            );
+            $removedRoles = $currentRoles->filter(
+                fn (Role $role): bool => in_array((int) $role->getKey(), $removedRoleIds, true),
+            );
+            $superAdminGranted = $this->containsSuperAdminRole($addedRoles);
+            $superAdminRevoked = $this->containsSuperAdminRole($removedRoles);
+            $actorName = $actor instanceof User ? $actor->name : 'Unknown user';
+
+            $action = $superAdminGranted
+                ? 'Super Admin privileges granted'
+                : ($superAdminRevoked
+                    ? 'Super Admin privileges revoked'
+                    : ($addedRoleIds !== [] && $removedRoleIds !== []
+                        ? 'Role assignment changed'
+                        : ($addedRoleIds !== [] ? 'Role assigned' : 'Role revoked')));
+
+            $details = $superAdminGranted
+                ? sprintf('%s granted full Super Admin privileges to %s.', $actorName, $target->name)
+                : ($superAdminRevoked
+                    ? sprintf('%s revoked Super Admin privileges from %s.', $actorName, $target->name)
+                    : sprintf('%s changed the roles assigned to %s.', $actorName, $target->name));
+
+            app(AuditLogService::class)->record(
+                $action,
+                $details,
+                $target,
+            );
+        });
+    }
+
+    private function rolesForSelection(mixed $selection): Collection
+    {
         $roleIds = $this->normalizeSelection($selection);
         $roleModel = config('permission.models.role', Role::class);
         $roles = $roleIds->isEmpty()
@@ -27,53 +132,40 @@ class UserRoleAssignmentService
             $this->reject('Choose valid roles for this user.');
         }
 
-        $currentRoleIds = $target ? $this->currentRoleIds($target) : [];
-        $requestedRoleIds = $roleIds->all();
-
-        if ($target?->is($actor) && $this->sortedIds($requestedRoleIds) !== $this->sortedIds($currentRoleIds)) {
-            $this->reject('You cannot change your own roles.');
-        }
-
-        foreach ($roles as $role) {
-            if (
-                RoleSecurity::isSuperAdminRole($role)
-                && ! in_array((int) $role->getKey(), $currentRoleIds, true)
-            ) {
-                $this->reject('The Super Admin role cannot be assigned through user management.');
-            }
-        }
-
         return $roles;
     }
 
-    public function syncSelection(mixed $actor, User $target, mixed $selection): void
+    private function containsSuperAdminRole(Collection $roles): bool
     {
-        $roles = $this->validateSelection($actor, $target, $selection);
+        return $roles->contains(fn (Role $role): bool => RoleSecurity::isSuperAdminRole($role));
+    }
 
-        if ($target->is($actor)) {
-            return;
+    private function superAdminCount(): int
+    {
+        $roleModel = config('permission.models.role', Role::class);
+        $superAdminRoleIds = $roleModel::query()
+            ->where('guard_name', config('auth.defaults.guard', 'web'))
+            ->get()
+            ->filter(fn (Role $role): bool => RoleSecurity::isSuperAdminRole($role))
+            ->modelKeys();
+
+        if ($superAdminRoleIds === []) {
+            return 0;
         }
 
-        $currentRoleIds = $this->currentRoleIds($target);
-        $target->syncRoles($roles);
-        $requestedRoleIds = $roles
-            ->map(fn (Role $role): int => (int) $role->getKey())
-            ->all();
+        return User::query()
+            ->whereHas('roles', fn (Builder $query): Builder => $query->whereKey($superAdminRoleIds))
+            ->count();
+    }
 
-        $addedRoleIds = array_diff($requestedRoleIds, $currentRoleIds);
-        $removedRoleIds = array_diff($currentRoleIds, $requestedRoleIds);
+    private function lockRoleRows(): void
+    {
+        $roleModel = config('permission.models.role', Role::class);
 
-        if ($addedRoleIds !== [] || $removedRoleIds !== []) {
-            $action = $addedRoleIds !== [] && $removedRoleIds !== []
-                ? 'Role assignment changed'
-                : ($addedRoleIds !== [] ? 'Role assigned' : 'Role revoked');
-
-            app(AuditLogService::class)->record(
-                $action,
-                'User role assignment changed.',
-                $target,
-            );
-        }
+        $roleModel::query()
+            ->where('guard_name', config('auth.defaults.guard', 'web'))
+            ->lockForUpdate()
+            ->get();
     }
 
     private function normalizeSelection(mixed $selection): Collection

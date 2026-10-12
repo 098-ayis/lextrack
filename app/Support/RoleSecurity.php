@@ -10,11 +10,6 @@ final class RoleSecurity
 
     public const LEGAL_STAFF = 'Admin';
 
-    public const UNASSIGNABLE_ROLE_NAMES = [
-        'Super Admin',
-        'super_admin',
-    ];
-
     private const PROTECTED_ROLE_NAMES = [
         'super admin',
         'admin',
