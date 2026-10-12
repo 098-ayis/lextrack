@@ -907,10 +907,20 @@ class DocumentRequests extends Page implements HasTable
             if ($oldStatus === 'pending') {
                 $this->recordRequestActivity($request, 'request_accepted', 'Accepted the document request.', 'pending', $request->status);
             }
+
+            $requestActivityType = $request->copy_type === 'soft_copy'
+                ? ($oldStatus === 'completed' ? 'soft_copy_replaced' : 'soft_copy_uploaded')
+                : 'pickup_scheduled';
+            $requestActivityDetails = $request->copy_type === 'soft_copy'
+                ? 'Uploaded a soft copy file.'
+                : ($pickupAt
+                    ? 'Scheduled the pickup for ' . \Carbon\Carbon::parse($pickupAt)->format('M d, Y g:i A') . '.'
+                    : 'Scheduled the pickup.');
+
             $this->recordRequestActivity(
                 $request,
-                $request->copy_type === 'soft_copy' ? ($oldStatus === 'completed' ? 'soft_copy_replaced' : 'soft_copy_uploaded') : 'pickup_scheduled',
-                $request->copy_type === 'soft_copy' ? 'Uploaded a soft copy file.' : 'Scheduled the pickup.',
+                $requestActivityType,
+                $requestActivityDetails,
                 $oldStatus,
                 $request->status,
             );

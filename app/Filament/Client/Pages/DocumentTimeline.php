@@ -3,6 +3,7 @@
 namespace App\Filament\Client\Pages;
 
 use App\Models\Document;
+use App\Models\DocumentRequest;
 use App\Models\DocumentView;
 use App\Services\DocumentStatusTimeline;
 use Filament\Pages\Page;
@@ -17,6 +18,8 @@ class DocumentTimeline extends Page
     protected string $view = 'filament.client.pages.document-timeline';
 
     public Document $documentRecord;
+
+    public ?DocumentRequest $requestRecord = null;
 
     /**
      * @var array<int, array{status: string, title: string, description: string, time: string, date: string, color: string}>
@@ -73,6 +76,22 @@ class DocumentTimeline extends Page
             ])
             ->firstOrFail();
 
+        if ($this->returnTab === 'requested') {
+            $requestQuery = DocumentRequest::query()
+                ->where('document_id', $this->documentRecord->document_id)
+                ->where('user_id', auth()->id());
+
+            $requestId = request()->query('request');
+
+            if (filled($requestId) && ctype_digit((string) $requestId)) {
+                $requestQuery->whereKey((int) $requestId);
+            }
+
+            $this->requestRecord = $requestQuery
+                ->latest('request_id')
+                ->first();
+        }
+
         DocumentView::updateOrCreate(
             [
                 'document_id' => $this->documentRecord->document_id,
@@ -83,10 +102,11 @@ class DocumentTimeline extends Page
             ]
         );
 
-        $this->statusTimeline = array_values(array_reverse(
-            app(DocumentStatusTimeline::class)
-                ->build($this->documentRecord, includeClientRevisions: true),
-        ));
+        $timeline = $this->requestRecord
+            ? app(DocumentStatusTimeline::class)->buildForRequest($this->documentRecord, $this->requestRecord)
+            : app(DocumentStatusTimeline::class)->build($this->documentRecord, includeClientRevisions: true);
+
+        $this->statusTimeline = array_values(array_reverse($timeline));
     }
 
     public function getHeading(): string

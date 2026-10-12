@@ -605,11 +605,11 @@
 
     <div class="client-upload-page bg-white rounded-xl shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10">
         
-        <div style="background-color: #0F172A; border-top-left-radius: 0.75rem; border-top-right-radius: 0.75rem; padding: 1.5rem;">
-            <h2 style="color: #6366f1; font-size: 1.5rem; font-weight: 600; margin: 0;">
+        <div class="client-form-page-header">
+            <h2 class="client-form-page-title">
                 Submit A Document
             </h2>
-            <p style="color: #e5e7eb; margin-top: 0.25rem; font-size: 0.875rem;">
+            <p class="client-form-page-subtitle">
                 Please provide the details of your document and attach the necessary files.
             </p>
         </div>

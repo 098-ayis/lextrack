@@ -68,10 +68,6 @@ class Documents extends Page implements HasTable
 
         $this->activeTab = in_array($tab, [
             'all',
-            'pending',
-            'in_progress',
-            'completed',
-            'rejected',
             'requested',
         ], true) ? $tab : 'all';
 
@@ -94,15 +90,16 @@ class Documents extends Page implements HasTable
     // This method sets the tab AND instantly refreshes the table data
     public function updateTab($tab)
     {
+        if (! in_array($tab, ['all', 'requested'], true)) {
+            return;
+        }
+
         if ($tab !== $this->activeTab) {
             $this->documentType = '';
+            $this->documentStatus = '';
         }
 
         $this->activeTab = $tab;
-
-        if ($tab !== 'requested') {
-            $this->documentStatus = '';
-        }
 
         $this->resetTable(); 
     }
@@ -183,47 +180,47 @@ class Documents extends Page implements HasTable
                 ->where('user_id', auth()->id()),
         ]);
 
-        if ($this->activeTab === 'all') {
-            $query
-                ->where('user_id', auth()->id())
-                ->whereDoesntHave(
-                    'documentRequests',
-                    fn (Builder $requestQuery) => $requestQuery
-                        ->where('user_id', auth()->id())
-                );
-        } else {
-            $query->where('user_id', auth()->id());
+        $query
+            ->where('user_id', auth()->id())
+            ->whereDoesntHave(
+                'documentRequests',
+                fn (Builder $requestQuery) => $requestQuery
+                    ->where('user_id', auth()->id())
+            );
 
-            if ($this->activeTab === 'in_progress') {
-                $query
-                    ->whereIn('status', [
-                        'in_progress',
-                        'outgoing',
-                    ])
-                    ->whereDoesntHave(
-                        'documentRequests',
-                        fn (Builder $requestQuery) => $requestQuery
-                            ->where('user_id', auth()->id())
-                    );
-            } elseif ($this->activeTab === 'completed') {
-                $query->whereIn('status', [
-                    'completed',
-                    'archived',
-                ]);
-            } else {
-                $query->where('status', $this->activeTab);
-            }
+        return $query
+            ->when(
+                $this->documentStatus !== '',
+                function (Builder $query): void {
+                    if ($this->documentStatus === 'in_progress') {
+                        $query->whereIn('status', [
+                            'in_progress',
+                            'outgoing',
+                        ]);
 
-            if ($this->activeTab === 'rejected') {
-                $query->with([
+                        return;
+                    }
+
+                    if ($this->documentStatus === 'completed') {
+                        $query->whereIn('status', [
+                            'completed',
+                            'archived',
+                        ]);
+
+                        return;
+                    }
+
+                    $query->where('status', $this->documentStatus);
+                }
+            )
+            ->when(
+                $this->documentStatus === 'rejected',
+                fn (Builder $query) => $query->with([
                     'rejections' => fn ($rejectionQuery) => $rejectionQuery
                         ->latest('created_at')
                         ->latest('rejected_id'),
-                ]);
-            }
-        }
-
-        return $query
+                ])
+            )
             ->when(
                 $this->documentType !== '',
                 fn ($query) => $query->where(
@@ -492,12 +489,19 @@ class Documents extends Page implements HasTable
                     ->formatStateUsing(
                         fn (?string $state): string => blank($state)
                             ? '—'
-                            : ucfirst((string) $state)
+                            : match (strtolower((string) $state)) {
+                                'for_release' => 'Accepted',
+                                'ready_for_pickup' => 'Ready for Pickup',
+                                default => ucfirst((string) $state),
+                            }
                     )
                     ->color(
                         fn (string $state): string => match (strtolower($state)) {
                             'pending' => 'warning',
-                            'accepted' => 'success',
+                            'for_release',
+                            'accepted' => 'info',
+                            'ready_for_pickup' => 'success',
+                            'completed' => 'success',
                             'rejected' => 'danger',
                             default => 'gray',
                         }
@@ -528,6 +532,7 @@ class Documents extends Page implements HasTable
                             ? DocumentTimeline::getUrl([
                                 'document' => $record->document->getPublicRouteKey(),
                                 'tab' => 'requested',
+                                'request' => $record->request_id,
                             ])
                             : null
                     ),
@@ -690,9 +695,13 @@ class Documents extends Page implements HasTable
                 TextColumn::make('status')
                     ->label('STATUS')
                     ->state(
-                        fn (Document $record): string => $this->activeTab === 'requested'
-                            ? (string) ($record->documentRequests->first()?->status ?? '')
-                            : (string) $record->status
+                        function (Document $record): string {
+                            if ($this->activeTab === 'requested') {
+                                return (string) ($record->documentRequests->first()?->status ?? '');
+                            }
+
+                            return (string) $record->status;
+                        }
                     )
                     ->color(
                         fn (string $state): string => match (strtolower($state)) {
@@ -727,7 +736,7 @@ class Documents extends Page implements HasTable
 
                 TextColumn::make('rejection_reason')
                     ->label('REASON')
-                    ->visible(fn (): bool => $this->activeTab === 'rejected')
+                    ->visible(fn (): bool => $this->documentStatus === 'rejected')
                     ->state(
                         fn (Document $record): string => $record->rejections->first()?->reason
                             ?? $record->rejection_reason

@@ -7,6 +7,7 @@ use App\Models\DocumentVersion;
 use chillerlan\QRCode\Output\QROutputInterface;
 use chillerlan\QRCode\QRCode;
 use chillerlan\QRCode\QROptions;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\URL;
 use RuntimeException;
@@ -16,11 +17,19 @@ use Throwable;
 
 class DocumentDownloadService
 {
-    public function preview(Document $document, string $sourcePath, ?string $fileName = null): BinaryFileResponse
+    public function preview(Document $document, string $sourcePath, ?string $fileName = null): BinaryFileResponse|Response
     {
-        if (! is_file($sourcePath) || ! is_readable($sourcePath)) {
-            throw new RuntimeException('The document preview source file is not available.');
-        }
+        try {
+            if (! is_file($sourcePath) || ! is_readable($sourcePath)) {
+                throw new RuntimeException('The document preview source file is not available.');
+            }
+
+            // DOCX files can be rendered in the browser with docx-preview. This
+            // avoids requiring LibreOffice on the web server just to display a
+            // document preview.
+            if (strtolower(pathinfo($sourcePath, PATHINFO_EXTENSION)) === 'docx') {
+                return app(DocumentPreviewService::class)->preview($sourcePath);
+            }
 
         $cacheDirectory = storage_path('app/private/document-previews');
 
@@ -58,14 +67,17 @@ class DocumentDownloadService
 
         $previewName = pathinfo($fileName ?: $sourcePath, PATHINFO_FILENAME).'.pdf';
 
-        return response()->file(
-            $cachedPath,
-            [
-                'Content-Type' => 'application/pdf',
-                'Cache-Control' => 'private, max-age=3600',
-            ],
-        )
-            ->setContentDisposition('inline', $previewName);
+            return response()->file(
+                $cachedPath,
+                [
+                    'Content-Type' => 'application/pdf',
+                    'Cache-Control' => 'private, max-age=3600',
+                ],
+            )
+                ->setContentDisposition('inline', $previewName);
+        } catch (Throwable) {
+            return app(DocumentPreviewService::class)->unavailable();
+        }
     }
 
     private function generatePreview(Document $document, string $sourcePath, string $cachedPath): void

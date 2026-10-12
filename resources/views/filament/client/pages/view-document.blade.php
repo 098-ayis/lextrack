@@ -41,15 +41,27 @@
             : '';
         $isSoftCopyRequest = $requestRecord?->copy_type === 'soft_copy';
         $statusValue = $documentRecord->status;
-        $statusLabel = blank($statusValue)
-            ? '—'
+        $actionTypeColor = filled($documentRecord->action_type)
+            ? \App\Models\ActionType::query()->where('action_name', $documentRecord->action_type)->value('color')
+            : null;
+        if (! is_string($actionTypeColor) || ! preg_match('/^#[0-9a-f]{6}$/i', $actionTypeColor)) {
+            $actionTypeColor = '#64748B';
+        }
+        $showActionTypeStatus = filled($documentRecord->action_type)
+            && in_array(strtolower((string) $statusValue), ['in_progress', 'outgoing'], true);
+        $statusLabel = $showActionTypeStatus
+            ? (string) $documentRecord->action_type
+            : (blank($statusValue)
+                ? '—'
+                : match (strtolower((string) $statusValue)) {
+                    'archived' => 'Completed',
+                    'outgoing' => 'In Progress',
+                    'accepted' => 'Accepted',
+                    default => ucwords(str_replace('_', ' ', (string) $statusValue)),
+                });
+        $statusBadgeColor = $showActionTypeStatus
+            ? $actionTypeColor
             : match (strtolower((string) $statusValue)) {
-                'archived' => 'Completed',
-                'outgoing' => 'In Progress',
-                'accepted' => 'Accepted',
-                default => ucwords(str_replace('_', ' ', (string) $statusValue)),
-            };
-        $statusBadgeColor = match (strtolower((string) $statusValue)) {
             'pending', 'for filing' => '#d97706',
             'accepted', 'completed', 'archived' => '#16a34a',
             'rejected' => '#dc2626',
@@ -206,7 +218,7 @@
                                     @if ($statusValue !== 'rejected')
                                         <div class="client-document-detail-row"><dt>LAO Number</dt><dd>{{ $documentRecord->lao_number ?: '—' }}</dd></div>
                                     @endif
-                                    <div class="client-document-detail-row"><dt>Status</dt><dd><span class="client-document-table-status" style="--badge-color: {{ $statusBadgeColor }};">{{ $statusLabel }}</span></dd></div>
+                                    <div class="client-document-detail-row"><dt>Status</dt><dd><span class="client-document-table-status" style="--badge-color: {{ $statusBadgeColor }}; color: {{ $statusBadgeColor }};">{{ $statusLabel }}</span></dd></div>
                                     <div class="client-document-detail-row"><dt>Document Type</dt><dd>{{ $documentRecord->document_type ?: '—' }}</dd></div>
                                     <div class="client-document-detail-row"><dt>Office / Unit</dt><dd>{{ $documentRecord->office_unit ?: '—' }}</dd></div>
                                     <div class="client-document-detail-row"><dt>Particulars</dt><dd>{{ $documentSubject ?: '—' }}</dd></div>

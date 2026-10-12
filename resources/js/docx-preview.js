@@ -23,5 +23,5 @@ try {
     container.addEventListener('click', event => event.preventDefault());
 } catch {
     container.replaceChildren();
-    status.textContent = 'Preview unavailable. Download the DOCX file to view it in Word.';
+    status.textContent = 'This file cannot be previewed.';
 }
