@@ -33,7 +33,8 @@ class ReportsPageTest extends TestCase
         for ($i = 1; $i <= 17; $i++) {
             DB::table('documents')->insert(['document_type' => 'Contract', 'office_unit' => 'Legal', 'status' => 'completed', 'lao_number' => 'LAO-'.$i, 'particulars' => 'Review', 'created_at' => '2026-09-08 23:59:59']);
         }
-        DB::table('documents')->insert(['document_type' => 'Proposal', 'office_unit' => 'Other', 'status' => 'pending', 'lao_number' => 'EXCLUDED', 'particulars' => 'Other', 'created_at' => '2026-09-09 00:00:00']);
+        DB::table('documents')->insert(['document_type' => 'Proposal', 'office_unit' => 'Other', 'status' => 'pending', 'lao_number' => 'PENDING-1', 'particulars' => 'Other', 'created_at' => '2026-09-08 12:00:00']);
+        DB::table('documents')->insert(['document_type' => 'Proposal', 'office_unit' => 'Other', 'status' => 'pending', 'lao_number' => 'EXCLUDED', 'particulars' => 'Outside date', 'created_at' => '2026-09-09 00:00:00']);
         $page = new Reports;
         $page->from = '2026-09-01';
         $page->to = '2026-09-08';
@@ -46,6 +47,32 @@ class ReportsPageTest extends TestCase
         $this->assertSame(17, $data['documents']->total());
         $this->assertCount(15, $data['documents']);
         $this->assertSame(17, $data['counts']['completed']);
+
+        $page->type = '';
+        $page->office = '';
+        $page->status = '';
+        $page->search = 'PENDING-1';
+        $this->assertSame(1, $method->invoke($page)['total']);
+
+        $page->search = 'Review';
+        $this->assertSame(17, $method->invoke($page)['total']);
+
+        $page->search = '';
+        $page->type = 'Proposal';
+        $this->assertSame(1, $method->invoke($page)['total']);
+
+        $page->type = '';
+        $page->office = 'Other';
+        $this->assertSame(1, $method->invoke($page)['total']);
+
+        $page->office = '';
+        $page->status = 'pending';
+        $this->assertSame(1, $method->invoke($page)['total']);
+
+        $page->from = '2026-09-09';
+        $page->to = '2026-09-09';
+        $this->assertSame(1, $method->invoke($page)['total']);
+
         $page->search = 'missing';
         $this->assertSame(0, $method->invoke($page)['total']);
     }
