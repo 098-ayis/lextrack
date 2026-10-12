@@ -53,7 +53,7 @@
                 </p>
             </div>
 
-            <div class="grid gap-0 lg:grid-cols-2 lg:divide-x lg:divide-gray-200">
+            <div class="grid gap-0 lg:grid-cols-[45%_55%] lg:divide-x lg:divide-gray-200">
                 <div class="p-6 md:p-8 lg:p-10">
                 <section class="mt-0">
                     <div class="flex items-center justify-between">
@@ -206,7 +206,7 @@
                 </section>
             </div>
 
-                <section class="relative min-h-[24rem] border-t border-gray-200 p-6 md:p-8 lg:border-t-0 lg:p-10">
+                <section class="client-track-status-timeline relative min-h-[24rem] border-t border-gray-200 bg-white lg:border-t-0">
                     <div
                         v-if="!hasSearched || !document"
                         class="absolute inset-0 flex flex-col items-center justify-center text-center"
@@ -229,67 +229,77 @@
                         </p>
                     </div>
 
-                    <div v-else class="w-full max-w-[32rem]">
-                        <div
-                            v-if="document.timeline?.length"
-                            class="pt-1"
-                        >
-                            <h3 class="text-base font-bold text-gray-900">
-                                Status timeline
-                            </h3>
+                    <div v-else class="w-full">
+                        <div v-if="displayTimeline.length">
+                            <div class="border-b border-gray-100 px-6 py-5">
+                                <h3 class="text-base font-semibold text-gray-900">
+                                    Status Timeline
+                                </h3>
+                            </div>
 
-                            <p class="mt-1 text-sm text-gray-500">
-                                Follow the latest updates from the Legal Affairs Office.
-                            </p>
-
-                            <div class="mt-6">
-                                <div
-                                    v-for="(update, index) in document.timeline"
-                                    :key="`${update.date}-${update.time}-${update.title}-${index}`"
-                                    class="relative flex gap-3 pb-7 last:pb-0"
-                                >
-                                    <div class="w-24 shrink-0 pt-0.5 text-right">
-                                        <time class="block whitespace-nowrap text-xs font-bold leading-5 text-gray-700">
-                                            {{ update.date }}
+                            <div class="px-5 py-6 md:px-8">
+                                <div class="space-y-0">
+                                    <article
+                                        v-for="(update, index) in displayTimeline"
+                                        :key="`${update.date}-${update.time}-${update.title}-${index}`"
+                                        class="relative grid grid-cols-[4.5rem_2.75rem_minmax(0,1fr)] gap-3 pb-6 last:pb-0 md:grid-cols-[6rem_3rem_minmax(0,1fr)]"
+                                    >
+                                        <time
+                                            class="pt-1 text-right text-sm leading-5"
+                                            :class="index === 0
+                                                ? 'font-semibold text-gray-900'
+                                                : 'font-normal text-gray-500'"
+                                        >
+                                            <span
+                                                class="block leading-5"
+                                                :class="index === 0 ? 'font-semibold text-gray-900' : 'font-normal text-gray-500'"
+                                            >
+                                                {{ update.date }}
+                                            </span>
+                                            <span class="mt-1 block font-normal text-gray-500">{{ update.time }}</span>
                                         </time>
-                                        <span class="block text-[10px] font-medium leading-4 text-gray-400">
-                                            {{ update.time }}
-                                        </span>
-                                    </div>
 
-                                    <div class="relative flex w-6 shrink-0 justify-center">
                                         <span
-                                            v-if="index < document.timeline.length - 1"
-                                            class="absolute left-1/2 top-6 h-full w-px -translate-x-1/2 bg-gray-300"
+                                            v-if="index < displayTimeline.length - 1"
+                                            class="absolute bottom-0 left-[calc(4.5rem+0.75rem+1.375rem)] top-7 w-px -translate-x-1/2 bg-gray-300 md:left-[calc(6rem+0.75rem+1.5rem)]"
                                             aria-hidden="true"
                                         ></span>
 
                                         <span
-                                            class="relative z-10 inline-flex h-6 w-6 items-center justify-center rounded-full shadow-sm ring-4 ring-white"
-                                            :class="timelineDotClass(update.status, index === document.timeline.length - 1)"
+                                            class="client-status-timeline-dot relative z-10 inline-flex h-7 w-7 items-center justify-center justify-self-center self-start rounded-full ring-4 ring-white"
+                                            :style="{ '--timeline-color': update.color || '#64748b' }"
+                                            aria-hidden="true"
                                         >
                                             <svg
-                                                xmlns="http://www.w3.org/2000/svg"
+                                                class="h-3 w-3"
                                                 viewBox="0 0 24 24"
                                                 fill="none"
                                                 stroke="currentColor"
                                                 stroke-width="2.5"
-                                                class="h-3.5 w-3.5"
-                                                aria-hidden="true"
                                             >
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="m5 12 4 4L19 6" />
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="m5 12 4.5 4.5L19 7" />
                                             </svg>
                                         </span>
-                                    </div>
 
-                                    <div class="min-w-0 flex-1">
-                                        <h4 class="text-base font-bold leading-6 text-gray-900">
-                                            {{ update.title }}
-                                        </h4>
-                                        <p class="mt-1 text-sm leading-6 text-gray-500">
-                                            {{ update.description }}
-                                        </p>
-                                    </div>
+                                        <div class="min-w-0 pt-1">
+                                            <h4
+                                                class="text-sm leading-5"
+                                                :class="index === 0
+                                                    ? 'font-bold text-gray-900'
+                                                    : 'font-normal text-gray-500'"
+                                            >
+                                                {{ update.title }}
+                                            </h4>
+                                            <p
+                                                class="mt-1 text-sm leading-5"
+                                                :class="index === 0
+                                                    ? 'font-medium text-gray-600'
+                                                    : 'font-normal text-gray-500'"
+                                            >
+                                                {{ update.description }}
+                                            </p>
+                                        </div>
+                                    </article>
                                 </div>
                             </div>
                         </div>
@@ -306,6 +316,10 @@ import { computed, nextTick, onBeforeUnmount, ref } from 'vue'
 
 const hasSearched = ref(false)
 const document = ref(null)
+
+// The public API returns the history from oldest to newest, while the client
+// timeline presents the latest update first.
+const displayTimeline = computed(() => [...(document.value?.timeline ?? [])].reverse())
 
 const qrActionState = computed(() => {
     if (qrMessage.value || scannerError.value) {
@@ -929,14 +943,15 @@ const statusClass = (status) => {
         ?? 'border-gray-300 bg-gray-100 text-gray-700'
 }
 
-const timelineDotClass = (status, isLatest = false) => {
-    return isLatest
-        ? 'bg-green-700 text-white'
-        : 'bg-emerald-100 text-emerald-600'
-}
 </script>
 
 <style scoped>
+.client-status-timeline-dot {
+    border: 1px solid color-mix(in srgb, var(--timeline-color) 28%, transparent);
+    background-color: color-mix(in srgb, var(--timeline-color) 16%, white);
+    color: var(--timeline-color);
+}
+
 #public-tracking-number:-webkit-autofill,
 #public-tracking-number:-webkit-autofill:hover,
 #public-tracking-number:-webkit-autofill:focus {

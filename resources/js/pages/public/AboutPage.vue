@@ -64,8 +64,12 @@
             <div class="w-[76px] h-[76px] rounded-full bg-gray-200 border-2 border-gray-500 flex items-center justify-center z-10 mb-3">
               <Icon icon="ph:user" class="text-[40px] text-gray-500" />
             </div>
-            <div class="w-full h-[40px] bg-[#eef2ff] border border-[#828cff] rounded-full flex items-center justify-center">
-               <!-- Add Name/Title Here -->
+            <div class="flex min-h-[80px] w-full items-center justify-center rounded-full border border-[#828cff] bg-[#eef2ff] px-4 py-2 text-center text-sm leading-tight text-[#121722]">
+              <div class="flex flex-col items-center">
+                <span class="font-bold">Xylene April A. Dionela</span>
+                <span>Legal Assistant III</span>
+                <span>Legal Affairs Office</span>
+              </div>
             </div>
           </div>
 
@@ -75,8 +79,12 @@
             <div class="w-[76px] h-[76px] rounded-full bg-gray-200 border-2 border-gray-500 flex items-center justify-center z-10 mb-3">
               <Icon icon="ph:user" class="text-[40px] text-gray-500" />
             </div>
-            <div class="w-full h-[40px] bg-[#eef2ff] border border-[#828cff] rounded-full flex items-center justify-center">
-               <!-- Add Name/Title Here -->
+            <div class="flex min-h-[80px] w-full items-center justify-center rounded-full border border-[#828cff] bg-[#eef2ff] px-4 py-2 text-center text-sm leading-tight text-[#121722]">
+              <div class="flex flex-col items-center">
+                <span class="font-bold">Sheena Mae Escanilla</span>
+                <span>Administrative Aide VI</span>
+                <span>Legal Affairs Office</span>
+              </div>
             </div>
           </div>
 

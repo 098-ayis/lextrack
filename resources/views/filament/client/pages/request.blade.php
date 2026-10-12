@@ -217,8 +217,8 @@
         .request-field-label {
             display: block;
             margin-bottom: 0.6rem;
-            color: #164e77;
-            font-weight: 500;
+            color: #111827;
+            font-weight: 600;
         }
 
         .dark .request-field-label {

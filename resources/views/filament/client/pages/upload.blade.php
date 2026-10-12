@@ -43,6 +43,18 @@
             line-height: 1rem !important;
         }
 
+        /* Keep all upload form field labels consistently semi-bold. */
+        .client-upload-page .fi-fo-field-wrp-label,
+        .client-upload-page .fi-fo-field-wrp-label > span {
+            color: #111827 !important;
+            font-weight: 600 !important;
+        }
+
+        .dark .client-upload-page .fi-fo-field-wrp-label,
+        .dark .client-upload-page .fi-fo-field-wrp-label > span {
+            color: #f3f4f6 !important;
+        }
+
         .dark .client-upload-page .client-document-subject-field .fi-fo-field-content-col .fi-sc-text {
             color: #9ca3af !important;
         }
