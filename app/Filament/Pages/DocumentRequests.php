@@ -65,7 +65,7 @@ class DocumentRequests extends Page implements HasTable
 
     public string $search = '';
 
-    public string $typeFilter = '';
+    public string $requestTypeFilter = '';
 
     public string $actionTypeFilter = '';
 
@@ -217,10 +217,8 @@ class DocumentRequests extends Page implements HasTable
                         });
                 });
             })
-            ->when($this->typeFilter !== '', function (Builder $query): void {
-                $query->whereHas('document', function (Builder $query): void {
-                    $query->where('document_type', $this->typeFilter);
-                });
+            ->when($this->requestTypeFilter !== '', function (Builder $query): void {
+                $query->where('purpose', $this->requestTypeFilter);
             })
             ->when($this->actionTypeFilter !== '', function (Builder $query): void {
                 $query->whereHas('document', function (Builder $query): void {
@@ -604,7 +602,12 @@ class DocumentRequests extends Page implements HasTable
             $secondAdditionalAction,
             $this->messageRequestAction(),
             $this->historyAction(),
-        ]))->icon('heroicon-m-ellipsis-vertical')->tooltip('More options')->color('gray');
+        ]))
+            ->icon('heroicon-m-ellipsis-vertical')
+            ->dropdownPlacement('bottom-end')
+            ->dropdownTeleport(true)
+            ->tooltip('More options')
+            ->color('gray');
     }
 
 
@@ -904,10 +907,20 @@ class DocumentRequests extends Page implements HasTable
             if ($oldStatus === 'pending') {
                 $this->recordRequestActivity($request, 'request_accepted', 'Accepted the document request.', 'pending', $request->status);
             }
+
+            $requestActivityType = $request->copy_type === 'soft_copy'
+                ? ($oldStatus === 'completed' ? 'soft_copy_replaced' : 'soft_copy_uploaded')
+                : 'pickup_scheduled';
+            $requestActivityDetails = $request->copy_type === 'soft_copy'
+                ? 'Uploaded a soft copy file.'
+                : ($pickupAt
+                    ? 'Scheduled the pickup for ' . \Carbon\Carbon::parse($pickupAt)->format('M d, Y g:i A') . '.'
+                    : 'Scheduled the pickup.');
+
             $this->recordRequestActivity(
                 $request,
-                $request->copy_type === 'soft_copy' ? ($oldStatus === 'completed' ? 'soft_copy_replaced' : 'soft_copy_uploaded') : 'pickup_scheduled',
-                $request->copy_type === 'soft_copy' ? 'Uploaded a soft copy file.' : 'Scheduled the pickup.',
+                $requestActivityType,
+                $requestActivityDetails,
                 $oldStatus,
                 $request->status,
             );
@@ -1171,7 +1184,7 @@ class DocumentRequests extends Page implements HasTable
         $this->resetPage();
     }
 
-    public function updatedTypeFilter(): void
+    public function updatedRequestTypeFilter(): void
     {
         $this->resetPage();
     }
@@ -1188,7 +1201,7 @@ class DocumentRequests extends Page implements HasTable
 
     public function clearRequestFilters(): void
     {
-        $this->typeFilter = '';
+        $this->requestTypeFilter = '';
         $this->actionTypeFilter = '';
         $this->officeUnitFilter = '';
         $this->resetPage();
@@ -1199,9 +1212,9 @@ class DocumentRequests extends Page implements HasTable
         $this->resetPage();
     }
 
-    public function clearTypeFilter(): void
+    public function clearRequestTypeFilter(): void
     {
-        $this->typeFilter = '';
+        $this->requestTypeFilter = '';
     }
 
     public function updatedDateFilter(): void
@@ -1215,6 +1228,16 @@ class DocumentRequests extends Page implements HasTable
             ->orderBy('type_name')
             ->pluck('type_name', 'type_name')
             ->all();
+    }
+
+    public function getRequestTypeFilterOptions(): array
+    {
+        return [
+            'Certificate Request',
+            'Template Request',
+            'Document Request',
+            'Other Request',
+        ];
     }
 
     public function getActionTypeFilterOptions(): array

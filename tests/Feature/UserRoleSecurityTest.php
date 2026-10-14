@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Filament\Pages\Messages as AdminMessages;
 use App\Filament\Resources\Users\UserResource;
 use App\Http\Middleware\EnsureLegalStaff;
+use App\Models\ActivityLog;
 use App\Models\Conversation;
 use App\Models\User;
 use App\Policies\RolePolicy;
@@ -77,20 +78,47 @@ class UserRoleSecurityTest extends TestCase
             $this->fail('Removing the current Super Admin role should be rejected.');
         } catch (ValidationException $exception) {
             $this->assertArrayHasKey('data.roles', $exception->errors());
+            $this->assertSame('At least one Super Admin must remain.', $exception->errors()['data.roles'][0]);
         }
 
         $this->assertTrue($superAdmin->fresh()->hasRole('Super Admin'));
     }
 
-    public function test_user_management_cannot_grant_super_admin(): void
+    public function test_super_admin_can_grant_super_admin_to_another_user(): void
     {
         $superAdmin = $this->makeSuperAdmin();
         $target = User::factory()->create(['status' => 'Active']);
         $superAdminRole = $this->roleId($superAdmin, 'Super Admin');
 
-        $this->expectException(ValidationException::class);
+        app(UserRoleAssignmentService::class)->syncSelection($superAdmin, $target, [$superAdminRole]);
+
+        $this->assertTrue($target->fresh()->hasRole(RoleSecurity::SUPER_ADMIN));
+        $this->assertTrue($target->fresh()->canAccessPanel(Panel::make()->id('admin')));
+    }
+
+    public function test_granting_super_admin_is_recorded_with_actor_and_target(): void
+    {
+        $superAdmin = $this->makeSuperAdmin();
+        $target = User::factory()->create(['name' => 'Target User', 'status' => 'Active']);
+        $superAdminRole = $this->roleId($superAdmin, 'Super Admin');
+        $this->actingAs($superAdmin);
 
         app(UserRoleAssignmentService::class)->syncSelection($superAdmin, $target, [$superAdminRole]);
+
+        $this->assertDatabaseHas('activity_logs', [
+            'user_id' => $superAdmin->getKey(),
+            'subject_type' => User::class,
+            'subject_id' => $target->getKey(),
+            'action_type' => 'Super Admin privileges granted',
+            'action_details' => $superAdmin->name.' granted full Super Admin privileges to Target User.',
+        ]);
+        $this->assertNotNull(
+            ActivityLog::query()
+                ->where('subject_type', User::class)
+                ->where('subject_id', $target->getKey())
+                ->where('action_type', 'Super Admin privileges granted')
+                ->value('created_at'),
+        );
     }
 
     public function test_super_admin_can_assign_client_role_and_client_panel_access_remains_available(): void

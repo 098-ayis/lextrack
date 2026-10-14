@@ -62,12 +62,12 @@
 
     <div class="report-panel">
         <form wire:submit="applyFilters" class="report-filters">
-            <label class="report-field">From<input type="date" wire:model="from" required>@error('from') <span role="alert">{{ $message }}</span> @enderror</label>
-            <label class="report-field">To<input type="date" wire:model="to" required>@error('to') <span role="alert">{{ $message }}</span> @enderror</label>
-            <label class="report-field">Document type<select wire:model="type"><option value="">All types</option>@foreach($types as $value)<option value="{{ $value }}">{{ $value }}</option>@endforeach</select></label>
-            <label class="report-field">Office / Unit<select wire:model="office"><option value="">All offices</option>@foreach($offices as $value)<option value="{{ $value }}">{{ $value }}</option>@endforeach</select></label>
-            <label class="report-field">Status<select wire:model="status"><option value="">All statuses</option>@foreach(\App\Filament\Pages\Reports::STATUSES as $value => $label)<option value="{{ $value }}">{{ $label }}</option>@endforeach</select></label>
-            <label class="report-field">Document<input type="search" wire:model="search" placeholder="LAO no. or particulars" maxlength="255"></label>
+            <label class="report-field">From<input type="date" wire:model.live="from" required>@error('from') <span role="alert">{{ $message }}</span> @enderror</label>
+            <label class="report-field">To<input type="date" wire:model.live="to" required>@error('to') <span role="alert">{{ $message }}</span> @enderror</label>
+            <label class="report-field">Document type<select wire:model.live="type"><option value="">All types</option>@foreach($types as $value)<option value="{{ $value }}">{{ $value }}</option>@endforeach</select></label>
+            <label class="report-field">Office / Unit<select wire:model.live="office"><option value="">All offices</option>@foreach($offices as $value)<option value="{{ $value }}">{{ $value }}</option>@endforeach</select></label>
+            <label class="report-field">Status<select wire:model.live="status"><option value="">All statuses</option>@foreach(\App\Filament\Pages\Reports::STATUSES as $value => $label)<option value="{{ $value }}">{{ $label }}</option>@endforeach</select></label>
+            <label class="report-field">Document<input type="search" wire:model.live.debounce.300ms="search" placeholder="LAO no. or particulars" maxlength="255"></label>
             <x-filament::button type="submit" wire:loading.attr="disabled" wire:target="applyFilters">Search</x-filament::button>
         </form>
     </div>

@@ -175,13 +175,31 @@
                     <div><dt>Action</dt><dd>{{ $selectedPresentation['action'] }}</dd></div>
                     <div><dt>Description</dt><dd>{{ $selectedPresentation['description'] }}</dd></div>
                     <div><dt>Date of change</dt><dd>{{ $selectedLog?->created_at?->format('d M Y, g:i A') ?? '—' }}</dd></div>
-                    <div><dt>Subject</dt><dd>{{ $selectedPresentation['subject'] }}</dd></div>
-                    <div><dt>Access</dt><dd>Administrative metadata only</dd></div>
+                    <div><dt>Subject / recipient</dt><dd>{{ $selectedPresentation['subject'] }}</dd></div>
+                    @if (filled($selectedPresentation['details']))
+                        <div class="activity-logs-detail-wide">
+                            <dt>Details</dt>
+                            <dd class="activity-logs-detail-value">{{ $selectedPresentation['details'] }}</dd>
+                        </div>
+                    @endif
+                    @if ($selectedPresentation['old_value'] !== null)
+                        <div class="activity-logs-detail-wide">
+                            <dt>Previous value</dt>
+                            <dd class="activity-logs-detail-value">{{ $selectedPresentation['old_value'] }}</dd>
+                        </div>
+                    @endif
+                    @if ($selectedPresentation['new_value'] !== null)
+                        <div class="activity-logs-detail-wide">
+                            <dt>New value</dt>
+                            <dd class="activity-logs-detail-value">{{ $selectedPresentation['new_value'] }}</dd>
+                        </div>
+                    @endif
+                    <div><dt>Access</dt><dd>Full audit details shown to Super Admin</dd></div>
                 </dl>
 
                 <div class="activity-logs-modal-notice">
                     <x-filament::icon icon="heroicon-o-shield-check" class="h-5 w-5 shrink-0" />
-                    <p>This log confirms that the action occurred. Confidential document contents, particulars, filenames, message bodies, and underlying record links are not shown to Super Admin.</p>
+                    <p>This record includes the action, actor, subject, timestamp, stored details, and recorded value changes.</p>
                 </div>
 
                 <div class="activity-logs-modal-footer">
@@ -249,8 +267,10 @@
         .activity-logs-actor-card span:not(.activity-logs-avatar) { overflow-wrap: anywhere; color: #64748b; font-size: 0.72rem; }
         .activity-logs-details-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; padding: 1.25rem; }
         .activity-logs-details-grid div { min-width: 0; }
+        .activity-logs-details-grid .activity-logs-detail-wide { grid-column: 1 / -1; }
         .activity-logs-details-grid dt { color: #64748b; font-size: 0.68rem; font-weight: 650; text-transform: uppercase; }
         .activity-logs-details-grid dd { margin: 0.2rem 0 0; overflow-wrap: anywhere; color: #1f2937; font-size: 0.82rem; font-weight: 600; }
+        .activity-logs-details-grid .activity-logs-detail-value { white-space: pre-wrap; font-weight: 500; line-height: 1.5; }
         .activity-logs-modal-notice { display: flex; gap: 0.6rem; margin: 0 1.25rem; border: 1px solid #c7d2fe; border-radius: 0.55rem; background: #eef2ff; padding: 0.75rem; color: #3730a3; }
         .activity-logs-modal-notice p { margin: 0; font-size: 0.75rem; line-height: 1.45; }
         .activity-logs-modal-footer { display: flex; justify-content: flex-end; border-top: 1px solid #e2e8f0; margin-top: 1.25rem; padding: 0.85rem 1.25rem; }

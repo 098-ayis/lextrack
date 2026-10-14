@@ -1,10 +1,10 @@
 <x-filament-panels::page>
     <div class="client-request-page w-full overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10">
-        <div class="request-page-header px-6 py-6">
-            <h1 class="text-2xl font-semibold tracking-tight text-[#6366F1]">
+        <div class="request-page-header client-form-page-header px-6 py-6">
+            <h1 class="client-form-page-title text-2xl font-semibold tracking-tight text-[#6366F1]">
                 Request A Document
             </h1>
-            <p class="mt-1 text-sm text-gray-100">
+            <p class="client-form-page-subtitle mt-1 text-sm text-gray-100">
                 Select what you need and tell us more about your request.
             </p>
         </div>
@@ -176,6 +176,38 @@
 
         .client-request-page {
             --request-indigo: #6366f1;
+            font-family: inherit;
+            font-size: 0.875rem;
+            line-height: 1.5;
+        }
+
+        .client-request-page,
+        .client-request-page * {
+            font-family: inherit;
+        }
+
+        /* Match the upload page's heading and Filament form typography. */
+        .client-request-page .request-page-header h1 {
+            font-size: 1.5rem;
+            line-height: 2rem;
+            font-weight: 600;
+        }
+
+        .client-request-page .request-page-header p,
+        .client-request-page .request-field-label,
+        .client-request-page .request-field-input,
+        .client-request-page .request-select-trigger,
+        .client-request-page .request-select-search,
+        .client-request-page .request-select-option,
+        .client-request-page .request-radio-option,
+        .client-request-page .request-primary-button,
+        .client-request-page .request-clear-button,
+        .client-request-page .request-error {
+            font-size: 0.875rem;
+        }
+
+        .client-request-page .request-page-header p {
+            line-height: 1.25rem;
         }
 
         .request-page-header {
@@ -185,9 +217,8 @@
         .request-field-label {
             display: block;
             margin-bottom: 0.6rem;
-            color: #164e77;
-            font-size: 1rem;
-            font-weight: 700;
+            color: #111827;
+            font-weight: 600;
         }
 
         .dark .request-field-label {

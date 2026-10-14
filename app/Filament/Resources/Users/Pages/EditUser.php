@@ -5,12 +5,25 @@ namespace App\Filament\Resources\Users\Pages;
 use App\Filament\Resources\Users\UserResource;
 use App\Models\User;
 use App\Services\UserRoleAssignmentService;
+use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\EditRecord;
 
 class EditUser extends EditRecord
 {
     protected static string $resource = UserResource::class;
+
+    protected function getSaveFormAction(): Action
+    {
+        return parent::getSaveFormAction()
+            ->requiresConfirmation(fn (): bool => app(UserRoleAssignmentService::class)->isGrantingSuperAdmin(
+                $this->getRecord(),
+                $this->data['roles'] ?? [],
+            ))
+            ->modalHeading('Grant Super Admin privileges?')
+            ->modalDescription('You are about to grant full Super Admin privileges to this user. Continue?')
+            ->modalSubmitActionLabel('Grant Super Admin');
+    }
 
     protected function getHeaderActions(): array
     {

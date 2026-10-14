@@ -4,11 +4,9 @@ namespace App\Filament\Resources\Users\Schemas;
 
 use App\Models\User;
 use App\Services\UserRoleAssignmentService;
-use App\Support\RoleSecurity;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Schema;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Validation\Rule;
 
 class UserForm
@@ -58,17 +56,7 @@ class UserForm
                     ->default(User::DEFAULT_STATUS),
                 Select::make('roles')
                     ->multiple()
-                    ->relationship(
-                        'roles',
-                        'name',
-                        modifyQueryUsing: function (Builder $query, ?User $record): Builder {
-                            if ($record?->hasAnyRole(RoleSecurity::UNASSIGNABLE_ROLE_NAMES)) {
-                                return $query;
-                            }
-
-                            return $query->whereNotIn('name', RoleSecurity::UNASSIGNABLE_ROLE_NAMES);
-                        },
-                    )
+                    ->relationship('roles', 'name')
                     ->label('Role')
                     ->searchable()
                     ->saveRelationshipsUsing(function (Select $component): void {

@@ -350,23 +350,23 @@ const steps = [
 // FAQ Accordion State with sample Q&As
 const faqs = reactive([
   { 
-    question: 'How can I track the status of my submitted legal document?', 
-    answer: 'You can check your document progress anytime by heading to the Track page and entering your unique tracking number.',
+    question: 'How do I track my document or request?',
+    answer: 'Sign in and open Documents to view the latest status. You can also use the public Track page by scanning the QR code or entering your tracking number.',
     open: false 
   },
   { 
-    question: 'What types of documents require Legal Affairs review?', 
-    answer: 'All university contracts, deeds, conveyances, memorandums of agreement, and official legal documents must go through office review.',
+    question: 'Which documents should be submitted for Legal Affairs review?',
+    answer: 'Submit university legal documents such as contracts, MOAs, MOUs, proposals, clearances, deeds, conveyances, and other official documents that require legal review.',
     open: false 
   },
   { 
-    question: 'How long does a standard document review take?', 
-    answer: 'Review timelines depend on document scope and complexity, but you can monitor updates directly through the status tracker.',
+    question: 'How long will my document or request take?',
+    answer: 'Processing time depends on the document, the required action, and the office workload. Check Documents or Track for updates, and review Messages for office notifications.',
     open: false 
   },
   { 
-    question: 'Where can I download official legal templates or request forms?', 
-    answer: 'Standard templates and request forms are available for viewing and downloading under the Legal Forms menu section.',
+    question: 'How do I submit a request or get a template?',
+    answer: 'Log in first, then open Request to submit a request or access available templates and request forms. Complete the required details and submit it for review.',
     open: false 
   }
 ])

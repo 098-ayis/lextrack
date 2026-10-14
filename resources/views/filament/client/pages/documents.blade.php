@@ -3,72 +3,24 @@
 
     <!-- Custom Tabs Container (Tailwind Only) -->
     <div class="mb-0 w-full overflow-x-auto border border-gray-300 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
-        <div class="flex min-w-max items-center gap-1 p-2">
+        <div class="flex w-full min-w-[18rem] items-center gap-1 p-2">
 
-        <!-- All Tab (Default) -->
+        <!-- Submitted Tab (previously All) -->
         <button
             wire:click="updateTab('all')"
-            class="flex items-center gap-2 rounded-md px-4 py-2 text-sm font-semibold transition-all {{ $activeTab === 'all' ? 'bg-[#0F172A] text-white dark:bg-[#6366F1]' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white' }}"
+            class="flex flex-1 items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-semibold transition-all {{ $activeTab === 'all' ? 'bg-[#0F172A] text-white dark:bg-[#6366F1]' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white' }}"
         >
             <x-filament::icon icon="heroicon-o-document-text" class="h-5 w-5 shrink-0" />
-            All
+            Submitted
             <span class="flex items-center justify-center rounded-full px-2 py-0.5 text-xs {{ $activeTab === 'all' ? 'bg-white/20 text-white' : 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300' }}">
                 {{ $this->getAllDocumentsCount() }}
-            </span>
-        </button>
-
-        <!-- Pending Tab -->
-        <button 
-            wire:click="updateTab('pending')"
-            class="flex items-center gap-2 rounded-md px-4 py-2 text-sm font-semibold transition-all {{ $activeTab === 'pending' ? 'bg-[#0F172A] text-white dark:bg-[#6366F1]' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white' }}"
-        >
-            <x-filament::icon icon="heroicon-o-document-text" class="h-5 w-5 shrink-0" />
-            Pending
-            <span class="flex items-center justify-center rounded-full px-2 py-0.5 text-xs {{ $activeTab === 'pending' ? 'bg-white/20 text-white' : 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300' }}">
-                {{ \App\Models\Document::where('user_id', auth()->id())->where('status', 'pending')->count() }}
-            </span>
-        </button>
-
-        <!-- In Progress Tab -->
-        <button 
-            wire:click="updateTab('in_progress')"
-            class="flex items-center gap-2 rounded-md px-4 py-2 text-sm font-semibold transition-all {{ $activeTab === 'in_progress' ? 'bg-[#0F172A] text-white dark:bg-[#6366F1]' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white' }}"
-        >
-            <x-filament::icon icon="heroicon-o-inbox-arrow-down" class="h-5 w-5 shrink-0" />
-            In Progress
-            <span class="flex items-center justify-center rounded-full px-2 py-0.5 text-xs {{ $activeTab === 'in_progress' ? 'bg-white/20 text-white' : 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300' }}">
-                {{ \App\Models\Document::where('user_id', auth()->id())->whereIn('status', ['in_progress', 'outgoing'])->whereDoesntHave('documentRequests', fn ($query) => $query->where('user_id', auth()->id()))->count() }}
-            </span>
-        </button>
-
-        <!-- Completed Tab -->
-        <button
-            wire:click="updateTab('completed')"
-            class="flex items-center gap-2 rounded-md px-4 py-2 text-sm font-semibold transition-all {{ $activeTab === 'completed' ? 'bg-[#0F172A] text-white dark:bg-[#6366F1]' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white' }}"
-        >
-            <x-filament::icon icon="heroicon-o-check-circle" class="h-5 w-5 shrink-0" />
-            Completed
-            <span class="flex items-center justify-center rounded-full px-2 py-0.5 text-xs {{ $activeTab === 'completed' ? 'bg-white/20 text-white' : 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300' }}">
-                {{ \App\Models\Document::where('user_id', auth()->id())->whereIn('status', ['completed', 'archived'])->count() }}
-            </span>
-        </button>
-
-        <!-- Rejected Tab -->
-        <button 
-            wire:click="updateTab('rejected')"
-            class="flex items-center gap-2 rounded-md px-4 py-2 text-sm font-semibold transition-all {{ $activeTab === 'rejected' ? 'bg-[#0F172A] text-white dark:bg-[#6366F1]' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white' }}"
-        >
-            <x-filament::icon icon="heroicon-o-x-circle" class="h-5 w-5 shrink-0" />
-            Rejected
-            <span class="flex items-center justify-center rounded-full px-2 py-0.5 text-xs {{ $activeTab === 'rejected' ? 'bg-white/20 text-white' : 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300' }}">
-                {{ \App\Models\Document::where('user_id', auth()->id())->where('status', 'rejected')->count() }}
             </span>
         </button>
 
         <!-- Requested Tab -->
         <button 
             wire:click="updateTab('requested')"
-            class="flex items-center gap-2 rounded-md px-4 py-2 text-sm font-semibold transition-all {{ $activeTab === 'requested' ? 'bg-[#0F172A] text-white dark:bg-[#6366F1]' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white' }}"
+            class="flex flex-1 items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-semibold transition-all {{ $activeTab === 'requested' ? 'bg-[#0F172A] text-white dark:bg-[#6366F1]' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white' }}"
         >
             <x-filament::icon icon="heroicon-o-document-plus" class="h-5 w-5 shrink-0" />
             Requested
@@ -81,7 +33,7 @@
     </div>
 
     <!-- Search and Filters -->
-    <div class="mb-0 flex w-full flex-col gap-3 border-x border-gray-300 bg-white px-3 py-7 shadow-sm dark:border-gray-700 dark:bg-gray-900 sm:flex-row sm:items-center">
+    <div class="mb-0 flex w-full flex-col gap-3 border-x border-gray-300 bg-white px-3 py-4 shadow-sm dark:border-gray-700 dark:bg-gray-900 sm:flex-row sm:items-center">
 
         <!-- Search -->
         <div class="relative w-full sm:max-w-md sm:flex-1">
@@ -168,17 +120,23 @@
                 @endif
             </div>
 
-            @if ($activeTab === 'requested')
-                <!-- Status -->
-                <div class="flex items-center gap-1.5">
-                    <div class="relative w-36">
+            <!-- Status -->
+            <div class="flex items-center gap-1.5">
+                    <div class="relative w-44">
                         <select
                             wire:model.live="documentStatus"
                             class="h-10 w-full appearance-none rounded-full border border-gray-300 bg-white pl-3 pr-9 text-xs font-semibold text-gray-900 focus:outline-none focus:ring-0 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
                         >
                             <option value="">Status</option>
                             <option value="pending">Pending</option>
-                            <option value="accepted">Accepted</option>
+                            @if ($activeTab === 'requested')
+                                <option value="for_release">Accepted</option>
+                                <option value="ready_for_pickup">Ready for Pickup</option>
+                                <option value="completed">Completed</option>
+                            @else
+                                <option value="in_progress">In Progress</option>
+                                <option value="completed">Completed</option>
+                            @endif
                             <option value="rejected">Rejected</option>
                         </select>
 
@@ -217,8 +175,7 @@
                             </svg>
                         </button>
                     @endif
-                </div>
-            @endif
+            </div>
 
         </div>
     </div>

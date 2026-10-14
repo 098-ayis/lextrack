@@ -41,15 +41,27 @@
             : '';
         $isSoftCopyRequest = $requestRecord?->copy_type === 'soft_copy';
         $statusValue = $documentRecord->status;
-        $statusLabel = blank($statusValue)
-            ? '—'
+        $actionTypeColor = filled($documentRecord->action_type)
+            ? \App\Models\ActionType::query()->where('action_name', $documentRecord->action_type)->value('color')
+            : null;
+        if (! is_string($actionTypeColor) || ! preg_match('/^#[0-9a-f]{6}$/i', $actionTypeColor)) {
+            $actionTypeColor = '#64748B';
+        }
+        $showActionTypeStatus = filled($documentRecord->action_type)
+            && in_array(strtolower((string) $statusValue), ['in_progress', 'outgoing'], true);
+        $statusLabel = $showActionTypeStatus
+            ? (string) $documentRecord->action_type
+            : (blank($statusValue)
+                ? '—'
+                : match (strtolower((string) $statusValue)) {
+                    'archived' => 'Completed',
+                    'outgoing' => 'In Progress',
+                    'accepted' => 'Accepted',
+                    default => ucwords(str_replace('_', ' ', (string) $statusValue)),
+                });
+        $statusBadgeColor = $showActionTypeStatus
+            ? $actionTypeColor
             : match (strtolower((string) $statusValue)) {
-                'archived' => 'Completed',
-                'outgoing' => 'In Progress',
-                'accepted' => 'Accepted',
-                default => ucwords(str_replace('_', ' ', (string) $statusValue)),
-            };
-        $statusBadgeColor = match (strtolower((string) $statusValue)) {
             'pending', 'for filing' => '#d97706',
             'accepted', 'completed', 'archived' => '#16a34a',
             'rejected' => '#dc2626',
@@ -206,7 +218,7 @@
                                     @if ($statusValue !== 'rejected')
                                         <div class="client-document-detail-row"><dt>LAO Number</dt><dd>{{ $documentRecord->lao_number ?: '—' }}</dd></div>
                                     @endif
-                                    <div class="client-document-detail-row"><dt>Status</dt><dd><span class="client-document-table-status" style="--badge-color: {{ $statusBadgeColor }};">{{ $statusLabel }}</span></dd></div>
+                                    <div class="client-document-detail-row"><dt>Status</dt><dd><span class="client-document-table-status" style="--badge-color: {{ $statusBadgeColor }}; color: {{ $statusBadgeColor }};">{{ $statusLabel }}</span></dd></div>
                                     <div class="client-document-detail-row"><dt>Document Type</dt><dd>{{ $documentRecord->document_type ?: '—' }}</dd></div>
                                     <div class="client-document-detail-row"><dt>Office / Unit</dt><dd>{{ $documentRecord->office_unit ?: '—' }}</dd></div>
                                     <div class="client-document-detail-row"><dt>Particulars</dt><dd>{{ $documentSubject ?: '—' }}</dd></div>
@@ -230,8 +242,8 @@
                                     @php
                                         $transmittalFileName = basename($transmittalFile['path']);
                                         $transmittalPreviewUrl = $transmittalFile['id'] === null
-                                            ? route('client.document.transmittal.preview', ['document' => $documentRecord->getPublicRouteKey()])
-                                            : route('client.document.transmittal-attachment.preview', ['document' => $documentRecord->getPublicRouteKey(), 'attachment' => $transmittalFile['id']]);
+                                            ? route('client.document.transmittal.preview', ['document' => $documentRecord->getPublicRouteKey(), 'qr' => 1])
+                                            : route('client.document.transmittal-attachment.preview', ['document' => $documentRecord->getPublicRouteKey(), 'attachment' => $transmittalFile['id'], 'qr' => 1]);
                                         $transmittalDownloadUrl = $transmittalFile['id'] === null
                                             ? route('client.document.transmittal.download', ['document' => $documentRecord->getPublicRouteKey()])
                                             : route('client.document.transmittal-attachment.download', ['document' => $documentRecord->getPublicRouteKey(), 'attachment' => $transmittalFile['id']]);
@@ -266,7 +278,7 @@
                             @forelse ($submittedFiles as $submittedFile)
                                 @php
                                     $submittedFileName = $submittedFile->file_path ? basename((string) $submittedFile->file_path) : 'Document';
-                                    $submittedFilePreviewUrl = route('client.document.version.preview', ['document' => $documentRecord->getPublicRouteKey(), 'version' => $submittedFile->version_id]);
+                                    $submittedFilePreviewUrl = route('client.document.version.preview', ['document' => $documentRecord->getPublicRouteKey(), 'version' => $submittedFile->version_id, 'qr' => 1]);
                                     $submittedFileExtension = strtolower((string) pathinfo($submittedFileName, PATHINFO_EXTENSION));
                                 @endphp
                                 <div class="client-document-file-row">
@@ -287,7 +299,7 @@
                                         </button>
                                         <div x-cloak x-show="menuOpen" x-on:click.outside="menuOpen = false" class="client-document-file-menu" role="menu">
                                             <a href="{{ route('client.document.version.download', ['document' => $documentRecord->getPublicRouteKey(), 'version' => $submittedFile->version_id]) }}" target="_blank" rel="noopener" role="menuitem">Download</a>
-                                            <button type="button" role="menuitem" data-print-url="{{ route('client.document.version.preview', ['document' => $documentRecord->getPublicRouteKey(), 'version' => $submittedFile->version_id]) }}" @click="menuOpen = false; printFile($event.currentTarget.dataset.printUrl)">Print</button>
+                                            <button type="button" role="menuitem" data-print-url="{{ route('client.document.version.preview', ['document' => $documentRecord->getPublicRouteKey(), 'version' => $submittedFile->version_id, 'qr' => 1]) }}" @click="menuOpen = false; printFile($event.currentTarget.dataset.printUrl)">Print</button>
                                         </div>
                                     </div>
                                 </div>
@@ -312,7 +324,7 @@
                                         class="client-document-file-select"
                                         title="View {{ $versionFileName }}"
                                         aria-label="View {{ $versionFileName }}"
-                                        @click="selectFile(@js(route('client.document.version.preview', ['document' => $documentRecord->getPublicRouteKey(), 'version' => $version->version_id])), @js($versionFileName), @js($fileTypeLabel($versionFileName)), @js(strtolower(pathinfo($versionFileName, PATHINFO_EXTENSION))), @js($fileIconClass($versionFileName)), @js($versionLabel))"
+                                        @click="selectFile(@js(route('client.document.version.preview', ['document' => $documentRecord->getPublicRouteKey(), 'version' => $version->version_id, 'qr' => 1])), @js($versionFileName), @js($fileTypeLabel($versionFileName)), @js(strtolower(pathinfo($versionFileName, PATHINFO_EXTENSION))), @js($fileIconClass($versionFileName)), @js($versionLabel))"
                                     >
                                         <span class="client-document-file-badge {{ $fileBadgeClass($versionFileName) }}">{{ strtoupper(pathinfo($versionFileName, PATHINFO_EXTENSION)) ?: 'FILE' }}</span>
                                         <span class="client-document-file-name">{{ $versionFileName }}</span>
@@ -325,7 +337,7 @@
                                         </button>
                                         <div x-cloak x-show="menuOpen" x-on:click.outside="menuOpen = false" class="client-document-file-menu" role="menu">
                                             <a href="{{ route('client.document.version.download', ['document' => $documentRecord->getPublicRouteKey(), 'version' => $version->version_id]) }}" target="_blank" rel="noopener" role="menuitem">Download</a>
-                                            <button type="button" role="menuitem" data-print-url="{{ route('client.document.version.preview', ['document' => $documentRecord->getPublicRouteKey(), 'version' => $version->version_id]) }}" @click="menuOpen = false; printFile($event.currentTarget.dataset.printUrl)">Print</button>
+                                            <button type="button" role="menuitem" data-print-url="{{ route('client.document.version.preview', ['document' => $documentRecord->getPublicRouteKey(), 'version' => $version->version_id, 'qr' => 1]) }}" @click="menuOpen = false; printFile($event.currentTarget.dataset.printUrl)">Print</button>
                                         </div>
                                     </div>
                                 </div>

@@ -3051,6 +3051,75 @@ Edit-Button
     margin-inline: 2in;
 }
 
+/* Keep the client Submit and Request page headers identical so switching
+ * between them does not change the page position. */
+.fi-panel-client .client-form-page-header {
+    box-sizing: border-box;
+    min-height: 6.5rem;
+    padding: 1.5rem;
+    background: #0f172a;
+    border-radius: 0.75rem 0.75rem 0 0;
+}
+
+.fi-panel-client .client-form-page-title {
+    margin: 0;
+    color: #6366f1;
+    font-size: 1.5rem;
+    line-height: 2rem;
+    font-weight: 600;
+}
+
+.fi-panel-client .client-form-page-subtitle {
+    margin: 0.25rem 0 0;
+    color: #e5e7eb;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+}
+
+/* Use neutral gray surfaces for both client form pages in dark mode. */
+.dark .fi-panel-client .client-request-page,
+.dark .fi-panel-client .client-upload-page {
+    background-color: #1f1f1f !important;
+}
+
+.dark .fi-panel-client .client-request-page .request-field-input,
+.dark .fi-panel-client .client-request-page .request-select-trigger,
+.dark .fi-panel-client .client-request-page .request-select-panel,
+.dark .fi-panel-client .client-request-page .request-select-search,
+.dark .fi-panel-client .client-request-page .request-select-option,
+.dark .fi-panel-client .client-request-page .request-radio-option,
+.dark .fi-panel-client .client-request-page .request-clear-button,
+.dark .fi-panel-client .client-upload-page .fi-input-wrp,
+.dark .fi-panel-client .client-upload-page .filepond--root,
+.dark .fi-panel-client .client-upload-page .filepond--root.lextrack-has-files {
+    background-color: #2a2a2a !important;
+    border-color: #52525b !important;
+}
+
+.dark .fi-panel-client .client-upload-page .fi-input,
+.dark .fi-panel-client .client-upload-page .filepond--panel-root {
+    background-color: transparent !important;
+}
+
+.dark .fi-panel-client .client-request-page .request-select-trigger:hover,
+.dark .fi-panel-client .client-request-page .request-select-trigger[aria-expanded='true'],
+.dark .fi-panel-client .client-request-page .request-select-option:hover,
+.dark .fi-panel-client .client-request-page .request-radio-option:hover,
+.dark .fi-panel-client .client-request-page .request-radio-option-selected,
+.dark .fi-panel-client .client-upload-page .filepond--item:not([data-filepond-item-state='processing-complete']):not([data-filepond-item-state*='invalid']):not([data-filepond-item-state*='error']) .filepond--item-panel,
+.dark .fi-panel-client .client-upload-page .filepond--item:not([data-filepond-item-state='processing-complete']):not([data-filepond-item-state*='invalid']):not([data-filepond-item-state*='error']) .filepond--file {
+    background-color: #3f3f46 !important;
+    border-color: #71717a !important;
+}
+
+/* Match the request page's simple one-line field borders on the upload page. */
+.fi-panel-client .client-upload-page .fi-input-wrp,
+.fi-panel-client .client-upload-page .filepond--root {
+    border: 1px solid #9ca3af !important;
+    border-radius: 0.75rem !important;
+    box-shadow: none !important;
+}
+
 @media (max-width: 63.99rem) {
     .fi-panel-client .client-request-page,
     .fi-panel-client .client-upload-page {

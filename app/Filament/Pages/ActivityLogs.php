@@ -57,9 +57,9 @@ class ActivityLogs extends Page
     ];
 
     /**
-     * Keep audit presentation separate from the stored action text. This
-     * allows the Super Admin view to show what happened without displaying
-     * confidential particulars, note text, filenames, or document contents.
+     * Keep audit presentation separate from the stored action text so the
+     * table can stay concise while the details modal shows the full audit
+     * record.
      *
      * @var array<string, array{category: string, action: string, description: string}>
      */
@@ -169,6 +169,16 @@ class ActivityLogs extends Page
             'action' => 'Perform',
             'description' => 'Action taken',
         ],
+        'Super Admin privileges granted' => [
+            'category' => 'Roles / Permissions',
+            'action' => 'Perform',
+            'description' => 'Super Admin privileges granted',
+        ],
+        'Super Admin privileges revoked' => [
+            'category' => 'Roles / Permissions',
+            'action' => 'Perform',
+            'description' => 'Super Admin privileges revoked',
+        ],
     ];
 
     public static function canAccess(): bool
@@ -223,7 +233,19 @@ class ActivityLogs extends Page
     }
 
     /**
-     * @return array{category: string, action: string, action_class: string, description: string, modified_by: string, modified_email: ?string, modified_photo: ?string, subject: string}
+     * @return array{
+     *     category: string,
+     *     action: string,
+     *     action_class: string,
+     *     description: string,
+     *     modified_by: string,
+     *     modified_email: ?string,
+     *     modified_photo: ?string,
+     *     subject: string,
+     *     details: string,
+     *     old_value: ?string,
+     *     new_value: ?string
+     * }
      */
     public function presentLog(ActivityLog $log): array
     {
@@ -240,14 +262,83 @@ class ActivityLogs extends Page
             'modified_by' => $log->user?->historical_display_name ?? 'Unknown User',
             'modified_email' => $log->user?->email,
             'modified_photo' => $log->user?->getProfilePhotoUrl(),
-            'subject' => filled($log->subject_type) && $log->subject_id !== null
-                ? ltrim((string) $log->subject_type, '\\').' #'.$log->subject_id
-                : ($classification['category'] === 'Messages' && $log->document?->conversation?->getKey()
-                    ? 'App\\Models\\Conversation #'.$log->document->conversation->getKey()
-                    : ($log->document_id !== null
-                        ? 'App\\Models\\Document #'.$log->document_id
-                        : 'System activity')),
+            'subject' => $this->presentSubject($log, $classification),
+            'details' => trim((string) $log->action_details),
+            'old_value' => $this->formatAuditValue($log->old_value),
+            'new_value' => $this->formatAuditValue($log->new_value),
         ];
+    }
+
+    /**
+     * @param  array{category: string, action: string, description: string}  $classification
+     */
+    private function presentSubject(ActivityLog $log, array $classification): string
+    {
+        if ($log->subject instanceof User) {
+            return 'User: '.$log->subject->historical_display_name.' (#'.$log->subject->getKey().')';
+        }
+
+        if ($log->subject !== null) {
+            return $this->subjectTypeLabel(get_class($log->subject))
+                .' (#'.$log->subject->getKey().')';
+        }
+
+        if (filled($log->subject_type) && $log->subject_id !== null) {
+            return $this->subjectTypeLabel((string) $log->subject_type)
+                .' (#'.$log->subject_id.')';
+        }
+
+        if ($log->request?->getKey()) {
+            return 'Document Request (#'.$log->request->getKey().')';
+        }
+
+        return $classification['category'] === 'Messages' && $log->document?->conversation?->getKey()
+            ? 'Conversation (#'.$log->document->conversation->getKey().')'
+            : ($log->document_id !== null
+                ? 'Document (#'.$log->document_id.')'
+                : 'System');
+    }
+
+    private function subjectTypeLabel(string $subjectType): string
+    {
+        $class = class_basename($subjectType);
+        $class = (string) preg_replace('/(?<!^)([A-Z])/', ' $1', $class);
+
+        return Str::headline(str_replace(['_', '-'], ' ', $class));
+    }
+
+    private function formatAuditValue(?string $value): ?string
+    {
+        if (blank($value)) {
+            return null;
+        }
+
+        $decoded = json_decode($value, true);
+
+        if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+            return collect($decoded)
+                ->map(fn (mixed $item, string|int $key): string => str($key)->replace('_', ' ')->headline().': '.$this->formatAuditScalar($item))
+                ->implode("\n");
+        }
+
+        return trim($value);
+    }
+
+    private function formatAuditScalar(mixed $value): string
+    {
+        if ($value === null || $value === '') {
+            return 'Not set';
+        }
+
+        if (is_bool($value)) {
+            return $value ? 'Yes' : 'No';
+        }
+
+        if (is_scalar($value)) {
+            return (string) $value;
+        }
+
+        return (string) json_encode($value, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     }
 
     /**
@@ -293,7 +384,7 @@ class ActivityLogs extends Page
         abort_unless(static::canAccess(), 403);
 
         $logs = $this->activityQuery($this->availableActionTypes())
-            ->with(['user', 'document.conversation'])
+            ->with(['user', 'document.conversation', 'request'])
             ->get();
         $rows = $logs->map(function (ActivityLog $log): array {
             $presentation = $this->presentLog($log);
@@ -302,6 +393,9 @@ class ActivityLogs extends Page
                 $presentation['category'],
                 $presentation['action'],
                 $presentation['description'],
+                $presentation['details'],
+                $presentation['old_value'],
+                $presentation['new_value'],
                 $presentation['modified_by'],
                 $log->created_at?->format('Y-m-d H:i:s') ?? '',
                 $presentation['subject'],
@@ -311,7 +405,7 @@ class ActivityLogs extends Page
         return response()->streamDownload(function () use ($rows): void {
             $handle = fopen('php://output', 'w');
 
-            fputcsv($handle, ['Category', 'Action', 'Description', 'Modified By', 'Date of Change', 'Subject']);
+            fputcsv($handle, ['Category', 'Action', 'Description', 'Details', 'Previous Value', 'New Value', 'Modified By', 'Date of Change', 'Subject']);
 
             foreach ($rows as $row) {
                 fputcsv($handle, $row);
@@ -337,7 +431,7 @@ class ActivityLogs extends Page
 
         $query = $this->activityQuery($actionTypes);
         $selectedLog = $this->selectedLogId
-            ? ActivityLog::query()->with(['user', 'document.conversation'])->find($this->selectedLogId)
+            ? ActivityLog::query()->with(['user', 'document.conversation', 'request', 'subject'])->find($this->selectedLogId)
             : null;
 
         return [
@@ -373,16 +467,21 @@ class ActivityLogs extends Page
     private function activityQuery(array $actionTypes): Builder
     {
         $query = ActivityLog::query()
-            ->with(['user', 'document.conversation'])
+            ->with(['user', 'document.conversation', 'request', 'subject'])
             ->when(trim($this->search) !== '', function (Builder $query): void {
                 $term = '%'.trim($this->search).'%';
 
                 $query->where(function (Builder $query) use ($term): void {
                     $query
                         ->where('action_type', 'like', $term)
+                        ->orWhere('action_details', 'like', $term)
                         ->orWhereHas('user', function (Builder $query) use ($term): void {
                             $query
                                 ->where('name', 'like', $term)
+                                ->orWhere('email', 'like', $term);
+                        })
+                        ->orWhereHasMorph('subject', [User::class], function (Builder $query) use ($term): void {
+                            $query->where('name', 'like', $term)
                                 ->orWhere('email', 'like', $term);
                         });
                 });

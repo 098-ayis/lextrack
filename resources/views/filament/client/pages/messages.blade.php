@@ -2438,14 +2438,16 @@
                             || ($messageGapInMinutes ?? 0) >= 15
                             || ! $message->created_at->isSameDay($previousMessage->created_at);
 
+                        $currentWeekStart = now()->startOfWeek();
+                        $currentWeekEnd = now()->endOfWeek();
                         $messageTimeLabel = $message->created_at->isToday()
                             ? $message->created_at->format('g:i A')
                             : ($message->created_at->isYesterday()
                                 ? 'Yesterday ' . $message->created_at->format('g:i A')
-                                : $message->created_at->format('D g:i A'));
+                                : ($message->created_at->betweenIncluded($currentWeekStart, $currentWeekEnd)
+                                    ? $message->created_at->format('l g:i A')
+                                    : $message->created_at->format('M d, Y, g:i A')));
 
-                        $currentWeekStart = now()->startOfWeek();
-                        $currentWeekEnd = now()->endOfWeek();
                         $hoverMessageTimeLabel = $message->created_at->betweenIncluded(
                             $currentWeekStart,
                             $currentWeekEnd
