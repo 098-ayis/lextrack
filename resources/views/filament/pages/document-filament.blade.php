@@ -38,6 +38,7 @@
                     'pending' => ['label' => 'Pending', 'icon' => 'heroicon-o-document-text'],
                     'incoming' => ['label' => 'Incoming', 'icon' => 'heroicon-o-inbox-arrow-down'],
                     'outgoing' => ['label' => 'Outgoing', 'icon' => 'heroicon-o-paper-airplane'],
+                    'returned' => ['label' => 'Returned', 'icon' => 'heroicon-o-arrow-uturn-left'],
                     'completed' => ['label' => 'Completed', 'icon' => 'heroicon-o-check-circle'],
                     'rejected' => ['label' => 'Rejected', 'icon' => 'heroicon-o-x-circle'],
                     'archived' => ['label' => 'Archived', 'icon' => 'heroicon-o-archive-box'],
@@ -337,6 +338,16 @@
                 white-space: nowrap;
             }
 
+            .admin-documents-page .document-table-type-badge {
+                width: auto;
+                min-width: 0;
+                max-width: 10rem;
+                padding-left: 0.375rem;
+                padding-right: 0.375rem;
+                font-size: 0.625rem !important;
+                border-radius: 9999px;
+            }
+
             .dark .admin-documents-page .document-type-badge {
                 background-color: color-mix(in srgb, var(--badge-color) 24%, #111827) !important;
                 color: color-mix(in srgb, var(--badge-color) 55%, white) !important;
@@ -372,13 +383,7 @@
 
                 .admin-documents-page .fi-ta-table .fi-ta-header-cell-document-details,
                 .admin-documents-page .fi-ta-table .fi-ta-cell-document-details {
-                    width: 18% !important;
-                    min-width: 0 !important;
-                }
-
-                .admin-documents-page .fi-ta-table .fi-ta-header-cell-document-type,
-                .admin-documents-page .fi-ta-table .fi-ta-cell-document-type {
-                    width: 10% !important;
+                    width: 28% !important;
                     min-width: 0 !important;
                 }
 
@@ -426,14 +431,41 @@
                 .admin-documents-section-pending .fi-ta-table .fi-ta-header-cell-transmittal,
                 .admin-documents-section-pending .fi-ta-table .fi-ta-cell-transmittal,
                 .admin-documents-section-pending .fi-ta-table .fi-ta-header-cell-uploaded-by,
-                .admin-documents-section-pending .fi-ta-table .fi-ta-cell-uploaded-by,
+                .admin-documents-section-pending .fi-ta-table .fi-ta-cell-uploaded-by {
+                    width: 14.6667% !important;
+                }
+
+                /* Outgoing keeps Upload Date directly after Document, but
+                 * gives Sent enough room for long office names. */
+                .admin-documents-section-outgoing .fi-ta-table .fi-ta-header-cell-document-details,
+                .admin-documents-section-outgoing .fi-ta-table .fi-ta-cell-document-details {
+                    width: 24% !important;
+                }
+
+                .admin-documents-section-outgoing .fi-ta-table .fi-ta-header-cell-created-at,
+                .admin-documents-section-outgoing .fi-ta-table .fi-ta-cell-created-at {
+                    width: 16% !important;
+                }
+
                 .admin-documents-section-outgoing .fi-ta-table .fi-ta-header-cell-outgoing-date,
-                .admin-documents-section-outgoing .fi-ta-table .fi-ta-cell-outgoing-date,
+                .admin-documents-section-outgoing .fi-ta-table .fi-ta-cell-outgoing-date {
+                    width: 16% !important;
+                }
+
                 .admin-documents-section-outgoing .fi-ta-table .fi-ta-header-cell-sent-details,
-                .admin-documents-section-outgoing .fi-ta-table .fi-ta-cell-sent-details,
+                .admin-documents-section-outgoing .fi-ta-table .fi-ta-cell-sent-details {
+                    width: 32% !important;
+                }
+
                 .admin-documents-section-outgoing .fi-ta-table .fi-ta-header-cell-returned-details,
                 .admin-documents-section-outgoing .fi-ta-table .fi-ta-cell-returned-details {
-                    width: 14.6667% !important;
+                    width: 13% !important;
+                }
+
+                .admin-documents-section-outgoing .fi-ta-table > thead > tr:last-child > th:last-child,
+                .admin-documents-section-outgoing .fi-ta-table > tbody > tr:not(.fi-ta-group-header-row) > td:last-child {
+                    width: 12% !important;
+                    min-width: 0 !important;
                 }
 
                 .admin-documents-section-completed .fi-ta-table .fi-ta-header-cell-updated-at,
@@ -467,12 +499,7 @@
 
                 .admin-documents-section-incoming .fi-ta-table .fi-ta-header-cell-document-details,
                 .admin-documents-section-incoming .fi-ta-table .fi-ta-cell-document-details {
-                    width: 18% !important;
-                }
-
-                .admin-documents-section-incoming .fi-ta-table .fi-ta-header-cell-document-type,
-                .admin-documents-section-incoming .fi-ta-table .fi-ta-cell-document-type {
-                    width: 12% !important;
+                    width: 25% !important;
                 }
 
                 .admin-documents-section-incoming .fi-ta-table .fi-ta-header-cell-created-at,
@@ -482,7 +509,7 @@
 
                 .admin-documents-section-incoming .fi-ta-table .fi-ta-header-cell-subjects,
                 .admin-documents-section-incoming .fi-ta-table .fi-ta-cell-subjects {
-                    width: 20% !important;
+                    width: 27% !important;
                 }
 
                 .admin-documents-section-incoming .fi-ta-table .fi-ta-header-cell-action-type,
@@ -494,7 +521,7 @@
 
                 .admin-documents-section-incoming .fi-ta-table > thead > tr:last-child > th:last-child,
                 .admin-documents-section-incoming .fi-ta-table > tbody > tr:not(.fi-ta-group-header-row) > td:last-child {
-                    width: 14% !important;
+                    width: 12% !important;
                     min-width: 0 !important;
                 }
 
@@ -504,10 +531,72 @@
                     min-width: 0;
                 }
 
+                .admin-documents-section-incoming .document-table-type-badge {
+                    width: auto;
+                    min-width: 0;
+                    max-width: 10rem;
+                    padding-left: 0.375rem;
+                    padding-right: 0.375rem;
+                    font-size: 0.625rem !important;
+                    border-radius: 9999px;
+                }
+
                 .admin-documents-section-incoming .fi-ta-cell-deadline-details > .fi-ta-col > a {
                     min-width: 0;
                     max-width: 100%;
                     overflow-wrap: anywhere;
+                }
+
+                .admin-documents-section-returned .fi-ta-table {
+                    width: 100%;
+                    min-width: 0 !important;
+                    table-layout: fixed;
+                }
+
+                .admin-documents-section-returned .fi-ta-table .fi-ta-header-cell-document-details,
+                .admin-documents-section-returned .fi-ta-table .fi-ta-cell-document-details {
+                    width: 18% !important;
+                }
+
+                .admin-documents-section-returned .fi-ta-table .fi-ta-header-cell-subjects,
+                .admin-documents-section-returned .fi-ta-table .fi-ta-cell-subjects {
+                    width: 18% !important;
+                }
+
+                .admin-documents-section-returned .fi-ta-table .fi-ta-header-cell-created-at,
+                .admin-documents-section-returned .fi-ta-table .fi-ta-cell-created-at {
+                    width: 13% !important;
+                }
+
+                .admin-documents-section-returned .fi-ta-table .fi-ta-header-cell-returned-details,
+                .admin-documents-section-returned .fi-ta-table .fi-ta-cell-returned-details {
+                    width: 18% !important;
+                }
+
+                .admin-documents-section-returned .fi-ta-table .fi-ta-header-cell-action-type,
+                .admin-documents-section-returned .fi-ta-table .fi-ta-cell-action-type {
+                    width: 13% !important;
+                    min-width: 0 !important;
+                }
+
+                .admin-documents-section-returned .action-type-badge {
+                    width: 100%;
+                    min-width: 0;
+                    max-width: 100%;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    white-space: nowrap;
+                }
+
+                .admin-documents-section-returned .fi-ta-table .fi-ta-header-cell-return-remarks,
+                .admin-documents-section-returned .fi-ta-table .fi-ta-cell-return-remarks {
+                    width: 10% !important;
+                }
+
+                .admin-documents-section-returned .fi-ta-table > thead > tr:last-child > th:last-child,
+                .admin-documents-section-returned .fi-ta-table > tbody > tr:not(.fi-ta-group-header-row) > td:last-child {
+                    width: 10% !important;
+                    min-width: 0 !important;
                 }
 
                 /* Completed and rejected both have five columns. Keep each
@@ -600,6 +689,52 @@
                 max-width: 100%;
             }
 
+            /* Keep long Incoming details inside their table column. */
+            .admin-documents-section-incoming .fi-ta-cell-subjects,
+            .admin-documents-section-incoming .fi-ta-cell-subjects > .fi-ta-col,
+            .admin-documents-section-incoming .fi-ta-cell-subjects > .fi-ta-col > div,
+            .admin-documents-section-incoming .fi-ta-cell-subjects > .fi-ta-col > div > span {
+                min-width: 0 !important;
+                max-width: 100%;
+                overflow-wrap: anywhere;
+                word-break: break-word;
+                white-space: normal !important;
+            }
+
+            .admin-documents-section-incoming .fi-ta-cell-subjects {
+                overflow: hidden;
+            }
+
+            .admin-documents-section-incoming .fi-ta-cell-subjects > .fi-ta-col {
+                overflow: hidden;
+            }
+
+            .admin-documents-section-returned .fi-ta-cell-subjects,
+            .admin-documents-section-returned .fi-ta-cell-subjects > .fi-ta-col,
+            .admin-documents-section-returned .fi-ta-cell-subjects > .fi-ta-col > div,
+            .admin-documents-section-returned .fi-ta-cell-subjects > .fi-ta-col > div > span,
+            .admin-documents-section-returned .fi-ta-cell-returned-details,
+            .admin-documents-section-returned .fi-ta-cell-returned-details > .fi-ta-col,
+            .admin-documents-section-returned .fi-ta-cell-returned-details > .fi-ta-col > div,
+            .admin-documents-section-returned .fi-ta-cell-action-type,
+            .admin-documents-section-returned .fi-ta-cell-action-type > .fi-ta-col,
+            .admin-documents-section-returned .fi-ta-cell-action-type > .fi-ta-col > div,
+            .admin-documents-section-returned .fi-ta-cell-return-remarks,
+            .admin-documents-section-returned .fi-ta-cell-return-remarks > .fi-ta-col {
+                min-width: 0 !important;
+                max-width: 100%;
+                overflow-wrap: anywhere;
+                word-break: break-word;
+                white-space: normal !important;
+            }
+
+            .admin-documents-section-returned .fi-ta-cell-subjects,
+            .admin-documents-section-returned .fi-ta-cell-returned-details,
+            .admin-documents-section-returned .fi-ta-cell-action-type,
+            .admin-documents-section-returned .fi-ta-cell-return-remarks {
+                overflow: hidden;
+            }
+
             .admin-documents-page .fi-ta-table td:has(> .fi-ta-actions) {
                 padding-left: 1rem;
                 padding-right: 1rem;
@@ -632,6 +767,57 @@
             .admin-documents-page .outgoing-date-cell .fi-ta-placeholder {
                 font-size: 0.75rem;
                 line-height: 1rem;
+            }
+
+            /* Keep long outgoing destinations and return details inside their
+             * fixed table columns instead of painting over adjacent cells. */
+            .admin-documents-section-outgoing .fi-ta-cell-sent-details,
+            .admin-documents-section-outgoing .fi-ta-cell-returned-details,
+            .admin-documents-section-outgoing .fi-ta-cell-created-at,
+            .admin-documents-section-outgoing .fi-ta-cell-outgoing-date,
+            .admin-documents-section-outgoing .fi-ta-cell-sent-details > .fi-ta-col,
+            .admin-documents-section-outgoing .fi-ta-cell-returned-details > .fi-ta-col,
+            .admin-documents-section-outgoing .fi-ta-cell-created-at > .fi-ta-col,
+            .admin-documents-section-outgoing .fi-ta-cell-outgoing-date > .fi-ta-col,
+            .admin-documents-section-outgoing .fi-ta-cell-sent-details > .fi-ta-col > div,
+            .admin-documents-section-outgoing .fi-ta-cell-returned-details > .fi-ta-col > div,
+            .admin-documents-section-outgoing .fi-ta-cell-created-at > .fi-ta-col > div,
+            .admin-documents-section-outgoing .fi-ta-cell-outgoing-date > .fi-ta-col > div {
+                min-width: 0 !important;
+                max-width: 100%;
+                overflow: visible;
+            }
+
+            .admin-documents-section-outgoing .fi-ta-cell-outgoing-date,
+            .admin-documents-section-outgoing .fi-ta-cell-outgoing-date > .fi-ta-col,
+            .admin-documents-section-outgoing .fi-ta-cell-outgoing-date > .fi-ta-col > div {
+                overflow: visible;
+                white-space: normal;
+                overflow-wrap: anywhere;
+                word-break: break-word;
+            }
+
+            .admin-documents-section-outgoing .fi-ta-cell-sent-details span,
+            .admin-documents-section-outgoing .fi-ta-cell-returned-details span,
+            .admin-documents-section-outgoing .fi-ta-cell-created-at span,
+            .admin-documents-section-outgoing .fi-ta-cell-outgoing-date span {
+                min-width: 0;
+                max-width: 100%;
+                overflow-wrap: anywhere;
+                word-break: break-word;
+                white-space: normal;
+            }
+
+            /* Preserve the outgoing table's readable column widths on
+             * smaller screens. The table scrolls horizontally instead of
+             * compressing its columns into overlapping content. */
+            .admin-documents-section-outgoing .fi-ta-content {
+                overflow-x: auto;
+            }
+
+            .admin-documents-section-outgoing .fi-ta-table {
+                min-width: 1100px;
+                table-layout: fixed;
             }
 
             .admin-documents-page .fi-ta-table td:has(> .fi-ta-actions) > .fi-ta-actions {

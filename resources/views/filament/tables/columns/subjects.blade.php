@@ -1,4 +1,4 @@
-<div class="min-w-0 space-y-2 text-xs">
+<div class="min-w-0 space-y-2 py-1 text-xs">
     <div class="break-words">
         <span class="font-semibold text-gray-500 dark:text-gray-400">
             Particulars:

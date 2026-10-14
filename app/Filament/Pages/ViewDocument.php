@@ -398,7 +398,7 @@ class ViewDocument extends Page implements HasForms
             'documentDetailsForm.document_type' => ['required', 'string', Rule::in([...array_keys($documentTypeOptions), self::OTHER_DOCUMENT_TYPE_VALUE])],
             'documentDetailsForm.document_type_other' => ['nullable', 'required_if:documentDetailsForm.document_type,'.self::OTHER_DOCUMENT_TYPE_VALUE, 'string', 'max:255'],
             'documentDetailsForm.office_unit' => ['required', 'string', 'max:255', Rule::in(array_keys($officeUnitOptions))],
-            'documentDetailsForm.particulars' => ['required', 'string', 'max:5000'],
+            'documentDetailsForm.particulars' => ['required', 'string', 'max:200'],
             'documentDetailsForm.action_type' => ['nullable', 'string', 'max:255', Rule::in(array_keys($actionTypeOptions))],
             'documentDetailsForm.deadline' => ['nullable', 'date'],
             'documentDetailsForm.outgoing_date' => ['nullable', 'date'],
@@ -603,6 +603,7 @@ class ViewDocument extends Page implements HasForms
                         Textarea::make('particulars')
                             ->label('Particulars')
                             ->required()
+                            ->maxLength(200)
                             ->rows(4),
 
                         Select::make('document_type')
@@ -657,6 +658,7 @@ class ViewDocument extends Page implements HasForms
                     Textarea::make('particulars')
                         ->label('Particulars')
                         ->required()
+                        ->maxLength(200)
                         ->rows(4),
 
                     Select::make('document_type')

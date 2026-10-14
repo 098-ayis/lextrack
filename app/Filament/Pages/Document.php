@@ -140,6 +140,7 @@ class Document extends Page implements HasTable
             'pending',
             'incoming',
             'outgoing',
+            'returned',
             'completed',
             'rejected',
             'archived',
@@ -178,6 +179,7 @@ class Document extends Page implements HasTable
             'pending' => 'pending',
             'incoming' => 'in_progress',
             'outgoing' => 'outgoing',
+            'returned' => 'returned',
             'completed' => 'completed',
             'rejected' => 'rejected',
             'archived' => 'archived',
@@ -275,6 +277,7 @@ class Document extends Page implements HasTable
                 'pending',
                 'in_progress',
                 'outgoing',
+                'returned',
                 'completed',
                 'rejected',
                 'archived',
@@ -287,6 +290,7 @@ class Document extends Page implements HasTable
             'pending' => (int) ($counts['pending'] ?? 0),
             'incoming' => (int) ($counts['in_progress'] ?? 0),
             'outgoing' => (int) ($counts['outgoing'] ?? 0),
+            'returned' => (int) ($counts['returned'] ?? 0),
             'completed' => (int) ($counts['completed'] ?? 0),
             'rejected' => (int) ($counts['rejected'] ?? 0),
             'archived' => (int) ($counts['archived'] ?? 0),
@@ -466,6 +470,7 @@ class Document extends Page implements HasTable
             'pending' => 'pending',
             'incoming' => 'in_progress',
             'outgoing' => 'outgoing',
+            'returned' => 'returned',
             'rejected' => 'rejected',
             'completed' => 'completed',
             'archived' => 'archived',
@@ -499,6 +504,7 @@ class Document extends Page implements HasTable
                         ->orWhere('particulars', 'like', $search)
                         ->orWhere('sent_to', 'like', $search)
                         ->orWhere('returned_from', 'like', $search)
+                        ->orWhere('return_remarks', 'like', $search)
                         ->orWhere('rejection_reason', 'like', $search);
                 });
             })
@@ -564,7 +570,7 @@ class Document extends Page implements HasTable
                 ->extraHeaderAttributes(['class' => 'min-w-[240px]']),
         ];
 
-        if ($this->activeSection === 'incoming') {
+        if (in_array($this->activeSection, ['incoming', 'returned'], true)) {
             $columns[] = ViewColumn::make('subjects')
                 ->label('DETAILS')
                 ->view('filament.tables.columns.subjects')
@@ -573,14 +579,6 @@ class Document extends Page implements HasTable
                 ->extraHeaderAttributes(['class' => 'min-w-[200px]'])
                 ->extraCellAttributes(['class' => 'align-middle']);
         }
-
-        $columns[] =
-            ViewColumn::make('document_type')
-                ->label('DOCUMENT TYPE')
-                ->view('filament.tables.columns.document-type')
-                ->alignCenter()
-                ->width('9rem')
-                ->extraHeaderAttributes(['class' => 'min-w-[140px]']);
 
         $uploadDateColumn = TextColumn::make('created_at')
             ->label('UPLOAD DATE')
@@ -636,11 +634,23 @@ class Document extends Page implements HasTable
                 ->label('SENT')
                 ->view('filament.tables.columns.sent-details')
                 ->alignCenter();
-
+        } elseif ($this->activeSection === 'returned') {
             $columns[] = ViewColumn::make('returned_details')
                 ->label('RETURNED')
                 ->view('filament.tables.columns.returned-details')
                 ->alignCenter();
+
+            $columns[] = ViewColumn::make('action_type')
+                ->label('ACTION TAKEN')
+                ->view('filament.tables.columns.action-type')
+                ->alignCenter();
+
+            $columns[] = TextColumn::make('return_remarks')
+                ->label('REMARKS')
+                ->placeholder('No remarks')
+                ->wrap()
+                ->alignLeft()
+                ->extraCellAttributes(['class' => 'return-remarks-cell']);
         } elseif ($this->activeSection === 'completed') {
             // Keep Last Update directly beside Upload Date, matching the
             // wide, left-aligned detail column used for rejection reasons.
@@ -713,7 +723,7 @@ class Document extends Page implements HasTable
                 ->action(fn (DocumentModel $record) => $this->openQrCode($record->document_id)),
         ];
 
-        if (in_array($this->activeSection, ['incoming', 'outgoing', 'completed'], true)) {
+        if (in_array($this->activeSection, ['incoming', 'outgoing', 'returned', 'completed'], true)) {
             $menuActions[] = $this->archiveDocumentAction();
         }
 
@@ -723,6 +733,16 @@ class Document extends Page implements HasTable
                 ->icon('heroicon-o-pencil-square');
 
             $menuActions[] = Action::make('messageDocumentTable')
+                ->label('Message')
+                ->icon('heroicon-o-chat-bubble-left-right')
+                ->color('gray')
+                ->action(fn (DocumentModel $record) => $this->messageDocument($record->document_id));
+        }
+
+        if ($this->activeSection === 'returned') {
+            $menuActions[] = $this->editReturnedDocumentAction();
+
+            $menuActions[] = Action::make('messageReturnedDocumentTable')
                 ->label('Message')
                 ->icon('heroicon-o-chat-bubble-left-right')
                 ->color('gray')
@@ -759,9 +779,11 @@ class Document extends Page implements HasTable
             ];
         }
 
-        $actions[] = $this->activeSection === 'outgoing'
-            ? $this->completeDocumentAction()->button()
-            : $this->markAsOutgoingAction()->button();
+        $actions[] = match ($this->activeSection) {
+            'outgoing' => $this->markAsReturnedAction()->button(),
+            'returned' => $this->completeDocumentAction()->button(),
+            default => $this->markAsOutgoingAction()->button(),
+        };
         $actions[] = $options;
 
         return $actions;
@@ -773,6 +795,7 @@ class Document extends Page implements HasTable
             'pending',
             'incoming',
             'outgoing',
+            'returned',
             'completed',
             'rejected',
             'archived',
@@ -1064,6 +1087,7 @@ class Document extends Page implements HasTable
 
                 Textarea::make('particulars')
                     ->label('Particulars')
+                    ->maxLength(200)
                     ->required(),
 
                 FileUpload::make('transmittal')
@@ -1271,6 +1295,14 @@ class Document extends Page implements HasTable
             ->label($asMenuItem ? 'Edit' : '')
             ->icon('heroicon-o-pencil-square')
             ->tooltip('Edit')
+            ->modalHeading(function (array $arguments, ?DocumentModel $record = null): string {
+                $document = $record ?? DocumentModel::find($arguments['document'] ?? null);
+
+                return $document?->status === 'outgoing'
+                    ? 'Edit Outgoing Document'
+                    : 'Edit Incoming Document';
+            })
+            ->modalSubmitActionLabel('Save changes')
             ->modalSubmitAction(fn (Action $action): Action => $this->styleDocumentPrimarySubmitAction($action))
             ->extraAttributes($asMenuItem ? [] : [
                 'class' => 'edit-document-button',
@@ -1496,6 +1528,7 @@ class Document extends Page implements HasTable
 
                     Textarea::make('particulars')
                                 ->label('Particulars')
+                                ->maxLength(200)
                                 ->required(),
 
                     FileUpload::make('file_path')
@@ -1658,6 +1691,293 @@ class Document extends Page implements HasTable
             });
     }
 
+    public function editReturnedDocumentAction(): Action
+    {
+        return Action::make('editReturnedDocument')
+            ->label('Edit')
+            ->icon('heroicon-o-pencil-square')
+            ->tooltip('Edit returned document')
+            ->modalHeading('Edit Returned Document')
+            ->modalSubmitAction(fn (Action $action): Action => $this->styleDocumentPrimarySubmitAction($action))
+            ->modalSubmitActionLabel('Save changes')
+            ->modalCancelActionLabel('Cancel')
+            ->schema([
+                Hidden::make('document_type_mode')
+                    ->default('select')
+                    ->dehydrated(false),
+
+                Hidden::make('action_type_mode')
+                    ->default('select')
+                    ->dehydrated(false),
+
+                Hidden::make('returned_from_mode')
+                    ->default('select')
+                    ->dehydrated(false),
+
+
+                        TextInput::make('document_name')
+                            ->label('Document Name')
+                            ->maxLength(255)
+                            ->required(),
+                    Grid::make(2)
+                        ->schema([
+                        Select::make('document_type')
+                            ->label('Document Type')
+                            ->placeholder('Select document type')
+                            ->options(fn () => DocumentType::query()
+                                ->orderBy('type_name')
+                                ->pluck('type_name', 'type_name')
+                                ->prepend('Others', self::OTHER_DOCUMENT_TYPE)
+                                ->toArray())
+                            ->searchable()
+                            ->preload()
+                            ->live()
+                            ->visible(fn (Get $get): bool => $get('document_type_mode') !== self::OTHER_DOCUMENT_TYPE)
+                            ->dehydrated(fn (Get $get): bool => $get('document_type_mode') !== self::OTHER_DOCUMENT_TYPE)
+                            ->afterStateUpdated(function (Set $set, ?string $state): void {
+                                if ($state === self::OTHER_DOCUMENT_TYPE) {
+                                    $set('document_type_mode', self::OTHER_DOCUMENT_TYPE);
+                                    $set('document_type', null);
+
+                                    return;
+                                }
+
+                                $set('document_type_mode', 'select');
+                            })
+                            ->required(),
+
+                        TextInput::make('document_type')
+                            ->label('Document Type')
+                            ->placeholder('Enter the document type')
+                            ->maxLength(255)
+                            ->suffixAction(
+                                Action::make('chooseListedReturnedDocumentType')
+                                    ->icon(Heroicon::ChevronDown)
+                                    ->tooltip('Choose from listed document types')
+                                    ->action(function (Set $set): void {
+                                        $set('document_type_mode', 'select');
+                                        $set('document_type', null);
+                                    }),
+                            )
+                            ->visible(fn (Get $get): bool => $get('document_type_mode') === self::OTHER_DOCUMENT_TYPE)
+                            ->dehydrated(fn (Get $get): bool => $get('document_type_mode') === self::OTHER_DOCUMENT_TYPE)
+                            ->required(fn (Get $get): bool => $get('document_type_mode') === self::OTHER_DOCUMENT_TYPE),
+
+                        Select::make('action_type')
+                            ->label('Action Taken')
+                            ->placeholder('Select action')
+                            ->options(fn () => ActionType::query()
+                                ->orderBy('action_name')
+                                ->pluck('action_name', 'action_name')
+                                ->prepend('Others', self::OTHER_ACTION_TYPE)
+                                ->toArray())
+                            ->searchable()
+                            ->preload()
+                            ->live()
+                            ->visible(fn (Get $get): bool => $get('action_type_mode') !== self::OTHER_ACTION_TYPE)
+                            ->dehydrated(fn (Get $get): bool => $get('action_type_mode') !== self::OTHER_ACTION_TYPE)
+                            ->afterStateUpdated(function (Set $set, ?string $state): void {
+                                if ($state === self::OTHER_ACTION_TYPE) {
+                                    $set('action_type_mode', self::OTHER_ACTION_TYPE);
+                                    $set('action_type', null);
+
+                                    return;
+                                }
+
+                                $set('action_type_mode', 'select');
+                            })
+                            ->nullable(),
+
+                        TextInput::make('action_type')
+                            ->label('Action Taken')
+                            ->placeholder('Enter the action taken')
+                            ->maxLength(255)
+                            ->suffixAction(
+                                Action::make('chooseListedReturnedActionType')
+                                    ->icon(Heroicon::ChevronDown)
+                                    ->tooltip('Choose from listed actions')
+                                    ->action(function (Set $set): void {
+                                        $set('action_type_mode', 'select');
+                                        $set('action_type', null);
+                                    }),
+                            )
+                            ->visible(fn (Get $get): bool => $get('action_type_mode') === self::OTHER_ACTION_TYPE)
+                            ->dehydrated(fn (Get $get): bool => $get('action_type_mode') === self::OTHER_ACTION_TYPE)
+                            ->required(fn (Get $get): bool => $get('action_type_mode') === self::OTHER_ACTION_TYPE),
+                        ]),
+
+                    Grid::make(2)
+                        ->schema([
+                        Select::make('returned_from')
+                            ->label('Returned From')
+                            ->options(fn () => OfficeUnit::query()
+                                ->orderBy('name')
+                                ->pluck('name', 'name')
+                                ->prepend('Others', self::OTHER_RETURNED_FROM)
+                                ->toArray())
+                            ->searchable()
+                            ->preload()
+                            ->live()
+                            ->visible(fn (Get $get): bool => $get('returned_from_mode') !== self::OTHER_RETURNED_FROM)
+                            ->dehydrated(fn (Get $get): bool => $get('returned_from_mode') !== self::OTHER_RETURNED_FROM)
+                            ->afterStateUpdated(function (Set $set, ?string $state): void {
+                                if ($state === self::OTHER_RETURNED_FROM) {
+                                    $set('returned_from_mode', self::OTHER_RETURNED_FROM);
+                                    $set('returned_from', null);
+
+                                    return;
+                                }
+
+                                $set('returned_from_mode', 'select');
+                            })
+                            ->required(),
+
+                        TextInput::make('returned_from')
+                            ->label('Returned From')
+                            ->placeholder('Enter the returning office/unit')
+                            ->maxLength(255)
+                            ->suffixAction(
+                                Action::make('chooseListedReturnedFrom')
+                                    ->icon(Heroicon::ChevronDown)
+                                    ->tooltip('Choose from listed offices/units')
+                                    ->action(function (Set $set): void {
+                                        $set('returned_from_mode', 'select');
+                                        $set('returned_from', null);
+                                    }),
+                            )
+                            ->visible(fn (Get $get): bool => $get('returned_from_mode') === self::OTHER_RETURNED_FROM)
+                            ->dehydrated(fn (Get $get): bool => $get('returned_from_mode') === self::OTHER_RETURNED_FROM)
+                            ->required(fn (Get $get): bool => $get('returned_from_mode') === self::OTHER_RETURNED_FROM),
+
+
+
+
+                        DatePicker::make('date_returned')
+                            ->label('Returned Date')
+                            ->required(),
+                        ]),
+
+                Textarea::make('return_remarks')
+                    ->label('Remarks')
+                    ->placeholder('Add remarks about the returned document')
+                    ->rows(3)
+                    ->maxLength(1000)
+                    ->columnSpanFull(),
+
+                FileUpload::make('file_path')
+                        ->label('Upload New Revision')
+                        ->disk('local')
+                        ->directory('documents/versions')
+                        ->preserveFilenames()
+                        ->multiple()
+                        ->appendFiles()
+                        ->acceptedFileTypes([
+                            'application/pdf',
+                            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                        ])
+                        ->columnSpanFull(),
+            ])
+            ->fillForm(function (array $arguments, ?DocumentModel $record = null): array {
+                $document = $this->resolveDocumentActionRecord($arguments, $record);
+
+                return [
+                    'document_name' => $document->document_name
+                        ?: ($document->latestVersion?->file_path
+                            ? basename($document->latestVersion->file_path)
+                            : null),
+                    'document_type_mode' => filled($document->document_type) && ! DocumentType::query()
+                        ->where('type_name', $document->document_type)
+                        ->exists()
+                        ? self::OTHER_DOCUMENT_TYPE
+                        : 'select',
+                    'document_type' => $document->document_type,
+                    'action_type_mode' => filled($document->action_type) && ! ActionType::query()
+                        ->where('action_name', $document->action_type)
+                        ->exists()
+                        ? self::OTHER_ACTION_TYPE
+                        : 'select',
+                    'action_type' => $document->action_type,
+                    'returned_from_mode' => filled($document->returned_from) && ! OfficeUnit::query()
+                        ->where('name', $document->returned_from)
+                        ->exists()
+                        ? self::OTHER_RETURNED_FROM
+                        : 'select',
+                    'returned_from' => $document->returned_from,
+                    'date_returned' => $document->date_returned,
+                    'return_remarks' => $document->return_remarks,
+                ];
+            })
+            ->action(function (array $data, array $arguments, ?DocumentModel $record = null): void {
+                $document = $this->resolveDocumentActionRecord($arguments, $record);
+
+                if ($document->status !== 'returned') {
+                    Notification::make()
+                        ->warning()
+                        ->title('Document is no longer returned')
+                        ->body('Refresh the table and try again.')
+                        ->send();
+
+                    return;
+                }
+
+                $oldValues = $document->only([
+                    'document_name',
+                    'document_type',
+                    'action_type',
+                    'returned_from',
+                    'date_returned',
+                    'return_remarks',
+                ]);
+
+                $document->fill([
+                    'document_name' => $data['document_name'],
+                    'document_type' => $data['document_type'],
+                    'action_type' => filled($data['action_type'] ?? null)
+                        ? trim((string) $data['action_type'])
+                        : null,
+                    'returned_from' => $data['returned_from'],
+                    'date_returned' => $data['date_returned'],
+                    'return_remarks' => filled($data['return_remarks'] ?? null)
+                        ? trim((string) $data['return_remarks'])
+                        : null,
+                ]);
+
+                $fieldLabels = [
+                    'document_name' => 'Document Name',
+                    'document_type' => 'Document Type',
+                    'action_type' => 'Action Taken',
+                    'returned_from' => 'Returned From',
+                    'date_returned' => 'Returned Date',
+                    'return_remarks' => 'Remarks',
+                ];
+
+                $updatedFields = collect(array_keys($document->getDirty()))
+                    ->map(fn (string $field): string => $fieldLabels[$field] ?? $field)
+                    ->values()
+                    ->all();
+
+                $document->save();
+
+                $updatedSummary = $updatedFields !== []
+                    ? implode(', ', $updatedFields) . ' changed'
+                    : 'No fields changed';
+
+                $this->recordDocumentActivity(
+                    $document->document_id,
+                    'Returned document updated',
+                    $updatedSummary,
+                    (string) json_encode($oldValues),
+                    (string) json_encode($document->only(array_keys($oldValues))),
+                );
+
+                Notification::make()
+                    ->success()
+                    ->title('Returned document updated successfully')
+                    ->body($updatedSummary . '.')
+                    ->send();
+            });
+    }
+
     public function downloadDocument(int $documentId): BinaryFileResponse
     {
         // Only Legal Staff can download original documents.
@@ -1737,7 +2057,7 @@ class Document extends Page implements HasTable
                                 ->label('Particulars')
                                 ->rows(4)
                                 ->autosize()
-                                ->maxLength(65535)
+                                ->maxLength(200)
                                 ->required(),
 
                         ]),
@@ -1892,6 +2212,116 @@ class Document extends Page implements HasTable
             });
     }
 
+    public function markAsReturnedAction(): Action
+    {
+        return Action::make('markAsReturned')
+            ->label('Returned')
+            ->color('gray')
+            ->modalHeading('Mark Document as Returned')
+            ->modalDescription('Provide the return date, the office that returned the document, and any remarks.')
+            ->modalWidth(Width::Small)
+            ->modalAlignment(Alignment::Center)
+            ->modalFooterActionsAlignment(Alignment::Center)
+            ->modalSubmitAction(fn (Action $action): Action => $this->styleDocumentPrimarySubmitAction($action))
+            ->modalSubmitActionLabel('Mark as returned')
+            ->modalCancelActionLabel('Cancel')
+            ->extraAttributes([
+                'class' => 'complete-document-button returned-document-button',
+            ])
+            ->schema([
+                Hidden::make('returned_from_mode')
+                    ->default('select')
+                    ->dehydrated(false),
+
+                Select::make('returned_from')
+                    ->label('Returned From')
+                    ->options(fn () => OfficeUnit::query()
+                        ->orderBy('name')
+                        ->pluck('name', 'name')
+                        ->prepend('Others', self::OTHER_RETURNED_FROM)
+                        ->toArray())
+                    ->searchable()
+                    ->preload()
+                    ->live()
+                    ->visible(fn (Get $get): bool => $get('returned_from_mode') !== self::OTHER_RETURNED_FROM)
+                    ->dehydrated(fn (Get $get): bool => $get('returned_from_mode') !== self::OTHER_RETURNED_FROM)
+                    ->afterStateUpdated(function (Set $set, ?string $state): void {
+                        if ($state === self::OTHER_RETURNED_FROM) {
+                            $set('returned_from_mode', self::OTHER_RETURNED_FROM);
+                            $set('returned_from', null);
+
+                            return;
+                        }
+
+                        $set('returned_from_mode', 'select');
+                    })
+                    ->required(),
+
+                TextInput::make('returned_from')
+                    ->label('Returned From')
+                    ->placeholder('Enter the returning office/unit')
+                    ->maxLength(255)
+                    ->suffixAction(
+                        Action::make('chooseListedReturnedFrom')
+                            ->icon(Heroicon::ChevronDown)
+                            ->tooltip('Choose from listed offices/units')
+                            ->action(function (Set $set): void {
+                                $set('returned_from_mode', 'select');
+                                $set('returned_from', null);
+                            }),
+                    )
+                    ->visible(fn (Get $get): bool => $get('returned_from_mode') === self::OTHER_RETURNED_FROM)
+                    ->dehydrated(fn (Get $get): bool => $get('returned_from_mode') === self::OTHER_RETURNED_FROM)
+                    ->required(fn (Get $get): bool => $get('returned_from_mode') === self::OTHER_RETURNED_FROM),
+
+                DatePicker::make('date_returned')
+                    ->label('Return Date')
+                    ->default(now())
+                    ->required(),
+
+                Textarea::make('return_remarks')
+                    ->label('Remarks')
+                    ->placeholder('Add remarks about the returned document')
+                    ->rows(3)
+                    ->maxLength(1000),
+            ])
+            ->action(function (array $data, array $arguments, ?DocumentModel $record = null): void {
+                $document = $this->resolveDocumentActionRecord($arguments, $record);
+
+                if ($document->status !== 'outgoing') {
+                    Notification::make()
+                        ->warning()
+                        ->title('Document is no longer outgoing')
+                        ->body('Refresh the table and try again.')
+                        ->send();
+
+                    return;
+                }
+
+                $document->update([
+                    'status' => 'returned',
+                    'returned_from' => $data['returned_from'],
+                    'date_returned' => $data['date_returned'],
+                    'return_remarks' => filled($data['return_remarks'] ?? null)
+                        ? trim((string) $data['return_remarks'])
+                        : null,
+                ]);
+
+                $this->recordDocumentActivity(
+                    $document->document_id,
+                    'Document returned',
+                    'Returned from ' . $document->returned_from . ' on ' . $document->date_returned?->format('F d, Y') . '.'
+                        . (filled($document->return_remarks) ? ' Remarks: ' . $document->return_remarks : '')
+                );
+
+                Notification::make()
+                    ->success()
+                    ->title('Document marked as returned')
+                    ->body('The document was moved to the Returned table.')
+                    ->send();
+            });
+    }
+
     public function rejectDocumentAction(): Action
     {
         return Action::make('rejectDocument')
@@ -1988,7 +2418,7 @@ class Document extends Page implements HasTable
     public function returnDocumentAction(): Action
     {
         return Action::make('returnDocument')
-            ->label('Return')
+            ->label('Undo')
             ->color('success')
             ->tooltip('Return Document')
             ->extraAttributes([
@@ -2164,11 +2594,11 @@ class Document extends Page implements HasTable
     {
         $document = DocumentModel::findOrFail($documentId);
 
-        if (! in_array($document->status, ['in_progress', 'outgoing', 'completed'], true)) {
+        if (! in_array($document->status, ['in_progress', 'outgoing', 'returned', 'completed'], true)) {
             Notification::make()
                 ->danger()
                 ->title('Document cannot be archived')
-                ->body('Only incoming, outgoing, and completed documents can be archived.')
+                ->body('Only incoming, outgoing, returned, and completed documents can be archived.')
                 ->send();
 
             return;
@@ -2196,7 +2626,7 @@ class Document extends Page implements HasTable
     public function returnArchivedDocumentAction(): Action
     {
         return Action::make('returnArchivedDocument')
-            ->label('Return')
+            ->label('Undo')
             ->color('success')
             ->tooltip('Return Document')
             ->extraAttributes([

@@ -6,6 +6,12 @@
     $displayDocumentName = $documentName
         ? \Illuminate\Support\Str::limit($documentName, 25)
         : 'Unnamed document';
+    $documentType = $record->document_type;
+    $color = $documentType
+        ? \App\Models\DocumentType::query()
+            ->where('type_name', $documentType)
+            ->value('color')
+        : null;
 @endphp
 
 <div class="flex items-start gap-3 text-xs">
@@ -16,11 +22,21 @@
         </svg>
     </div>
 
-    <div class="min-w-0 space-y-1">
-        <div>
-            <span class="font-semibold text-gray-900 dark:text-gray-100">
+    <div class="min-w-0 flex-1 space-y-1">
+        <div class="flex min-w-0 flex-wrap items-center gap-2">
+            <span class="min-w-0 truncate font-semibold text-gray-900 dark:text-gray-100">
                 {{ $record->lao_number ?: 'LAO No: Pending' }}
             </span>
+
+            @if ($documentType)
+                <span
+                    class="document-type-badge document-table-type-badge inline-flex max-w-full items-center justify-center rounded-full px-1.5 py-0 text-center text-[10px] font-semibold leading-4"
+                    style="--badge-color: {{ $color ?? '#64748B' }};"
+                    title="{{ $documentType }}"
+                >
+                    {{ $documentType }}
+                </span>
+            @endif
         </div>
 
         <div

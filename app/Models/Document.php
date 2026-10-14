@@ -75,6 +75,7 @@ class Document extends Model
         'sent_date',
         'returned_from',
         'date_returned',
+        'return_remarks',
         'outgoing_date',
         'status',
         'status_other',
@@ -252,6 +253,7 @@ class Document extends Model
         return match ($this->status) {
             'pending' => 'Pending',
             'in_progress' => 'In Progress',
+            'returned' => 'Returned',
             'completed' => 'Completed',
             'rejected' => 'Rejected',
             default => ucfirst(str_replace('_', ' ', $this->status ?? 'Unknown')),
@@ -264,6 +266,7 @@ class Document extends Model
             'pending' => 'bg-yellow-100 text-yellow-700',
             'in_progress' => 'bg-blue-100 text-blue-700',
             'outgoing' => 'border border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-800 dark:bg-violet-950 dark:text-violet-300',
+            'returned' => 'border border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300',
             'completed' => 'bg-green-100 text-green-700',
             'rejected' => 'bg-red-100 text-red-700',
             default => 'bg-gray-100 text-gray-700',
