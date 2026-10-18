@@ -3,6 +3,13 @@
 use Illuminate\Support\Str;
 use Pdo\Mysql;
 
+$mysqlSslCaPath = trim((string) env('MYSQL_ATTR_SSL_CA'));
+$mysqlSslVerification = filter_var(
+    env('MYSQL_ATTR_SSL_VERIFY_SERVER_CERT', true),
+    FILTER_VALIDATE_BOOLEAN,
+    FILTER_NULL_ON_FAILURE,
+);
+
 return [
 
     /*
@@ -60,9 +67,9 @@ return [
             'strict' => true,
             'engine' => null,
             'options' => extension_loaded('pdo_mysql') ? array_filter([
-                Mysql::ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
-                Mysql::ATTR_SSL_VERIFY_SERVER_CERT => env('MYSQL_ATTR_SSL_CA')
-                    ? filter_var(env('MYSQL_ATTR_SSL_VERIFY_SERVER_CERT', true), FILTER_VALIDATE_BOOLEAN)
+                Mysql::ATTR_SSL_CA => $mysqlSslCaPath,
+                Mysql::ATTR_SSL_VERIFY_SERVER_CERT => $mysqlSslCaPath !== ''
+                    ? $mysqlSslVerification
                     : null,
             ], static fn (mixed $value): bool => $value !== null && $value !== '') : [],
         ],
@@ -83,9 +90,9 @@ return [
             'strict' => true,
             'engine' => null,
             'options' => extension_loaded('pdo_mysql') ? array_filter([
-                Mysql::ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
-                Mysql::ATTR_SSL_VERIFY_SERVER_CERT => env('MYSQL_ATTR_SSL_CA')
-                    ? filter_var(env('MYSQL_ATTR_SSL_VERIFY_SERVER_CERT', true), FILTER_VALIDATE_BOOLEAN)
+                Mysql::ATTR_SSL_CA => $mysqlSslCaPath,
+                Mysql::ATTR_SSL_VERIFY_SERVER_CERT => $mysqlSslCaPath !== ''
+                    ? $mysqlSslVerification
                     : null,
             ], static fn (mixed $value): bool => $value !== null && $value !== '') : [],
         ],

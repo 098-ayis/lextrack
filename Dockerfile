@@ -100,6 +100,12 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
+# Render Secret Files are mounted with access for group 1000. Apache serves
+# requests as www-data, so grant that runtime user access without copying the
+# secret into the image.
+RUN (getent group 1000 >/dev/null || groupadd --gid 1000 render-secrets) \
+    && usermod -a -G 1000 www-data
+
 COPY . .
 RUN rm -f bootstrap/cache/packages.php \
     bootstrap/cache/services.php \
@@ -132,4 +138,4 @@ RUN sed -ri 's!/var/www/html!/var/www/html/public!g' \
 
 EXPOSE 10000
 
-CMD ["sh", "-c", "if [ \"${LEXTRACK_DB_DIAGNOSTICS:-false}\" = \"true\" ]; then php /var/www/html/docker/render-db-diagnostic.php || true; fi; sed -i \"s/Listen 80/Listen ${PORT:-10000}/\" /etc/apache2/ports.conf && sed -i \"s/<VirtualHost \\*:80>/<VirtualHost *:${PORT:-10000}>/\" /etc/apache2/sites-available/000-default.conf && exec apache2-foreground"]
+CMD ["sh", "-c", "if [ \"${LEXTRACK_DB_DIAGNOSTICS:-false}\" = \"true\" ]; then su -s /bin/sh www-data -c 'php /var/www/html/docker/render-db-diagnostic.php' || true; fi; sed -i \"s/Listen 80/Listen ${PORT:-10000}/\" /etc/apache2/ports.conf && sed -i \"s/<VirtualHost \\*:80>/<VirtualHost *:${PORT:-10000}>/\" /etc/apache2/sites-available/000-default.conf && exec apache2-foreground"]
