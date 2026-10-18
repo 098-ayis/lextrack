@@ -7,6 +7,9 @@
 # Render Secret Files (available in the Docker build context)
 aiven-ca.pem
 
+# Local development certificates must never enter the production image.
+docker/certs/
+
 node_modules
 vendor
 public/build
