@@ -58,6 +58,70 @@ Google Authentication
 
 6. Open the app at http://localhost.
 
+## Temporary Render deployment
+
+The root `Dockerfile` builds Vite assets and includes the PHP extensions,
+LibreOffice Writer, Ghostscript, ImageMagick, Node, and Playwright Chromium
+used by document previews, QR-stamped downloads, thumbnails, and reports.
+
+For a temporary Render deployment:
+
+1. Create a Render Web Service with **Language: Docker**, using the root
+   `Dockerfile`. The image listens on Render's `PORT` value and binds to
+   `0.0.0.0`.
+2. Use an Aiven MySQL database with `DB_CONNECTION=mysql`. Add the Aiven CA
+   certificate as a Render Secret File and set `MYSQL_ATTR_SSL_CA` to its
+   absolute path and `MYSQL_ATTR_SSL_VERIFY_SERVER_CERT=true`.
+3. Create a private Backblaze B2 bucket and a bucket-scoped application key.
+   Set `DOCUMENT_FILESYSTEM_DISK=s3` plus the `AWS_*` values shown in
+   `.env.example`, including the regional HTTPS S3 endpoint.
+4. Set `APP_KEY`, `APP_URL`, Google OAuth callback values, and production
+   mail/Turnstile values in Render. Keep `APP_DEBUG=false`, set
+   `SESSION_SECURE_COOKIE=true`, and use `LOG_STACK=stderr` so errors appear
+   in Render logs.
+5. Run `php artisan migrate --force` once from a controlled machine that has
+   the Aiven connection values and CA file, or use a paid Render pre-deploy or
+   one-off job. Render Free web services do not provide a dashboard shell. Do
+   not run `migrate:fresh` against Aiven.
+
+The production environment should include these non-secret settings:
+
+```dotenv
+APP_ENV=production
+APP_DEBUG=false
+APP_URL=https://<your-render-host>
+DB_CONNECTION=mysql
+MYSQL_ATTR_SSL_CA=/etc/secrets/aiven-ca.pem
+MYSQL_ATTR_SSL_VERIFY_SERVER_CERT=true
+FILESYSTEM_DISK=local
+DOCUMENT_FILESYSTEM_DISK=s3
+SESSION_DRIVER=database
+SESSION_SECURE_COOKIE=true
+SESSION_HTTP_ONLY=true
+SESSION_SAME_SITE=lax
+CACHE_STORE=database
+QUEUE_CONNECTION=sync
+LOG_CHANNEL=stack
+LOG_STACK=stderr
+LOG_LEVEL=info
+AWS_DEFAULT_REGION=<b2-region>
+AWS_ENDPOINT=https://s3.<b2-region>.backblazeb2.com
+AWS_USE_PATH_STYLE_ENDPOINT=true
+GOOGLE_REDIRECT_URI=https://<your-render-host>/auth/google/callback
+```
+
+Add the remaining database, B2, Google, Turnstile, and `APP_KEY` values as
+Render secret environment variables. Keep the B2 bucket private; LexTrack
+serves authorized files through authenticated application routes rather than
+publishing object URLs.
+
+Render's free web service has an ephemeral local filesystem. Permanent
+documents and message attachments therefore use B2; local storage is only for
+temporary processing, caches, and logs. If no separate queue worker is
+available, use `QUEUE_CONNECTION=sync` for this capstone deployment and run
+scheduled reminder commands externally; otherwise database-queued jobs will
+remain pending.
+
 ## Branching
 
 - `main`: tested, stable version

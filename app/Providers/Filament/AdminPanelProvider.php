@@ -49,16 +49,24 @@ class AdminPanelProvider extends PanelProvider
 
                 abort_unless($version && $filePath, 404);
 
-                $disk = $version->storageDisk();
+                $diskName = $version->file_disk ?: 'local';
+                $storage = app(\App\Services\DocumentStorageService::class);
 
-                abort_unless($disk->exists($filePath), 404);
+                abort_unless($storage->exists($filePath, $diskName), 404);
 
                 $fileName = $document->document_name ?: basename($filePath);
                 $copy = \Illuminate\Support\Facades\DB::table('cabinet_copies')
                     ->where('document_id', $document->document_id)->where('display_name', $filename)->first();
                 if ($copy) { $fileName = $copy->display_name; }
-                $mimeType = $disk->mimeType($filePath)
-                    ?: 'application/octet-stream';
+                $mimeType = null;
+
+                try {
+                    $mimeType = $storage->disk($diskName)->mimeType($filePath);
+                } catch (\Throwable) {
+                    // Fall back to a safe generic type below.
+                }
+
+                $mimeType ??= 'application/octet-stream';
 
                 if ($filename !== $fileName) {
                     return redirect()->route('admin.documents.file', [
@@ -68,31 +76,44 @@ class AdminPanelProvider extends PanelProvider
                 }
 
                 if ($mimeType === 'application/pdf') {
-                    try {
-                        $pdf = new \setasign\Fpdi\Fpdi;
-                        $count = $pdf->setSourceFile($disk->path($filePath));
-                        $pdf->SetTitle($fileName, true);
-                        for ($page = 1; $page <= $count; $page++) {
-                            $template = $pdf->importPage($page);
-                            $size = $pdf->getTemplateSize($template);
-                            $pdf->AddPage($size['orientation'], [$size['width'], $size['height']]);
-                            $pdf->useTemplate($template);
-                        }
-                        return response($pdf->Output('S'), 200, [
-                            'Content-Type' => 'application/pdf',
-                            'Content-Disposition' => \Symfony\Component\HttpFoundation\HeaderUtils::makeDisposition('inline', $fileName, \Illuminate\Support\Str::ascii($fileName)),
-                            'Cache-Control' => 'private, no-store',
-                        ]);
-                    } catch (\setasign\Fpdi\PdfParser\PdfParserException $exception) {
-                        // PDFs unsupported by the importer remain available in their original form.
-                    }
+                    return $storage->withLocalPath(
+                        $filePath,
+                        function (string $localPath) use ($fileName): mixed {
+                            try {
+                                $pdf = new \setasign\Fpdi\Fpdi;
+                                $count = $pdf->setSourceFile($localPath);
+                                $pdf->SetTitle($fileName, true);
+                                for ($page = 1; $page <= $count; $page++) {
+                                    $template = $pdf->importPage($page);
+                                    $size = $pdf->getTemplateSize($template);
+                                    $pdf->AddPage($size['orientation'], [$size['width'], $size['height']]);
+                                    $pdf->useTemplate($template);
+                                }
+
+                                return response($pdf->Output('S'), 200, [
+                                    'Content-Type' => 'application/pdf',
+                                    'Content-Disposition' => \Symfony\Component\HttpFoundation\HeaderUtils::makeDisposition('inline', $fileName, \Illuminate\Support\Str::ascii($fileName)),
+                                    'Cache-Control' => 'private, no-store',
+                                ]);
+                            } catch (\setasign\Fpdi\PdfParser\PdfParserException) {
+                                return response()->file($localPath, [
+                                    'Content-Type' => 'application/pdf',
+                                    'Content-Disposition' => 'inline; filename="'.addcslashes($fileName, "\\\"").'"',
+                                    'Cache-Control' => 'private, no-store',
+                                ]);
+                            }
+                        },
+                        $diskName,
+                    );
                 }
 
-                return $disk->response(
+                return $storage->withLocalPath(
                     $filePath,
-                    $fileName,
-                    ['Content-Type' => $mimeType],
-                    'inline',
+                    fn (string $localPath) => response()->file($localPath, [
+                        'Content-Type' => $mimeType,
+                        'Content-Disposition' => 'inline; filename="'.addcslashes($fileName, "\\\"").'"',
+                    ]),
+                    $diskName,
                 );
             })
             ->name('admin.documents.file');

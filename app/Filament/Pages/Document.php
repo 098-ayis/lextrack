@@ -57,9 +57,11 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Model;
 use Filament\Schemas\Components\Grid;
+use Illuminate\Support\Str;
 // use BezhanSalleh\FilamentShield\Traits\HasPageShield;
 
 class Document extends Page implements HasTable
+
 {
     private const string OTHER_DOCUMENT_TYPE = '__other_document_type__';
 
@@ -532,7 +534,7 @@ class Document extends Page implements HasTable
             ->columns($this->getDocumentTableColumns())
             ->recordActions($this->getDocumentTableActions())
             ->recordActionsColumnLabel('ACTION')
-            ->recordActionsAlignment('end')
+            ->recordActionsAlignment('fi-align-center')
             ->recordUrl(fn (DocumentModel $record): string => ViewDocument::getUrl([
                 'document' => $record->getPublicRouteKey(),
                 'return_to' => static::getUrl(['section' => $this->activeSection]),
@@ -1097,7 +1099,7 @@ class Document extends Page implements HasTable
 
                 FileUpload::make('transmittal')
                     ->label('Transmittal / Endorsement')
-                    ->disk('local')
+                    ->disk(config('filesystems.document_disk', 'local'))
                     ->directory('documents/transmittals')
                     ->multiple()
                     ->appendFiles()
@@ -1109,7 +1111,11 @@ class Document extends Page implements HasTable
                     ])
                     ->rules(['mimes:pdf,docx'])
                     ->helperText(fn (): string => 'Optional. PDF or DOCX only, up to '.app(SystemSettingService::class)->uploadSizeLimitMb().' MB each.')
-                    ->preserveFilenames()
+                    ->getUploadedFileNameForStorageUsing(
+                        fn (TemporaryUploadedFile $file): string =>
+                            Str::ulid().'.'.strtolower($file->getClientOriginalExtension())
+                    )
+                    ->storeFileNamesIn('transmittal_original_names')
                     ->extraAttributes(['class' => 'admin-document-upload-files'])
                     ->columnSpanFull(),
 
@@ -1118,7 +1124,7 @@ class Document extends Page implements HasTable
                     ->multiple()
                     ->appendFiles()
                     ->panelLayout('integrated')
-                    ->disk('local')
+                    ->disk(config('filesystems.document_disk', 'local'))
                     ->directory('documents')
                     ->maxSize(app(SystemSettingService::class)->uploadSizeLimitKb())
                     ->acceptedFileTypes([
@@ -1127,7 +1133,11 @@ class Document extends Page implements HasTable
                     ])
                     ->rules(['mimes:pdf,docx'])
                     ->helperText(fn (): string => 'Select one or more PDF or DOCX files. Maximum file size: '.app(SystemSettingService::class)->uploadSizeLimitMb().' MB each; each file is added as a revision.')
-                    ->preserveFilenames()
+                    ->getUploadedFileNameForStorageUsing(
+                        fn (TemporaryUploadedFile $file): string =>
+                            Str::ulid().'.'.strtolower($file->getClientOriginalExtension())
+                    )
+                    ->storeFileNamesIn('document_original_names')
                     ->extraAttributes(['class' => 'admin-document-upload-files'])
                     ->live()
                     ->afterStateUpdated(function ($state, Set $set): void {
@@ -1139,14 +1149,26 @@ class Document extends Page implements HasTable
                     (array) ($data['file_path'] ?? []),
                     static fn (mixed $path): bool => is_string($path) && filled($path),
                 ));
+                $documentOriginalNames = (array) ($data['document_original_names'] ?? []);
+                $transmittalOriginalNames = (array) ($data['transmittal_original_names'] ?? []);
+
+                unset(
+                    $data['document_original_names'],
+                    $data['transmittal_original_names']
+                );
                 $transmittalPaths = array_values(array_filter(
                     (array) ($data['transmittal'] ?? []),
                     static fn (mixed $path): bool => is_string($path) && filled($path),
                 ));
                 $cleanupUploads = function () use ($filePaths, $transmittalPaths): void {
+                    $diskName = config('filesystems.document_disk', 'local');
+
                     foreach ([...$filePaths, ...$transmittalPaths] as $path) {
                         if (is_string($path) && filled($path)) {
-                            DocumentVersion::removeUnreferencedUpload($path);
+                            DocumentVersion::removeUnreferencedUpload(
+                                $path,
+                                $diskName
+                            );
                         }
                     }
                 };
@@ -1222,14 +1244,17 @@ class Document extends Page implements HasTable
                 $data['user_id'] = auth()->id();
                 $data['transmittal'] = $transmittalPaths[0] ?? null;
                 $data['deadline'] ??= DocumentModel::deadlineForType($data['document_type'] ?? null);
-                $data['document_name'] = $this->uploadedDocumentName($filePaths[0])
-                    ?? ($data['document_name'] ?? null);
+                $firstFilePath = $filePaths[0] ?? null;
+
+                $data['document_name'] = $firstFilePath
+                    ? basename($documentOriginalNames[$firstFilePath] ?? basename($firstFilePath))
+                    : ($data['document_name'] ?? null);
                 // Documents uploaded by an administrator enter the workflow
                 // immediately and must not be placed in the client review
                 // queue, even when the add form is opened from Pending.
                 $targetStatus = 'in_progress';
 
-                $document = DB::transaction(function () use ($data, $filePaths, $fileHashes, $transmittalPaths, $transmittalHashes, $targetStatus): DocumentModel {
+                $document = DB::transaction(function () use ($data, $filePaths, $fileHashes, $transmittalPaths, $transmittalHashes, $targetStatus, $documentOriginalNames, $transmittalOriginalNames): DocumentModel {
                     // Generate again at save time so the number is always the
                     // latest available one, even if the form stayed open.
                     $data['lao_number'] = DocumentModel::generateLaoNumber(now());
@@ -1246,6 +1271,10 @@ class Document extends Page implements HasTable
                             'document_id' => $document->document_id,
                             'user_id' => auth()->id(),
                             'file_path' => $transmittalPath,
+                            'file_disk' => config('filesystems.document_disk', 'local'),
+                            'original_filename' => basename(
+                                $transmittalOriginalNames[$transmittalPath] ?? basename($transmittalPath)
+                            ),
                             'file_hash' => $transmittalHashes[$index],
                         ]);
                     }
@@ -1256,6 +1285,10 @@ class Document extends Page implements HasTable
                             'user_id' => auth()->id(),
                             'version_number' => (string) ($index + 1),
                             'file_path' => $filePath,
+                            'file_disk' => config('filesystems.document_disk', 'local'),
+                            'original_filename' => basename(
+                                $documentOriginalNames[$filePath] ?? basename($filePath)
+                            ),
                             'file_hash' => $fileHashes[$index],
                             'source' => 'admin',
                         ]);
@@ -1539,16 +1572,20 @@ class Document extends Page implements HasTable
 
                     FileUpload::make('file_path')
                         ->label('Upload New Revision')
-                        ->disk('local')
+                        ->disk(config('filesystems.document_disk', 'local'))
                         ->directory('documents/versions')
-                        ->preserveFilenames()
+                        ->getUploadedFileNameForStorageUsing(
+                            fn (TemporaryUploadedFile $file): string =>
+                                Str::ulid().'.'.strtolower($file->getClientOriginalExtension())
+                        )
                         ->multiple()
                         ->appendFiles()
                         ->acceptedFileTypes([
                             'application/pdf',
                             'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
                         ])
-                        ->columnSpanFull(),
+                        ->columnSpanFull()
+                        ->storeFileNamesIn('document_original_names'),
                 ];
             })
             ->fillForm(function (DocumentModel $record): array {
@@ -1590,12 +1627,14 @@ class Document extends Page implements HasTable
             })
             ->action(function (array $data, DocumentModel $record): void {
                 $document = $record;
+                $documentOriginalNames = (array) ($data['document_original_names'] ?? []);
 
                 $filePaths = array_values(array_filter(
                     (array) ($data['file_path'] ?? []),
                     static fn (mixed $path): bool => is_string($path) && filled($path),
                 ));
                 unset($data['file_path']);
+                unset($data['document_original_names']);
                 $oldValues = $document->only(array_keys($data));
 
                 $document->fill($data);
@@ -1661,11 +1700,17 @@ class Document extends Page implements HasTable
                         'user_id' => auth()->id(),
                         'version_number' => (string) $this->getNextVersionNumber($document),
                         'file_path' => $filePath,
+                        'file_disk' => config('filesystems.document_disk', 'local'),
+                        'original_filename' => basename(
+                            $documentOriginalNames[$filePath] ?? basename($filePath)
+                        ),
                         'file_hash' => $fileHash,
                         'source' => 'admin',
                     ]);
 
-                    $uploadedNames[] = basename($filePath);
+                    $uploadedNames[] = basename(
+                        $documentOriginalNames[$filePath] ?? basename($filePath)
+                    );
                 }
 
                 if ($uploadedNames !== []) {
@@ -1872,16 +1917,20 @@ class Document extends Page implements HasTable
 
                 FileUpload::make('file_path')
                         ->label('Upload New Revision')
-                        ->disk('local')
+                        ->disk(config('filesystems.document_disk', 'local'))
                         ->directory('documents/versions')
-                        ->preserveFilenames()
+                        ->getUploadedFileNameForStorageUsing(
+                            fn (TemporaryUploadedFile $file): string =>
+                                Str::ulid().'.'.strtolower($file->getClientOriginalExtension())
+                        )
                         ->multiple()
                         ->appendFiles()
                         ->acceptedFileTypes([
                             'application/pdf',
                             'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
                         ])
-                        ->columnSpanFull(),
+                        ->columnSpanFull()
+                        ->storeFileNamesIn('document_original_names'),
             ])
             ->fillForm(function (array $arguments, ?DocumentModel $record = null): array {
                 $document = $this->resolveDocumentActionRecord($arguments, $record);
@@ -1926,6 +1975,13 @@ class Document extends Page implements HasTable
                     return;
                 }
 
+                $documentOriginalNames = (array) ($data['document_original_names'] ?? []);
+                $filePaths = array_values(array_filter(
+                    (array) ($data['file_path'] ?? []),
+                    static fn (mixed $path): bool => is_string($path) && filled($path),
+                ));
+                unset($data['file_path'], $data['document_original_names']);
+
                 $oldValues = $document->only([
                     'document_name',
                     'document_type',
@@ -1964,6 +2020,52 @@ class Document extends Page implements HasTable
 
                 $document->save();
 
+                $uploadedNames = [];
+                $acceptedHashes = [];
+
+                foreach ($filePaths as $filePath) {
+                    $fileHash = DocumentVersion::hashForUpload($filePath);
+
+                    if (
+                        $fileHash === null
+                        || isset($acceptedHashes[$fileHash])
+                        || DocumentVersion::existsForDocumentOrUserHash(
+                            $document->document_id,
+                            $fileHash,
+                            auth()->id(),
+                        )
+                    ) {
+                        DocumentVersion::removeUnreferencedUpload($filePath);
+
+                        continue;
+                    }
+
+                    $acceptedHashes[$fileHash] = $filePath;
+                }
+
+                foreach ($acceptedHashes as $fileHash => $filePath) {
+                    DocumentVersion::create([
+                        'document_id' => $document->document_id,
+                        'user_id' => auth()->id(),
+                        'version_number' => (string) $this->getNextVersionNumber($document),
+                        'file_path' => $filePath,
+                        'file_disk' => config('filesystems.document_disk', 'local'),
+                        'original_filename' => basename(
+                            $documentOriginalNames[$filePath] ?? basename($filePath)
+                        ),
+                        'file_hash' => $fileHash,
+                        'source' => 'admin',
+                    ]);
+
+                    $uploadedNames[] = basename(
+                        $documentOriginalNames[$filePath] ?? basename($filePath)
+                    );
+                }
+
+                if ($uploadedNames !== []) {
+                    $updatedFields[] = 'Document File';
+                }
+
                 $updatedSummary = $updatedFields !== []
                     ? implode(', ', $updatedFields) . ' changed'
                     : 'No fields changed';
@@ -1971,7 +2073,9 @@ class Document extends Page implements HasTable
                 $this->recordDocumentActivity(
                     $document->document_id,
                     'Returned document updated',
-                    $updatedSummary,
+                    $updatedSummary . ($uploadedNames !== []
+                        ? ': ' . implode(', ', $uploadedNames)
+                        : ''),
                     (string) json_encode($oldValues),
                     (string) json_encode($document->only(array_keys($oldValues))),
                 );

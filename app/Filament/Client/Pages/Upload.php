@@ -341,7 +341,7 @@ class Upload extends Page implements HasForms
         }
 
         try {
-            $documents = DB::transaction(function () use ($data, $officeUnit, $documentType, $uploadedFiles, $filePaths, $transmittalPaths, $uploads, $transmittalUploads, $userId): array {
+            $documents = DB::transaction(function () use ($data, $officeUnit, $documentType, $uploadedFiles, $transmittalFiles, $filePaths, $transmittalPaths, $uploads, $transmittalUploads, $userId): array {
                 $transmittalPath = $transmittalPaths[0] ?? null;
                 $document = Document::create([
                     'user_id' => $userId,
@@ -359,6 +359,11 @@ class Upload extends Page implements HasForms
                         'document_id' => $document->document_id,
                         'user_id' => $userId,
                         'file_path' => $transmittalPath,
+                        'file_disk' => $transmittalUploads[0]['disk'] ?? 'local',
+                        'original_filename' => $this->uploadedFileName(
+                            $transmittalFiles[0] ?? null,
+                            $transmittalPath
+                        ),
                         'file_hash' => $transmittalUploads[0]['hash'],
                     ]);
                 }
@@ -369,6 +374,11 @@ class Upload extends Page implements HasForms
                         'document_id' => $document->document_id,
                         'version_number' => (string) ($index + 1),
                         'file_path' => $filePath,
+                        'file_disk' => $uploads[$index]['disk'] ?? 'local',
+                        'original_filename' => $this->uploadedFileName(
+                            $uploadedFiles[$index] ?? null,
+                            $filePath
+                        ),
                         'file_hash' => $uploads[$index]['hash'],
                         'source' => 'client',
                     ]);
@@ -514,13 +524,15 @@ class Upload extends Page implements HasForms
                 return null;
             }
 
-            $filePath = $file->storeAs($directory, $originalName, 'local');
+            $diskName = config('filesystems.document_disk', 'local');
+
+            $filePath = $file->storeAs($directory, $originalName, $diskName);
 
             if (! is_string($filePath) || $filePath === '') {
                 return null;
             }
 
-            $upload['disk'] = 'local';
+            $upload['disk'] = $diskName;
             $upload['stored_path'] = $filePath;
 
             return $filePath;
@@ -591,12 +603,7 @@ class Upload extends Page implements HasForms
             return;
         }
 
-        if (DocumentVersion::where('file_path', $storedPath)->exists()
-            || Document::where('transmittal', $storedPath)->exists()) {
-            return;
-        }
-
-        Storage::disk($diskName)->delete($storedPath);
+        DocumentVersion::removeUnreferencedUpload($storedPath, $diskName);
     }
 
     /**

@@ -30,3 +30,6 @@ Thumbs.db
 /MailShield.der
 /MailShield.crt
 /compose.override.yaml
+
+# Local Aiven certificates
+docker/certs/

@@ -127,34 +127,47 @@ Route::get('/client/document-preview/{document}', function (string $document) {
         ->latest('version_id')
         ->first();
 
-    $disk = Storage::disk('local');
-    $filePath = $documentRecord->transmittalAttachments()->value('file_path')
+    $storage = app(\App\Services\DocumentStorageService::class);
+
+    // Prefer the transmittal attachment.
+    $transmittal = $documentRecord->transmittalAttachments()->first();
+
+    $filePath = $transmittal?->file_path
         ?: $documentRecord->transmittal
         ?: $versionRecord?->file_path;
 
-    if ($filePath && ! $disk->exists($filePath)) {
-        $disk = Storage::disk('public');
-    }
+    $preferredDisk = $transmittal?->file_path
+        ? ($transmittal->file_disk ?: 'local')
+        : ($filePath === $versionRecord?->file_path
+            ? ($versionRecord?->file_disk ?: 'local')
+            : 'local');
 
-    if ((! $filePath || ! $disk->exists($filePath)) && $versionRecord?->file_path) {
+    // Fall back to the document version if the transmittal is unavailable.
+    if (
+        (! $filePath || ! $storage->exists($filePath, $preferredDisk))
+        && $versionRecord?->file_path
+    ) {
         $filePath = $versionRecord->file_path;
-        $disk = Storage::disk('local');
-
-        if (! $disk->exists($filePath)) {
-            $disk = Storage::disk('public');
-        }
+        $preferredDisk = $versionRecord->file_disk ?: 'local';
     }
 
     abort_unless(
-        $filePath &&
-        $disk->exists($filePath),
-        404
+        $filePath && $storage->exists($filePath, $preferredDisk),
+        404,
     );
 
-    return app(DocumentDownloadService::class)->preview(
-        $documentRecord,
-        $disk->path($filePath),
-        basename($filePath),
+    $displayName = $filePath === $versionRecord?->file_path
+        ? ($versionRecord?->original_filename ?: basename($filePath))
+        : ($transmittal?->original_filename ?: basename($filePath));
+
+    return $storage->withLocalPath(
+        $filePath,
+        fn (string $localPath) => app(DocumentDownloadService::class)->preview(
+            $documentRecord,
+            $localPath,
+            $displayName,
+        ),
+        $preferredDisk,
     );
 
 })
@@ -180,27 +193,40 @@ Route::get('/client/document-thumbnail/{document}', function (string $document) 
         ->latest('version_id')
         ->first();
 
-    $disk = Storage::disk('local');
-    $filePath = $documentRecord->transmittalAttachments()->value('file_path')
+    $storage = app(\App\Services\DocumentStorageService::class);
+
+    $transmittal = $documentRecord->transmittalAttachments()->first();
+
+    $filePath = $transmittal?->file_path
         ?: $documentRecord->transmittal
         ?: $versionRecord?->file_path;
 
-    if ($filePath && ! $disk->exists($filePath)) {
-        $disk = Storage::disk('public');
-    }
+    $preferredDisk = $transmittal?->file_path
+        ? ($transmittal->file_disk ?: 'local')
+        : ($filePath === $versionRecord?->file_path
+            ? ($versionRecord?->file_disk ?: 'local')
+            : 'local');
 
-    if ((! $filePath || ! $disk->exists($filePath)) && $versionRecord?->file_path) {
+    if (
+        (! $filePath || ! $storage->exists($filePath, $preferredDisk))
+        && $versionRecord?->file_path
+    ) {
         $filePath = $versionRecord->file_path;
-        $disk = Storage::disk('local');
-
-        if (! $disk->exists($filePath)) {
-            $disk = Storage::disk('public');
-        }
+        $preferredDisk = $versionRecord->file_disk ?: 'local';
     }
 
-    abort_unless($filePath && $disk->exists($filePath), 404);
+    abort_unless(
+        $filePath && $storage->exists($filePath, $preferredDisk),
+        404,
+    );
 
-    return app(\App\Services\DocumentPreviewService::class)->thumbnail($disk->path($filePath));
+    return $storage->withLocalPath(
+        $filePath,
+        fn (string $localPath) => app(
+            \App\Services\DocumentPreviewService::class
+        )->thumbnail($localPath),
+        $preferredDisk,
+    );
 })
     ->middleware('auth')
     ->name('client.document.thumbnail');
@@ -224,14 +250,11 @@ Route::get('/client/document-download/{document}', function (string $document) {
         ->latest('version_id')
         ->first();
 
-    $disk = Storage::disk('local');
-    $filePath = $versionRecord?->file_path;
-
-    if ($filePath && ! $disk->exists($filePath)) {
-        $disk = Storage::disk('public');
-    }
-
-    abort_unless($filePath && $disk->exists($filePath), 404);
+    abort_unless(
+        $versionRecord?->file_path
+        && $versionRecord->storageDisk()->exists($versionRecord->file_path),
+        404,
+    );
 
     return app(DocumentDownloadService::class)->download($documentRecord, $versionRecord);
 })
@@ -277,10 +300,14 @@ Route::get('/client/document-version/{document}/{version}/preview', function (
         404,
     );
 
-    return app(DocumentDownloadService::class)->preview(
-        $documentRecord,
-        $versionRecord->storageDisk()->path($versionRecord->file_path),
-        basename($versionRecord->file_path),
+    return app(\App\Services\DocumentStorageService::class)->withLocalPath(
+        $versionRecord->file_path,
+        fn (string $localPath) => app(DocumentDownloadService::class)->preview(
+            $documentRecord,
+            $localPath,
+            $versionRecord->original_filename ?: basename($versionRecord->file_path),
+        ),
+        $versionRecord->file_disk ?: 'local',
     );
 })
     ->middleware('auth')
@@ -344,18 +371,29 @@ Route::get('/client/document-transmittal/{document}/preview', function (string $
     );
 
     $filePath = $documentRecord->transmittal;
-    $disk = Storage::disk('local');
 
-    if ($filePath && ! $disk->exists($filePath)) {
-        $disk = Storage::disk('public');
-    }
+    $attachment = $filePath
+        ? $documentRecord->transmittalAttachments()
+            ->where('file_path', $filePath)
+            ->first()
+        : null;
 
-    abort_unless($filePath && $disk->exists($filePath), 404);
+    $diskName = $attachment?->file_disk ?: 'local';
 
-    return app(DocumentDownloadService::class)->preview(
-        $documentRecord,
-        $disk->path($filePath),
-        basename($filePath),
+    abort_unless(
+        $filePath
+        && Storage::disk($diskName)->exists($filePath),
+        404,
+    );
+
+    return app(\App\Services\DocumentStorageService::class)->withLocalPath(
+        $filePath,
+        fn (string $localPath) => app(DocumentDownloadService::class)->preview(
+            $documentRecord,
+            $localPath,
+            $attachment?->original_filename ?: basename($filePath),
+        ),
+        $diskName,
     );
 })
     ->middleware('auth')
@@ -375,15 +413,24 @@ Route::get('/client/document-transmittal/{document}/download', function (string 
     );
 
     $filePath = $documentRecord->transmittal;
-    $disk = Storage::disk('local');
+    $attachment = $filePath
+        ? $documentRecord->transmittalAttachments()
+            ->where('file_path', $filePath)
+            ->first()
+        : null;
+    $diskName = $attachment?->file_disk ?: 'local';
 
-    if ($filePath && ! $disk->exists($filePath)) {
-        $disk = Storage::disk('public');
-    }
+    abort_unless(
+        $filePath && Storage::disk($diskName)->exists($filePath),
+        404,
+    );
 
-    abort_unless($filePath && $disk->exists($filePath), 404);
-
-    return $disk->download($filePath, basename($filePath));
+    return app(\App\Services\DocumentStorageService::class)->downloadResponse(
+        $filePath,
+        $attachment?->original_filename ?: basename($filePath),
+        null,
+        $diskName,
+    );
 })
     ->middleware('auth')
     ->name('client.document.transmittal.download');
@@ -407,18 +454,23 @@ Route::get('/client/document-transmittal/{document}/{attachment}/preview', funct
     $attachmentRecord = DocumentTransmittal::query()
         ->where('document_id', $documentRecord->document_id)
         ->findOrFail($attachment);
-    $disk = Storage::disk('local');
+    $filePath = $attachmentRecord->file_path;
+    $diskName = $attachmentRecord->file_disk ?: 'local';
 
-    if (! $disk->exists($attachmentRecord->file_path)) {
-        $disk = Storage::disk('public');
-    }
+    abort_unless(
+        $filePath
+        && $attachmentRecord->storageDisk()->exists($filePath),
+        404,
+    );
 
-    abort_unless($disk->exists($attachmentRecord->file_path), 404);
-
-    return app(DocumentDownloadService::class)->preview(
-        $documentRecord,
-        $disk->path($attachmentRecord->file_path),
-        basename($attachmentRecord->file_path),
+    return app(\App\Services\DocumentStorageService::class)->withLocalPath(
+        $filePath,
+        fn (string $localPath) => app(DocumentDownloadService::class)->preview(
+            $documentRecord,
+            $localPath,
+            $attachmentRecord->original_filename ?: basename($filePath),
+        ),
+        $diskName,
     );
 })
     ->middleware('auth')
@@ -443,17 +495,19 @@ Route::get('/client/document-transmittal/{document}/{attachment}/download', func
     $attachmentRecord = DocumentTransmittal::query()
         ->where('document_id', $documentRecord->document_id)
         ->findOrFail($attachment);
-    $disk = Storage::disk('local');
+    $filePath = $attachmentRecord->file_path;
+    $diskName = $attachmentRecord->file_disk ?: 'local';
 
-    if (! $disk->exists($attachmentRecord->file_path)) {
-        $disk = Storage::disk('public');
-    }
+    abort_unless(
+        $filePath && $attachmentRecord->storageDisk()->exists($filePath),
+        404,
+    );
 
-    abort_unless($disk->exists($attachmentRecord->file_path), 404);
-
-    return $disk->download(
-        $attachmentRecord->file_path,
-        basename($attachmentRecord->file_path),
+    return app(\App\Services\DocumentStorageService::class)->downloadResponse(
+        $filePath,
+        $attachmentRecord->original_filename ?: basename($filePath),
+        null,
+        $diskName,
     );
 })
     ->middleware('auth')
@@ -475,31 +529,41 @@ Route::get('/messages/{message}/attachment/{attachment}', function (
     Gate::authorize('view', $conversation);
 
     $filePath = $attachment->path;
-    $disk = Storage::disk($attachment->disk ?: 'local');
+    $diskName = $attachment->disk ?: 'local';
+    $storage = app(\App\Services\DocumentStorageService::class);
 
-    if (! $disk->exists($filePath) && $attachment->disk !== 'public') {
-        $disk = Storage::disk('public');
-    }
-
-    abort_unless($disk->exists($filePath), 404);
+    abort_unless($filePath && $storage->exists($filePath, $diskName), 404);
 
     $fileName = basename($attachment->original_name ?: $filePath);
-    $mimeType = $attachment->mime_type
-        ?: $disk->mimeType($filePath)
-        ?: 'application/octet-stream';
+    $mimeType = $attachment->mime_type;
+
+    if (! $mimeType) {
+        try {
+            $mimeType = $storage->disk($diskName)->mimeType($filePath);
+        } catch (\Throwable) {
+            $mimeType = null;
+        }
+    }
+
+    $mimeType ??= 'application/octet-stream';
     $quotedFileName = addcslashes($fileName, "\\\"");
 
     if (str_starts_with($mimeType, 'image/') || $mimeType === 'application/pdf') {
-        return response()->file($disk->path($filePath), [
-            'Content-Type' => $mimeType,
-            'Content-Disposition' => 'inline; filename="' . $quotedFileName . '"',
-        ]);
+        return $storage->withLocalPath(
+            $filePath,
+            fn (string $localPath) => response()->file($localPath, [
+                'Content-Type' => $mimeType,
+                'Content-Disposition' => 'inline; filename="' . $quotedFileName . '"',
+            ]),
+            $diskName,
+        );
     }
 
-    return response()->download(
-        $disk->path($filePath),
+    return $storage->downloadResponse(
+        $filePath,
         $fileName,
-        ['Content-Type' => $mimeType]
+        $mimeType,
+        $diskName,
     );
 })
     ->middleware('auth')
@@ -536,22 +600,21 @@ Route::get('/admin/documents/{document}/preview', function (string $document) {
         ->latest('version_id')
         ->first();
 
-    $disk = Storage::disk('local');
     $filePath = $versionRecord?->file_path;
-
-    if ($filePath && ! $disk->exists($filePath)) {
-        $disk = Storage::disk('public');
-    }
 
     abort_unless(
         $filePath &&
-        $disk->exists($filePath),
+        $versionRecord->storageDisk()->exists($filePath),
         404
     );
 
-    $path = $disk->path($filePath);
-
-    return app(\App\Services\DocumentPreviewService::class)->preview($path);
+    return app(\App\Services\DocumentStorageService::class)->withLocalPath(
+        $filePath,
+        fn (string $localPath) => app(
+            \App\Services\DocumentPreviewService::class
+        )->preview($localPath),
+        $versionRecord->file_disk ?: 'local',
+    );
 })
     ->middleware(['auth', AdminMiddleware::class, EnsureLegalStaff::class])
     ->name('admin.documents.preview');
@@ -564,16 +627,21 @@ Route::get('/admin/documents/{document}/thumbnail', function (string $document) 
         ->latest('version_id')
         ->first();
 
-    $disk = Storage::disk('local');
     $filePath = $versionRecord?->file_path;
 
-    if ($filePath && ! $disk->exists($filePath)) {
-        $disk = Storage::disk('public');
-    }
+    abort_unless(
+        $filePath
+        && $versionRecord->storageDisk()->exists($filePath),
+        404,
+    );
 
-    abort_unless($filePath && $disk->exists($filePath), 404);
-
-    return app(\App\Services\DocumentPreviewService::class)->thumbnail($disk->path($filePath));
+    return app(\App\Services\DocumentStorageService::class)->withLocalPath(
+        $filePath,
+        fn (string $localPath) => app(
+            \App\Services\DocumentPreviewService::class
+        )->thumbnail($localPath),
+        $versionRecord->file_disk ?: 'local',
+    );
 })
     ->middleware(['auth', AdminMiddleware::class, EnsureLegalStaff::class])
     ->name('admin.documents.thumbnail');
@@ -582,19 +650,26 @@ Route::get('/admin/documents/{document}/transmittal-preview', function (string $
     $documentRecord = Document::findForRoute($document);
     $filePath = $documentRecord->transmittal;
 
-    $disk = Storage::disk('local');
+    $attachment = $filePath
+        ? $documentRecord->transmittalAttachments()
+            ->where('file_path', $filePath)
+            ->first()
+        : null;
 
-    if ($filePath && ! $disk->exists($filePath)) {
-        $disk = Storage::disk('public');
-    }
+    $diskName = $attachment?->file_disk ?: 'local';
 
     abort_unless(
-        $filePath && $disk->exists($filePath),
-        404
+        $filePath
+        && Storage::disk($diskName)->exists($filePath),
+        404,
     );
 
-    return app(\App\Services\DocumentPreviewService::class)->preview(
-        $disk->path($filePath)
+    return app(\App\Services\DocumentStorageService::class)->withLocalPath(
+        $filePath,
+        fn (string $localPath) => app(
+            \App\Services\DocumentPreviewService::class
+        )->preview($localPath),
+        $diskName,
     );
 })
     ->middleware(['auth', AdminMiddleware::class, EnsureLegalStaff::class])
@@ -603,19 +678,24 @@ Route::get('/admin/documents/{document}/transmittal-preview', function (string $
 Route::get('/admin/documents/{document}/transmittal-download', function (string $document) {
     $documentRecord = Document::findForRoute($document);
     $filePath = $documentRecord->transmittal;
-
-    $disk = Storage::disk('local');
-
-    if ($filePath && ! $disk->exists($filePath)) {
-        $disk = Storage::disk('public');
-    }
+    $attachment = $filePath
+        ? $documentRecord->transmittalAttachments()
+            ->where('file_path', $filePath)
+            ->first()
+        : null;
+    $diskName = $attachment?->file_disk ?: 'local';
 
     abort_unless(
-        $filePath && $disk->exists($filePath),
-        404
+        $filePath && Storage::disk($diskName)->exists($filePath),
+        404,
     );
 
-    return $disk->download($filePath, basename($filePath));
+    return app(\App\Services\DocumentStorageService::class)->downloadResponse(
+        $filePath,
+        $attachment?->original_filename ?: basename($filePath),
+        null,
+        $diskName,
+    );
 })
     ->middleware(['auth', AdminMiddleware::class, EnsureLegalStaff::class])
     ->name('admin.documents.transmittal.download');
@@ -628,16 +708,21 @@ Route::get('/admin/documents/{document}/transmittals/{attachment}/preview', func
     $attachmentRecord = DocumentTransmittal::query()
         ->where('document_id', $documentRecord->document_id)
         ->findOrFail($attachment);
-    $disk = Storage::disk('local');
+    $filePath = $attachmentRecord->file_path;
+    $diskName = $attachmentRecord->file_disk ?: 'local';
 
-    if (! $disk->exists($attachmentRecord->file_path)) {
-        $disk = Storage::disk('public');
-    }
+    abort_unless(
+        $filePath &&
+        $attachmentRecord->storageDisk()->exists($filePath),
+        404,
+    );
 
-    abort_unless($disk->exists($attachmentRecord->file_path), 404);
-
-    return app(\App\Services\DocumentPreviewService::class)->preview(
-        $disk->path($attachmentRecord->file_path)
+    return app(\App\Services\DocumentStorageService::class)->withLocalPath(
+        $filePath,
+        fn (string $localPath) => app(
+            \App\Services\DocumentPreviewService::class
+        )->preview($localPath),
+        $diskName,
     );
 })
     ->middleware(['auth', AdminMiddleware::class, EnsureLegalStaff::class])
@@ -651,17 +736,19 @@ Route::get('/admin/documents/{document}/transmittals/{attachment}/download', fun
     $attachmentRecord = DocumentTransmittal::query()
         ->where('document_id', $documentRecord->document_id)
         ->findOrFail($attachment);
-    $disk = Storage::disk('local');
+    $filePath = $attachmentRecord->file_path;
+    $diskName = $attachmentRecord->file_disk ?: 'local';
 
-    if (! $disk->exists($attachmentRecord->file_path)) {
-        $disk = Storage::disk('public');
-    }
+    abort_unless(
+        $filePath && $attachmentRecord->storageDisk()->exists($filePath),
+        404,
+    );
 
-    abort_unless($disk->exists($attachmentRecord->file_path), 404);
-
-    return $disk->download(
-        $attachmentRecord->file_path,
-        basename($attachmentRecord->file_path),
+    return app(\App\Services\DocumentStorageService::class)->downloadResponse(
+        $filePath,
+        $attachmentRecord->original_filename ?: basename($filePath),
+        null,
+        $diskName,
     );
 })
     ->middleware(['auth', AdminMiddleware::class, EnsureLegalStaff::class])
@@ -676,17 +763,10 @@ Route::get('/admin/documents/{document}/download', function (string $document) {
         ->latest('version_id')
         ->first();
 
-    $disk = Storage::disk('local');
-    $filePath = $versionRecord?->file_path;
-
-    if ($filePath && ! $disk->exists($filePath)) {
-        $disk = Storage::disk('public');
-    }
-
     abort_unless(
-        $filePath &&
-        $disk->exists($filePath),
-        404
+        $versionRecord?->file_path
+        && $versionRecord->storageDisk()->exists($versionRecord->file_path),
+        404,
     );
 
     return app(DocumentDownloadService::class)->download($documentRecord, $versionRecord);
@@ -710,9 +790,13 @@ Route::get('/admin/documents/{document}/versions/{version}/preview', function (
         404
     );
 
-    $path = $versionRecord->storageDisk()->path($versionRecord->file_path);
-
-    return app(\App\Services\DocumentPreviewService::class)->preview($path);
+    return app(\App\Services\DocumentStorageService::class)->withLocalPath(
+        $versionRecord->file_path,
+        fn (string $localPath) => app(
+            \App\Services\DocumentPreviewService::class
+        )->preview($localPath),
+        $versionRecord->file_disk ?: 'local',
+    );
 })
     ->middleware(['auth', AdminMiddleware::class, EnsureLegalStaff::class])
     ->name('admin.document.version.preview');
