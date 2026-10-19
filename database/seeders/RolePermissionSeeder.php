@@ -38,8 +38,8 @@ class RolePermissionSeeder extends Seeder
         |--------------------------------------------------------------------------
         */
 
-        $staff = Role::firstOrCreate([
-            'name' => 'Staff',
+        $client = Role::firstOrCreate([
+            'name' => 'Client',
             'guard_name' => 'web',
         ]);
 
@@ -59,7 +59,7 @@ class RolePermissionSeeder extends Seeder
         |--------------------------------------------------------------------------
         */
 
-        $staff->syncPermissions([
+        $client->syncPermissions([
             'view_shared_messages',
             'reply_shared_messages',
         ]);
