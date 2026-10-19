@@ -10,6 +10,8 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Laravel\Socialite\Facades\Socialite;
+use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 class GoogleAuthController extends Controller
@@ -43,6 +45,25 @@ class GoogleAuthController extends Controller
 
         return filter_var($email, FILTER_VALIDATE_EMAIL)
             && str_ends_with($email, '@'.$domain);
+    }
+
+    /**
+     * Ensure the default role exists before assigning it to a Google user.
+     *
+     * The migration and seeder create this role during normal deployment, but
+     * keeping this small guard here prevents a missed migration from turning
+     * the OAuth callback into a login loop.
+     */
+    private function assignDefaultClientRole(User $user): void
+    {
+        $role = Role::query()->firstOrCreate([
+            'name' => 'Client',
+            'guard_name' => 'web',
+        ]);
+
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
+
+        $user->assignRole($role);
     }
 
     /**
@@ -127,7 +148,7 @@ class GoogleAuthController extends Controller
                 ]);
 
                 // Default role for new Google users
-                $user->assignRole('Client');
+                $this->assignDefaultClientRole($user);
             }
 
             /*
@@ -155,7 +176,7 @@ class GoogleAuthController extends Controller
                  * assign the default Client role.
                  */
                 if ($user->getRoleNames()->isEmpty()) {
-                    $user->assignRole('Client');
+                    $this->assignDefaultClientRole($user);
                 }
             }
 
