@@ -242,6 +242,8 @@ try {
         diagnostic('laravel_ssl_ca_option_readable', is_string($resolvedCa) && is_readable($resolvedCa));
         diagnostic('laravel_ssl_ca_matches_configured', is_string($resolvedCa)
             && $configuredCaPath !== '' && $resolvedCa === $configuredCaPath);
+        diagnostic('laravel_ssl_ca_matches_direct', is_string($resolvedCa)
+            && $resolvedCa === $caPath);
         diagnostic('laravel_ssl_verify_option_present', array_key_exists(
             Pdo\Mysql::ATTR_SSL_VERIFY_SERVER_CERT,
             $resolvedOptions,

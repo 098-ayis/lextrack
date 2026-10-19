@@ -4,8 +4,17 @@ use Illuminate\Support\Str;
 use Pdo\Mysql;
 
 $mysqlSslCaPath = trim((string) env('MYSQL_ATTR_SSL_CA'));
+
+// Render Secret Files are mounted after the image is built. If the CA path
+// variable is omitted there, use the standard mounted Aiven certificate when
+// it is available. Local development keeps its configured path unchanged.
+if ($mysqlSslCaPath === '' && is_readable('/etc/secrets/aiven-ca.pem')) {
+    $mysqlSslCaPath = '/etc/secrets/aiven-ca.pem';
+}
+
+$mysqlSslVerificationValue = trim((string) env('MYSQL_ATTR_SSL_VERIFY_SERVER_CERT'));
 $mysqlSslVerification = filter_var(
-    env('MYSQL_ATTR_SSL_VERIFY_SERVER_CERT', true),
+    $mysqlSslVerificationValue !== '' ? $mysqlSslVerificationValue : 'true',
     FILTER_VALIDATE_BOOLEAN,
     FILTER_NULL_ON_FAILURE,
 );
