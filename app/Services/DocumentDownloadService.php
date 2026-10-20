@@ -110,30 +110,78 @@ class DocumentDownloadService
         }
     }
 
+
     public function download(Document $document, DocumentVersion $version): BinaryFileResponse
     {
-        $sourcePath = $version->storageDisk()->path((string) $version->file_path);
-        $temporaryDirectory = storage_path('app/private/temp-downloads');
+        $filePath = (string) $version->file_path;
+        $disk = $version->storageDisk();
 
-        if (! is_dir($temporaryDirectory) && ! mkdir($temporaryDirectory, 0775, true) && ! is_dir($temporaryDirectory)) {
-            throw new RuntimeException('Unable to create the temporary download directory.');
+        if ($filePath === '' || ! $disk->exists($filePath)) {
+            throw new RuntimeException('Document file not found.');
         }
 
+        $temporaryDirectory = storage_path('app/private/temp-downloads');
+
+        File::ensureDirectoryExists($temporaryDirectory);
+
         $workingDirectory = $temporaryDirectory.'/'.bin2hex(random_bytes(16));
-        File::makeDirectory($workingDirectory, 0775, true);
-        $extension = strtolower(pathinfo($sourcePath, PATHINFO_EXTENSION)) === 'docx' ? 'docx' : 'pdf';
+        File::ensureDirectoryExists($workingDirectory);
+
+        $originalExtension = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
+        $extension = $originalExtension === 'docx' ? 'docx' : 'pdf';
+
+        $sourcePath = $workingDirectory.'/source.'.$originalExtension;
         $temporaryPath = $workingDirectory.'-with-qr.'.$extension;
 
         try {
+            // Read from the recorded disk: local or Backblaze B2.
+            $sourceStream = $disk->readStream($filePath);
+
+            if (! is_resource($sourceStream)) {
+                throw new RuntimeException('Unable to read document source.');
+            }
+
+            try {
+                $destination = fopen($sourcePath, 'wb');
+
+                if ($destination === false) {
+                    throw new RuntimeException('Unable to create temporary source file.');
+                }
+
+                try {
+                    if (stream_copy_to_stream($sourceStream, $destination) === false) {
+                        throw new RuntimeException('Unable to copy document source.');
+                    }
+                } finally {
+                    fclose($destination);
+                }
+            } finally {
+                fclose($sourceStream);
+            }
+
             if ($extension === 'docx') {
-                $statusUrl = URL::signedRoute('documents.public-status', ['document' => $document->document_id]);
-                app(DocumentWordQrService::class)->stamp($sourcePath, $temporaryPath, $this->qrImage($statusUrl), $statusUrl);
+                $statusUrl = URL::signedRoute(
+                    'documents.public-status',
+                    ['document' => $document->document_id]
+                );
+
+                app(DocumentWordQrService::class)->stamp(
+                    $sourcePath,
+                    $temporaryPath,
+                    $this->qrImage($statusUrl),
+                    $statusUrl
+                );
             } else {
                 $pdfPath = $this->convertToPdf($sourcePath, $workingDirectory);
-                $this->stampQrCode($pdfPath, $temporaryPath, $document->document_id);
+
+                $this->stampQrCode(
+                    $pdfPath,
+                    $temporaryPath,
+                    $document->document_id
+                );
             }
         } catch (Throwable $exception) {
-            if (file_exists($temporaryPath)) {
+            if (is_file($temporaryPath)) {
                 unlink($temporaryPath);
             }
 
@@ -142,14 +190,21 @@ class DocumentDownloadService
             File::deleteDirectory($workingDirectory);
         }
 
+        $originalName = basename($version->original_filename ?: $filePath);
+        $downloadName = pathinfo($originalName, PATHINFO_FILENAME);
+        $downloadName = ($downloadName !== '' ? $downloadName : 'document').'.'.$extension;
+
         return response()->download(
             $temporaryPath,
-            basename((string) $version->file_path),
-            ['Content-Type' => $extension === 'docx'
-                ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-                : 'application/pdf']
+            $downloadName,
+            [
+                'Content-Type' => $extension === 'docx'
+                    ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+                    : 'application/pdf',
+            ]
         )->deleteFileAfterSend(true);
     }
+
 
     private function convertToPdf(string $sourcePath, string $temporaryDirectory): string
     {

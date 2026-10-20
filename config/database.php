@@ -3,6 +3,22 @@
 use Illuminate\Support\Str;
 use Pdo\Mysql;
 
+$mysqlSslCaPath = trim((string) env('MYSQL_ATTR_SSL_CA'));
+
+// Render Secret Files are mounted after the image is built. If the CA path
+// variable is omitted there, use the standard mounted Aiven certificate when
+// it is available. Local development keeps its configured path unchanged.
+if ($mysqlSslCaPath === '' && is_readable('/etc/secrets/aiven-ca.pem')) {
+    $mysqlSslCaPath = '/etc/secrets/aiven-ca.pem';
+}
+
+$mysqlSslVerificationValue = trim((string) env('MYSQL_ATTR_SSL_VERIFY_SERVER_CERT'));
+$mysqlSslVerification = filter_var(
+    $mysqlSslVerificationValue !== '' ? $mysqlSslVerificationValue : 'true',
+    FILTER_VALIDATE_BOOLEAN,
+    FILTER_NULL_ON_FAILURE,
+);
+
 return [
 
     /*
@@ -60,8 +76,11 @@ return [
             'strict' => true,
             'engine' => null,
             'options' => extension_loaded('pdo_mysql') ? array_filter([
-                Mysql::ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
-            ]) : [],
+                Mysql::ATTR_SSL_CA => $mysqlSslCaPath,
+                Mysql::ATTR_SSL_VERIFY_SERVER_CERT => $mysqlSslCaPath !== ''
+                    ? $mysqlSslVerification
+                    : null,
+            ], static fn (mixed $value): bool => $value !== null && $value !== '') : [],
         ],
 
         'mariadb' => [
@@ -80,8 +99,11 @@ return [
             'strict' => true,
             'engine' => null,
             'options' => extension_loaded('pdo_mysql') ? array_filter([
-                Mysql::ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
-            ]) : [],
+                Mysql::ATTR_SSL_CA => $mysqlSslCaPath,
+                Mysql::ATTR_SSL_VERIFY_SERVER_CERT => $mysqlSslCaPath !== ''
+                    ? $mysqlSslVerification
+                    : null,
+            ], static fn (mixed $value): bool => $value !== null && $value !== '') : [],
         ],
 
         'pgsql' => [

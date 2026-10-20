@@ -83,7 +83,9 @@ class Messages extends Page
                 $query
                     ->whereHas(
                         'document',
-                        fn ($documentQuery) => $documentQuery->availableForMessaging()
+                        fn ($documentQuery) => $documentQuery
+                            ->availableForMessaging()
+                            ->where('user_id', $userId)
                     )
                     ->orWhereHas(
                         'documentRequest',
@@ -467,12 +469,14 @@ class Messages extends Page
             'reply_to_message_id' => $replyToMessageId,
         ]);
 
+        $diskName = config('filesystems.document_disk', 'local');
+
         foreach ($this->attachments as $sortOrder => $attachment) {
-            $path = $attachment->store('message-attachments', 'local');
+            $path = $attachment->store('message-attachments', $diskName);
 
             MessageAttachment::create([
                 'message_id' => $message->id,
-                'disk' => 'local',
+                'disk' => $diskName,
                 'path' => $path,
                 'original_name' => $attachment->getClientOriginalName(),
                 'mime_type' => $attachment->getMimeType(),
@@ -626,6 +630,17 @@ class Messages extends Page
 
         $count = Message::query()
             ->where('sender_id', '!=', $userId)
+            ->where(function ($query) use ($userId): void {
+                $query
+                    ->whereHas(
+                        'conversation.document',
+                        fn ($documentQuery) => $documentQuery->where('user_id', $userId)
+                    )
+                    ->orWhereHas(
+                        'conversation.documentRequest',
+                        fn ($requestQuery) => $requestQuery->where('user_id', $userId)
+                    );
+            })
             ->whereHas('conversation.participants', function ($query) use ($userId) {
                 $query->where('users.id', $userId);
             })
@@ -693,6 +708,17 @@ class Messages extends Page
 
         return Message::query()
             ->where('sender_id', '!=', $userId)
+            ->where(function ($query) use ($userId): void {
+                $query
+                    ->whereHas(
+                        'conversation.document',
+                        fn ($documentQuery) => $documentQuery->where('user_id', $userId)
+                    )
+                    ->orWhereHas(
+                        'conversation.documentRequest',
+                        fn ($requestQuery) => $requestQuery->where('user_id', $userId)
+                    );
+            })
             ->whereHas('conversation.participants', function ($query) use ($userId) {
                 $query->where('users.id', $userId);
             })

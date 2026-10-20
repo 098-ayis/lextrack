@@ -365,12 +365,14 @@ class Messages extends Page
             'reply_to_message_id' => $replyToMessageId,
         ]);
 
+        $diskName = config('filesystems.document_disk', 'local');
+
         foreach ($this->attachments as $sortOrder => $attachment) {
-            $path = $attachment->store('message-attachments', 'local');
+            $path = $attachment->store('message-attachments', $diskName);
 
             MessageAttachment::create([
                 'message_id' => $message->id,
-                'disk' => 'local',
+                'disk' => $diskName,
                 'path' => $path,
                 'original_name' => $attachment->getClientOriginalName(),
                 'mime_type' => $attachment->getMimeType(),

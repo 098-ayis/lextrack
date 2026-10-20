@@ -167,9 +167,13 @@ class ViewDocument extends Page implements HasForms
             ->schema([
                 FileUpload::make('file_path')
                     ->label('PDF or DOCX Files')
-                    ->disk('local')
+                    ->disk(config('filesystems.document_disk', 'local'))
                     ->directory('documents/versions')
-                    ->preserveFilenames()
+                    ->getUploadedFileNameForStorageUsing(
+                        fn (\Livewire\Features\SupportFileUploads\TemporaryUploadedFile $file): string =>
+                            \Illuminate\Support\Str::ulid().'.'.strtolower($file->getClientOriginalExtension())
+                    )
+                    ->storeFileNamesIn('document_original_names')
                     ->multiple()
                     ->appendFiles()
                     ->panelLayout('compact')
@@ -734,9 +738,13 @@ class ViewDocument extends Page implements HasForms
 
                     FileUpload::make('file_path')
                     ->label('Upload New Revision')
-                        ->disk('local')
+                        ->disk(config('filesystems.document_disk', 'local'))
                         ->directory('documents/versions')
-                        ->preserveFilenames()
+                        ->getUploadedFileNameForStorageUsing(
+                            fn (\Livewire\Features\SupportFileUploads\TemporaryUploadedFile $file): string =>
+                                \Illuminate\Support\Str::ulid().'.'.strtolower($file->getClientOriginalExtension())
+                        )
+                        ->storeFileNamesIn('document_original_names')
                         ->multiple()
                         ->appendFiles()
                         ->maxSize(app(SystemSettingService::class)->uploadSizeLimitKb())
@@ -778,6 +786,10 @@ class ViewDocument extends Page implements HasForms
 
                     return;
                 }
+
+                $documentOriginalNames = (array) ($data['document_original_names'] ?? []);
+
+                unset($data['document_original_names']);
 
                 $filePaths = array_values(array_filter(
                     (array) ($data['file_path'] ?? []),
@@ -830,6 +842,10 @@ class ViewDocument extends Page implements HasForms
                         'user_id' => auth()->id(),
                         'version_number' => (string) $this->getNextVersionNumber($document),
                         'file_path' => $filePath,
+                        'file_disk' => config('filesystems.document_disk', 'local'),
+                        'original_filename' => basename(
+                            $documentOriginalNames[$filePath] ?? basename($filePath)
+                        ),
                         'file_hash' => $fileHash,
                         'source' => 'admin',
                     ]);
@@ -1011,7 +1027,7 @@ JS;
             ->iconButton()
             ->disabled($isLocked)
             ->tooltip($isLocked
-                ? 'Uploading is disabled while this document is awaiting review'
+                ? 'Review pending revision first'
                 : 'Add revision')
             ->extraAttributes([
                 'class' => 'h-7 w-7 rounded-md p-1 text-gray-900 ' .
@@ -1029,9 +1045,13 @@ JS;
             ->schema([
                 FileUpload::make('file_path')
                     ->label('PDF or DOCX Files')
-                    ->disk('local')
+                    ->disk(config('filesystems.document_disk', 'local'))
                     ->directory('documents/versions')
-                    ->preserveFilenames()
+                    ->getUploadedFileNameForStorageUsing(
+                        fn (\Livewire\Features\SupportFileUploads\TemporaryUploadedFile $file): string =>
+                            \Illuminate\Support\Str::ulid().'.'.strtolower($file->getClientOriginalExtension())
+                    )
+                    ->storeFileNamesIn('document_original_names')
                     ->multiple()
                     ->appendFiles()
                     ->maxSize(app(SystemSettingService::class)->uploadSizeLimitKb())
@@ -1052,6 +1072,10 @@ JS;
 
     private function uploadDocumentVersions(array $data): bool
     {
+        $documentOriginalNames = (array) ($data['document_original_names'] ?? []);
+
+        unset($data['document_original_names']);
+
         $filePaths = array_values(array_filter(
             (array) ($data['file_path'] ?? []),
             fn (mixed $filePath): bool => is_string($filePath) && $filePath !== '',
@@ -1096,7 +1120,7 @@ JS;
                 continue;
             }
 
-            $version = DB::transaction(function () use ($filePath, $fileHash): ?DocumentVersion {
+            $version = DB::transaction(function () use ($filePath, $fileHash, $documentOriginalNames): ?DocumentVersion {
                 $document = Document::query()
                     ->whereKey($this->documentRecord->document_id)
                     ->lockForUpdate()
@@ -1119,6 +1143,10 @@ JS;
                     'user_id' => auth()->id(),
                     'version_number' => (string) $versionNumber,
                     'file_path' => $filePath,
+                    'file_disk' => config('filesystems.document_disk', 'local'),
+                    'original_filename' => basename(
+                        $documentOriginalNames[$filePath] ?? basename($filePath)
+                    ),
                     'file_hash' => $fileHash,
                     'source' => 'admin',
                 ]);
@@ -1209,19 +1237,21 @@ JS;
             ->whereKey($versionId)
             ->firstOrFail();
 
-        $filePath = (string) $version->file_path;
+        if ($this->documentRecord->versions()->count() <= 1) {
+            Notification::make()
+                ->warning()
+                ->title('The active document file cannot be deleted')
+                ->body('Upload another revision before deleting this one.')
+                ->send();
 
-        $disk = $version->storageDisk();
-
-        if (
-            $filePath !== '' &&
-            $disk->exists($filePath)
-        ) {
-            $disk->delete($filePath);
+            return;
         }
 
+        $filePath = (string) $version->file_path;
+        $diskName = $version->file_disk ?: 'local';
         $versionNumber = $version->version_number;
         $version->delete();
+        DocumentVersion::removeUnreferencedUpload($filePath, $diskName);
 
         $wasSelected = $this->selectedVersionId === $versionId;
 
@@ -1568,11 +1598,15 @@ JS;
 
     public function selectTransmittal(?int $attachmentId = null): void
     {
+        $attachment = $attachmentId === null
+            ? $this->documentRecord->transmittalAttachments()
+                ->where('file_path', $this->documentRecord->transmittal)
+                ->first()
+            : $this->documentRecord->transmittalAttachments()->find($attachmentId);
         $filePath = $attachmentId === null
-            ? (string) $this->documentRecord->transmittal
-            : (string) $this->documentRecord->transmittalAttachments()
-                ->whereKey($attachmentId)
-                ->value('file_path');
+            ? (string) ($attachment?->file_path ?: $this->documentRecord->transmittal)
+            : (string) ($attachment?->file_path ?? '');
+        $diskName = $attachment?->file_disk ?: 'local';
 
         abort_unless(filled($filePath), 404, 'No transmittal is available.');
 
@@ -1587,7 +1621,7 @@ JS;
                 'document' => $this->documentRecord->getPublicRouteKey(),
                 'attachment' => $attachmentId,
             ]);
-        $this->previewPageCount = $this->pageCountForStoredFile($filePath);
+        $this->previewPageCount = $this->pageCountForStoredFile($filePath, $diskName);
     }
 
     protected function getNextVersionNumber($versions = null): int
@@ -1881,31 +1915,37 @@ JS;
             return null;
         }
 
-        $disk = $version->storageDisk();
-
-        if (! $disk->exists($version->file_path)) {
+        if (! $version->storageDisk()->exists($version->file_path)) {
             return null;
         }
 
-        return app(\App\Services\DocumentPreviewService::class)
-            ->pageCount($disk->path($version->file_path));
+        try {
+            return app(\App\Services\DocumentStorageService::class)->withLocalPath(
+                $version->file_path,
+                fn (string $localPath): ?int => app(\App\Services\DocumentPreviewService::class)
+                    ->pageCount($localPath),
+                $version->file_disk ?: 'local',
+            );
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
-    private function pageCountForStoredFile(string $filePath): ?int
+    private function pageCountForStoredFile(string $filePath, string $diskName = 'local'): ?int
     {
         if (strtolower(pathinfo($filePath, PATHINFO_EXTENSION)) !== 'pdf') {
             return null;
         }
 
-        foreach (['local', 'public'] as $diskName) {
-            $disk = Storage::disk($diskName);
-
-            if ($disk->exists($filePath)) {
-                return app(\App\Services\DocumentPreviewService::class)
-                    ->pageCount($disk->path($filePath));
-            }
+        try {
+            return app(\App\Services\DocumentStorageService::class)->withLocalPath(
+                $filePath,
+                fn (string $localPath): ?int => app(\App\Services\DocumentPreviewService::class)
+                    ->pageCount($localPath),
+                $diskName,
+            );
+        } catch (\Throwable) {
+            return null;
         }
-
-        return null;
     }
 }

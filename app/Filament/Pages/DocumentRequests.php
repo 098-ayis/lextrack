@@ -463,9 +463,13 @@ class DocumentRequests extends Page implements HasTable
                             ->multiple()
                             ->appendFiles()
                             ->panelLayout('compact')
-                            ->disk('local')
+                            ->disk(config('filesystems.document_disk', 'local'))
                             ->directory('documents/requested')
-                            ->preserveFilenames()
+                            ->getUploadedFileNameForStorageUsing(
+                                fn (\Livewire\Features\SupportFileUploads\TemporaryUploadedFile $file): string =>
+                                    \Illuminate\Support\Str::ulid().'.'.strtolower($file->getClientOriginalExtension())
+                            )
+                            ->storeFileNamesIn('document_original_names')
                             ->acceptedFileTypes([
                                 'application/pdf',
                                 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -511,12 +515,31 @@ class DocumentRequests extends Page implements HasTable
             ->modalDescription(fn (DocumentRequest $record): string => $record->copy_type === 'soft_copy' ? 'Upload the file to complete this soft-copy request.' : 'Set the pickup schedule to make this request ready for pickup.')
             ->modalSubmitActionLabel(fn (DocumentRequest $record): string => $record->copy_type === 'soft_copy' ? 'Upload and Complete' : 'Accept and Schedule')
             ->schema(fn (DocumentRequest $record): array => $record->copy_type === 'soft_copy'
-                ? [FileUpload::make('file_path')->label('Requested document')->multiple()->appendFiles()->panelLayout('compact')->disk('local')->directory('documents/requested')->preserveFilenames()->acceptedFileTypes(['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'])->maxSize(5120)->required()]
+                ? [FileUpload::make('file_path')
+                    ->label('Requested document')
+                    ->multiple()
+                    ->appendFiles()
+                    ->panelLayout('compact')
+                    ->disk(config('filesystems.document_disk', 'local'))
+                    ->directory('documents/requested')
+                    ->getUploadedFileNameForStorageUsing(
+                        fn (\Livewire\Features\SupportFileUploads\TemporaryUploadedFile $file): string =>
+                            \Illuminate\Support\Str::ulid().'.'.strtolower($file->getClientOriginalExtension())
+                    )
+                    ->storeFileNamesIn('document_original_names')
+                    ->acceptedFileTypes(['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'])
+                    ->maxSize(5120)
+                    ->required()]
                 : $this->pickupScheduleSchema())
             ->action(function (array $data, DocumentRequest $record): void {
                 $pickupAt = $record->copy_type === 'soft_copy' ? null : $this->pickupDateTime($data);
                 if ($pickupAt?->isPast()) { Notification::make()->title('Invalid pickup schedule')->body('The pickup date and time must be in the future.')->danger()->send(); return; }
-                $this->fulfillRequest($record->request_id, $record->copy_type === 'soft_copy' ? ($data['file_path'] ?? null) : null, $pickupAt?->toDateTimeString());
+                $this->fulfillRequest(
+                    $record->request_id,
+                    $record->copy_type === 'soft_copy' ? ($data['file_path'] ?? null) : null,
+                    $pickupAt?->toDateTimeString(),
+                    (array) ($data['document_original_names'] ?? [])
+                );
             });
     }
 
@@ -524,8 +547,27 @@ class DocumentRequests extends Page implements HasTable
     {
         return Action::make('uploadFile')->label('Upload File')->color('success')->button()
             ->visible(fn (DocumentRequest $record): bool => $record->copy_type === 'soft_copy')
-            ->schema([FileUpload::make('file_path')->label('File')->multiple()->appendFiles()->panelLayout('compact')->disk('local')->directory('documents/requested')->preserveFilenames()->acceptedFileTypes(['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'])->maxSize(5120)->required()])
-            ->action(fn (array $data, DocumentRequest $record) => $this->fulfillRequest($record->request_id, $data['file_path'] ?? null));
+            ->schema([FileUpload::make('file_path')
+                ->label('File')
+                ->multiple()
+                ->appendFiles()
+                ->panelLayout('compact')
+                ->disk(config('filesystems.document_disk', 'local'))
+                ->directory('documents/requested')
+                ->getUploadedFileNameForStorageUsing(
+                    fn (\Livewire\Features\SupportFileUploads\TemporaryUploadedFile $file): string =>
+                        \Illuminate\Support\Str::ulid().'.'.strtolower($file->getClientOriginalExtension())
+                )
+                ->storeFileNamesIn('document_original_names')
+                ->acceptedFileTypes(['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'])
+                ->maxSize(5120)
+                ->required()])
+            ->action(fn (array $data, DocumentRequest $record) => $this->fulfillRequest(
+                $record->request_id,
+                $data['file_path'] ?? null,
+                null,
+                (array) ($data['document_original_names'] ?? [])
+            ));
     }
 
     public function schedulePickupAction(): Action
@@ -577,8 +619,27 @@ class DocumentRequests extends Page implements HasTable
             ->size('sm')
             ->extraAttributes(['class' => 'w-[80px] !h-9 !min-h-9 justify-center rounded-md border !border-amber-300 !bg-amber-100 !text-amber-800 transition hover:!bg-amber-200 dark:!border-amber-700 dark:!bg-amber-900/30 dark:!text-amber-300 dark:hover:!bg-amber-900/50', 'style' => 'width: 80px; min-width: 80px; height: 36px; min-height: 36px; padding-left: 16px; padding-right: 16px; border-radius: 6px; box-sizing: border-box;'])
             ->visible(fn (DocumentRequest $record): bool => $record->copy_type === 'soft_copy')
-            ->schema([FileUpload::make('file_path')->label('Replacement file')->multiple()->appendFiles()->panelLayout('compact')->disk('local')->directory('documents/requested')->preserveFilenames()->acceptedFileTypes(['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'])->maxSize(5120)->required()])
-            ->action(fn (array $data, DocumentRequest $record) => $this->fulfillRequest($record->request_id, $data['file_path'] ?? null));
+            ->schema([FileUpload::make('file_path')
+                ->label('Replacement file')
+                ->multiple()
+                ->appendFiles()
+                ->panelLayout('compact')
+                ->disk(config('filesystems.document_disk', 'local'))
+                ->directory('documents/requested')
+                ->getUploadedFileNameForStorageUsing(
+                    fn (\Livewire\Features\SupportFileUploads\TemporaryUploadedFile $file): string =>
+                        \Illuminate\Support\Str::ulid().'.'.strtolower($file->getClientOriginalExtension())
+                )
+                ->storeFileNamesIn('document_original_names')
+                ->acceptedFileTypes(['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'])
+                ->maxSize(5120)
+                ->required()])
+            ->action(fn (array $data, DocumentRequest $record) => $this->fulfillRequest(
+                $record->request_id,
+                $data['file_path'] ?? null,
+                null,
+                (array) ($data['document_original_names'] ?? [])
+            ));
     }
 
     public function restoreRequestAction(): Action
@@ -726,7 +787,12 @@ class DocumentRequests extends Page implements HasTable
                         }
                     }
 
-                    $this->fulfillRequest($record->request_id, $filePath, $pickupAt?->toDateTimeString());
+                    $this->fulfillRequest(
+                        $record->request_id,
+                        $filePath,
+                        $pickupAt?->toDateTimeString(),
+                        (array) ($data['document_original_names'] ?? [])
+                    );
                 }
             });
     }
@@ -786,7 +852,8 @@ class DocumentRequests extends Page implements HasTable
     public function fulfillRequest(
         int $requestId,
         string|array|null $filePath = null,
-        ?string $pickupAt = null
+        ?string $pickupAt = null,
+        array $originalNames = []
     ): void
     {
         $filePaths = array_values(array_filter(
@@ -816,7 +883,7 @@ class DocumentRequests extends Page implements HasTable
         }
 
         $duplicateUpload = false;
-        $result = DB::transaction(function () use ($requestId, $filePaths, $fileHashes, $pickupAt, &$duplicateUpload): ?array {
+        $result = DB::transaction(function () use ($requestId, $filePaths, $fileHashes, $pickupAt, $originalNames, &$duplicateUpload): ?array {
             $request = DocumentRequest::query()
                 ->with(['document', 'user'])
                 ->lockForUpdate()
@@ -872,7 +939,9 @@ class DocumentRequests extends Page implements HasTable
             $document->deadline = Document::deadlineForType($document->document_type);
 
             if ($filePaths !== []) {
-                $document->document_name = basename($filePaths[0]);
+                $document->document_name = basename(
+                    $originalNames[$filePaths[0]] ?? basename($filePaths[0])
+                );
             }
 
             $document->save();
@@ -889,6 +958,10 @@ class DocumentRequests extends Page implements HasTable
                         'user_id' => auth()->id(),
                         'version_number' => (string) ($highestVersion + $index + 1),
                         'file_path' => $path,
+                        'file_disk' => config('filesystems.document_disk', 'local'),
+                        'original_filename' => basename(
+                            $originalNames[$path] ?? basename($path)
+                        ),
                         'file_hash' => $fileHashes[$index],
                         'source' => 'admin',
                     ]);

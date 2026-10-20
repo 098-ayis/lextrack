@@ -6,6 +6,7 @@ use App\Models\Document;
 use App\Models\DocumentVersion;
 use App\Models\DocumentType;
 use App\Models\OfficeUnit;
+use App\Services\SystemSettingService;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
@@ -1112,6 +1113,7 @@ class Cabinet extends Page
             ->color('primary')
             ->modalHeading('Add Document')
             ->modalSubmitActionLabel('Save Document')
+            ->stickyModalFooter()
             ->form([
                 TextInput::make('lao_number')
                     ->label('LAO Number')
@@ -1161,7 +1163,7 @@ class Cabinet extends Page
 
                 FileUpload::make('file_path')
                     ->label('Document File')
-                    ->disk('local')
+                    ->disk(config('filesystems.document_disk', 'local'))
                     ->directory(function (Get $get): string {
                         $type = $this->currentType ?: (string) $get('document_type');
                         $office = $this->currentOffice ?: (string) $get('office_unit');
@@ -1175,20 +1177,26 @@ class Cabinet extends Page
                     })
                     ->multiple()
                     ->appendFiles()
-                    ->panelLayout('integrated')
-                    ->preserveFilenames()
+                    ->panelLayout('compact')
+                    ->getUploadedFileNameForStorageUsing(
+                        fn (\Livewire\Features\SupportFileUploads\TemporaryUploadedFile $file): string =>
+                            \Illuminate\Support\Str::ulid().'.'.strtolower($file->getClientOriginalExtension())
+                    )
+                    ->storeFileNamesIn('document_original_names')
                     ->acceptedFileTypes([
                         'application/pdf',
                         'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
                     ])
+                    ->maxSize(app(SystemSettingService::class)->uploadSizeLimitKb())
                     ->rules(['mimes:pdf,docx'])
-                    ->required()
-                    ->live()
-                    ->afterStateUpdated(function ($state, Set $set): void {
-                        $set('document_name', $this->uploadedDocumentName($state));
-                    }),
+                    ->helperText(fn (): string => 'Select one or more PDF or DOCX files. Maximum file size: '.app(SystemSettingService::class)->uploadSizeLimitMb().' MB each.')
+                    ->extraAttributes(['class' => 'cabinet-document-upload-files'])
+                    ->required(),
             ])
             ->action(function (array $data): void {
+                $documentOriginalNames = (array) ($data['document_original_names'] ?? []);
+                unset($data['document_original_names']);
+
                 $filePaths = array_values(array_filter(
                     (array) ($data['file_path'] ?? []),
                     static fn (mixed $path): bool => is_string($path) && filled($path),
@@ -1241,7 +1249,7 @@ class Cabinet extends Page
                     : (($this->currentType !== '' && $this->currentType !== 'Recycle Bin')
                         ? DB::table('cabinet_folders')->where('name', $this->currentType)->whereNull('recycled_at')->value('id')
                         : null);
-                DB::transaction(function () use ($data, $filePaths, $fileHashes, $destinationFolderId): void {
+                DB::transaction(function () use ($data, $filePaths, $fileHashes, $destinationFolderId, $documentOriginalNames): void {
                     $document = Document::create([
                         'user_id' => auth()->id(),
 
@@ -1250,8 +1258,9 @@ class Cabinet extends Page
                         'office_unit' =>
                             $data['office_unit'],
 
-                        'document_name' =>
-                            $this->uploadedDocumentName($filePaths[0]),
+                        'document_name' => basename(
+                            $documentOriginalNames[$filePaths[0]] ?? basename($filePaths[0])
+                        ),
 
                         // Generate at save time so an old form value cannot
                         // reuse a LAO number assigned by another upload.
@@ -1274,6 +1283,10 @@ class Cabinet extends Page
                             'document_id' => $document->document_id,
                             'version_number' => (string) ($index + 1),
                             'file_path' => $filePath,
+                            'file_disk' => config('filesystems.document_disk', 'local'),
+                            'original_filename' => basename(
+                                $documentOriginalNames[$filePath] ?? basename($filePath)
+                            ),
                             'file_hash' => $fileHashes[$index],
                             'source' => 'admin',
                         ]);

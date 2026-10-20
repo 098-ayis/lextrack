@@ -21,45 +21,64 @@ class DocumentVersion extends Model
         'document_id',
         'version_number',
         'file_path',
+        'file_disk',
+        'original_filename',
         'file_hash',
         'source',
     ];
 
     public static function hashForUpload(mixed $file): ?string
     {
-        $path = null;
-
         if (is_object($file) && method_exists($file, 'getRealPath')) {
             $path = $file->getRealPath();
-        } elseif (is_string($file) && $file !== '') {
-            foreach (['local', 'public'] as $diskName) {
+
+            return is_string($path) && is_file($path)
+                ? hash_file('sha256', $path)
+                : null;
+        }
+
+        if (! is_string($file) || $file === '') {
+            return null;
+        }
+
+        $diskNames = array_unique([
+            config('filesystems.document_disk', 'local'),
+            'local',
+            'public',
+        ]);
+
+        foreach ($diskNames as $diskName) {
+            try {
                 $disk = Storage::disk($diskName);
 
                 if (! $disk->exists($file)) {
                     continue;
                 }
+            } catch (\Throwable) {
+                continue;
+            }
 
-                try {
-                    $candidatePath = $disk->path($file);
-                } catch (\Throwable) {
-                    continue;
-                }
+            try {
+                $stream = $disk->readStream($file);
+            } catch (\Throwable) {
+                continue;
+            }
 
-                if (is_file($candidatePath)) {
-                    $path = $candidatePath;
+            if (! is_resource($stream)) {
+                return null;
+            }
 
-                    break;
-                }
+            try {
+                $context = hash_init('sha256');
+                hash_update_stream($context, $stream);
+
+                return hash_final($context);
+            } finally {
+                fclose($stream);
             }
         }
 
-        if (! is_string($path) || ! is_file($path)) {
-            return null;
-        }
-
-        $hash = hash_file('sha256', $path);
-
-        return is_string($hash) ? $hash : null;
+        return null;
     }
 
     public static function existsForDocumentOrUserHash(
@@ -79,29 +98,38 @@ class DocumentVersion extends Model
             ->exists();
     }
 
-    public static function removeUnreferencedUpload(mixed $file): void
-    {
+    public static function removeUnreferencedUpload(
+        mixed $file,
+        ?string $diskName = null
+    ): void {
         if (! is_string($file) || $file === '') {
             return;
         }
 
-        foreach (['local', 'public'] as $diskName) {
+        $diskName ??= config('filesystems.document_disk', 'local');
+
+        try {
             $disk = Storage::disk($diskName);
-
-            if (! $disk->exists($file)) {
-                continue;
-            }
-
-            if (
-                ! static::query()->where('file_path', $file)->exists()
-                && ! Document::query()->where('transmittal', $file)->exists()
-                && ! DocumentTransmittal::query()->where('file_path', $file)->exists()
-            ) {
-                $disk->delete($file);
-            }
-
+        } catch (\Throwable) {
             return;
         }
+
+        if (! $disk->exists($file)) {
+            return;
+        }
+
+        // Never remove a path still referenced by any active attachment,
+        // even when an older row recorded a different disk name.
+        if (
+            static::query()->where('file_path', $file)->exists()
+            || MessageAttachment::query()->where('path', $file)->exists()
+            || Document::query()->where('transmittal', $file)->exists()
+            || DocumentTransmittal::query()->where('file_path', $file)->exists()
+        ) {
+            return;
+        }
+
+        $disk->delete($file);
     }
 
     public function document(): BelongsTo
@@ -124,10 +152,8 @@ class DocumentVersion extends Model
 
     public function storageDisk()
     {
-        if (Storage::disk('local')->exists($this->file_path)) {
-            return Storage::disk('local');
-        }
-
-        return Storage::disk('public');
+        return Storage::disk(
+            $this->file_disk ?: 'local'
+        );
     }
 }

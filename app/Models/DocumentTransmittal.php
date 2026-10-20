@@ -13,8 +13,17 @@ class DocumentTransmittal extends Model
         'document_id',
         'user_id',
         'file_path',
+        'file_disk',
+        'original_filename',
         'file_hash',
     ];
+
+    public function storageDisk()
+    {
+        return \Illuminate\Support\Facades\Storage::disk(
+            $this->file_disk ?: 'local'
+        );
+    }
 
     public function document(): BelongsTo
     {

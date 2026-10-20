@@ -34,8 +34,14 @@
         $displayedFilePath = $isTransmittalSelected
             ? $transmittalFilePath
             : ($selectedVersion?->file_path ?? $latestFilePath);
+        $displayedVersion = $selectedVersion
+            ?? (! $isTransmittalSelected ? $documentRecord->latestVersion : null);
         $displayedFileName = filled($displayedFilePath)
-            ? basename((string) $displayedFilePath)
+            ? (
+                ! $isTransmittalSelected && filled($displayedVersion?->original_filename)
+                    ? basename($displayedVersion->original_filename)
+                    : basename((string) $displayedFilePath)
+            )
             : 'Preview unavailable';
         $displayedFileExtension = strtolower((string) pathinfo($displayedFileName, PATHINFO_EXTENSION));
         $displayedFileTypeLabel = match ($displayedFileExtension) {
@@ -63,23 +69,21 @@
         $latestRejection = $documentRecord->rejections->sortByDesc('created_at')->first();
         $allVersions = $documentRecord->versions;
         $revisionVersionNumbers = $documentRecord->revisionVersionNumbers();
+        $initialVersionIds = $allVersions
+            ->groupBy(fn ($version) => (string) $version->source)
+            ->map(fn ($group) => $group->sortBy('version_id')->first()?->version_id);
+
         $submittedFiles = $allVersions
             ->filter(fn ($version): bool =>
-                $version->source === 'client'
-                && ! $revisionVersionNumbers->contains((string) $version->version_number)
+                ! $revisionVersionNumbers->contains((string) $version->version_number)
+                && $version->version_id === $initialVersionIds->get((string) $version->source)
             )
             ->sortByDesc('created_at')
             ->values();
-        $versions = $allVersions
-            ->filter(fn ($version): bool =>
-                $version->source === 'admin'
-                || $revisionVersionNumbers->contains((string) $version->version_number)
-            )
-            ->sortByDesc(function ($version): int {
-                preg_match('/(\d+)\s*$/', (string) $version->version_number, $matches);
 
-                return (int) ($matches[1] ?? 0);
-            })
+        $versions = $allVersions
+            ->reject(fn ($version) => $submittedFiles->contains('version_id', $version->version_id))
+            ->sortByDesc('version_id')
             ->values();
         $hasCurrentVersion = $allVersions->contains(fn ($version) => $version->file_path === $latestFilePath);
         $hasPendingRevision = $this->hasPendingRevision();
@@ -266,7 +270,11 @@
                                 @if ($transmittalFiles->isNotEmpty())
                                     @foreach ($transmittalFiles as $transmittalFile)
                                         @php
-                                            $transmittalFileName = basename($transmittalFile['path']);
+                                            $transmittalAttachment = $documentRecord->transmittalAttachments
+                                                ->firstWhere('transmittal_id', $transmittalFile['id']);
+
+                                            $transmittalFileName = $transmittalAttachment?->original_filename
+                                                ?: basename($transmittalFile['path']);
                                             $transmittalAttachmentId = $transmittalFile['id'];
                                             $transmittalIsSelected = $isTransmittalSelected
                                                 && $selectedTransmittalId === $transmittalAttachmentId;
@@ -303,7 +311,8 @@
                             <h3>Files Submitted</h3>
                             @forelse ($submittedFiles as $submittedFile)
                                 @php
-                                    $submittedFileName = $submittedFile->file_path ? basename($submittedFile->file_path) : 'Document';
+                                    $submittedFileName = $submittedFile->original_filename
+    ?:                                  ($submittedFile->file_path ? basename($submittedFile->file_path) : 'Document');
                                     $submittedFilePreviewRoute = route('admin.document.version.preview', ['document' => $documentRecord->public_id, 'version' => $submittedFile->version_id]);
                                     $submittedFileDownloadRoute = route('admin.document.version.download', ['document' => $documentRecord->public_id, 'version' => $submittedFile->version_id]);
                                 @endphp
@@ -333,16 +342,18 @@
                                 <h3>Revision</h3>
                                 @if (! $softCopyRequest)
                                     <div class="document-version-add-action">
-                                        <button
-                                            type="button"
-                                            wire:click="startAddingVersion"
-                                            @disabled($revisionUploadLocked)
-                                            class="document-inline-add-button {{ $revisionUploadLocked ? 'is-disabled' : '' }}"
-                                            title="{{ $revisionUploadLocked ? 'Uploading is disabled while this document is awaiting review' : 'Add revision' }}"
-                                            aria-label="Add revision"
-                                        >
-                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v14M5 12h14" /></svg>
-                                        </button>
+                                        <span title="{{ $revisionUploadLocked ? 'Review pending revision first' : '' }}">
+                                            <button
+                                                type="button"
+                                                wire:click="startAddingVersion"
+                                                @disabled($revisionUploadLocked)
+                                                class="document-inline-add-button {{ $revisionUploadLocked ? 'is-disabled' : '' }}"
+                                                title="{{ $revisionUploadLocked ? 'Review pending revision first' : 'Add revision' }}"
+                                                aria-label="Add revision"
+                                            >
+                                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v14M5 12h14" /></svg>
+                                            </button>
+                                        </span>
                                     </div>
                                 @endif
                             </div>
@@ -364,7 +375,8 @@
 
                             @foreach ($versions as $version)
                                 @php
-                                    $versionFileName = $version->file_path ? basename($version->file_path) : 'Document';
+                                    $versionFileName = $version->original_filename
+                                        ?: ($version->file_path ? basename($version->file_path) : 'Document');
                                     $versionNumber = trim((string) ($version->version_number ?? ''));
                                     $versionBadge = $versionNumber !== ''
                                         ? (str_contains(strtolower($versionNumber), 'version') || str_starts_with(strtolower($versionNumber), 'v') ? $versionNumber : 'v' . $versionNumber)

@@ -17,6 +17,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Document Filesystem Disk
+    |--------------------------------------------------------------------------
+    |
+    | Documents are private application data. Keep the disk independent from
+    | the public profile-photo disk so a storage migration cannot accidentally
+    | make uploaded documents publicly addressable.
+    |
+    */
+
+    'document_disk' => env('DOCUMENT_FILESYSTEM_DISK', env('FILESYSTEM_DISK', 'local')),
+
+    /*
+    |--------------------------------------------------------------------------
     | Filesystem Disks
     |--------------------------------------------------------------------------
     |

@@ -23,6 +23,20 @@ class ConversationPolicy
             return true;
         }
 
+        if (
+            $isDocumentConversation
+            && (int) $conversation->document?->user_id !== (int) $user->id
+        ) {
+            return false;
+        }
+
+        if (
+            $isRequestConversation
+            && (int) $conversation->documentRequest?->user_id !== (int) $user->id
+        ) {
+            return false;
+        }
+
         // Otherwise, only an actual participant can view.
         return $conversation
             ->participants()
@@ -47,6 +61,20 @@ class ConversationPolicy
 
         if ($user->can('reply_shared_messages')) {
             return true;
+        }
+
+        if (
+            $conversation->document?->isAvailableForMessaging()
+            && (int) $conversation->document?->user_id !== (int) $user->id
+        ) {
+            return false;
+        }
+
+        if (
+            $conversation->documentRequest !== null
+            && (int) $conversation->documentRequest?->user_id !== (int) $user->id
+        ) {
+            return false;
         }
 
         return $conversation

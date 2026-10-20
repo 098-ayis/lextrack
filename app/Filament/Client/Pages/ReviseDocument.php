@@ -178,10 +178,16 @@ class ReviseDocument extends Page implements HasForms
 
         $fileHashes = array_keys($storedPaths);
         $filePaths = array_values($storedPaths);
+        $originalNamesByHash = [];
+
+        foreach ($uploads as $hash => $file) {
+            $originalNamesByHash[$hash] = $this->uploadedFileName($file);
+        }
+
         $versionNumbers = [];
         $duplicate = false;
 
-        DB::transaction(function () use ($filePaths, $fileHashes, &$versionNumbers, &$duplicate): void {
+        DB::transaction(function () use ($filePaths, $fileHashes, $originalNamesByHash, &$versionNumbers, &$duplicate): void {
             $document = Document::query()
                 ->where('document_id', $this->documentRecord->document_id)
                 ->where('user_id', auth()->id())
@@ -220,6 +226,9 @@ class ReviseDocument extends Page implements HasForms
                     'user_id' => auth()->id(),
                     'version_number' => (string) $versionNumber,
                     'file_path' => $filePath,
+                    'file_disk' => config('filesystems.document_disk', 'local'),
+                    'original_filename' => $originalNamesByHash[$fileHashes[$index]]
+                        ?? basename($filePath),
                     'file_hash' => $fileHashes[$index],
                     'source' => 'client',
                 ]);
@@ -275,39 +284,55 @@ class ReviseDocument extends Page implements HasForms
 
     private function hashUploadedFile(mixed $file): ?string
     {
-        $realPath = null;
-
         if ($file instanceof TemporaryUploadedFile || $file instanceof UploadedFile) {
             $realPath = $file->getRealPath();
-        } elseif (is_string($file) && $file !== '') {
-            foreach (['local', 'public', 'livewire'] as $diskName) {
+
+            if (! is_string($realPath) || ! is_file($realPath)) {
+                return null;
+            }
+
+            return hash_file('sha256', $realPath);
+        }
+
+        if (! is_string($file) || $file === '') {
+            return null;
+        }
+
+        $diskNames = array_unique([
+            'livewire',
+            config('filesystems.document_disk', 'local'),
+            'local',
+            'public',
+        ]);
+
+        foreach ($diskNames as $diskName) {
+            try {
                 $disk = Storage::disk($diskName);
 
                 if (! $disk->exists($file)) {
                     continue;
                 }
+            } catch (\Throwable) {
+                continue;
+            }
 
-                try {
-                    $candidatePath = $disk->path($file);
-                } catch (\Throwable) {
-                    continue;
-                }
+            $stream = $disk->readStream($file);
 
-                if (is_file($candidatePath)) {
-                    $realPath = $candidatePath;
+            if (! is_resource($stream)) {
+                return null;
+            }
 
-                    break;
-                }
+            try {
+                $context = hash_init('sha256');
+                hash_update_stream($context, $stream);
+
+                return hash_final($context);
+            } finally {
+                fclose($stream);
             }
         }
 
-        if (! is_string($realPath) || ! is_file($realPath)) {
-            return null;
-        }
-
-        $hash = hash_file('sha256', $realPath);
-
-        return is_string($hash) ? $hash : null;
+        return null;
     }
 
     private function uploadedFileName(mixed $file): string
@@ -331,7 +356,7 @@ class ReviseDocument extends Page implements HasForms
             $storedPath = $file->storeAs(
                 'client-document-revisions',
                 basename($filePath),
-                'local',
+                config('filesystems.document_disk', 'local'),
             );
 
             if (! is_string($storedPath) || $storedPath === '') {
@@ -349,10 +374,10 @@ class ReviseDocument extends Page implements HasForms
             return null;
         }
 
-        foreach (['local', 'public'] as $diskName) {
-            if (Storage::disk($diskName)->exists($file)) {
-                return $file;
-            }
+        $documentDisk = config('filesystems.document_disk', 'local');
+
+        if (Storage::disk($documentDisk)->exists($file)) {
+            return $file;
         }
 
         $livewireDisk = Storage::disk('livewire');
@@ -367,7 +392,9 @@ class ReviseDocument extends Page implements HasForms
             return null;
         }
 
-        $stored = Storage::disk('local')->put($filePath, $stream);
+        $stored = Storage::disk(
+            config('filesystems.document_disk', 'local')
+        )->put($filePath, $stream);
         fclose($stream);
 
         if (! $stored) {
@@ -386,7 +413,9 @@ class ReviseDocument extends Page implements HasForms
             $safeName = (string) Str::ulid();
         }
 
-        $disk = Storage::disk('local');
+        $disk = Storage::disk(
+            config('filesystems.document_disk', 'local')
+        );
         $path = 'client-document-revisions/' . $safeName;
 
         if (! $disk->exists($path)) {
