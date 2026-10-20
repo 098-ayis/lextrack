@@ -231,6 +231,13 @@ class ChatbotIntentRouter
             return ['intent' => 'greeting', 'language' => $this->responseLanguage($normalized)];
         }
 
+        if ($this->isPermissionToAsk($normalized)) {
+            return [
+                'intent' => 'conversation_opening',
+                'language' => $this->responseLanguage($normalized),
+            ];
+        }
+
         if ($this->isAcknowledgment($normalized)) {
             return ['intent' => 'acknowledgment', 'language' => $this->responseLanguage($normalized)];
         }
@@ -945,6 +952,8 @@ class ChatbotIntentRouter
             'polcy' => 'policy',
             'twhats' => 'whats',
             'what s' => 'whats',
+            'pede' => 'pwede',
+            'pano' => 'paano',
         ] as $variant => $canonical) {
             $message = preg_replace(
                 '/\b' . preg_quote($variant, '/') . '\b/u',
@@ -1245,6 +1254,31 @@ class ChatbotIntentRouter
         ) === 1;
     }
 
+    private function isPermissionToAsk(string $message): bool
+    {
+        $filipinoPermission = preg_match(
+            '/^pwede(?:\s+(?:ba|bang|ako|akong|pa|ulit))*\s+mag ?tanong(?:\s+(?:ulit|pa))*$/u',
+            $message,
+        ) === 1;
+        $filipinoQuestionOpening = preg_match(
+            '/^(?:may\s+tanong(?:\s+ulit)?\s+ako|may\s+isa\s+pa\s+akong\s+tanong|tanong(?:\s+(?:lang|ulit|pa)))$/u',
+            $message,
+        ) === 1;
+        $englishPermission = preg_match(
+            '/^can\s+i\s+ask(?:\s+(?:something|a\s+question|another\s+question))?(?:\s+again)?$/u',
+            $message,
+        ) === 1;
+        $englishQuestionOpening = preg_match(
+            '/^i\s+have\s+(?:another|a)\s+question$/u',
+            $message,
+        ) === 1;
+
+        return $filipinoPermission
+            || $filipinoQuestionOpening
+            || $englishPermission
+            || $englishQuestionOpening;
+    }
+
     private function isPositiveConversation(string $message): bool
     {
         return preg_match('/^(?:mabuti|mabuti rin|mabuti naman|mabuti po|mabuti rin po)[.! ]*$/', $message) === 1;
@@ -1510,11 +1544,22 @@ class ChatbotIntentRouter
             && $this->hasPersonalReference($message)
             && ! $this->isLatestDocumentInquiry($message);
 
+        // Clients also use “update” conversationally to ask for their
+        // submitted-document collection. Require plural records, ownership,
+        // and an explicit submission cue so a single-record update remains a
+        // normal status lookup.
+        $hasSubmittedCollectionUpdate = preg_match('/\b(?:update|updates)\b/', $message) === 1
+            && preg_match('/\b(?:submitted|submissions?|sinubmit|sinumite|ipinasa|naipasa)\b/', $message) === 1
+            && preg_match('/\b(?:documents|docs|submissions|mga dokumento|mga document)\b/', $message) === 1
+            && $this->hasPersonalReference($message)
+            && ! $this->isLatestDocumentInquiry($message);
+
         return ($hasListCue
                 && $hasAllOrSubmittedCue
                 && $this->hasDocumentTerm($message)
                 && ($this->hasPersonalReference($message) || preg_match('/\b(?:submitted|submission|submissions|sinubmit|sinumite|ipinasa|naipasa)\b/', $message) === 1))
-            || $hasOwnDocumentCollection;
+            || $hasOwnDocumentCollection
+            || $hasSubmittedCollectionUpdate;
     }
 
     private function isGeneralAcceptedDocumentQuestion(string $message): bool
@@ -2210,7 +2255,7 @@ class ChatbotIntentRouter
 
     private function responseLanguage(string $message): string
     {
-        $filipino = preg_match('/\\b(?:salamat|sige|opo|oo|po|ko|ba|ano|ang|ng|paano|pano|kailan|ilan|ilang|kamusta|kumusta|mabuti|mensahe|serbisyo|mga|hindi|nakatanggap|dokumentong?|bayad|bayaran|babayaran|magbayad|magkano|singil|gastos|mayroon|meron|ibig sabihin|para saan)\\b/', $message) === 1;
+        $filipino = preg_match('/\\b(?:salamat|sige|opo|oo|po|ko|ako|ba|ano|ang|ng|pwede|magtanong|tanong|paano|pano|kailan|ilan|ilang|kamusta|kumusta|mabuti|mensahe|serbisyo|mga|hindi|nakatanggap|dokumentong?|bayad|bayaran|babayaran|magbayad|magkano|singil|gastos|mayroon|meron|ibig sabihin|para saan)\\b/', $message) === 1;
         $englishGrammar = preg_match('/\\b(?:what|how|when|where|why|which|many|have|do|does|is|are|the|my|about|how much)\\b/', $message) === 1;
         $englishPhrase = preg_match('/\b(?:in progress|document pickup|requests?)\b/', $message) === 1;
 

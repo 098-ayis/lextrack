@@ -1686,6 +1686,68 @@ class ChatbotRoutingTest extends TestCase
             ]);
     }
 
+    public function test_permission_to_ask_variants_receive_a_local_conversational_reply(): void
+    {
+        $this->actingAsClient(17);
+
+        $documents = Mockery::mock(ClientDocumentLookupService::class);
+        $documents->shouldNotReceive('authorizedDocumentChoices');
+        $documents->shouldNotReceive('authorizedDocumentList');
+        $documents->shouldNotReceive('latestStatusResult');
+        $this->app->instance(ClientDocumentLookupService::class, $documents);
+
+        $assistant = Mockery::mock(LexTrackAssistant::class);
+        $assistant->shouldNotReceive('hasApprovedKnowledgeBase');
+        $assistant->shouldNotReceive('prompt');
+        $this->app->instance(LexTrackAssistant::class, $assistant);
+
+        foreach ([
+            'pede magtanong?',
+            'pede magtanong ulit?',
+            'pwede magtanong?',
+            'pwede magtanong ulit?',
+            'pwede bang magtanong?',
+            'pede ba magtanong?',
+            'pwede ako magtanong?',
+            'pwede ba akong magtanong?',
+            'pwede pa magtanong?',
+            'may tanong ako',
+            'may tanong ulit ako',
+            'may isa pa akong tanong',
+            'tanong lang',
+            'tanong ulit',
+        ] as $message) {
+            $this->postJson('/chatbot/message', ['message' => $message])
+                ->assertOk()
+                ->assertExactJson([
+                    'reply' => 'Oo, sige. Ano ang gusto mong itanong tungkol sa LexTrack?',
+                ]);
+        }
+
+        foreach ([
+            'can i ask something?',
+            'can i ask a question?',
+            'can i ask again?',
+            'can i ask another question?',
+            'i have another question',
+        ] as $message) {
+            $this->postJson('/chatbot/message', ['message' => $message])
+                ->assertOk()
+                ->assertExactJson([
+                    'reply' => 'Sure. What would you like to ask about LexTrack?',
+                ]);
+        }
+
+        $router = app(ChatbotIntentRouter::class);
+        $this->assertSame('pwede magtanong', $router->normalize('pede magtanong?'));
+        $this->assertSame('paano ito', $router->normalize('pano ito'));
+
+        $interpretation = app(ChatIntentNormalizer::class)->interpret('pede magtanong?');
+        $this->assertSame('conversation_opening', $interpretation['intents'][0]['name']);
+        $this->assertSame('filipino', $interpretation['response_language']);
+        $this->assertFalse($interpretation['clarification_required']);
+    }
+
     public function test_prohibited_message_is_rejected_before_intent_routing_or_openai(): void
     {
         $this->actingAsClient(17);
@@ -1715,7 +1777,7 @@ class ChatbotRoutingTest extends TestCase
             ->assertStatus(422)
             ->assertJsonPath('reply', 'Please use respectful language. Offensive or prohibited words are not allowed.');
 
-        foreach (['tangina', 'panget', 'bobo', 'engot', 'baliw', 'kingina', 'shitttttttttttttt', 'putsngins tslsgs', '8080 k ba', 'what the hell', 'wat the hel', 'WHAT...THE...HECK!', 'wat   the   heck'] as $message) {
+        foreach (['tangina', 'panget', 'bobo', 'engot', 'baliw', 'kingina', 'shitttttttttttttt', 'putsngins tslsgs', '8080 k ba', 'what the hell', 'wat the hel', 'WHAT...THE...HECK!', 'wat   the   heck', 'bwesit', 'bwisit', 'bwiset', 'bweset', 'buset', 'Bwesit!'] as $message) {
             $this->postJson('/chatbot/message', ['message' => $message])
                 ->assertStatus(422)
                 ->assertJsonPath('reply', 'Please use respectful language. Offensive or prohibited words are not allowed.');
@@ -3799,6 +3861,85 @@ class ChatbotRoutingTest extends TestCase
             ->assertDontSee('I found 2 documents')
             ->assertDontSee('Other Private Document')
             ->assertDontSee('LAO-26-999');
+    }
+
+    public function test_conversational_changes_preserve_document_selection_and_submission_date_follow_up(): void
+    {
+        $this->actingAsClient(17);
+        $this->insertDocument(17, 'pending', now(), [
+            'document_name' => 'Newest Submission.pdf',
+        ]);
+        $this->insertDocument(17, 'in_progress', now()->subDay(), [
+            'document_name' => 'Middle Submission.pdf',
+        ]);
+        $this->insertDocument(17, 'outgoing', now()->subDays(2), [
+            'document_name' => 'Selected Third Submission.pdf',
+        ]);
+        $this->insertDocument(29, 'pending', now()->addDay(), [
+            'document_name' => 'Other Client Submission.pdf',
+        ]);
+
+        $assistant = Mockery::mock(LexTrackAssistant::class);
+        $assistant->shouldNotReceive('hasApprovedKnowledgeBase');
+        $assistant->shouldNotReceive('prompt');
+        $this->app->instance(LexTrackAssistant::class, $assistant);
+
+        $conversationId = 'filipino-conversation-regression';
+
+        $this->postJson('/chatbot/message', [
+            'message' => 'update with my submitted documents',
+            'conversation_id' => $conversationId,
+        ])
+            ->assertOk()
+            ->assertSee('Here are your 3 submitted documents:')
+            ->assertDontSee('Other Client Submission.pdf');
+
+        $this->postJson('/chatbot/message', [
+            'message' => '3',
+            'conversation_id' => $conversationId,
+        ])
+            ->assertOk()
+            ->assertSee('Selected Third Submission.pdf')
+            ->assertSee('Outgoing');
+
+        $this->postJson('/chatbot/message', [
+            'message' => 'pede magtanong ulit?',
+            'conversation_id' => $conversationId,
+        ])
+            ->assertOk()
+            ->assertExactJson([
+                'reply' => 'Oo, sige. Ano ang gusto mong itanong tungkol sa LexTrack?',
+            ]);
+
+        $this->postJson('/chatbot/message', [
+            'message' => 'when did i submit that?',
+            'conversation_id' => $conversationId,
+        ])
+            ->assertOk()
+            ->assertSee('You submitted Selected Third Submission.pdf on ' . now()->subDays(2)->format('F j, Y') . '.')
+            ->assertDontSee('Other Client Submission.pdf');
+    }
+
+    public function test_ambiguous_document_choices_use_owner_focused_wording(): void
+    {
+        $this->actingAsClient(17);
+        $this->insertDocument(17, 'pending', now(), ['document_name' => 'First Owned Document']);
+        $this->insertDocument(17, 'in_progress', now()->subDay(), ['document_name' => 'Second Owned Document']);
+        $this->insertDocument(17, 'outgoing', now()->subDays(2), ['document_name' => 'Third Owned Document']);
+        $this->insertDocument(29, 'pending', now(), ['document_name' => 'Other Client Document']);
+
+        $assistant = Mockery::mock(LexTrackAssistant::class);
+        $assistant->shouldNotReceive('hasApprovedKnowledgeBase');
+        $assistant->shouldNotReceive('prompt');
+        $this->app->instance(LexTrackAssistant::class, $assistant);
+
+        $this->postJson('/chatbot/message', ['message' => 'what is the status of my document?'])
+            ->assertOk()
+            ->assertSee('I found 3 of your submitted documents.')
+            ->assertSee('First Owned Document')
+            ->assertSee('Second Owned Document')
+            ->assertSee('Third Owned Document')
+            ->assertDontSee('Other Client Document');
     }
 
     public function test_document_list_selection_resolves_numbers_invalid_ranges_and_follow_ups(): void

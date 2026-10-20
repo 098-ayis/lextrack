@@ -3,12 +3,12 @@
 
     <!-- Custom Tabs Container (Tailwind Only) -->
     <div class="mb-0 w-full overflow-x-auto border border-gray-300 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
-        <div class="flex w-full min-w-[18rem] items-center gap-1 p-2">
+        <div class="inline-flex w-max min-w-[18rem] items-center gap-1 p-2">
 
         <!-- Submitted Tab (previously All) -->
         <button
             wire:click="updateTab('all')"
-            class="flex flex-1 items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-semibold transition-all {{ $activeTab === 'all' ? 'bg-[#0F172A] text-white dark:bg-[#6366F1]' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white' }}"
+            class="flex flex-none items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-semibold transition-all {{ $activeTab === 'all' ? 'bg-[#0F172A] text-white dark:bg-[#6366F1]' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white' }}"
         >
             <x-filament::icon icon="heroicon-o-document-text" class="h-5 w-5 shrink-0" />
             Submitted
@@ -20,7 +20,7 @@
         <!-- Requested Tab -->
         <button 
             wire:click="updateTab('requested')"
-            class="flex flex-1 items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-semibold transition-all {{ $activeTab === 'requested' ? 'bg-[#0F172A] text-white dark:bg-[#6366F1]' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white' }}"
+            class="flex flex-none items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-semibold transition-all {{ $activeTab === 'requested' ? 'bg-[#0F172A] text-white dark:bg-[#6366F1]' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white' }}"
         >
             <x-filament::icon icon="heroicon-o-document-plus" class="h-5 w-5 shrink-0" />
             Requested

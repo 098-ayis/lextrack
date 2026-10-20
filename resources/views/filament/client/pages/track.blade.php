@@ -173,6 +173,12 @@
                                         {{ $statusLabel }}
                                     </span>
 
+                                    @if (filled($document->action_type) && in_array($document->status, ['in_progress', 'outgoing'], true))
+                                        <span class="mt-2 block text-xs font-semibold text-gray-600 dark:text-gray-300">
+                                            Action Taken: {{ $document->action_type }}
+                                        </span>
+                                    @endif
+
                                 </td>
 
                             </tr>

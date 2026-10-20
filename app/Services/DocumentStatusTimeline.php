@@ -48,6 +48,11 @@ class DocumentStatusTimeline
                 continue;
             }
 
+            $isAcceptedEvent = str_contains(
+                strtolower(trim((string) $log->action_type)),
+                'accepted',
+            );
+
             $lastEntry = $timeline[array_key_last($timeline)] ?? null;
 
             if (
@@ -57,11 +62,21 @@ class DocumentStatusTimeline
                 && $lastEntry['title'] === $entry['title']
             ) {
                 $timeline[array_key_last($timeline)] = $entry;
-
-                continue;
+            } else {
+                $timeline[] = $entry;
             }
 
-            $timeline[] = $entry;
+            if ($isAcceptedEvent && filled($document->action_type)) {
+                $actionType = trim((string) $document->action_type);
+
+                $timeline[] = $this->timelineEntry(
+                    'action',
+                    'Action Taken: ' . $actionType,
+                    'The assigned action is ' . $actionType . '.',
+                    $log->created_at ?? $document->updated_at ?? $document->created_at,
+                    $this->actionTypeColor($actionType),
+                );
+            }
         }
 
         $lastEntry = $timeline[array_key_last($timeline)] ?? null;
@@ -403,10 +418,9 @@ class DocumentStatusTimeline
         if (str_contains($action, 'accepted')) {
             return $this->timelineEntry(
                 'in_progress',
-                'In Progress',
+                'Accepted',
                 'Your document was accepted and moved to Incoming.',
                 $timestamp,
-                $this->actionTypeColor($document->action_type),
             );
         }
 

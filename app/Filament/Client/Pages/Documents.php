@@ -675,14 +675,12 @@ class Documents extends Page implements HasTable
                     ->alignCenter(),
 
 
-                TextColumn::make('particulars')
+                TextColumn::make('description')
                     ->label('DOCUMENT DESCRIPTION')
-                    ->state(fn (Document $record): string => (string) (
-                        $record->particulars ?: $record->description ?: '—'
-                    ))
+                    ->state(fn (Document $record): string => (string) ($record->description ?: '—'))
                     ->wrap()
-                    ->tooltip(fn (Document $record): ?string => filled($record->particulars ?: $record->description)
-                        ? (string) ($record->particulars ?: $record->description)
+                    ->tooltip(fn (Document $record): ?string => filled($record->description)
+                        ? (string) $record->description
                         : null)
                     ->alignStart(),
 

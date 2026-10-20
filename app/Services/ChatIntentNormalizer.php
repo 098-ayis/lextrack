@@ -604,7 +604,7 @@ class ChatIntentNormalizer
 
     private function responseLanguage(string $message): string
     {
-        $tagalog = preg_match('/\\b(?:ano|ang|ng|ba|ko|mo|sa|akin|ito|iyon|yan|jan|diyan|paano|pano|kailan|ilan|ilang|may|mayroon|meron|doon|dun|hindi|opo|oo|kamusta|kumusta|mabuti|na|mensahe|dokumento|hiling|tungkol|ibig sabihin|paki|natin|namin|bayad|bayaran|babayaran|magbayad|magkano|singil|gastos)\\b/', $message) === 1;
+        $tagalog = preg_match('/\\b(?:ano|ang|ng|ba|ko|mo|ako|sa|akin|ito|iyon|yan|jan|diyan|pwede|magtanong|tanong|paano|pano|kailan|ilan|ilang|may|mayroon|meron|doon|dun|hindi|opo|oo|kamusta|kumusta|mabuti|na|mensahe|dokumento|hiling|tungkol|ibig sabihin|paki|natin|namin|bayad|bayaran|babayaran|magbayad|magkano|singil|gastos)\\b/', $message) === 1;
         $englishGrammar = preg_match('/\\b(?:what|how|when|where|why|which|many|count|have|do|does|is|are|the|my|about|how much)\\b/', $message) === 1;
         $englishPhrase = preg_match('/\b(?:in progress|document pickup|requests?)\b/', $message) === 1;
 

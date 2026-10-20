@@ -204,6 +204,7 @@ class ChatbotController extends Controller
         if (is_array($quickIntent)
             && in_array($quickIntent['intent'] ?? null, [
                 'greeting',
+                'conversation_opening',
                 'acknowledgment',
                 'conversational_reply',
                 'clarification',
@@ -230,6 +231,7 @@ class ChatbotController extends Controller
 
             return match ($quickIntent['intent']) {
                 'greeting' => $this->greetingReply($quickLanguage),
+                'conversation_opening' => $this->conversationOpeningReply($quickLanguage),
                 'acknowledgment' => $this->acknowledgmentReply($quickLanguage),
                 'conversational_reply' => $this->conversationalReply($quickLanguage),
                 'acceptance_definition' => $this->acceptanceDefinitionReply($request, $quickLanguage),
@@ -477,6 +479,7 @@ class ChatbotController extends Controller
 
         return match ($intent['intent']) {
             'greeting' => $this->greetingReply($intent['language']),
+            'conversation_opening' => $this->conversationOpeningReply($intent['language']),
             'acknowledgment' => $this->acknowledgmentReply($intent['language']),
             'conversational_reply' => $this->conversationalReply($intent['language']),
             'acceptance_definition' => $this->acceptanceDefinitionReply($request, $intent['language']),
@@ -910,6 +913,15 @@ class ChatbotController extends Controller
             'reply' => $language === 'filipino'
                 ? 'Mabuti! Nandito lang ako kung may kailangan ka tungkol sa LexTrack.'
                 : 'Glad to hear that. I’m here if you need help with LexTrack.',
+        ]);
+    }
+
+    private function conversationOpeningReply(string $language): JsonResponse
+    {
+        return response()->json([
+            'reply' => in_array($language, ['filipino', 'taglish'], true)
+                ? 'Oo, sige. Ano ang gusto mong itanong tungkol sa LexTrack?'
+                : 'Sure. What would you like to ask about LexTrack?',
         ]);
     }
 
@@ -2814,9 +2826,9 @@ class ChatbotController extends Controller
 
         return $this->listHeading(
             $language,
-            'I found ' . $count . ' ' . $documentNoun . '.',
-            'May nakita akong ' . $count . ' dokumento.',
-            'May nakita akong ' . $count . ' ' . $documentNoun . '.',
+            'I found ' . $count . ' of your submitted ' . $documentNoun . '.',
+            'May nakita akong ' . $count . ' sa mga dokumentong naisumite mo.',
+            'I found ' . $count . ' of your submitted ' . $documentNoun . '.',
         );
     }
 

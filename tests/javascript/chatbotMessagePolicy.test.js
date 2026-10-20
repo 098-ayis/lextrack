@@ -31,6 +31,11 @@ const prohibitedTerms = [
   'bobo',
   'engot',
   'baliw',
+  'bwesit',
+  'bwisit',
+  'bwiset',
+  'bweset',
+  'buset',
   'mama mo',
   'shit',
   'what the hell',
@@ -54,6 +59,11 @@ test('detects a prohibited term and punctuation or spacing obfuscation', () => {
   assert.equal(hasProhibitedChatbotTerm('wat the hel', prohibitedTerms), true)
   assert.equal(hasProhibitedChatbotTerm('WHAT...THE...HECK!', prohibitedTerms), true)
   assert.equal(hasProhibitedChatbotTerm('wat   the   heck', prohibitedTerms), true)
+
+  for (const message of ['bwesit', 'bwisit', 'bwiset', 'bweset', 'buset', 'Bwesit!']) {
+    assert.equal(hasProhibitedChatbotTerm(message, prohibitedTerms), true, message)
+    assert.equal(canSendChatbotMessage(message, false, prohibitedTerms), false, message)
+  }
 
   for (const message of [
     'Tangina', 'Gago', 'Mama mo', '8080', 'Puta', 'Pota', 'Potangina',

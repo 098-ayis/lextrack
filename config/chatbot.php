@@ -26,6 +26,7 @@ return [
         'gago',
         'gaga',
         'gagu',
+        'gagi',
         'tanga',
         'ulol',
         'putang ina',
@@ -42,6 +43,11 @@ return [
         'bobo',
         'engot',
         'baliw',
+        'bwesit',
+        'bwisit',
+        'bwiset',
+        'bweset',
+        'buset',
         'kingina',
         'mama mo',
         'nanay mo',
@@ -52,6 +58,7 @@ return [
         'wat the hel',
         'what the heck',
         'wat the heck',
+
     ],
 
     'prohibited_message' => 'Please use respectful language. Offensive or prohibited words are not allowed.',

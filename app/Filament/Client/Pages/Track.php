@@ -62,9 +62,35 @@ class Track extends Page
             return;
         }
 
-        $this->statusTimeline = array_values(array_reverse(
+        $timeline = array_values(array_reverse(
             app(DocumentStatusTimeline::class)->build($this->document),
         ));
+
+        $acceptedIndex = null;
+        $actionIndex = null;
+
+        foreach ($timeline as $index => $entry) {
+            if ($entry['title'] === 'Accepted') {
+                $acceptedIndex = $index;
+            }
+
+            if (str_starts_with((string) $entry['title'], 'Action Taken:')) {
+                $actionIndex = $index;
+            }
+        }
+
+        if (
+            $acceptedIndex !== null
+            && $actionIndex !== null
+            && $actionIndex < $acceptedIndex
+        ) {
+            [$timeline[$acceptedIndex], $timeline[$actionIndex]] = [
+                $timeline[$actionIndex],
+                $timeline[$acceptedIndex],
+            ];
+        }
+
+        $this->statusTimeline = $timeline;
     }
 
     private function buildStatusTimeline(Document $document): array
