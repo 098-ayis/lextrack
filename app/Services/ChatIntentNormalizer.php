@@ -77,6 +77,9 @@ class ChatIntentNormalizer
             'email_delivery',
             'unsupported',
             'compare_lao_numbers',
+            'request_list',
+            'request_other_list',
+            'request_date_filter',
         ], true);
         $clauses = $keepAsOneIntent ? [trim($message)] : $this->segment($message);
 
@@ -159,6 +162,21 @@ class ChatIntentNormalizer
     /** @return list<string> */
     private function segment(string $message): array
     {
+        // Date-and-time wording expresses one request detail, not two
+        // independent intents. Keep these natural English/Filipino forms in
+        // one clause before applying general conjunction segmentation.
+        $message = preg_replace(
+            [
+                '/\bwhen\s+and\s+what\s+time\b/iu',
+                '/\bkailan\s+at\s+anong\s+oras\b/iu',
+            ],
+            [
+                'when what time',
+                'kailan anong oras',
+            ],
+            $message,
+        ) ?? $message;
+
         $parts = preg_split(
             '/\s+(?:and|also|plus|at|pati|tsaka|kasama(?:\s+rin)?|then|tapos)\s+|[;?]+/iu',
             trim($message),
@@ -247,6 +265,8 @@ class ChatIntentNormalizer
             'action_type' => $classification['action_type'] ?? null,
             'topic' => $classification['topic'] ?? null,
             'kind' => $classification['kind'] ?? null,
+            'date_filter' => $classification['date_filter'] ?? null,
+            'fields' => $classification['fields'] ?? null,
             'aggregate' => $aggregate || $this->hasAggregateCue($wholeMessage),
         ], static fn (mixed $value): bool => $value !== null && $value !== false);
     }
@@ -262,7 +282,7 @@ class ChatIntentNormalizer
             return ['type' => 'none'];
         }
 
-        if ($aggregate && in_array($classification['intent'] ?? null, ['request_count', 'document_count', 'document_list'], true)) {
+        if ($aggregate && in_array($classification['intent'] ?? null, ['request_count', 'request_list', 'request_other_list', 'document_count', 'document_list'], true)) {
             return ['type' => 'aggregate', 'record' => $domain === 'document_requests' ? 'request' : 'document'];
         }
 
@@ -306,6 +326,9 @@ class ChatIntentNormalizer
                 'record' => 'request',
                 'status' => $classification['status'] ?? null,
             ],
+            'request_list' => ['type' => 'aggregate', 'record' => 'request'],
+            'request_other_list' => ['type' => 'other_records', 'record' => 'request'],
+            'request_date_filter' => ['type' => 'date_filter', 'record' => 'request'],
             'ambiguous_document', 'ambiguous_request', 'invalid_lao' => ['type' => 'ambiguous'],
             'document_selection', 'request_selection' => ['type' => 'selection', 'validated' => true],
             default => ['type' => 'none'],

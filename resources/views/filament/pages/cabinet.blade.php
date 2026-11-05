@@ -91,7 +91,21 @@
         </div>
     </div>
 
-    <div x-data="{ open: false, folder: {}, folderPaste: false, x: 0, y: 0 }" @cabinet-folder-context.window="folder = $event.detail; x = Math.max(8, Math.min(folder.x, window.innerWidth - 190)); y = Math.max(8, Math.min(folder.y, window.innerHeight - 180)); open = true" @click.outside="open = false" @keydown.escape.window="open = false">
+    <div
+        x-data="{ open: false, folder: {}, folderPaste: false, x: 0, y: 0 }"
+        @cabinet-folder-context.window="
+            folder = $event.detail;
+            if (folder.folderId || @js((bool) ($clipboardDocumentId || $clipboardFolderType))) {
+                x = Math.max(8, Math.min(folder.x, window.innerWidth - 190));
+                y = Math.max(8, Math.min(folder.y, window.innerHeight - 180));
+                open = true;
+            } else {
+                open = false;
+            }
+        "
+        @click.outside="open = false"
+        @keydown.escape.window="open = false"
+    >
         <div x-show="open" x-cloak :style="{ position: 'fixed', left: x + 'px', top: y + 'px', zIndex: 101, width: '180px' }" class="rounded-lg bg-white p-2 shadow-xl dark:bg-gray-800">
             @if ($currentType === 'Recycle Bin')
                 <template x-if="folder.folderId">
@@ -106,7 +120,7 @@
                 </template>
             @endif
             @if ($clipboardDocumentId || $clipboardFolderType)
-                <button type="button" @click="folderPaste = @js((bool) $clipboardFolderType); folderPaste ? $wire.mountAction('pasteFolder') : $wire.pasteDocument(); open = false" class="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700">Paste</button>
+                <button type="button" @click="$wire.selectNode(folder.path); folderPaste = @js((bool) $clipboardFolderType); folderPaste ? $wire.mountAction('pasteFolder') : $wire.pasteDocument(); open = false" class="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700">Paste</button>
             @endif
         </div>
     </div>
@@ -729,7 +743,7 @@
                            wire:key="cabinet-document-{{ $document['copy_key'] ?? $document['id'] }}"
                            @contextmenu.prevent="$dispatch('cabinet-context', { id: {{ $document['id'] }}, name: @js($displayName), url: $el.href, x: $event.currentTarget.getBoundingClientRect().right + 8, y: $event.currentTarget.getBoundingClientRect().top }); $wire.selectItem(@js($displayName), {{ $document['id'] }}, {{ $copyId }})"
                            class="{{ $viewMode === 'tiles' ? 'group relative rounded-xl border border-gray-200 bg-white p-5 text-left transition hover:border-indigo-300 hover:bg-indigo-50/40 hover:shadow-sm dark:bg-gray-900 dark:hover:border-indigo-500 dark:hover:bg-indigo-500/5' : 'cabinet-list-row grid w-full cursor-pointer grid-cols-[minmax(0,1fr)_120px_160px_60px] items-center border-b border-gray-100 px-5 py-4 text-left transition hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800' }}">
-                            @if ($viewMode === 'tiles' && $currentType === 'Recycle Bin')
+                            @if ($viewMode === 'tiles')
                                 <button
                                     type="button"
                                     @click.stop.prevent="$wire.selectItem(@js($displayName), {{ $document['id'] }}, {{ $copyId }}); $dispatch('cabinet-context', { id: {{ $document['id'] }}, name: @js($displayName), url: $el.closest('a').href, x: $el.closest('a').getBoundingClientRect().right + 8, y: $el.closest('a').getBoundingClientRect().top })"
@@ -747,7 +761,17 @@
                             <p class="{{ $viewMode === 'tiles' ? 'mt-4 line-clamp-2 text-sm font-semibold text-gray-900 dark:text-white' : 'hidden' }}">{{ $displayName }}</p>
                             <p class="{{ $viewMode === 'tiles' ? 'mt-1 text-xs text-gray-500 dark:text-gray-400' : 'text-sm text-gray-600 dark:text-gray-300' }}">{{ $document['size'] }}{{ $viewMode === 'tiles' ? ' · ' . $document['date'] : '' }}</p>
                             <div class="{{ $viewMode === 'tiles' ? 'hidden' : 'text-sm text-gray-600 dark:text-gray-300' }}">{{ $document['date'] }}</div>
-                            <div class="{{ $viewMode === 'tiles' ? 'hidden' : 'flex justify-end' }}"><x-heroicon-m-ellipsis-horizontal class="h-5 w-5 text-gray-400" /></div>
+                            <div class="{{ $viewMode === 'tiles' ? 'hidden' : 'flex justify-end' }}">
+                                <button
+                                    type="button"
+                                    @click.stop.prevent="$wire.selectItem(@js($displayName), {{ $document['id'] }}, {{ $copyId }}); $dispatch('cabinet-context', { id: {{ $document['id'] }}, name: @js($displayName), url: $el.closest('a').href, x: $el.getBoundingClientRect().right + 8, y: $el.getBoundingClientRect().top })"
+                                    class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-800 dark:hover:text-gray-200"
+                                    aria-label="More actions for {{ $displayName }}"
+                                    title="More actions"
+                                >
+                                    <x-heroicon-m-ellipsis-vertical class="h-5 w-5" />
+                                </button>
+                            </div>
                         </a>
                     @endforeach
                 </div>

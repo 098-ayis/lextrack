@@ -3611,6 +3611,466 @@ class ChatbotRoutingTest extends TestCase
             ]);
     }
 
+    public function test_original_copy_pickup_location_is_answered_locally_in_the_clients_language(): void
+    {
+        $this->actingAsClient(17);
+
+        $assistant = Mockery::mock(LexTrackAssistant::class);
+        $assistant->shouldNotReceive('prompt');
+        $assistant->shouldNotReceive('hasApprovedKnowledgeBase');
+        $this->app->instance(LexTrackAssistant::class, $assistant);
+
+        $router = app(ChatbotIntentRouter::class);
+        $this->assertSame(
+            'pickup_location',
+            $router->classify('Where can I pick up the original copy?')['intent'],
+        );
+
+        $this->postJson('/chatbot/message', [
+            'message' => 'Where can I pick up the original copy?',
+        ])
+            ->assertOk()
+            ->assertSee('Bicol University West Campus, Gate 1, White Building')
+            ->assertSee('recorded pickup schedule');
+
+        $this->postJson('/chatbot/message', [
+            'message' => 'Saan ko kukunin ang original copy?',
+        ])
+            ->assertOk()
+            ->assertSee('Bicol University West Campus, Gate 1, White Building')
+            ->assertSee('petsa at oras');
+    }
+
+    public function test_pending_original_request_has_no_assigned_pickup_schedule_and_directs_inquiries_to_messages(): void
+    {
+        $this->actingAsClient(17);
+        $requestId = $this->insertDocumentRequest(17, 'pending', [
+            'purpose' => 'Certificate Request',
+            'purpose_details' => 'Pending original certification',
+            'copy_type' => 'original',
+            'pickup_at' => null,
+        ]);
+        $otherRequestId = $this->insertDocumentRequest(29, 'ready_for_pickup', [
+            'purpose_details' => 'Other client private pickup',
+            'copy_type' => 'original',
+            'pickup_at' => '2026-11-05 09:00:00',
+        ]);
+
+        $assistant = Mockery::mock(LexTrackAssistant::class);
+        $assistant->shouldNotReceive('prompt');
+        $assistant->shouldNotReceive('hasApprovedKnowledgeBase');
+        $this->app->instance(LexTrackAssistant::class, $assistant);
+
+        $this->postJson('/chatbot/message', [
+            'message' => 'When and what time can I pick up request #' . $requestId . '?',
+        ])
+            ->assertOk()
+            ->assertSee('No pickup schedule is currently assigned')
+            ->assertSee('Messages page')
+            ->assertSee('urgent processing requests')
+            ->assertSee('chatbot can only provide recorded request details')
+            ->assertDontSee('Other client private pickup');
+
+        $this->postJson('/chatbot/message', [
+            'message' => 'When can I pick up request #' . $otherRequestId . '?',
+        ])
+            ->assertOk()
+            ->assertExactJson(['reply' => 'I couldn’t find an authorized document request.']);
+    }
+
+    public function test_other_request_follow_up_excludes_selected_request_and_maps_displayed_choices(): void
+    {
+        $this->actingAsClient(17);
+        $selectedId = $this->insertDocumentRequest(17, 'pending', [
+            'purpose' => 'Certificate Request',
+            'purpose_details' => 'CERTIFICATION FOR OJT',
+            'copy_type' => 'original',
+            'date_of_request' => '2026-10-10',
+        ]);
+        $forReleaseId = $this->insertDocumentRequest(17, 'for_release', [
+            'purpose' => 'Template Request',
+            'purpose_details' => 'Agreement template',
+            'copy_type' => 'soft_copy',
+            'date_of_request' => '2026-10-09',
+            'date_processed' => '2026-10-11',
+        ]);
+        $readyId = $this->insertDocumentRequest(17, 'ready_for_pickup', [
+            'purpose' => 'Original Certification',
+            'purpose_details' => 'Enrollment certification',
+            'copy_type' => 'original',
+            'date_of_request' => '2026-10-08',
+            'pickup_at' => '2026-10-20 09:30:00',
+        ]);
+        $rejectedId = $this->insertDocumentRequest(17, 'rejected', [
+            'purpose' => 'Other Request',
+            'purpose_details' => 'Incomplete application',
+            'copy_type' => 'soft_copy',
+            'date_of_request' => '2026-10-07',
+            'rejection_reason' => 'Required attachment was missing.',
+        ]);
+        $this->insertDocumentRequest(29, 'completed', [
+            'purpose' => 'PRIVATE OTHER CLIENT REQUEST',
+            'date_of_request' => '2026-10-12',
+        ]);
+
+        $assistant = Mockery::mock(LexTrackAssistant::class);
+        $assistant->shouldNotReceive('prompt');
+        $assistant->shouldNotReceive('hasApprovedKnowledgeBase');
+        $this->app->instance(LexTrackAssistant::class, $assistant);
+
+        $router = app(ChatbotIntentRouter::class);
+        foreach ([
+            'what are the other request i have, give me the details',
+            'what other requests do i have',
+            'show my other requests',
+            'details of my other requests',
+            'ano pa ibang request ko',
+            'ano pa yung requests ko',
+            'ipakita ibang requests ko',
+            'may iba pa ba akong request',
+        ] as $message) {
+            $this->assertSame(
+                'request_other_list',
+                $router->classify($message, hasPrivateRequestContext: true)['intent'],
+                $message,
+            );
+        }
+
+        $interpretation = app(ChatIntentNormalizer::class)->interpret(
+            'what are the other request i have, give me the details',
+            ['hasPrivateRequestContext' => true],
+        );
+        $this->assertSame('document_requests', $interpretation['domain']);
+        $this->assertSame('request_other_list', $interpretation['intents'][0]['name']);
+        $this->assertSame('other_records', $interpretation['reference']['type']);
+
+        $this->postJson('/chatbot/message', ['message' => 'update about my request'])
+            ->assertOk()
+            ->assertSee('CERTIFICATION FOR OJT');
+
+        $otherResponse = $this->postJson('/chatbot/message', [
+            'message' => 'what are the other request i have, give me the details',
+        ]);
+
+        $otherResponse
+            ->assertOk()
+            ->assertSee('You have 3 other document requests:')
+            ->assertSee('Agreement template')
+            ->assertSee('Enrollment certification')
+            ->assertSee('Incomplete application')
+            ->assertSee('Recorded processing date: October 11, 2026')
+            ->assertSee('Pickup schedule: October 20, 2026 9:30 AM')
+            ->assertSee('Rejection reason: Required attachment was missing.')
+            ->assertDontSee('CERTIFICATION FOR OJT')
+            ->assertDontSee('PRIVATE OTHER CLIENT REQUEST');
+
+        $this->assertSame([$forReleaseId, $readyId, $rejectedId], session('chatbot.request_choices.request_ids'));
+        $this->assertSame($selectedId, session('chatbot.private_request_context.request_id'));
+
+        $this->postJson('/chatbot/message', ['message' => '2'])
+            ->assertOk()
+            ->assertSee('Enrollment certification')
+            ->assertSee('Ready for Pickup')
+            ->assertDontSee('Agreement template');
+
+        $this->postJson('/chatbot/message', ['message' => 'when did i request that?'])
+            ->assertOk()
+            ->assertSee('October 8, 2026')
+            ->assertDontSee('CERTIFICATION FOR OJT');
+
+        $this->postJson('/chatbot/message', ['message' => 'is it ready for pickup?'])
+            ->assertOk()
+            ->assertSee('Pickup is scheduled for October 20, 2026 9:30 AM');
+    }
+
+    public function test_all_and_other_request_lists_preserve_status_semantics_and_owner_scope(): void
+    {
+        $this->actingAsClient(17);
+        foreach ([
+            ['pending', 'Pending Request', 'soft_copy', null, null],
+            ['for_release', 'For Release Request', 'soft_copy', '2026-10-05', null],
+            ['ready_for_pickup', 'Pickup Request', 'original', null, '2026-10-25 13:00:00'],
+            ['completed', 'Completed Request', 'soft_copy', '2026-10-04', null],
+            ['rejected', 'Rejected Request', 'soft_copy', null, null],
+        ] as $index => [$status, $details, $copyType, $processedAt, $pickupAt]) {
+            $this->insertDocumentRequest(17, $status, [
+                'purpose_details' => $details,
+                'copy_type' => $copyType,
+                'date_of_request' => now()->subDays($index)->toDateString(),
+                'date_processed' => $processedAt,
+                'pickup_at' => $pickupAt,
+                'rejection_reason' => $status === 'rejected' ? 'The form was incomplete.' : null,
+            ]);
+        }
+        $this->insertDocumentRequest(29, 'pending', ['purpose_details' => 'OTHER CLIENT SECRET']);
+
+        $assistant = Mockery::mock(LexTrackAssistant::class);
+        $assistant->shouldNotReceive('prompt');
+        $assistant->shouldNotReceive('hasApprovedKnowledgeBase');
+        $this->app->instance(LexTrackAssistant::class, $assistant);
+
+        $this->postJson('/chatbot/message', ['message' => 'update about my request'])
+            ->assertOk()
+            ->assertSee('Pending Request');
+
+        $this->postJson('/chatbot/message', ['message' => 'show all my requests'])
+            ->assertOk()
+            ->assertSee('You have 5 document requests:')
+            ->assertSee('Status: Pending')
+            ->assertSee('Status: For Release')
+            ->assertSee('Status: Ready for Pickup')
+            ->assertSee('Status: Completed')
+            ->assertSee('Status: Rejected')
+            ->assertSee('Rejection reason: The form was incomplete.')
+            ->assertDontSee('OTHER CLIENT SECRET');
+    }
+
+    public function test_other_request_follow_up_has_natural_empty_result(): void
+    {
+        $this->actingAsClient(17);
+        $this->insertDocumentRequest(17, 'pending', [
+            'purpose_details' => 'Only request',
+        ]);
+
+        $assistant = Mockery::mock(LexTrackAssistant::class);
+        $assistant->shouldNotReceive('prompt');
+        $assistant->shouldNotReceive('hasApprovedKnowledgeBase');
+        $this->app->instance(LexTrackAssistant::class, $assistant);
+
+        $this->postJson('/chatbot/message', ['message' => 'update about my request'])
+            ->assertOk()
+            ->assertSee('Only request');
+
+        $this->postJson('/chatbot/message', ['message' => 'other requests'])
+            ->assertOk()
+            ->assertExactJson([
+                'reply' => "You don't have any other document requests at the moment.",
+            ]);
+    }
+
+    public function test_request_listing_displays_all_up_to_ten_and_preserves_requested_fields(): void
+    {
+        $this->actingAsClient(17);
+        foreach (range(1, 8) as $index) {
+            $this->insertDocumentRequest(17, 'pending', [
+                'purpose_details' => 'Request ' . $index,
+                'date_of_request' => sprintf('2026-10-%02d', $index),
+            ]);
+        }
+
+        $assistant = Mockery::mock(LexTrackAssistant::class);
+        $assistant->shouldNotReceive('prompt');
+        $assistant->shouldNotReceive('hasApprovedKnowledgeBase');
+        $this->app->instance(LexTrackAssistant::class, $assistant);
+
+        $this->postJson('/chatbot/message', ['message' => 'list all my requests'])
+            ->assertOk()
+            ->assertSee('You have 8 document requests:')
+            ->assertSee('Request 1')
+            ->assertSee('Request 8')
+            ->assertDontSee('Here are your 5 most recent')
+            ->assertDontSee('To find an older request');
+
+        $fieldResponse = $this->postJson('/chatbot/message', [
+            'message' => 'list all my requests and just show the date I requested them',
+        ]);
+
+        $fieldResponse
+            ->assertOk()
+            ->assertSee('Requested: October 8, 2026')
+            ->assertDontSee('Status:')
+            ->assertDontSee('Copy type:');
+        $this->assertStringContainsString(
+            'Request details: Certificate Request — Request 8',
+            (string) $fieldResponse->json('reply'),
+        );
+    }
+
+    public function test_large_request_listing_counts_all_but_displays_and_maps_only_five_recent_requests(): void
+    {
+        $this->actingAsClient(17);
+        $displayedIds = [];
+        foreach (range(0, 49) as $index) {
+            $requestId = $this->insertDocumentRequest(17, 'pending', [
+                'purpose_details' => 'Bulk Request ' . $index,
+                'date_of_request' => now()->subDays($index)->toDateString(),
+            ]);
+            if ($index < 5) {
+                $displayedIds[] = $requestId;
+            }
+        }
+        $this->insertDocumentRequest(29, 'pending', ['purpose_details' => 'OTHER CLIENT BULK REQUEST']);
+
+        $assistant = Mockery::mock(LexTrackAssistant::class);
+        $assistant->shouldNotReceive('prompt');
+        $assistant->shouldNotReceive('hasApprovedKnowledgeBase');
+        $this->app->instance(LexTrackAssistant::class, $assistant);
+
+        $response = $this->postJson('/chatbot/message', ['message' => 'show all my requests']);
+        $reply = (string) $response->json('reply');
+
+        $response
+            ->assertOk()
+            ->assertSee('You have 50 document requests. Here are your 5 most recent requests:')
+            ->assertSee('Bulk Request 0')
+            ->assertSee('Bulk Request 4')
+            ->assertDontSee('Bulk Request 5')
+            ->assertDontSee('OTHER CLIENT BULK REQUEST')
+            ->assertSee('To find an older request');
+        $this->assertSame(5, substr_count($reply, 'Request details:'));
+        $this->assertSame($displayedIds, session('chatbot.request_choices.request_ids'));
+
+        $this->postJson('/chatbot/message', ['message' => 'requests from ' . now()->year])
+            ->assertOk()
+            ->assertSee('I found 50 document requests from ' . now()->year . '. Here are the 5 most recent from that period:')
+            ->assertDontSee('Bulk Request 5');
+        $this->assertSame($displayedIds, session('chatbot.request_choices.request_ids'));
+
+        $this->postJson('/chatbot/message', ['message' => '3'])
+            ->assertOk()
+            ->assertSee('Bulk Request 2')
+            ->assertDontSee('Bulk Request 5');
+    }
+
+    public function test_request_date_filters_resolve_year_month_exact_date_and_empty_results_locally(): void
+    {
+        $this->actingAsClient(17);
+        $currentYear = (int) now()->year;
+        $classification = app(ChatbotIntentRouter::class)->classify('requests from September 2025');
+        $this->assertSame('request_date_filter', $classification['intent']);
+        $this->assertSame(2025, $classification['date_filter']['year']);
+        $this->assertSame(9, $classification['date_filter']['month']);
+        $interpretation = app(ChatIntentNormalizer::class)->interpret('requests from September 2025');
+        $this->assertSame('document_requests', $interpretation['domain']);
+        $this->assertSame('date_filter', $interpretation['reference']['type']);
+
+        $this->insertDocumentRequest(17, 'pending', ['purpose_details' => 'September 2025 Exact', 'date_of_request' => '2025-09-12']);
+        $this->insertDocumentRequest(17, 'completed', ['purpose_details' => 'September 2025 Later', 'date_of_request' => '2025-09-20']);
+        $this->insertDocumentRequest(17, 'for_release', ['purpose_details' => 'October 2025', 'date_of_request' => '2025-10-05']);
+        $this->insertDocumentRequest(17, 'pending', ['purpose_details' => 'Current September Exact', 'date_of_request' => $currentYear . '-09-12']);
+        $this->insertDocumentRequest(17, 'pending', ['purpose_details' => 'Current September Later', 'date_of_request' => $currentYear . '-09-20']);
+        $this->insertDocumentRequest(29, 'pending', ['purpose_details' => 'OTHER CLIENT DATE REQUEST', 'date_of_request' => '2025-09-12']);
+
+        $assistant = Mockery::mock(LexTrackAssistant::class);
+        $assistant->shouldNotReceive('prompt');
+        $assistant->shouldNotReceive('hasApprovedKnowledgeBase');
+        $this->app->instance(LexTrackAssistant::class, $assistant);
+
+        $this->postJson('/chatbot/message', [
+            'message' => 'requests from 2025',
+            'conversation_id' => 'request-year',
+        ])
+            ->assertOk()
+            ->assertSee('I found 3 document requests from 2025.')
+            ->assertSee('September 2025 Exact')
+            ->assertSee('October 2025')
+            ->assertDontSee('Current September Exact')
+            ->assertDontSee('OTHER CLIENT DATE REQUEST');
+
+        $this->postJson('/chatbot/message', [
+            'message' => 'how about October?',
+            'conversation_id' => 'request-year',
+        ])
+            ->assertOk()
+            ->assertSee('October 2025')
+            ->assertSee('I found 1 document request from October 2025.')
+            ->assertDontSee('September 2025 Exact');
+
+        $this->postJson('/chatbot/message', [
+            'message' => 'requests from September',
+            'conversation_id' => 'request-current-month',
+        ])
+            ->assertOk()
+            ->assertSee('September ' . $currentYear)
+            ->assertSee('Current September Exact')
+            ->assertDontSee('September 2025 Exact');
+
+        $this->postJson('/chatbot/message', [
+            'message' => 'requests from last September',
+            'conversation_id' => 'request-last-month',
+        ])
+            ->assertOk()
+            ->assertSee('September ' . $currentYear)
+            ->assertSee('Current September Exact');
+
+        $this->postJson('/chatbot/message', [
+            'message' => 'requests from September 12',
+            'conversation_id' => 'request-current-day',
+        ])
+            ->assertOk()
+            ->assertSee('September 12, ' . $currentYear)
+            ->assertSee('Current September Exact')
+            ->assertDontSee('Current September Later');
+
+        $this->postJson('/chatbot/message', [
+            'message' => 'requests from February 3, 2025',
+            'conversation_id' => 'request-empty-date',
+        ])
+            ->assertOk()
+            ->assertExactJson([
+                'reply' => "You don't have any document requests recorded on February 3, 2025.",
+            ]);
+    }
+
+    public function test_request_date_filter_context_completes_day_month_and_keeps_request_domain(): void
+    {
+        $this->actingAsClient(17);
+        $currentYear = (int) now()->year;
+        $this->insertDocumentRequest(17, 'pending', ['purpose_details' => 'Current September Twelfth', 'date_of_request' => $currentYear . '-09-12']);
+        $this->insertDocumentRequest(17, 'pending', ['purpose_details' => 'September 2025 Twelfth', 'date_of_request' => '2025-09-12']);
+        $this->insertDocumentRequest(17, 'pending', ['purpose_details' => 'September 2025 Thirteenth', 'date_of_request' => '2025-09-13']);
+
+        $assistant = Mockery::mock(LexTrackAssistant::class);
+        $assistant->shouldNotReceive('prompt');
+        $assistant->shouldNotReceive('hasApprovedKnowledgeBase');
+        $this->app->instance(LexTrackAssistant::class, $assistant);
+
+        $this->postJson('/chatbot/message', [
+            'message' => 'requests from the 12th',
+            'conversation_id' => 'pending-request-day',
+        ])
+            ->assertOk()
+            ->assertSee('What month was the request made?')
+            ->assertSee((string) $currentYear);
+
+        $this->postJson('/chatbot/message', [
+            'message' => 'September',
+            'conversation_id' => 'pending-request-day',
+        ])
+            ->assertOk()
+            ->assertSee('September 12, ' . $currentYear)
+            ->assertSee('Current September Twelfth')
+            ->assertDontSee('September 2025 Twelfth');
+
+        $this->postJson('/chatbot/message', [
+            'message' => 'requests from September 2025',
+            'conversation_id' => 'month-request-day',
+        ])->assertOk()->assertSee('September 2025');
+
+        $this->postJson('/chatbot/message', [
+            'message' => 'the 12th',
+            'conversation_id' => 'month-request-day',
+        ])
+            ->assertOk()
+            ->assertSee('September 12, 2025')
+            ->assertSee('September 2025 Twelfth')
+            ->assertDontSee('September 2025 Thirteenth');
+
+        $this->postJson('/chatbot/message', [
+            'message' => 'list all my requests',
+            'conversation_id' => 'request-domain-followup',
+        ])->assertOk();
+
+        $this->postJson('/chatbot/message', [
+            'message' => 'September',
+            'conversation_id' => 'request-domain-followup',
+        ])
+            ->assertOk()
+            ->assertSee('September ' . $currentYear)
+            ->assertSee('Current September Twelfth')
+            ->assertDontSee('September 2025 Twelfth');
+    }
+
     public function test_payment_questions_are_localized_and_do_not_require_document_references(): void
     {
         $this->actingAsClient(17);
@@ -3686,6 +4146,72 @@ class ChatbotRoutingTest extends TestCase
         $this->postJson('/chatbot/message', ['message' => 'Hello'])
             ->assertOk()
             ->assertSee('LexTrack documents');
+    }
+
+    public function test_explicit_request_count_never_falls_through_to_submitted_documents(): void
+    {
+        $this->actingAsClient(17);
+        $this->insertDocumentRequest(17, 'pending');
+        $this->insertDocumentRequest(17, 'completed');
+        $this->insertDocumentRequest(29, 'pending');
+
+        $assistant = Mockery::mock(LexTrackAssistant::class);
+        $assistant->shouldNotReceive('prompt');
+        $assistant->shouldNotReceive('hasApprovedKnowledgeBase');
+        $this->app->instance(LexTrackAssistant::class, $assistant);
+
+        $this->postJson('/chatbot/message', [
+            'message' => 'how many request do i have right now?',
+        ])
+            ->assertOk()
+            ->assertExactJson(['reply' => 'You have 2 document requests.']);
+
+        $this->postJson('/chatbot/message', [
+            'message' => 'i specifically said request',
+        ])
+            ->assertOk()
+            ->assertExactJson(['reply' => 'You have 2 document requests.'])
+            ->assertDontSee('submitted documents');
+    }
+
+    public function test_request_count_context_resolves_pending_accepted_and_rejected_follow_ups(): void
+    {
+        $this->actingAsClient(17);
+        $this->insertDocumentRequest(17, 'pending', ['purpose_details' => 'Pending request one']);
+        $this->insertDocumentRequest(17, 'pending', ['purpose_details' => 'Pending request two']);
+        $this->insertDocumentRequest(17, 'for_release', ['purpose_details' => 'Accepted request']);
+        $this->insertDocumentRequest(17, 'rejected', ['purpose_details' => 'Rejected request']);
+        $this->insertDocumentRequest(29, 'pending', ['purpose_details' => 'Other client private request']);
+
+        $assistant = Mockery::mock(LexTrackAssistant::class);
+        $assistant->shouldNotReceive('prompt');
+        $assistant->shouldNotReceive('hasApprovedKnowledgeBase');
+        $this->app->instance(LexTrackAssistant::class, $assistant);
+
+        $this->postJson('/chatbot/message', ['message' => 'how many request do i have right now'])
+            ->assertOk()
+            ->assertExactJson(['reply' => 'You have 4 document requests.']);
+
+        $this->postJson('/chatbot/message', ['message' => 'which are pending?'])
+            ->assertOk()
+            ->assertSee('I found 2 Pending document requests.')
+            ->assertSee('Pending request one')
+            ->assertSee('Pending request two')
+            ->assertDontSee('Accepted request')
+            ->assertDontSee('Rejected request')
+            ->assertDontSee('Other client private request');
+
+        $this->postJson('/chatbot/message', ['message' => 'which are accepted?'])
+            ->assertOk()
+            ->assertSee('Accepted request')
+            ->assertDontSee('Pending request one')
+            ->assertDontSee('Rejected request');
+
+        $this->postJson('/chatbot/message', ['message' => 'which are rejected?'])
+            ->assertOk()
+            ->assertSee('Rejected request')
+            ->assertDontSee('Pending request one')
+            ->assertDontSee('Accepted request');
     }
 
     public function test_router_normalizes_variants_without_sentence_specific_rules(): void

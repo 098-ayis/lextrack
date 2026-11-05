@@ -27,6 +27,8 @@ class ChatbotController extends Controller
 
     private const REQUEST_CHOICES_KEY = 'chatbot.request_choices';
 
+    private const REQUEST_FILTER_CONTEXT_KEY = 'chatbot.request_filter_context';
+
     private const PRIVATE_DOCUMENT_CONTEXT_KEY = 'chatbot.private_document_context';
 
     private const PRIVATE_REQUEST_CONTEXT_KEY = 'chatbot.private_request_context';
@@ -117,8 +119,45 @@ class ChatbotController extends Controller
         $documentContext = $this->activePrivateDocumentContext($request, $user, $conversationId);
         $documentResults = $this->activePrivateDocumentResults($request, $user, $conversationId);
         $requestContext = $this->activePrivateRequestContext($request, $user, $conversationId);
+        $requestFilterContext = $this->activeRequestFilterContext($request, $user, $conversationId);
         $hasPrivateDocumentContext = $documentContext !== null;
         $hasPrivateRequestContext = $requestContext !== null;
+
+        $requestDateFilter = $intents->extractRequestDateFilter($message);
+        if ($requestDateFilter !== null
+            && ($requestDateFilter['has_request_domain'] || $requestFilterContext !== null)) {
+            $this->clearPendingAction($request);
+            $request->session()->forget(self::REQUEST_CHOICES_KEY);
+
+            return $this->requestDateFilterReply(
+                $request,
+                $user,
+                $documentRequests,
+                $intents,
+                $conversationId,
+                $requestDateFilter,
+                $requestFilterContext,
+                $this->chatbotLanguage($request),
+            );
+        }
+
+        // A prior aggregate request count establishes the record domain for
+        // short follow-ups such as “which are pending?”. Resolve that filter
+        // locally before a status word can fall through to general knowledge
+        // or submitted-document routing.
+        $requestStatusFollowUp = $requestFilterContext !== null
+            ? $intents->requestStatusFilterFollowUp($message)
+            : null;
+        if ($requestStatusFollowUp !== null) {
+            return $this->requestChoicesReply(
+                $request,
+                $user,
+                $documentRequests,
+                $conversationId,
+                $requestStatusFollowUp,
+                $this->chatbotLanguage($request),
+            );
+        }
 
         if ($documentResults !== null
             && count($documentResults['document_ids']) > 1
@@ -215,6 +254,7 @@ class ChatbotController extends Controller
                 'request_scope_clarification',
                 'copy_type_clarification',
                 'payment_inquiry',
+                'pickup_location',
                 'message_content',
                 'legal_policy_information',
                 'legal_policy_clarification',
@@ -250,6 +290,7 @@ class ChatbotController extends Controller
                     $quickLanguage,
                 ),
                 'payment_inquiry' => $this->paymentInquiryReply($request, $quickLanguage),
+                'pickup_location' => $this->pickupLocationReply($request, $quickLanguage),
                 'message_content' => $this->messageContentReply($request, $quickLanguage),
                 'legal_policy_information' => $this->legalPolicyReply($request, $quickLanguage),
                 'legal_policy_clarification' => $this->legalPolicyClarificationReply(
@@ -498,6 +539,7 @@ class ChatbotController extends Controller
                 $intent['language'],
             ),
             'payment_inquiry' => $this->paymentInquiryReply($request, $intent['language']),
+            'pickup_location' => $this->pickupLocationReply($request, $intent['language']),
             'legal_services_information' => $this->legalServicesReply($request, $intent['language']),
             'legal_procedures_information' => $this->legalProceduresReply($request, $intent['language']),
             'legal_policy_information' => $this->legalPolicyReply($request, $intent['language']),
@@ -607,6 +649,35 @@ class ChatbotController extends Controller
                 $documentRequests,
                 $conversationId,
                 (string) ($intent['status'] ?? ''),
+                $intent['language'] ?? 'english',
+            ),
+            'request_list' => $this->requestChoicesReply(
+                $request,
+                $user,
+                $documentRequests,
+                $conversationId,
+                language: $intent['language'] ?? 'english',
+                listScope: 'all',
+                fields: is_array($intent['fields'] ?? null) ? $intent['fields'] : null,
+            ),
+            'request_other_list' => $this->requestChoicesReply(
+                $request,
+                $user,
+                $documentRequests,
+                $conversationId,
+                language: $intent['language'] ?? 'english',
+                excludeRequestId: $this->privateContextRequestId($requestContext, $user),
+                listScope: 'other',
+                fields: is_array($intent['fields'] ?? null) ? $intent['fields'] : null,
+            ),
+            'request_date_filter' => $this->requestDateFilterReply(
+                $request,
+                $user,
+                $documentRequests,
+                $intents,
+                $conversationId,
+                is_array($intent['date_filter'] ?? null) ? $intent['date_filter'] : [],
+                $requestFilterContext,
                 $intent['language'] ?? 'english',
             ),
             'request_context_details' => $this->requestContextDetails(
@@ -1034,6 +1105,23 @@ class ChatbotController extends Controller
         };
 
         return $this->privateReply($request, $reply);
+    }
+
+    private function pickupLocationReply(Request $request, string $language): JsonResponse
+    {
+        $this->clearGeneralHistory($request);
+        $location = trim((string) config('chatbot.legal_office_pickup_location'));
+        $location = $location !== ''
+            ? $location
+            : 'Bicol University West Campus, Gate 1, White Building';
+
+        $reply = match ($language) {
+            'filipino' => 'Maaaring kunin ang approved na original copy sa Legal Affairs Office, ' . $location . '. Para sa petsa at oras, tingnan ang recorded pickup schedule ng request mo.',
+            'taglish' => 'You can pick up an approved original copy sa Legal Affairs Office, ' . $location . '. For the date and time, check the recorded pickup schedule of your request.',
+            default => 'You can pick up an approved original copy at the Legal Affairs Office, ' . $location . '. For the date and time, check the recorded pickup schedule for your request.',
+        };
+
+        return response()->json(['reply' => $reply]);
     }
 
     private function documentAcceptanceScopeReply(Request $request, string $language): JsonResponse
@@ -1767,6 +1855,15 @@ class ChatbotController extends Controller
         $request->session()->forget(self::DOCUMENT_CHOICES_KEY);
         $request->session()->forget(self::REQUEST_CHOICES_KEY);
 
+        // Retain only the short-lived aggregate request domain so a status
+        // follow-up can be resolved without exposing or storing record data.
+        $this->storeRequestFilterContext(
+            $request,
+            $user,
+            $this->conversationId($request, $request->input('conversation_id')),
+            [],
+        );
+
         $lookupStatus = $status === 'accepted' ? 'for_release' : $status;
         try {
             $count = $lookupStatus === null
@@ -1830,22 +1927,65 @@ class ChatbotController extends Controller
         string $conversationId,
         ?string $status = null,
         ?string $language = null,
+        ?int $excludeRequestId = null,
+        string $listScope = 'filtered',
+        ?array $dateFilter = null,
+        ?array $fields = null,
     ): JsonResponse {
         $this->clearGeneralHistory($request);
         $request->session()->put(self::PRIVATE_CONTEXT_KEY, true);
         $request->session()->forget(self::PRIVATE_DOCUMENT_CONTEXT_KEY);
-        $request->session()->forget(self::PRIVATE_REQUEST_CONTEXT_KEY);
+        if (! in_array($listScope, ['all', 'other'], true)) {
+            $request->session()->forget(self::PRIVATE_REQUEST_CONTEXT_KEY);
+        }
 
         $language ??= $this->chatbotLanguage($request);
         $lookupStatus = $status === 'accepted' ? 'for_release' : (filled($status) ? $status : null);
+        [$dateFrom, $dateTo, $dateLabel, $datePrecision] = $this->requestDateRange($dateFilter);
 
         try {
-            $choices = $documentRequests->authorizedChoices($user, 10, $lookupStatus);
+            $choiceResult = $documentRequests->authorizedChoicesResult(
+                $user,
+                10,
+                $lookupStatus,
+                $excludeRequestId,
+                $dateFrom,
+                $dateTo,
+            );
+            $total = $choiceResult['total'];
+            $choices = $total > 10
+                ? array_slice($choiceResult['choices'], 0, 5)
+                : $choiceResult['choices'];
         } catch (Throwable $exception) {
             return $this->safeDocumentFailure($exception);
         }
 
         if ($choices === []) {
+            if (in_array($listScope, ['all', 'other'], true)) {
+                $this->storeRequestFilterContext(
+                    $request,
+                    $user,
+                    $conversationId,
+                    $dateFilter ?? [],
+                    $fields,
+                );
+            }
+
+            if ($dateLabel !== null) {
+                $reply = $this->requestDateEmptyReply($language, $dateLabel, $datePrecision);
+                $this->storeRequestFilterContext($request, $user, $conversationId, $dateFilter ?? []);
+
+                return $this->privateReply($request, $reply);
+            }
+
+            if ($listScope === 'other') {
+                $reply = $this->isFilipinoLike($language)
+                    ? 'Wala ka nang ibang document requests sa ngayon.'
+                    : "You don't have any other document requests at the moment.";
+
+                return $this->privateReply($request, $reply);
+            }
+
             if ($lookupStatus !== null) {
                 $statusLabel = $documentRequests->displayStatusLabelForChat($lookupStatus);
                 $reply = $this->isFilipinoLike($language)
@@ -1864,11 +2004,27 @@ class ChatbotController extends Controller
             ? $documentRequests->displayStatusLabelForChat($lookupStatus)
             : null;
         $headingNoun = $statusLabel !== null ? $statusLabel . ' ' . $requestNoun : $requestNoun;
+        $englishHeading = match (true) {
+            $dateLabel !== null && $total > 10 => 'I found ' . $total . ' document requests from ' . $dateLabel . '. Here are the 5 most recent from that period:',
+            $dateLabel !== null => 'I found ' . $total . ' ' . ($total === 1 ? 'document request' : 'document requests') . ' from ' . $dateLabel . '.',
+            $listScope === 'all' && $total > 10 => 'You have ' . $total . ' document requests. Here are your 5 most recent requests:',
+            $listScope === 'other' => 'You have ' . count($choices) . ' other ' . $requestNoun . ':',
+            $listScope === 'all' => 'You have ' . count($choices) . ' ' . $requestNoun . ':',
+            default => 'I found ' . count($choices) . ' ' . $headingNoun . '.',
+        };
+        $filipinoHeading = match (true) {
+            $dateLabel !== null && $total > 10 => 'May nakita akong ' . $total . ' document requests mula ' . $dateLabel . '. Narito ang 5 pinakabago:',
+            $dateLabel !== null => 'May nakita akong ' . $total . ' document requests mula ' . $dateLabel . '.',
+            $listScope === 'all' && $total > 10 => 'Mayroon kang ' . $total . ' document requests. Narito ang 5 pinakabago:',
+            $listScope === 'other' => 'May ' . count($choices) . ' ka pang ibang document requests:',
+            $listScope === 'all' => 'Mayroon kang ' . count($choices) . ' document requests:',
+            default => 'May nakita akong ' . count($choices) . ' ' . $headingNoun . '.',
+        };
         $lines = [$this->listHeading(
             $language,
-            'I found ' . count($choices) . ' ' . $headingNoun . '.',
-            'May nakita akong ' . count($choices) . ' ' . $headingNoun . '.',
-            'May nakita akong ' . count($choices) . ' ' . $headingNoun . '.',
+            $englishHeading,
+            $filipinoHeading,
+            $filipinoHeading,
         )];
         foreach ($choices as $index => $choice) {
             $ids[] = $choice['request_id'];
@@ -1881,30 +2037,99 @@ class ChatbotController extends Controller
                 ->unique()
                 ->implode(' — ');
             $detailsLabel = $details !== '' ? $details : 'Not recorded';
-            $lines[] = ($index + 1) . '. ' . $this->listField(
+            $entry = ($index + 1) . '. ' . $this->listField(
                 $language,
                 'Request details',
                 'Detalye ng request',
                 'Request details',
                 $detailsLabel,
-            ) . "\n   " . $this->listField(
+            );
+
+            if ($fields === null || in_array('status', $fields, true)) {
+                $entry .= "\n   " . $this->listField(
+                    $language,
+                    'Status',
+                    'Status',
+                    'Status',
+                    $documentRequests->displayStatusLabelForChat((string) $choice['status']),
+                );
+            }
+
+            if ($fields === null) {
+                $entry .= "\n   " . $this->listField(
+                    $language,
+                    'Copy type',
+                    'Uri ng kopya',
+                    'Copy type',
+                    $type,
+                );
+            }
+
+            if ($fields === null || in_array('requested_date', $fields, true)) {
+                $entry .= "\n   " . $this->listField(
+                    $language,
+                    'Requested',
+                    'Petsa ng request',
+                    'Requested',
+                    $choice['requested_at'],
+                );
+            }
+
+            if ($fields === null && $choice['copy_type'] === 'original') {
+                $pickupFallback = $this->isFilipinoLike($language)
+                    ? 'Hindi pa naka-schedule'
+                    : 'Not yet scheduled';
+                $entry .= "\n   " . $this->listField(
+                    $language,
+                    'Pickup schedule',
+                    'Pickup schedule',
+                    'Pickup schedule',
+                    $choice['pickup_at'] ?? $pickupFallback,
+                );
+            }
+
+            if ($fields === null && $choice['processed_at'] !== null) {
+                $entry .= "\n   " . $this->listField(
+                    $language,
+                    'Recorded processing date',
+                    'Recorded processing date',
+                    'Recorded processing date',
+                    $choice['processed_at'],
+                );
+            }
+
+            if ($fields === null && $choice['status'] === 'rejected') {
+                $rejectionFallback = $this->isFilipinoLike($language)
+                    ? 'Wala pang recorded na dahilan'
+                    : 'Not yet recorded';
+                $entry .= "\n   " . $this->listField(
+                    $language,
+                    'Rejection reason',
+                    'Dahilan ng rejection',
+                    'Rejection reason',
+                    $choice['rejection_reason'] ?? $rejectionFallback,
+                );
+            }
+
+            $lines[] = $entry;
+        }
+
+        if ($total > 10) {
+            $lines[] = $this->listInstruction(
                 $language,
-                'Status',
-                'Status',
-                'Status',
-                $documentRequests->displayStatusLabelForChat((string) $choice['status']),
-            ) . "\n   " . $this->listField(
-                $language,
-                'Copy type',
-                'Uri ng kopya',
-                'Copy type',
-                $type,
-            ) . "\n   " . $this->listField(
-                $language,
-                'Requested',
-                'Petsa ng request',
-                'Requested',
-                $choice['requested_at'],
+                'To find an older request, tell me the year, month, or requested date—for example, “requests from 2025,” “requests from September,” or “requests from September 12.”',
+                'Para mahanap ang mas lumang request, sabihin ang taon, buwan, o request date—halimbawa, “requests from 2025,” “requests from September,” o “requests from September 12.”',
+                'Para mahanap ang older request, sabihin ang year, month, or requested date—for example, “requests from 2025,” “requests from September,” or “requests from September 12.”',
+            );
+        }
+
+        if (in_array($listScope, ['all', 'other', 'date'], true)) {
+            $this->storeRequestFilterContext(
+                $request,
+                $user,
+                $conversationId,
+                $dateFilter ?? [],
+                $fields,
             );
         }
 
@@ -1935,6 +2160,157 @@ class ChatbotController extends Controller
         }
 
         return response()->json(['reply' => implode("\n\n", $lines)]);
+    }
+
+    /**
+     * Complete a locally parsed Document Request date filter with the active
+     * conversation context. Private request text and results remain in Laravel.
+     *
+     * @param array<string, mixed> $parts
+     * @param array<string, mixed>|null $context
+     */
+    private function requestDateFilterReply(
+        Request $request,
+        User $user,
+        ClientDocumentRequestLookupService $documentRequests,
+        ChatbotIntentRouter $intents,
+        string $conversationId,
+        array $parts,
+        ?array $context,
+        string $language,
+    ): JsonResponse {
+        $year = is_numeric($parts['year'] ?? null)
+            ? (int) $parts['year']
+            : (is_numeric($context['year'] ?? null) ? (int) $context['year'] : null);
+        $month = is_numeric($parts['month'] ?? null) ? (int) $parts['month'] : null;
+        $day = is_numeric($parts['day'] ?? null) ? (int) $parts['day'] : null;
+        $pendingDay = (bool) ($context['pending_day'] ?? false);
+
+        if ($month === null && $day !== null && is_numeric($context['month'] ?? null)) {
+            $month = (int) $context['month'];
+        }
+        if ($month !== null && $day === null && $pendingDay && is_numeric($context['day'] ?? null)) {
+            $day = (int) $context['day'];
+        }
+
+        $year ??= (int) now()->year;
+        $fields = $intents->requestListFields((string) $request->input('message'))
+            ?? (is_array($context['fields'] ?? null) ? $context['fields'] : null);
+
+        if ($day !== null && $month === null) {
+            $this->storeRequestFilterContext($request, $user, $conversationId, [
+                'year' => $year,
+                'month' => null,
+                'day' => $day,
+                'pending_day' => true,
+            ], $fields);
+
+            $reply = $this->isFilipinoLike($language)
+                ? 'Sige. Anong buwan ginawa ang request? Ipagpapalagay kong ' . $year . ' maliban kung magbigay ka ng ibang taon.'
+                : 'Sure. What month was the request made? I’ll assume ' . $year . ' unless you specify another year.';
+
+            return $this->privateReply($request, $reply);
+        }
+
+        $resolved = [
+            'year' => $year,
+            'month' => $month,
+            'day' => $day,
+            'pending_day' => false,
+        ];
+
+        if ($this->requestDateRange($resolved)[0] === null) {
+            return $this->privateReply(
+                $request,
+                $this->isFilipinoLike($language)
+                    ? 'Mukhang hindi valid ang petsang iyon. Pakibigay ang tamang taon, buwan, o request date.'
+                    : 'That date does not appear to be valid. Please provide a valid year, month, or request date.',
+            );
+        }
+
+        return $this->requestChoicesReply(
+            $request,
+            $user,
+            $documentRequests,
+            $conversationId,
+            language: $language,
+            listScope: 'date',
+            dateFilter: $resolved,
+            fields: $fields,
+        );
+    }
+
+    /**
+     * @param array<string, mixed>|null $filter
+     * @return array{0: ?string, 1: ?string, 2: ?string, 3: ?string}
+     */
+    private function requestDateRange(?array $filter): array
+    {
+        if ($filter === null || ! is_numeric($filter['year'] ?? null)) {
+            return [null, null, null, null];
+        }
+
+        $year = (int) $filter['year'];
+        $month = is_numeric($filter['month'] ?? null) ? (int) $filter['month'] : null;
+        $day = is_numeric($filter['day'] ?? null) ? (int) $filter['day'] : null;
+
+        try {
+            if ($month === null) {
+                $start = Carbon::createSafe($year, 1, 1)->startOfDay();
+                $end = Carbon::createSafe($year, 12, 31)->endOfDay();
+
+                return [$start->toDateString(), $end->toDateString(), (string) $year, 'year'];
+            }
+
+            if ($day === null) {
+                $start = Carbon::createSafe($year, $month, 1)->startOfMonth();
+                $end = $start->copy()->endOfMonth();
+
+                return [$start->toDateString(), $end->toDateString(), $start->format('F Y'), 'month'];
+            }
+
+            $date = Carbon::createSafe($year, $month, $day);
+
+            return [$date->toDateString(), $date->toDateString(), $date->format('F j, Y'), 'day'];
+        } catch (Throwable) {
+            return [null, null, null, null];
+        }
+    }
+
+    private function requestDateEmptyReply(string $language, string $label, ?string $precision): string
+    {
+        if ($this->isFilipinoLike($language)) {
+            return $precision === 'day'
+                ? 'Wala kang document requests na recorded noong ' . $label . '.'
+                : 'Wala kang document requests mula ' . $label . '.';
+        }
+
+        return $precision === 'day'
+            ? "You don't have any document requests recorded on {$label}."
+            : "You don't have any document requests from {$label}.";
+    }
+
+    /**
+     * @param array<string, mixed> $filter
+     * @param list<string>|null $fields
+     */
+    private function storeRequestFilterContext(
+        Request $request,
+        User $user,
+        string $conversationId,
+        array $filter,
+        ?array $fields = null,
+    ): void {
+        $request->session()->put(self::REQUEST_FILTER_CONTEXT_KEY, [
+            'user_id' => (string) $user->getKey(),
+            'conversation_id' => $conversationId,
+            'year' => is_numeric($filter['year'] ?? null) ? (int) $filter['year'] : null,
+            'month' => is_numeric($filter['month'] ?? null) ? (int) $filter['month'] : null,
+            'day' => is_numeric($filter['day'] ?? null) ? (int) $filter['day'] : null,
+            'pending_day' => (bool) ($filter['pending_day'] ?? false),
+            'fields' => $fields,
+            'expires_at' => now()->addMinutes(self::DOCUMENT_CONTEXT_TTL_MINUTES)->getTimestamp(),
+        ]);
     }
 
     private function rejectionGuidanceReply(
@@ -2078,6 +2454,7 @@ class ChatbotController extends Controller
         $request->session()->forget(self::PRIVATE_REQUEST_CONTEXT_KEY);
         $request->session()->forget(self::DOCUMENT_CHOICES_KEY);
         $request->session()->forget(self::REQUEST_CHOICES_KEY);
+        $request->session()->forget(self::REQUEST_FILTER_CONTEXT_KEY);
         $request->session()->put(self::PRIVATE_CONTEXT_KEY, true);
 
         $uniqueDocumentId = null;
@@ -2641,6 +3018,7 @@ class ChatbotController extends Controller
             self::PRIVATE_CONTEXT_KEY,
             self::DOCUMENT_CHOICES_KEY,
             self::REQUEST_CHOICES_KEY,
+            self::REQUEST_FILTER_CONTEXT_KEY,
             self::PRIVATE_DOCUMENT_CONTEXT_KEY,
             self::PRIVATE_DOCUMENT_TOPIC_KEY,
             self::PRIVATE_DOCUMENT_RESULTS_KEY,
@@ -3425,6 +3803,30 @@ class ChatbotController extends Controller
             'conversation_id' => $conversationId,
             'request_id' => (int) $requestId,
             'expires_at' => (int) $context['expires_at'],
+        ];
+    }
+
+    /** @return array<string, mixed>|null */
+    private function activeRequestFilterContext(Request $request, User $user, string $conversationId): ?array
+    {
+        $context = $request->session()->get(self::REQUEST_FILTER_CONTEXT_KEY);
+
+        if (! is_array($context)
+            || (string) ($context['user_id'] ?? '') !== (string) $user->getKey()
+            || (string) ($context['conversation_id'] ?? 'default') !== $conversationId
+            || ! is_numeric($context['expires_at'] ?? null)
+            || (int) $context['expires_at'] <= now()->getTimestamp()) {
+            $request->session()->forget(self::REQUEST_FILTER_CONTEXT_KEY);
+
+            return null;
+        }
+
+        return [
+            'year' => is_numeric($context['year'] ?? null) ? (int) $context['year'] : null,
+            'month' => is_numeric($context['month'] ?? null) ? (int) $context['month'] : null,
+            'day' => is_numeric($context['day'] ?? null) ? (int) $context['day'] : null,
+            'pending_day' => (bool) ($context['pending_day'] ?? false),
+            'fields' => is_array($context['fields'] ?? null) ? $context['fields'] : null,
         ];
     }
 

@@ -30,10 +30,6 @@ class ChatbotIntentRouter
             return 'payment_inquiry';
         }
 
-        if ($this->isDocumentCountInquiry($normalized)) {
-            return 'document_count';
-        }
-
         if ($this->isSubmittedDocumentCorrection($normalized)) {
             return 'status_lookup';
         }
@@ -52,6 +48,10 @@ class ChatbotIntentRouter
 
         if ($this->isPrivateDocumentRequestInquiry($normalized)) {
             return $this->isRequestCountInquiry($normalized) ? 'request_count' : 'request_status';
+        }
+
+        if ($this->isDocumentCountInquiry($normalized)) {
+            return 'document_count';
         }
 
         if ($this->isLatestDocumentInquiry($normalized)
@@ -141,7 +141,7 @@ class ChatbotIntentRouter
 
         return str_contains($message, '?')
             || preg_match(
-                '/^(?:what|how|why|where|when|can|could|do|does|is|are|tell me|thanks|thank you|salamat|okay|ok|noted|policy|policies|legal|lextrack|portal|system|services?|status|document|doc|request|update|details?|pending|in progress|outgoing|completed|rejected|ano|paano|pano|bakit|saan|kailan|mayroon ba|meron ba)\b/',
+                '/^(?:what|how|why|where|when|can|could|do|does|is|are|show|list|give|display|other requests?|tell me|thanks|thank you|salamat|okay|ok|noted|policy|policies|legal|lextrack|portal|system|services?|status|document|doc|request|update|details?|pending|in progress|outgoing|completed|rejected|ano|ano pa|alin|ipakita|paano|pano|bakit|saan|kailan|may iba|mayroon ba|meron ba)\b/',
                 $normalized,
             ) === 1;
     }
@@ -160,6 +160,141 @@ class ChatbotIntentRouter
         $id = filter_var($matches[1], FILTER_VALIDATE_INT);
 
         return $id !== false && $id > 0 ? (int) $id : null;
+    }
+
+    /**
+     * Parse only calendar expressions suitable for filtering Document
+     * Requests. This never queries records and never treats a bare request ID
+     * or an arbitrary number inside a title as a date.
+     *
+     * @return array{year: ?int, month: ?int, day: ?int, has_request_domain: bool}|null
+     */
+    public function extractRequestDateFilter(string $message): ?array
+    {
+        $normalized = $this->normalize($message);
+        $hasRequestDomain = preg_match(
+            '/\b(?:document requests?|requested documents?|requests?|hiling|kahilingan)\b/',
+            $normalized,
+        ) === 1;
+        $months = [
+            'january' => 1, 'jan' => 1,
+            'february' => 2, 'feb' => 2,
+            'march' => 3, 'mar' => 3,
+            'april' => 4, 'apr' => 4,
+            'may' => 5,
+            'june' => 6, 'jun' => 6,
+            'july' => 7, 'jul' => 7,
+            'august' => 8, 'aug' => 8,
+            'september' => 9, 'sept' => 9, 'sep' => 9,
+            'october' => 10, 'oct' => 10,
+            'november' => 11, 'nov' => 11,
+            'december' => 12, 'dec' => 12,
+        ];
+        $monthPattern = implode('|', array_keys($months));
+        $year = preg_match('/\b(20\d{2})\b/', $normalized, $yearMatch) === 1
+            ? (int) $yearMatch[1]
+            : null;
+        $month = null;
+        $day = null;
+        $monthWord = null;
+
+        if (preg_match('/\b(' . $monthPattern . ')\b/u', $normalized, $monthMatch) === 1) {
+            $monthWord = $monthMatch[1];
+            $month = $months[$monthWord];
+
+            // Filipino “may” means “have/there is” unless it appears in a
+            // clear calendar structure. Avoid turning “may iba pa” into May.
+            if ($monthWord === 'may'
+                && preg_match('/\b(?:from|in|on|month|noong|nung|last)\s+may\b|\bmay\s+\d{1,2}(?:st|nd|rd|th)?\b/', $normalized) !== 1) {
+                $monthWord = null;
+                $month = null;
+            }
+        }
+
+        if ($monthWord !== null) {
+            if (preg_match('/\b' . preg_quote($monthWord, '/') . '\s+(\d{1,2})(?:st|nd|rd|th)?\b/u', $normalized, $dayMatch) === 1
+                || preg_match('/\b(\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+|ng\s+)?' . preg_quote($monthWord, '/') . '\b/u', $normalized, $dayMatch) === 1) {
+                $day = (int) $dayMatch[1];
+            }
+        }
+
+        if ($day === null && preg_match(
+            '/\b(?:the\s+)?(\d{1,2})(?:st|nd|rd|th)\b|\bday\s+(\d{1,2})\b|\bika[\s-]?(\d{1,2})\b|\b(?:nung|noong)\s+(\d{1,2})\b/u',
+            $normalized,
+            $dayMatch,
+        ) === 1) {
+            foreach (array_slice($dayMatch, 1) as $candidate) {
+                if ($candidate !== '') {
+                    $day = (int) $candidate;
+                    break;
+                }
+            }
+        }
+
+        if ($day !== null && ($day < 1 || $day > 31)) {
+            return null;
+        }
+
+        if ($month !== null && str_contains($normalized, 'last ' . $monthWord) && $year === null) {
+            $current = now();
+            $year = $month < (int) $current->month
+                ? (int) $current->year
+                : (int) $current->year - 1;
+        }
+
+        if ($year === null && $month === null && $day === null) {
+            return null;
+        }
+
+        return [
+            'year' => $year,
+            'month' => $month,
+            'day' => $day,
+            'has_request_domain' => $hasRequestDomain,
+        ];
+    }
+
+    /** @return list<'requested_date'|'status'>|null */
+    public function requestListFields(string $message): ?array
+    {
+        $normalized = $this->normalize($message);
+        $asksOnly = preg_match('/\b(?:just|only|lang|lamang)\b/', $normalized) === 1;
+
+        if (! $asksOnly) {
+            return null;
+        }
+
+        $fields = [];
+        if (preg_match('/\b(?:requested date|request date|date requested|date i requested|petsa ng request|kailan nirequest)\b/', $normalized) === 1) {
+            $fields[] = 'requested_date';
+        }
+        if (preg_match('/\b(?:status|state|kalagayan|katayuan)\b/', $normalized) === 1) {
+            $fields[] = 'status';
+        }
+
+        return $fields !== [] ? $fields : null;
+    }
+
+    /**
+     * Resolve a status-only follow-up against an already established
+     * Document Request result set. Definition questions remain general
+     * knowledge and explicit submitted-document questions keep their domain.
+     */
+    public function requestStatusFilterFollowUp(string $message): ?string
+    {
+        $normalized = $this->normalize($message);
+        $status = $this->requestedRequestStatus($normalized);
+
+        if ($status === null
+            || preg_match('/\b(?:mean|means|meaning|define|definition|explain|ibig sabihin|kahulugan)\b/', $normalized) === 1
+            || preg_match('/\b(?:document|documents|doc|docs|submission|submissions|submitted|sinubmit|sinumite|ipinasa)\b/', $normalized) === 1) {
+            return null;
+        }
+
+        return preg_match(
+            '/\b(?:which|what|show|list|display|those|ones|are|still|ano|alin|ipakita|ilista|mga)\b/',
+            $normalized,
+        ) === 1 ? $status : null;
     }
 
     public function isGreeting(string $message): bool
@@ -191,12 +326,52 @@ class ChatbotIntentRouter
             ];
         }
 
+        if ($this->isPickupLocationQuestion($normalized)) {
+            return [
+                'intent' => 'pickup_location',
+                'language' => $this->responseLanguage($normalized),
+            ];
+        }
+
+        // A validated request number is an explicit private-record selector.
+        // Resolve it before “when can I...” can be mistaken for a general
+        // procedure question; Laravel still rechecks ownership on lookup.
+        if (($requestId = $this->requestId($message)) !== null) {
+            return [
+                'intent' => 'request_status',
+                'request_id' => $requestId,
+                'topic' => $this->requestTopic($normalized),
+                'language' => $this->responseLanguage($normalized),
+            ];
+        }
+
         // A correction such as “not the request, the one I submitted” must
         // override request-word matching and continue with the submitted
         // document/latest-record path.
         if ($this->isSubmittedDocumentCorrection($normalized)) {
             return [
                 'intent' => 'latest_status',
+                'language' => $this->responseLanguage($normalized),
+            ];
+        }
+
+        // “Request” refers to records created through Request Document,
+        // while “submitted document” refers to the client's submissions.
+        // Resolve an explicit request count before broad process/document
+        // rules because the shared vocabulary intentionally contains both.
+        if ($this->isPrivateDocumentRequestInquiry($normalized)
+            && $this->isRequestCountInquiry($normalized)) {
+            return [
+                'intent' => 'request_count',
+                'status' => $this->requestedRequestStatus($normalized),
+                'language' => $this->responseLanguage($normalized),
+            ];
+        }
+
+        if ($this->isRequestDomainCorrection($normalized)) {
+            return [
+                'intent' => 'request_count',
+                'status' => null,
                 'language' => $this->responseLanguage($normalized),
             ];
         }
@@ -438,6 +613,35 @@ class ChatbotIntentRouter
                 'intent' => 'request_status',
                 'request_id' => $requestId,
                 'topic' => $this->requestTopic($normalized),
+                'language' => $this->responseLanguage($normalized),
+            ];
+        }
+
+        if (($requestDateFilter = $this->extractRequestDateFilter($message)) !== null
+            && $requestDateFilter['has_request_domain']) {
+            return [
+                'intent' => 'request_date_filter',
+                'date_filter' => $requestDateFilter,
+                'fields' => $this->requestListFields($message),
+                'language' => $this->responseLanguage($normalized),
+            ];
+        }
+
+        // Listing all/other requests is a fresh aggregate intent. Resolve it
+        // before selected-request follow-ups so a prior request is not simply
+        // repeated when the client asks for a different result set.
+        if ($this->isOtherRequestListInquiry($normalized)) {
+            return [
+                'intent' => 'request_other_list',
+                'fields' => $this->requestListFields($message),
+                'language' => $this->responseLanguage($normalized),
+            ];
+        }
+
+        if ($this->isAllRequestListInquiry($normalized)) {
+            return [
+                'intent' => 'request_list',
+                'fields' => $this->requestListFields($message),
                 'language' => $this->responseLanguage($normalized),
             ];
         }
@@ -1613,6 +1817,20 @@ class ChatbotIntentRouter
         return $hasRequestReference && $hasSubmittedReference && $hasCorrectionCue;
     }
 
+    private function isRequestDomainCorrection(string $message): bool
+    {
+        $hasRequestReference = preg_match(
+            '/\b(?:request|requests|document request|document requests|hiling|kahilingan)\b/',
+            $message,
+        ) === 1;
+        $hasCorrectionCue = preg_match(
+            '/\b(?:i mean|meant|specifically|said|asking about|not documents?|hindi documents?|request ang sabi ko|request yung tinutukoy ko)\b/',
+            $message,
+        ) === 1;
+
+        return $hasRequestReference && $hasCorrectionCue;
+    }
+
     private function isSubmittedDocumentFollowUp(string $message): bool
     {
         $hasSubmittedReference = preg_match(
@@ -1648,6 +1866,36 @@ class ChatbotIntentRouter
         ) === 1;
     }
 
+    private function isOtherRequestListInquiry(string $message): bool
+    {
+        $hasRequest = preg_match('/\b(?:document requests?|requests?|hiling|kahilingan|applications?)\b/', $message) === 1;
+        $hasOther = preg_match(
+            '/\b(?:other|others|another|remaining|rest|iba|ibang)\b|\b(?:ano|alin)\s+pa\b|\bmay\s+(?:iba|ibang)\s+pa\b/',
+            $message,
+        ) === 1;
+
+        return $hasRequest && $hasOther;
+    }
+
+    private function isAllRequestListInquiry(string $message): bool
+    {
+        if ($this->isOtherRequestListInquiry($message)
+            || $this->requestedRequestStatus($message) !== null
+            || $this->isRequestCountInquiry($message)) {
+            return false;
+        }
+
+        $hasRequest = preg_match('/\b(?:document requests?|requested documents?|requests|mga request|mga hiling|kahilingan|applications)\b/', $message) === 1;
+        $hasListCue = preg_match(
+            '/\b(?:what are|which|show|list|give|display|all|lahat|ano ang|ano yung|ano mga|alin|ipakita)\b/',
+            $message,
+        ) === 1;
+        $hasOwnership = $this->hasPersonalReference($message)
+            || preg_match('/\b(?:ko|akin|sa akin)\b/', $message) === 1;
+
+        return $hasRequest && $hasListCue && $hasOwnership;
+    }
+
     private function requestedRequestStatus(string $message): ?string
     {
         foreach ([
@@ -1667,19 +1915,44 @@ class ChatbotIntentRouter
 
     private function requestTopic(string $message): string
     {
-        if (preg_match('/\b(?:copy type|copy|soft copy|original|uri|type)\b/', $message) === 1) {
-            return 'copy_type';
+        if (preg_match('/\b(?:why|reason|rejection reason|bakit|dahilan)\b.*\b(?:reject|rejected|rejection|nareject|tinanggihan)\b|\b(?:rejection reason|reason ng rejection)\b/', $message) === 1) {
+            return 'rejection_reason';
         }
 
+        // Pickup is more specific than a generic “when was it requested?”
+        // date question. Resolve it first when collection wording is present.
         if (preg_match('/\b(?:pickup|pick up|pick it up|schedule|when can i get|when can i pick|makukuha|makuha|kukunin|kukuha|kailan makukuha|kailan kukunin|kuha|iskedyul)\b/', $message) === 1) {
             return 'pickup';
+        }
+
+        if (preg_match('/\b(?:when|what date|date|kailan|anong petsa)\b.*\b(?:request|requested|submit|submitted|hiling|humiling|pinasa|sinubmit)\b|\b(?:when did i request|request date|date requested|petsa ng request)\b/', $message) === 1) {
+            return 'requested_date';
+        }
+
+        if (preg_match('/\b(?:copy type|copy|soft copy|original|uri|type)\b/', $message) === 1) {
+            return 'copy_type';
         }
 
         if (preg_match('/\b(?:download|downloadable|available|availability|soft copy)\b/', $message) === 1) {
             return 'download';
         }
 
+        if (preg_match('/\b(?:status|state|kalagayan|katayuan|update)\b/', $message) === 1) {
+            return 'status';
+        }
+
         return 'summary';
+    }
+
+    private function isPickupLocationQuestion(string $message): bool
+    {
+        $asksWhere = preg_match('/\b(?:where|what place|what location|saan|saang lugar)\b/', $message) === 1;
+        $mentionsCollection = preg_match(
+            '/\b(?:pickup|pick up|pick it up|collect|claim|original copy|original document|kunin|kukunin|kuha|pagkuha)\b/',
+            $message,
+        ) === 1;
+
+        return $asksWhere && $mentionsCollection;
     }
 
     private function hasContextualRecordReference(string $message): bool

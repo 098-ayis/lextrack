@@ -60,6 +60,9 @@ class ClientDocumentRequestLookupService
         }
 
         $reply = match ($topic) {
+            'status' => $this->statusReply($request, $language),
+            'requested_date' => $this->requestedDateReply($request, $language),
+            'rejection_reason' => $this->rejectionReasonReply($request, $language),
             'copy_type' => $this->copyTypeReply($request, $language),
             'pickup' => $this->pickupReply($request, $language),
             'download' => $this->downloadReply($user, $request, $language),
@@ -120,24 +123,81 @@ class ClientDocumentRequestLookupService
     }
 
 
-    /** @return list<array{request_id: int, status: string, copy_type: ?string, purpose: ?string, purpose_details: ?string, requested_at: string}> */
-    public function authorizedChoices(User $user, int $limit = 10, ?string $status = null): array
+    /**
+     * @return list<array{
+     *     request_id: int,
+     *     status: string,
+     *     copy_type: ?string,
+     *     purpose: ?string,
+     *     purpose_details: ?string,
+     *     requested_at: string,
+     *     pickup_at: ?string,
+     *     processed_at: ?string,
+     *     rejection_reason: ?string
+     * }>
+     */
+    public function authorizedChoices(
+        User $user,
+        int $limit = 10,
+        ?string $status = null,
+        ?int $excludeRequestId = null,
+    ): array
+    {
+        return $this->authorizedChoicesResult(
+            $user,
+            $limit,
+            $status,
+            $excludeRequestId,
+        )['choices'];
+    }
+
+    /**
+     * Count every authorized match while returning only the safe display
+     * window. Dates are inclusive and apply to the real request date field.
+     *
+     * @return array{total: int, choices: list<array<string, mixed>>}
+     */
+    public function authorizedChoicesResult(
+        User $user,
+        int $limit = 10,
+        ?string $status = null,
+        ?int $excludeRequestId = null,
+        ?string $dateFrom = null,
+        ?string $dateTo = null,
+    ): array
     {
         $allowedStatuses = ['pending', 'for_release', 'ready_for_pickup', 'completed', 'rejected'];
         if ($status !== null && ! in_array($status, $allowedStatuses, true)) {
-            return [];
+            return ['total' => 0, 'choices' => []];
         }
 
         $query = $this->ownedRequests($user);
         if ($status !== null) {
             $query->where('status', $status);
         }
+        if ($excludeRequestId !== null) {
+            $query->where('request_id', '!=', $excludeRequestId);
+        }
+        if ($dateFrom !== null && $dateTo !== null) {
+            $query->whereBetween('date_of_request', [$dateFrom, $dateTo]);
+        }
 
-        return $query
+        $total = (clone $query)->count();
+        $choices = $query
             ->latest('date_of_request')
             ->latest('request_id')
             ->limit(max(1, min($limit, 10)))
-            ->get(['request_id', 'status', 'copy_type', 'purpose', 'purpose_details', 'date_of_request'])
+            ->get([
+                'request_id',
+                'status',
+                'copy_type',
+                'purpose',
+                'purpose_details',
+                'date_of_request',
+                'pickup_at',
+                'date_processed',
+                'rejection_reason',
+            ])
             ->map(static fn (DocumentRequest $request): array => [
                 'request_id' => (int) $request->request_id,
                 'status' => (string) $request->status,
@@ -145,8 +205,15 @@ class ClientDocumentRequestLookupService
                 'purpose' => filled($request->purpose) ? (string) $request->purpose : null,
                 'purpose_details' => filled($request->purpose_details) ? (string) $request->purpose_details : null,
                 'requested_at' => $request->date_of_request?->format('F j, Y') ?? 'date unavailable',
+                'pickup_at' => $request->pickup_at?->format('F j, Y g:i A'),
+                'processed_at' => $request->date_processed?->format('F j, Y'),
+                'rejection_reason' => $request->status === 'rejected' && filled($request->rejection_reason)
+                    ? (string) $request->rejection_reason
+                    : null,
             ])
             ->all();
+
+        return ['total' => $total, 'choices' => $choices];
     }
 
     private function ownedRequests(User $user)
@@ -215,6 +282,54 @@ class ClientDocumentRequestLookupService
             : "{$label} is {$this->statusLabel((string) $request->status)}. Copy type: {$copyType}.";
     }
 
+    private function statusReply(DocumentRequest $request, string $language = 'english'): string
+    {
+        $label = $this->requestLabel($request, $language);
+        $status = $this->statusLabel((string) $request->status);
+
+        return $this->isFilipinoLike($language)
+            ? "{$label} ay {$status}."
+            : "{$label} is {$status}.";
+    }
+
+    private function requestedDateReply(DocumentRequest $request, string $language = 'english'): string
+    {
+        $label = $this->requestLabel($request, $language);
+        $date = $request->date_of_request?->format('F j, Y');
+
+        if ($date === null) {
+            return $this->isFilipinoLike($language)
+                ? "Walang recorded na request date para sa {$label}."
+                : "No request date is recorded for {$label}.";
+        }
+
+        return $this->isFilipinoLike($language)
+            ? "Ginawa mo ang {$label} noong {$date}."
+            : "You submitted {$label} on {$date}.";
+    }
+
+    private function rejectionReasonReply(DocumentRequest $request, string $language = 'english'): string
+    {
+        $label = $this->requestLabel($request, $language);
+        $status = $this->statusLabel((string) $request->status);
+
+        if ($request->status !== 'rejected') {
+            return $this->isFilipinoLike($language)
+                ? "Hindi Rejected ang {$label}; ang kasalukuyang status nito ay {$status}."
+                : "{$label} is not Rejected; its current status is {$status}.";
+        }
+
+        if (! filled($request->rejection_reason)) {
+            return $this->isFilipinoLike($language)
+                ? "Rejected ang {$label}, pero walang recorded na rejection reason. Tingnan ang Messages para sa anumang authorized na paliwanag."
+                : "{$label} is Rejected, but no rejection reason is recorded. Check Messages for any authorized explanation.";
+        }
+
+        return $this->isFilipinoLike($language)
+            ? "Rejected ang {$label}. Recorded reason: {$request->rejection_reason}"
+            : "{$label} is Rejected. Recorded reason: {$request->rejection_reason}";
+    }
+
     private function pickupReply(DocumentRequest $request, string $language = 'english'): string
     {
         $label = $this->requestLabel($request, $language);
@@ -251,10 +366,20 @@ class ClientDocumentRequestLookupService
 
     private function pickupSentence(DocumentRequest $request, string $language = 'english'): string
     {
-        return $request->pickup_at
-            ? ($language === 'filipino' ? 'Naka-schedule ang pickup sa ' : 'Pickup is scheduled for ')
-                . $request->pickup_at->format('F j, Y g:i A') . '.'
-            : ($language === 'filipino' ? 'Walang recorded na pickup schedule.' : 'No pickup schedule has been recorded yet.');
+        if ($request->pickup_at) {
+            return ($this->isFilipinoLike($language) ? 'Naka-schedule ang pickup sa ' : 'Pickup is scheduled for ')
+                . $request->pickup_at->format('F j, Y g:i A') . '.';
+        }
+
+        if ($request->status === 'pending') {
+            return $this->isFilipinoLike($language)
+                ? 'Wala pang assigned na pickup schedule. Para sa inquiries, urgent processing request, o iba pang legal concerns, direktang mag-message sa Legal Affairs Office sa Messages page. Recorded request details lamang ang maibibigay ng chatbot.'
+                : 'No pickup schedule is currently assigned. For inquiries, urgent processing requests, or other legal concerns, message the Legal Affairs Office directly through the Messages page. The chatbot can only provide recorded request details.';
+        }
+
+        return $this->isFilipinoLike($language)
+            ? 'Wala pang recorded na pickup schedule.'
+            : 'No pickup schedule has been recorded yet.';
     }
 
     private function downloadSentence(User $user, DocumentRequest $request, string $language = 'english'): string
@@ -315,6 +440,11 @@ class ClientDocumentRequestLookupService
             'rejected' => 'Rejected',
             default => 'Unavailable',
         };
+    }
+
+    private function isFilipinoLike(string $language): bool
+    {
+        return in_array($language, ['filipino', 'taglish'], true);
     }
 
     /** @return array{reply: string, request_id: ?int, status: ?string} */

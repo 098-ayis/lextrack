@@ -62,4 +62,10 @@ return [
     ],
 
     'prohibited_message' => 'Please use respectful language. Offensive or prohibited words are not allowed.',
+
+    // Client-facing location for collecting an approved original copy.
+    'legal_office_pickup_location' => env(
+        'LEGAL_OFFICE_PICKUP_LOCATION',
+        'Bicol University West Campus, Gate 1, White Building',
+    ),
 ];
