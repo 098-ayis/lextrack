@@ -9,11 +9,20 @@ if [ ! -z "$WWWUSER" ]; then
     usermod -u $WWWUSER sail
 fi
 
-if [ ! -d /.composer ]; then
-    mkdir /.composer
-fi
-
-chmod -R ugo+rw /.composer
+mkdir -p /home/sail/.composer \
+    /var/www/html/vendor \
+    /var/www/html/storage \
+    /var/www/html/bootstrap/cache
+chown -R sail:"$(id -gn sail)" \
+    /home/sail/.composer \
+    /var/www/html/vendor \
+    /var/www/html/storage \
+    /var/www/html/bootstrap/cache
+chmod -R u+rwX \
+    /home/sail/.composer \
+    /var/www/html/vendor \
+    /var/www/html/storage \
+    /var/www/html/bootstrap/cache
 
 if [ $# -gt 0 ]; then
     if [ "$SUPERVISOR_PHP_USER" = "root" ]; then

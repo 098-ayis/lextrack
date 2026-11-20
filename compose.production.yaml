@@ -1,0 +1,211 @@
+name: lextrack-production
+
+x-app-environment: &app-environment
+    APP_ENV: production
+    APP_DEBUG: "false"
+    APP_NAME: "${APP_NAME:-LexTrack}"
+    APP_URL: "${APP_URL:?Set APP_URL in the production environment}"
+    APP_TIMEZONE: "${APP_TIMEZONE:-Asia/Manila}"
+    APP_LOCALE: "${APP_LOCALE:-en}"
+    APP_FALLBACK_LOCALE: "${APP_FALLBACK_LOCALE:-en}"
+    DB_CONNECTION: mysql
+    DB_HOST: mysql
+    DB_PORT: "3306"
+    DB_DATABASE: "${DB_DATABASE:-lextrack}"
+    DB_USERNAME: "${DB_USERNAME:-lextrack}"
+    DB_CHARSET: "${DB_CHARSET:-utf8mb4}"
+    DB_COLLATION: "${DB_COLLATION:-utf8mb4_unicode_ci}"
+    MYSQL_ATTR_SSL_VERIFY_SERVER_CERT: "${MYSQL_ATTR_SSL_VERIFY_SERVER_CERT:-false}"
+    FILESYSTEM_DISK: "${FILESYSTEM_DISK:-local}"
+    DOCUMENT_FILESYSTEM_DISK: "${DOCUMENT_FILESYSTEM_DISK:-local}"
+    SESSION_DRIVER: "${SESSION_DRIVER:-database}"
+    SESSION_LIFETIME: "${SESSION_LIFETIME:-60}"
+    SESSION_ENCRYPT: "${SESSION_ENCRYPT:-false}"
+    SESSION_EXPIRE_ON_CLOSE: "${SESSION_EXPIRE_ON_CLOSE:-false}"
+    SESSION_PATH: "${SESSION_PATH:-/}"
+    SESSION_DOMAIN: "${SESSION_DOMAIN:-}"
+    INACTIVITY_TIMEOUT: "${INACTIVITY_TIMEOUT:-60}"
+    SESSION_SECURE_COOKIE: "${SESSION_SECURE_COOKIE:-true}"
+    SESSION_HTTP_ONLY: "${SESSION_HTTP_ONLY:-true}"
+    SESSION_SAME_SITE: "${SESSION_SAME_SITE:-lax}"
+    SESSION_PARTITIONED_COOKIE: "${SESSION_PARTITIONED_COOKIE:-false}"
+    SESSION_COOKIE: "${SESSION_COOKIE:-lextrack_session}"
+    CACHE_STORE: "${CACHE_STORE:-database}"
+    QUEUE_CONNECTION: "${QUEUE_CONNECTION:-database}"
+    MAIL_MAILER: "${MAIL_MAILER:-log}"
+    MAIL_SCHEME: "${MAIL_SCHEME:-}"
+    MAIL_HOST: "${MAIL_HOST:-127.0.0.1}"
+    MAIL_PORT: "${MAIL_PORT:-2525}"
+    MAIL_URL: "${MAIL_URL:-}"
+    MAIL_USERNAME: "${MAIL_USERNAME:-}"
+    MAIL_PASSWORD: "${MAIL_PASSWORD:-}"
+    MAIL_EHLO_DOMAIN: "${MAIL_EHLO_DOMAIN:-}"
+    MAIL_FROM_ADDRESS: "${MAIL_FROM_ADDRESS:-noreply@example.com}"
+    MAIL_FROM_NAME: "${MAIL_FROM_NAME:-LexTrack Legal Office}"
+    GOOGLE_CLIENT_ID: "${GOOGLE_CLIENT_ID:-}"
+    GOOGLE_CLIENT_SECRET: "${GOOGLE_CLIENT_SECRET:-}"
+    GOOGLE_REDIRECT_URI: "${GOOGLE_REDIRECT_URI:-}"
+    TURNSTILE_SITE_KEY: "${TURNSTILE_SITE_KEY:-}"
+    TURNSTILE_SECRET_KEY: "${TURNSTILE_SECRET_KEY:-}"
+    OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
+    OPENAI_URL: "${OPENAI_URL:-https://api.openai.com/v1}"
+    OPENAI_STORE: "${OPENAI_STORE:-true}"
+    OLLAMA_URL: "${OLLAMA_URL:-http://host.docker.internal:11434}"
+    OLLAMA_MODEL: "${OLLAMA_MODEL:-gemma2:2b}"
+    OLLAMA_API_KEY: "${OLLAMA_API_KEY:-}"
+    AZURE_OPENAI_URL: "${AZURE_OPENAI_URL:-}"
+    AZURE_OPENAI_API_KEY: "${AZURE_OPENAI_API_KEY:-}"
+    AZURE_OPENAI_API_VERSION: "${AZURE_OPENAI_API_VERSION:-2025-04-01-preview}"
+    AZURE_OPENAI_DEPLOYMENT: "${AZURE_OPENAI_DEPLOYMENT:-gpt-4o}"
+    AZURE_OPENAI_EMBEDDING_DEPLOYMENT: "${AZURE_OPENAI_EMBEDDING_DEPLOYMENT:-text-embedding-3-small}"
+    AZURE_OPENAI_IMAGE_DEPLOYMENT: "${AZURE_OPENAI_IMAGE_DEPLOYMENT:-gpt-image-1}"
+    AZURE_OPENAI_STORE: "${AZURE_OPENAI_STORE:-true}"
+    OPENAI_COMPATIBLE_URL: "${OPENAI_COMPATIBLE_URL:-}"
+    OPENAI_COMPATIBLE_API_KEY: "${OPENAI_COMPATIBLE_API_KEY:-}"
+    LOG_CHANNEL: stack
+    LOG_STACK: stderr
+    LOG_LEVEL: "${LOG_LEVEL:-info}"
+
+services:
+    web:
+        image: "lextrack-sam-production:${LEXTRACK_IMAGE_TAG:-phase2-2026-11}"
+        entrypoint: ["/var/www/html/docker/production/entrypoint.sh"]
+        environment:
+            <<: *app-environment
+            LEXTRACK_ROLE: web
+            PORT: "10000"
+        secrets:
+            - app_key
+            - db_password
+        volumes:
+            - lextrack-production-documents:/var/www/html/storage/app/private
+            - lextrack-production-public:/var/www/html/storage/app/public
+            - lextrack-production-knowledge:/var/www/html/storage/app/ai-knowledge
+        ports:
+            - "${LEXTRACK_WEB_BIND:-0.0.0.0:10000}:10000"
+        extra_hosts:
+            - "host.docker.internal:host-gateway"
+        networks:
+            - lextrack-production
+        depends_on:
+            mysql:
+                condition: service_healthy
+        healthcheck:
+            test: ["CMD", "sh", "/var/www/html/docker/production/healthcheck.sh"]
+            interval: 15s
+            timeout: 10s
+            retries: 10
+            start_period: 30s
+        restart: unless-stopped
+
+    mysql:
+        image: mysql:8.4
+        environment:
+            MYSQL_ROOT_PASSWORD_FILE: /run/secrets/mysql_root_password
+            MYSQL_DATABASE: "${DB_DATABASE:-lextrack}"
+            MYSQL_USER: "${DB_USERNAME:-lextrack}"
+            MYSQL_PASSWORD_FILE: /run/secrets/db_password
+            MYSQL_ALLOW_EMPTY_PASSWORD: "0"
+        secrets:
+            - mysql_root_password
+            - db_password
+        volumes:
+            - lextrack-production-mysql:/var/lib/mysql
+        networks:
+            - lextrack-production
+        healthcheck:
+            test: ['CMD-SHELL', 'mysqladmin ping -h 127.0.0.1 -u root -p"$$(cat /run/secrets/mysql_root_password)"']
+            interval: 10s
+            timeout: 5s
+            retries: 12
+            start_period: 30s
+        restart: unless-stopped
+
+    queue:
+        image: "lextrack-sam-production:${LEXTRACK_IMAGE_TAG:-phase2-2026-11}"
+        init: true
+        entrypoint: ["/var/www/html/docker/production/entrypoint.sh"]
+        environment:
+            <<: *app-environment
+            LEXTRACK_ROLE: queue
+        secrets:
+            - app_key
+            - db_password
+        extra_hosts:
+            - "host.docker.internal:host-gateway"
+        volumes:
+            - lextrack-production-documents:/var/www/html/storage/app/private
+            - lextrack-production-public:/var/www/html/storage/app/public
+            - lextrack-production-knowledge:/var/www/html/storage/app/ai-knowledge
+        networks:
+            - lextrack-production
+        depends_on:
+            mysql:
+                condition: service_healthy
+            web:
+                condition: service_healthy
+        healthcheck:
+            test: ["CMD", "sh", "/var/www/html/docker/production/healthcheck.sh"]
+            interval: 30s
+            timeout: 5s
+            retries: 3
+            start_period: 20s
+        command: ["queue:work", "--sleep=3", "--tries=3", "--timeout=120", "--backoff=5"]
+        stop_grace_period: 30s
+        restart: unless-stopped
+
+    scheduler:
+        image: "lextrack-sam-production:${LEXTRACK_IMAGE_TAG:-phase2-2026-11}"
+        init: true
+        entrypoint: ["/var/www/html/docker/production/entrypoint.sh"]
+        environment:
+            <<: *app-environment
+            LEXTRACK_ROLE: scheduler
+        secrets:
+            - app_key
+            - db_password
+        extra_hosts:
+            - "host.docker.internal:host-gateway"
+        volumes:
+            - lextrack-production-documents:/var/www/html/storage/app/private
+            - lextrack-production-public:/var/www/html/storage/app/public
+            - lextrack-production-knowledge:/var/www/html/storage/app/ai-knowledge
+        networks:
+            - lextrack-production
+        depends_on:
+            mysql:
+                condition: service_healthy
+            web:
+                condition: service_healthy
+        healthcheck:
+            test: ["CMD", "sh", "/var/www/html/docker/production/healthcheck.sh"]
+            interval: 30s
+            timeout: 5s
+            retries: 3
+            start_period: 20s
+        command: ["schedule:work"]
+        stop_grace_period: 30s
+        restart: unless-stopped
+
+networks:
+    lextrack-production:
+        name: lextrack-production
+        driver: bridge
+
+volumes:
+    lextrack-production-mysql:
+        name: lextrack-production-mysql
+    lextrack-production-documents:
+        name: lextrack-production-documents
+    lextrack-production-public:
+        name: lextrack-production-public
+    lextrack-production-knowledge:
+        name: lextrack-production-knowledge
+
+secrets:
+    app_key:
+        file: "${LEXTRACK_SECRETS_DIR:-/opt/lextrack/secrets}/app_key"
+    db_password:
+        file: "${LEXTRACK_SECRETS_DIR:-/opt/lextrack/secrets}/db_password"
+    mysql_root_password:
+        file: "${LEXTRACK_SECRETS_DIR:-/opt/lextrack/secrets}/mysql_root_password"

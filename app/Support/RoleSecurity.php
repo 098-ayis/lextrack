@@ -6,6 +6,8 @@ use Spatie\Permission\Models\Role;
 
 final class RoleSecurity
 {
+    public const CLIENT = 'Client';
+
     public const SUPER_ADMIN = 'Super Admin';
 
     public const LEGAL_STAFF = 'Admin';

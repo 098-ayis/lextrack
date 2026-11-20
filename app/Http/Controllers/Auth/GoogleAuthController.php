@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Services\AuditLogService;
 use App\Services\SystemSettingService;
+use App\Support\RoleSecurity;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -57,7 +58,7 @@ class GoogleAuthController extends Controller
     private function assignDefaultClientRole(User $user): void
     {
         $role = Role::query()->firstOrCreate([
-            'name' => 'Client',
+            'name' => RoleSecurity::CLIENT,
             'guard_name' => 'web',
         ]);
 

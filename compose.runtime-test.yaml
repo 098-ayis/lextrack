@@ -1,0 +1,175 @@
+name: lextrack-phase2-runtime-test
+
+x-runtime-environment: &runtime-environment
+    APP_ENV: production
+    APP_DEBUG: "false"
+    APP_NAME: LexTrack Phase 2 Runtime Test
+    APP_URL: "${LEXTRACK_RUNTIME_APP_URL:-http://127.0.0.1:18085}"
+    APP_TIMEZONE: Asia/Manila
+    APP_LOCALE: en
+    APP_FALLBACK_LOCALE: en
+    DB_CONNECTION: mysql
+    DB_HOST: mysql
+    DB_PORT: "3306"
+    DB_DATABASE: lextrack_runtime_test
+    DB_USERNAME: lextrack_runtime_test
+    DB_CHARSET: utf8mb4
+    DB_COLLATION: utf8mb4_unicode_ci
+    MYSQL_ATTR_SSL_VERIFY_SERVER_CERT: "false"
+    FILESYSTEM_DISK: local
+    DOCUMENT_FILESYSTEM_DISK: local
+    SESSION_DRIVER: database
+    SESSION_LIFETIME: "60"
+    SESSION_ENCRYPT: "false"
+    SESSION_EXPIRE_ON_CLOSE: "false"
+    SESSION_PATH: /
+    INACTIVITY_TIMEOUT: "60"
+    SESSION_SECURE_COOKIE: "false"
+    SESSION_HTTP_ONLY: "true"
+    SESSION_SAME_SITE: lax
+    SESSION_PARTITIONED: "false"
+    SESSION_COOKIE: lextrack_runtime_test_session
+    CACHE_STORE: database
+    QUEUE_CONNECTION: database
+    MAIL_MAILER: log
+    LOG_CHANNEL: stack
+    LOG_STACK: stderr
+    LOG_LEVEL: info
+    PORT: "10000"
+
+services:
+    web:
+        image: "${LEXTRACK_RUNTIME_IMAGE:-lextrack-sam-production}"
+        container_name: lextrack-phase2-runtime-test-web
+        entrypoint: ["/var/www/html/docker/production/entrypoint.sh"]
+        environment:
+            <<: *runtime-environment
+            LEXTRACK_ROLE: web
+        secrets:
+            - app_key
+            - db_password
+        volumes:
+            - lextrack-phase2-runtime-test-documents:/var/www/html/storage/app/private
+            - lextrack-phase2-runtime-test-public:/var/www/html/storage/app/public
+            - lextrack-phase2-runtime-test-knowledge:/var/www/html/storage/app/ai-knowledge
+        ports:
+            - "127.0.0.1:${LEXTRACK_RUNTIME_WEB_PORT:-18085}:10000"
+        networks:
+            - lextrack-phase2-runtime-test-network
+        depends_on:
+            mysql:
+                condition: service_healthy
+        healthcheck:
+            test: ["CMD", "sh", "/var/www/html/docker/production/healthcheck.sh"]
+            interval: 15s
+            timeout: 10s
+            retries: 10
+            start_period: 30s
+
+    mysql:
+        image: mysql:8.4
+        container_name: lextrack-phase2-runtime-test-mysql
+        environment:
+            MYSQL_ROOT_PASSWORD_FILE: /run/secrets/mysql_root_password
+            MYSQL_DATABASE: lextrack_runtime_test
+            MYSQL_USER: lextrack_runtime_test
+            MYSQL_PASSWORD_FILE: /run/secrets/db_password
+            MYSQL_ALLOW_EMPTY_PASSWORD: "0"
+        secrets:
+            - mysql_root_password
+            - db_password
+        volumes:
+            - lextrack-phase2-runtime-test-mysql:/var/lib/mysql
+        networks:
+            - lextrack-phase2-runtime-test-network
+        healthcheck:
+            test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p\"$$(cat /run/secrets/mysql_root_password)\""]
+            interval: 10s
+            timeout: 5s
+            retries: 12
+            start_period: 30s
+
+    queue:
+        image: "${LEXTRACK_RUNTIME_IMAGE:-lextrack-sam-production}"
+        container_name: lextrack-phase2-runtime-test-queue
+        init: true
+        entrypoint: ["/var/www/html/docker/production/entrypoint.sh"]
+        environment:
+            <<: *runtime-environment
+            LEXTRACK_ROLE: queue
+        secrets:
+            - app_key
+            - db_password
+        volumes:
+            - lextrack-phase2-runtime-test-documents:/var/www/html/storage/app/private
+            - lextrack-phase2-runtime-test-public:/var/www/html/storage/app/public
+            - lextrack-phase2-runtime-test-knowledge:/var/www/html/storage/app/ai-knowledge
+        networks:
+            - lextrack-phase2-runtime-test-network
+        depends_on:
+            mysql:
+                condition: service_healthy
+            web:
+                condition: service_healthy
+        healthcheck:
+            test: ["CMD", "sh", "/var/www/html/docker/production/healthcheck.sh"]
+            interval: 30s
+            timeout: 5s
+            retries: 3
+            start_period: 20s
+        command: ["queue:work", "--sleep=3", "--tries=3", "--timeout=120", "--backoff=5"]
+        stop_grace_period: 30s
+
+    scheduler:
+        image: "${LEXTRACK_RUNTIME_IMAGE:-lextrack-sam-production}"
+        container_name: lextrack-phase2-runtime-test-scheduler
+        init: true
+        entrypoint: ["/var/www/html/docker/production/entrypoint.sh"]
+        environment:
+            <<: *runtime-environment
+            LEXTRACK_ROLE: scheduler
+        secrets:
+            - app_key
+            - db_password
+        volumes:
+            - lextrack-phase2-runtime-test-documents:/var/www/html/storage/app/private
+            - lextrack-phase2-runtime-test-public:/var/www/html/storage/app/public
+            - lextrack-phase2-runtime-test-knowledge:/var/www/html/storage/app/ai-knowledge
+        networks:
+            - lextrack-phase2-runtime-test-network
+        depends_on:
+            mysql:
+                condition: service_healthy
+            web:
+                condition: service_healthy
+        healthcheck:
+            test: ["CMD", "sh", "/var/www/html/docker/production/healthcheck.sh"]
+            interval: 30s
+            timeout: 5s
+            retries: 3
+            start_period: 20s
+        command: ["schedule:work"]
+        stop_grace_period: 30s
+
+networks:
+    lextrack-phase2-runtime-test-network:
+        name: lextrack-phase2-runtime-test-network
+        driver: bridge
+
+volumes:
+    lextrack-phase2-runtime-test-mysql:
+        name: lextrack-phase2-runtime-test-mysql
+    lextrack-phase2-runtime-test-documents:
+        name: lextrack-phase2-runtime-test-documents
+    lextrack-phase2-runtime-test-public:
+        name: lextrack-phase2-runtime-test-public
+    lextrack-phase2-runtime-test-knowledge:
+        name: lextrack-phase2-runtime-test-knowledge
+
+secrets:
+    app_key:
+        file: "${LEXTRACK_RUNTIME_TEST_SECRETS_DIR:?Set LEXTRACK_RUNTIME_TEST_SECRETS_DIR}/app_key"
+    db_password:
+        file: "${LEXTRACK_RUNTIME_TEST_SECRETS_DIR:?Set LEXTRACK_RUNTIME_TEST_SECRETS_DIR}/db_password"
+    mysql_root_password:
+        file: "${LEXTRACK_RUNTIME_TEST_SECRETS_DIR:?Set LEXTRACK_RUNTIME_TEST_SECRETS_DIR}/mysql_root_password"

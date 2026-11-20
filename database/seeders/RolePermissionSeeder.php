@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Support\RoleSecurity;
 use Illuminate\Database\Seeder;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -39,17 +40,17 @@ class RolePermissionSeeder extends Seeder
         */
 
         $client = Role::firstOrCreate([
-            'name' => 'Client',
+            'name' => RoleSecurity::CLIENT,
             'guard_name' => 'web',
         ]);
 
         $admin = Role::firstOrCreate([
-            'name' => 'Admin',
+            'name' => RoleSecurity::LEGAL_STAFF,
             'guard_name' => 'web',
         ]);
 
         $superAdmin = Role::firstOrCreate([
-            'name' => 'super_admin',
+            'name' => RoleSecurity::SUPER_ADMIN,
             'guard_name' => 'web',
         ]);
 
@@ -59,18 +60,18 @@ class RolePermissionSeeder extends Seeder
         |--------------------------------------------------------------------------
         */
 
-        $client->syncPermissions([
+        $client->givePermissionTo([
             'view_shared_messages',
             'reply_shared_messages',
         ]);
 
-        $admin->syncPermissions([
+        $admin->givePermissionTo([
             'view_shared_messages',
             'reply_shared_messages',
             'close_conversations',
         ]);
 
-        $superAdmin->syncPermissions(
+        $superAdmin->givePermissionTo(
             Permission::all()
         );
 
