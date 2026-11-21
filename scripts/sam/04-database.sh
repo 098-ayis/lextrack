@@ -60,7 +60,12 @@ load_config() {
     SAM_ENV_FILE="$SAM_INSTALL_DIR/.env.production"
 }
 compose() { docker compose --project-name "$SAM_PRODUCTION_PROJECT_NAME" --env-file "$SAM_ENV_FILE" --file "$SAM_PRODUCTION_COMPOSE_FILE" "$@"; }
-app() { compose exec -T web php artisan "$@"; }
+app() {
+    compose exec -T web sh -c '
+        export DB_PASSWORD="$(cat /run/secrets/db_password)"
+        exec php artisan "$@"
+    ' sh "$@"
+}
 db_name() { awk -F= '$1=="DB_DATABASE" {print $2; exit}' "$SAM_ENV_FILE"; }
 db_user() { awk -F= '$1=="DB_USERNAME" {print $2; exit}' "$SAM_ENV_FILE"; }
 validate_identifier() { [[ "$1" =~ ^[A-Za-z0-9_]+$ ]] || sam_die "Unsafe database identifier in production configuration"; }
