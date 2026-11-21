@@ -98,7 +98,19 @@ main() {
         sam_log "Loading Docker images from the offline package."
         docker load --input "$SAM_OFFLINE_PACKAGE" >/dev/null
     fi
-    compose_with_env up --detach --no-build --pull never
+    # Initialize the database before starting background workers.
+    sam_log "Running database migrations."
+    bash "${SCRIPT_DIR}/04-database.sh" migrate \
+        --destination "$SAM_INSTALL_DIR"
+
+    sam_log "Seeding reference data."
+    bash "${SCRIPT_DIR}/04-database.sh" seed \
+        --destination "$SAM_INSTALL_DIR"
+
+    # Start the remaining services after database initialization.
+    sam_log "Starting queue and scheduler."
+    compose_with_env up -d --no-build --pull never queue scheduler
+
     wait_for_services
     sam_log "LexTrack production installation completed without resetting data or credentials."
 }

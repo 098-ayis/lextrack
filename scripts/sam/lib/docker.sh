@@ -93,8 +93,17 @@ sam_production_compose_destructive() {
     esac
 
     sam_require_production_confirmation "$confirmation" || return 1
+    sam_validate_project_name "$SAM_PRODUCTION_PROJECT_NAME" || return 1
+    sam_validate_compose_file "$SAM_PRODUCTION_COMPOSE_FILE" || return 1
+    sam_require_docker_compose_v2 || return 1
+
     shift 2
-    sam_production_compose "$action" "$@"
+
+    docker compose \
+        --project-name "$SAM_PRODUCTION_PROJECT_NAME" \
+        --file "$SAM_PRODUCTION_COMPOSE_FILE" \
+        --env-file "$SAM_ENV_FILE" \
+        "$action" "$@"
 }
 
 sam_remove_production_volume() {

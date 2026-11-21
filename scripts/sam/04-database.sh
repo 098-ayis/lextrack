@@ -89,7 +89,7 @@ do_backup() {
     local database username
     database=$(db_name); username=$(db_user); validate_identifier "$database"; validate_identifier "$username"
     umask 077
-    compose exec -T mysql sh -c 'exec mysqldump --single-transaction --routines --triggers -h 127.0.0.1 -u "$1" --password="$(cat /run/secrets/db_password)" "$2"' sh "$username" "$database" | gzip -n > "$target"
+    compose exec -T mysql sh -c 'exec mysqldump --single-transaction --routines --triggers --no-tablespaces -h 127.0.0.1 -u "$1" --password="$(cat /run/secrets/db_password)" "$2"' sh "$username" "$database" | gzip -n > "$target"
     validate_backup "$target"
     sam_log "Created validated database backup: $target"
 }

@@ -26,8 +26,13 @@ parse_args() { while (($#)); do case "$1" in
     --dry-run) SAM_DRY_RUN=true; shift;; --remove-volumes) SAM_REMOVE_VOLUMES=true; shift;; --confirm-volumes) SAM_CONFIRM_VOLUMES=true; shift;;
     --confirm) [[ $# -gt 1 ]] || sam_die "--confirm requires TEXT"; SAM_CONFIRM=$2; shift 2;; --confirm=*) SAM_CONFIRM=${1#*=}; shift;;
     --help|-h) usage; exit 0;; *) sam_die "Unknown option: $1";; esac; done; }
+
 main() {
-    parse_args "$@"; sam_verify_production_layout; sam_require_docker_prerequisites; sam_validate_production_target "$SAM_PRODUCTION_PROJECT_NAME" "$SAM_PRODUCTION_COMPOSE_FILE"
+    parse_args "$@"
+    SAM_ENV_FILE="${SAM_INSTALL_DIR}/.env.production"
+    sam_verify_production_layout
+    sam_require_docker_prerequisites
+    sam_validate_production_target "$SAM_PRODUCTION_PROJECT_NAME" "$SAM_PRODUCTION_COMPOSE_FILE"
     sam_log "Target project: $SAM_PRODUCTION_PROJECT_NAME"
     sam_log "Affected containers: web, mysql, queue, scheduler (if present)"
     sam_log "Affected network: lextrack-production (if present)"
