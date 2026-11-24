@@ -143,8 +143,11 @@
             return (float) $matches[1] * $multiplier;
         };
 
-        $documentMatchesSearch = function (array $document) use ($normalizedSearch, $sourceFilter): bool {
-            if ($sourceFilter !== 'all' && ($document['office_unit'] ?? null) !== $sourceFilter) {
+        $documentMatchesSource = fn (array $document): bool =>
+            $sourceFilter === 'all' || ($document['office_unit'] ?? null) === $sourceFilter;
+
+        $documentMatchesSearch = function (array $document) use ($normalizedSearch, $documentMatchesSource): bool {
+            if (! $documentMatchesSource($document)) {
                 return false;
             }
 
@@ -178,7 +181,25 @@
             return $offices;
         };
 
-        $nodeMatchesSearch = function (array $node) use (&$nodeMatchesSearch, $normalizedSearch, $documentMatchesSearch): bool {
+        $nodeContainsSource = function (array $node) use (&$nodeContainsSource, $sourceFilter, $documentMatchesSource): bool {
+            if ($sourceFilter === 'all' || collect($node['documents'] ?? [])->contains($documentMatchesSource)) {
+                return true;
+            }
+
+            foreach ($node['children'] ?? [] as $child) {
+                if ($nodeContainsSource($child)) {
+                    return true;
+                }
+            }
+
+            return false;
+        };
+
+        $nodeMatchesSearch = function (array $node) use (&$nodeMatchesSearch, $normalizedSearch, $documentMatchesSearch, $nodeContainsSource): bool {
+            if (! $nodeContainsSource($node)) {
+                return false;
+            }
+
             if ($normalizedSearch === '') {
                 return true;
             }
@@ -233,7 +254,12 @@
             ->filter(fn (array $node): bool => $nodeMatchesSearch($node));
         $rootNodes = $sortBy === 'name' ? $rootNodes->values() : $sortNodes($rootNodes)->values();
 
-        $sourceNodes = $isRoot ? $rootNodes->all() : [$currentNode];
+        $sourceNodes = $isRoot
+            ? collect($this->cabinetTree)
+                ->filter(fn (array $node, string $name): bool => $this instanceof \App\Filament\Pages\RecycleBin || $name !== 'Recycle Bin')
+                ->values()
+                ->all()
+            : [$currentNode];
         $filterOptions = collect($collectOffices($sourceNodes))->unique()->sort()->values();
 
         $currentDocuments = collect($currentNode['documents'] ?? [])
@@ -365,7 +391,7 @@
                 <span class="cabinet-toolbar-divider" aria-hidden="true"></span>
 
 
-                @if($filterOptions->count() > 1)
+                @if($filterOptions->isNotEmpty())
                     <select wire:model.live="sourceFilter" aria-label="Filter by office or source" class="cabinet-source-filter cabinet-toolbar-control rounded-lg px-3 py-2.5 text-sm font-medium text-gray-800 dark:text-gray-100">
                         <option value="all">All sources</option>
                         @foreach ($filterOptions as $office)
@@ -374,300 +400,10 @@
                     </select>
                 @endif
 
-                {{-- SORT --}}
-                <div
-                    x-data="{ open: false }"
-                    class="relative"
-                >
-
-                    <button
-                        type="button"
-                        @click="open = !open"
-                        class="cabinet-toolbar-control inline-flex items-center gap-1.5 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-800 transition dark:text-gray-100"
-                    >
-
-                        <x-heroicon-o-arrows-up-down class="h-5 w-5" /> Sort
-
-                        <x-heroicon-m-chevron-down
-                            class="h-4 w-4 text-gray-400"
-                        />
-
-                    </button>
-
-
-                    <div
-                        x-show="open"
-                        x-transition
-                        @click.outside="open = false"
-                        class="absolute left-0 z-50 mt-2 w-52 rounded-xl border border-gray-200 bg-white p-1.5 shadow-xl dark:border-gray-700 dark:bg-gray-900"
-                    >
-
-                        <button
-                            wire:click="setSort('name')"
-                            @click="open = false"
-                            class="flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-sm hover:bg-gray-100 dark:hover:bg-gray-800"
-                        >
-
-                            <span>Name</span>
-
-                            @if($sortBy === 'name')
-                                <x-heroicon-m-check class="h-4 w-4 text-indigo-600" />
-                            @endif
-
-                        </button>
-
-
-                        <button
-                            wire:click="setSort('date')"
-                            @click="open = false"
-                            class="flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-sm hover:bg-gray-100 dark:hover:bg-gray-800"
-                        >
-
-                            <span>Date modified</span>
-
-                            @if($sortBy === 'date')
-                                <x-heroicon-m-check class="h-4 w-4 text-indigo-600" />
-                            @endif
-
-                        </button>
-
-
-                        <button
-                            wire:click="setSort('size')"
-                            @click="open = false"
-                            class="flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-sm hover:bg-gray-100 dark:hover:bg-gray-800"
-                        >
-
-                            <span>Size</span>
-
-                            @if($sortBy === 'size')
-                                <x-heroicon-m-check class="h-4 w-4 text-indigo-600" />
-                            @endif
-
-                        </button>
-
-                    </div>
-
-                </div>
-
-
-                {{-- VIEW --}}
-                <div
-                    x-data="{ open: false }"
-                    class="relative"
-                >
-
-                    <button
-                        type="button"
-                        @click="open = !open"
-                        class="cabinet-toolbar-control inline-flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-800 transition dark:text-gray-100"
-                    >
-
-                        <x-heroicon-o-squares-2x2 class="h-5 w-5" />
-
-                        View
-
-                        <x-heroicon-m-chevron-down
-                            class="h-4 w-4 text-gray-400"
-                        />
-
-                    </button>
-
-
-                    {{-- WINDOWS-STYLE VIEW MENU --}}
-                    <div
-                        x-show="open"
-                        x-transition
-                        @click.outside="open = false"
-                        class="absolute right-0 z-50 mt-2 w-64 overflow-visible rounded-xl border border-gray-200 bg-white py-2 shadow-xl dark:border-gray-700 dark:bg-gray-900"
-                    >
-
-                        {{-- TILES --}}
-                        <button
-                            wire:click="setViewMode('tiles')"
-                            @click="open = false"
-                            class="flex w-full items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-100 dark:hover:bg-gray-800"
-                        >
-
-                            <span class="flex w-4 justify-center">
-
-                                @if($viewMode === 'tiles')
-                                    <span class="h-1.5 w-1.5 rounded-full bg-gray-600 dark:bg-gray-300"></span>
-                                @endif
-
-                            </span>
-
-                            <x-heroicon-o-squares-2x2
-                                class="h-5 w-5 text-gray-500"
-                            />
-
-                            <span>Tiles</span>
-
-                        </button>
-
-
-                        {{-- CONTENT --}}
-                        <button
-                            wire:click="setViewMode('content')"
-                            @click="open = false"
-                            class="flex w-full items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-100 dark:hover:bg-gray-800"
-                        >
-
-                            <span class="flex w-4 justify-center">
-
-                                @if($viewMode === 'content')
-                                    <span class="h-1.5 w-1.5 rounded-full bg-gray-600 dark:bg-gray-300"></span>
-                                @endif
-
-                            </span>
-
-                            <x-heroicon-o-list-bullet
-                                class="h-5 w-5 text-gray-500"
-                            />
-
-                            <span>Content</span>
-
-                        </button>
-
-
-                        <div class="my-2 border-t border-gray-200 dark:border-gray-700"></div>
-
-
-                        {{-- DETAILS PANE --}}
-                        <button
-                            wire:click="toggleDetailsPane"
-                            @click="open = false"
-                            class="flex w-full items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-100 dark:hover:bg-gray-800"
-                        >
-
-                            <span class="flex w-4 justify-center">
-
-                                @if($detailsPane)
-                                    <span class="h-1.5 w-1.5 rounded-full bg-gray-600 dark:bg-gray-300"></span>
-                                @endif
-
-                            </span>
-
-                            <x-heroicon-o-rectangle-group
-                                class="h-5 w-5 text-gray-500"
-                            />
-
-                            <span>Details pane</span>
-
-                        </button>
-
-
-                        {{-- PREVIEW PANE --}}
-                        <button
-                            wire:click="togglePreviewPane"
-                            @click="open = false"
-                            class="flex w-full items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-100 dark:hover:bg-gray-800"
-                        >
-
-                            <span class="flex w-4 justify-center">
-
-                                @if($previewPane)
-                                    <span class="h-1.5 w-1.5 rounded-full bg-gray-600 dark:bg-gray-300"></span>
-                                @endif
-
-                            </span>
-
-                            <x-heroicon-o-document-magnifying-glass
-                                class="h-5 w-5 text-gray-500"
-                            />
-
-                            <span>Preview pane</span>
-
-                        </button>
-
-
-                        <div class="my-2 border-t border-gray-200 dark:border-gray-700"></div>
-
-
-                        {{-- SHOW SUBMENU --}}
-                        <div
-                            x-data="{ show: false }"
-                            class="relative"
-                        >
-
-                            <button
-                                type="button"
-                                @mouseenter="show = true"
-                                @click="show = !show"
-                                class="flex w-full items-center justify-between px-4 py-2.5 text-sm hover:bg-gray-100 dark:hover:bg-gray-800"
-                            >
-
-                                <span class="flex items-center gap-7">
-
-                                    <span class="w-4"></span>
-
-                                    <span>Show</span>
-
-                                </span>
-
-                                <x-heroicon-m-chevron-right
-                                    class="h-4 w-4 text-gray-400"
-                                />
-
-                            </button>
-
-
-                            {{-- SUBMENU --}}
-                            <div
-                                x-show="show"
-                                @mouseleave="show = false"
-                                class="absolute right-full top-0 mr-1 w-56 rounded-xl border border-gray-200 bg-white p-1.5 shadow-xl dark:border-gray-700 dark:bg-gray-900"
-                            >
-
-                                <button
-                                    wire:click="toggleFileExtensions"
-                                    class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-gray-100 dark:hover:bg-gray-800"
-                                >
-
-                                    <span class="w-4">
-
-                                        @if($showFileExtensions)
-                                            ✓
-                                        @endif
-
-                                    </span>
-
-                                    File name extensions
-
-                                </button>
-
-
-                                <button
-                                    class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-gray-100 dark:hover:bg-gray-800"
-                                >
-
-                                    <span class="w-4"></span>
-
-                                    Hidden items
-
-                                </button>
-
-                            </div>
-
-                        </div>
-
-                    </div>
-
-                </div>
-
-
-
-
                 @if (!$this instanceof \App\Filament\Pages\RecycleBin)
-                <div x-data="{ open: false }" class="relative" @click.outside="open = false" @keydown.escape.window="open = false">
-                    <button type="button" @click="open = !open" :aria-expanded="open" class="inline-flex items-center gap-2 rounded-lg bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-600">
-                        <x-heroicon-o-plus-circle class="h-5 w-5" /> New <x-heroicon-m-chevron-down class="h-4 w-4" />
+                    <button type="button" wire:click="prepareAddFolder" class="inline-flex items-center gap-2 rounded-lg bg-indigo-500 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-600">
+                        <x-heroicon-o-folder-plus class="h-5 w-5" /> New folder
                     </button>
-                    <div x-show="open" x-cloak class="absolute right-0 z-50 mt-2 rounded-lg bg-white p-2 shadow-xl dark:bg-gray-800" style="min-width:180px">
-                        <button type="button" @click="open = false" wire:click="prepareAddFolder" class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm"><x-heroicon-o-folder-plus class="h-5 w-5" /> Folder</button>
-                        <button type="button" @click="open = false" wire:click="prepareAddDocument" class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm"><x-heroicon-o-document-plus class="h-5 w-5" /> Document</button>
-                    </div>
-                </div>
                 @endif
             </div>
 

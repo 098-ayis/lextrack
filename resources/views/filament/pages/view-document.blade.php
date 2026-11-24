@@ -1,14 +1,16 @@
 <x-filament-panels::page>
     @php
         $latestFilePath = $documentRecord->latestVersion?->file_path;
-        $actionTypeColor = filled($documentRecord->action_type)
-            ? \App\Models\ActionType::query()->where('action_name', $documentRecord->action_type)->value('color')
+        $actionTypeColor = filled($documentRecord->action_type_label)
+            ? ($documentRecord->actionType?->color
+                ?? \App\Models\ActionType::query()->where('action_name', $documentRecord->action_type)->value('color'))
             : null;
         if (! is_string($actionTypeColor) || ! preg_match('/^#[0-9a-f]{6}$/i', $actionTypeColor)) {
             $actionTypeColor = '#64748B';
         }
-        $documentTypeColor = filled($documentRecord->document_type)
-            ? \App\Models\DocumentType::query()->where('type_name', $documentRecord->document_type)->value('color')
+        $documentTypeColor = filled($documentRecord->document_type_label)
+            ? ($documentRecord->documentType?->color
+                ?? \App\Models\DocumentType::query()->where('type_name', $documentRecord->document_type)->value('color'))
             : null;
         if (! is_string($documentTypeColor) || ! preg_match('/^#[0-9a-f]{6}$/i', $documentTypeColor)) {
             $documentTypeColor = '#64748B';
@@ -25,12 +27,8 @@
         foreach ($documentRecord->transmittalAttachments as $attachment) {
             $transmittalFiles->push(['id' => $attachment->transmittal_id, 'path' => $attachment->file_path]);
         }
-        if ($transmittalFiles->isEmpty() && filled($documentRecord->transmittal)) {
-            $transmittalFiles->push(['id' => null, 'path' => $documentRecord->transmittal]);
-        }
-        $transmittalFilePath = $selectedTransmittalId === null
-            ? $documentRecord->transmittal
-            : $documentRecord->transmittalAttachments->firstWhere('transmittal_id', $selectedTransmittalId)?->file_path;
+        $transmittalFilePath = $documentRecord->transmittalAttachments
+            ->firstWhere('transmittal_id', $selectedTransmittalId)?->file_path;
         $displayedFilePath = $isTransmittalSelected
             ? $transmittalFilePath
             : ($selectedVersion?->file_path ?? $latestFilePath);
@@ -223,16 +221,16 @@
                                             </select>
                                         @endif
                                     </div>
-                                @elseif (filled($documentRecord->document_type))
-                                    <span class="document-table-badge" style="--badge-color: {{ $documentTypeColor }}; background-color: color-mix(in srgb, var(--badge-color) 14%, white); color: var(--badge-color); border-color: color-mix(in srgb, var(--badge-color) 18%, transparent);">{{ $documentRecord->document_type }}</span>
+                                @elseif (filled($documentRecord->document_type_label))
+                                    <span class="document-table-badge" style="--badge-color: {{ $documentTypeColor }}; background-color: color-mix(in srgb, var(--badge-color) 14%, white); color: var(--badge-color); border-color: color-mix(in srgb, var(--badge-color) 18%, transparent);">{{ $documentRecord->document_type_label }}</span>
                                 @else
                                     <span>—</span>
                                 @endif
                             </dd>
                         </div>
-                        <div class="document-detail-row"><dt>Office / Unit</dt><dd>@if ($isEditingDetails)<select class="document-inline-field document-inline-select" wire:model.live="documentDetailsForm.office_unit" aria-label="Office / Unit"><option value="">Select an office or unit</option>@foreach ($this->getOfficeUnitOptions() as $value => $label)<option value="{{ $value }}">{{ $label }}</option>@endforeach</select>@else{{ $documentRecord->office_unit ?: '—' }}@endif</dd></div>
+                        <div class="document-detail-row"><dt>Office / Unit</dt><dd>@if ($isEditingDetails)@if (($documentDetailsForm['office_unit'] ?? null) === \App\Filament\Pages\ViewDocument::OTHER_OFFICE_UNIT_VALUE)<input class="document-inline-field" wire:model.live.debounce.500ms="documentDetailsForm.office_unit_other" aria-label="Other Office / Unit" placeholder="Specify office or unit">@else<select class="document-inline-field document-inline-select" wire:model.live="documentDetailsForm.office_unit" aria-label="Office / Unit"><option value="">Select an office or unit</option>@foreach ($this->getOfficeUnitOptions() as $value => $label)<option value="{{ $value }}">{{ $label }}</option>@endforeach</select>@endif @else{{ $documentRecord->office_unit_label ?: '—' }}@endif</dd></div>
                         <div class="document-detail-row"><dt>Particulars</dt><dd>@if ($isEditingDetails)<textarea class="document-inline-field document-inline-textarea" wire:model.live.debounce.500ms="documentDetailsForm.particulars" aria-label="Particulars" rows="2"></textarea>@else{{ $documentRecord->particulars ?: $documentRecord->description ?: '—' }}@endif</dd></div>
-                        <div class="document-detail-row"><dt>Action Taken</dt><dd>@if ($isEditingDetails)<select class="document-inline-field document-inline-select" wire:model.live="documentDetailsForm.action_type" aria-label="Action Taken"><option value="">Select an action type</option>@foreach ($this->getActionTypeOptions() as $value => $label)<option value="{{ $value }}">{{ $label }}</option>@endforeach</select>@elseif (filled($documentRecord->action_type))<span class="document-table-badge document-action-badge" style="--badge-color: {{ $actionTypeColor }}">{{ $documentRecord->action_type }}</span>@else<span>Not set</span>@endif</dd></div>
+                        <div class="document-detail-row"><dt>Action Taken</dt><dd>@if ($isEditingDetails)@if (($documentDetailsForm['action_type'] ?? null) === \App\Filament\Pages\ViewDocument::OTHER_ACTION_TYPE_VALUE)<input class="document-inline-field" wire:model.live.debounce.500ms="documentDetailsForm.action_type_other" aria-label="Other Action Taken" placeholder="Specify action taken">@else<select class="document-inline-field document-inline-select" wire:model.live="documentDetailsForm.action_type" aria-label="Action Taken"><option value="">Select an action type</option>@foreach ($this->getActionTypeOptions() as $value => $label)<option value="{{ $value }}">{{ $label }}</option>@endforeach</select>@endif @elseif (filled($documentRecord->action_type_label))<span class="document-table-badge document-action-badge" style="--badge-color: {{ $actionTypeColor }}">{{ $documentRecord->action_type_label }}</span>@else<span>Not set</span>@endif</dd></div>
                         <div class="document-detail-row"><dt>Deadline</dt><dd>@if ($isEditingDetails)<input class="document-inline-field" type="date" wire:model.live="documentDetailsForm.deadline" aria-label="Deadline">@else{{ $documentRecord->deadline?->format('F d, Y') ?? 'Not set' }}@endif</dd></div>
                         @if (! in_array($documentRecord->status, ['pending', 'in_progress'], true))
                             <div class="document-detail-row"><dt>Outgoing Date</dt><dd>@if ($isEditingDetails)<input class="document-inline-field" type="date" wire:model.live="documentDetailsForm.outgoing_date" aria-label="Outgoing Date">@else{{ $documentRecord->outgoing_date?->format('F d, Y') ?? 'Not set' }}@endif</dd></div>
@@ -278,15 +276,11 @@
                                             $transmittalAttachmentId = $transmittalFile['id'];
                                             $transmittalIsSelected = $isTransmittalSelected
                                                 && $selectedTransmittalId === $transmittalAttachmentId;
-                                            $transmittalPreviewRoute = $transmittalAttachmentId === null
-                                                ? route('admin.documents.transmittal.preview', ['document' => $documentRecord->public_id])
-                                                : route('admin.documents.transmittal-attachment.preview', ['document' => $documentRecord->public_id, 'attachment' => $transmittalAttachmentId]);
-                                            $transmittalDownloadRoute = $transmittalAttachmentId === null
-                                                ? route('admin.documents.transmittal.download', ['document' => $documentRecord->public_id])
-                                                : route('admin.documents.transmittal-attachment.download', ['document' => $documentRecord->public_id, 'attachment' => $transmittalAttachmentId]);
+                                            $transmittalPreviewRoute = route('admin.documents.transmittal-attachment.preview', ['document' => $documentRecord->public_id, 'attachment' => $transmittalAttachmentId]);
+                                            $transmittalDownloadRoute = route('admin.documents.transmittal-attachment.download', ['document' => $documentRecord->public_id, 'attachment' => $transmittalAttachmentId]);
                                         @endphp
                                     <div class="document-file-row">
-                                        <button type="button" wire:click="selectTransmittal({{ $transmittalAttachmentId ?? 'null' }})" wire:loading.attr="disabled" class="document-file-select {{ $transmittalIsSelected ? 'is-selected' : '' }}" title="Preview transmittal">
+                                        <button type="button" wire:click="selectTransmittal({{ $transmittalAttachmentId }})" wire:loading.attr="disabled" class="document-file-select {{ $transmittalIsSelected ? 'is-selected' : '' }}" title="Preview transmittal">
                                             <span class="document-file-badge {{ $fileBadgeClass($transmittalFileName) }}">{{ strtoupper(pathinfo($transmittalFileName, PATHINFO_EXTENSION)) ?: 'FILE' }}</span>
                                             <span class="document-file-name">{{ $transmittalFileName }}</span>
                                         </button>

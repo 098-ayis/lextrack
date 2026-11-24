@@ -40,7 +40,7 @@
 @php
 $rows = [[$p('Date',true,18),$p('Document / type',true,18),$p('Accomplishment',true,18),$p('Date accomplished',true,18)]];
 foreach ($entries as $entry) {
-    $rows[] = [$p($entry->created_at->format('M d, Y'),false,18),$p($entry->document?->lao_number ?? 'Unavailable document',false,18).$p($entry->document?->document_type ?? '',false,18),$p($entry->action_type,true,18).$p(\Illuminate\Support\Str::limit($entry->action_details,180),false,18),$p($entry->document?->date_accomplished?->format('M d, Y') ?? '—',false,18)];
+    $rows[] = [$p($entry->created_at->format('M d, Y'),false,18),$p($entry->document?->lao_number ?? 'Unavailable document',false,18).$p($entry->document?->document_type_label ?? '',false,18),$p($entry->action_type,true,18).$p(\Illuminate\Support\Str::limit($entry->action_details,180),false,18),$p($entry->document?->date_accomplished?->format('M d, Y') ?? '—',false,18)];
 }
 if ($entries->isEmpty()) { $rows[] = [$p(''),$p(''),$p('No processing activities recorded for this month.',false,18),$p('')]; }
 @endphp

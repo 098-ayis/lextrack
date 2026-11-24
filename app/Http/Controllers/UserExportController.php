@@ -26,7 +26,6 @@ class UserExportController extends Controller
             fputcsv($handle, [
                 'Full Name',
                 'Email',
-                'Username',
                 'Status',
                 'Role',
                 'Joined Date',
@@ -40,7 +39,6 @@ class UserExportController extends Controller
                     fputcsv($handle, [
                         $user->name,
                         $user->email,
-                        $user->user_id,
                         $user->status,
                         $user->getRoleNames()->join(', '),
                         $user->join_date,

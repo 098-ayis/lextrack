@@ -311,7 +311,7 @@ class Dashboard extends Page
     public function getRecentDocuments()
     {
         return Document::query()
-            ->with(['latestVersion'])
+            ->with(['latestVersion', 'documentType', 'officeUnit', 'actionType'])
 
             // Request-only records are shown on the Document Requests page,
             // so keep them out of the dashboard's Recent Documents cards.
@@ -341,7 +341,7 @@ class Dashboard extends Page
 
             ->when(
                 $this->documentTypeFilter !== '',
-                fn ($query) => $query->where('document_type', $this->documentTypeFilter)
+                fn ($query) => $query->forDocumentType($this->documentTypeFilter)
             )
 
             /*

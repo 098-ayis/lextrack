@@ -1,5 +1,5 @@
 <div class="flex items-center justify-center">
-    @if (filled($record->transmittal))
+    @if ($record->transmittalAttachments->isNotEmpty())
         @include('filament.actions.transmittal-preview', [
             'document' => $record,
             'compact' => true,

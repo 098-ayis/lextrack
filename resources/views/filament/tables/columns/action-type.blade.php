@@ -1,7 +1,8 @@
 @php
-    $actionType = $record->action_type;
+    $actionType = $record->action_type_label;
     $color = $actionType
-        ? \App\Models\ActionType::query()->where('action_name', $actionType)->value('color')
+        ? ($record->actionType?->color
+            ?? \App\Models\ActionType::query()->where('action_name', $record->action_type)->value('color'))
         : null;
 @endphp
 

@@ -6,7 +6,7 @@
     $displayDocumentName = $documentName
         ? \Illuminate\Support\Str::limit($documentName, 25)
         : 'Unnamed document';
-    $documentType = $record->document_type;
+    $documentType = $record->document_type_label;
     $color = $documentType
         ? \App\Models\DocumentType::query()
             ->where('type_name', $documentType)

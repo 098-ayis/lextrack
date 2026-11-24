@@ -59,8 +59,13 @@ class CabinetTest extends TestCase
         $page->loadCabinet();
         $this->assertCount(1, $page->cabinet['Staff files']['Documents']);
         $this->assertSame(1, $page->folderFileCount('Staff files'));
+        $this->assertArrayHasKey('Staff files', $page->cabinetTree);
+        $this->assertArrayNotHasKey('Staff files', $page->cabinetTree['Document Types']['children']);
+        $this->assertSame(['Staff files'], $page->cabinetTree['Staff files']['path']);
         $this->assertCount(2, $page->cabinet['Others']['Affidavit']);
         $this->assertSame([], $page->cabinet['Empty folder']['Documents']);
+        $this->assertArrayHasKey('Empty folder', $page->cabinetTree);
+        $this->assertArrayNotHasKey('Empty folder', $page->cabinetTree['Document Types']['children']);
         DB::table('cabinet_folders')->where('id', $empty)->update(['recycled_at' => now()]);
         $page->loadCabinet();
         $this->assertArrayNotHasKey('Empty folder', $page->cabinet);

@@ -66,8 +66,8 @@ class DocumentStatusTimeline
                 $timeline[] = $entry;
             }
 
-            if ($isAcceptedEvent && filled($document->action_type)) {
-                $actionType = trim((string) $document->action_type);
+            if ($isAcceptedEvent && filled($document->action_type_label)) {
+                $actionType = trim((string) $document->action_type_label);
 
                 $timeline[] = $this->timelineEntry(
                     'action',

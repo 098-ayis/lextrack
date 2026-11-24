@@ -176,6 +176,9 @@ class Documents extends Page implements HasTable
     protected function documentsQuery(): Builder
     {
         $query = Document::query()->with([
+            'documentType',
+            'officeUnit',
+            'actionType',
             'clientViews' => fn (HasMany $viewQuery) => $viewQuery
                 ->where('user_id', auth()->id()),
         ]);
@@ -223,10 +226,7 @@ class Documents extends Page implements HasTable
             )
             ->when(
                 $this->documentType !== '',
-                fn ($query) => $query->where(
-                    'document_type',
-                    $this->documentType
-                )
+                fn ($query) => $query->forDocumentType($this->documentType)
             )
             ->when(
                 trim($this->documentSearch) !== '',
@@ -567,6 +567,19 @@ class Documents extends Page implements HasTable
                                 'document' => $record->getPublicRouteKey(),
                             ])
                             : null
+                ),
+
+            Action::make('view')
+                ->label('View')
+                ->icon('heroicon-o-eye')
+                ->color('gray')
+                ->tooltip('View document')
+                ->url(
+                    fn (Document $record): string => ViewDocument::getUrl([
+                        'document' => $record->getPublicRouteKey(),
+                        'from' => 'documents',
+                        'tab' => $this->activeTab,
+                    ])
                 ),
 
             Action::make('documentQrCode')

@@ -56,6 +56,7 @@ class DashboardDocumentTable extends Widget
     protected function documentsQuery(): Builder
     {
         return Document::query()
+            ->with(['documentType', 'officeUnit', 'actionType'])
             ->where(function (Builder $query): void {
                 $query
                     ->where(function (Builder $ownedQuery): void {
@@ -77,10 +78,7 @@ class DashboardDocumentTable extends Widget
             })
             ->when(
                 $this->documentType !== '',
-                fn (Builder $query) => $query->where(
-                    'document_type',
-                    $this->documentType
-                )
+                fn (Builder $query) => $query->forDocumentType($this->documentType)
             )
             ->when(
                 $this->documentStatus !== '',

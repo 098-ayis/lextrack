@@ -13,7 +13,7 @@
             Office/Unit:
         </span>
         <span class="font-medium text-gray-800 dark:text-gray-200">
-            {{ $record->office_unit ?: 'Office not specified' }}
+            {{ $record->office_unit_label ?: 'Office not specified' }}
         </span>
     </div>
 </div>

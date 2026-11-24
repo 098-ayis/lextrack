@@ -132,7 +132,7 @@
                         @forelse ($entries as $entry)
                             <tr>
                                 <td>{{ $entry->created_at->format('M d, Y') }}</td>
-                                <td>{{ $entry->document?->lao_number ?? 'Unavailable document' }}<br>{{ $entry->document?->document_type }}</td>
+                                <td>{{ $entry->document?->lao_number ?? 'Unavailable document' }}<br>{{ $entry->document?->document_type_label }}</td>
                                 <td><strong>{{ $entry->action_type }}</strong><br>{{ \Illuminate\Support\Str::limit($entry->action_details, 180) }}</td>
                                 <td>{{ $entry->document?->date_accomplished?->format('M d, Y') ?? '—' }}</td>
                             </tr>

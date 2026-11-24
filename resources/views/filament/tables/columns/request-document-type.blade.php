@@ -1,5 +1,5 @@
 @php
-    $documentType = $record->document?->document_type;
+    $documentType = $record->document?->document_type_label;
     $color = $documentType
         ? \App\Models\DocumentType::query()->where('type_name', $documentType)->value('color')
         : null;

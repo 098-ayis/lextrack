@@ -103,7 +103,7 @@
                                 {{-- DOCUMENT TYPE --}}
                                 <td class="px-6 py-5">
                                     <span class="text-base font-semibold text-gray-900 dark:text-gray-100">
-                                        {{ $document->document_type ?? 'N/A' }}
+                                        {{ $document->document_type_label ?? 'N/A' }}
                                     </span>
                                 </td>
 
@@ -173,9 +173,9 @@
                                         {{ $statusLabel }}
                                     </span>
 
-                                    @if (filled($document->action_type) && in_array($document->status, ['in_progress', 'outgoing'], true))
+                                    @if (filled($document->action_type_label) && in_array($document->status, ['in_progress', 'outgoing'], true))
                                         <span class="mt-2 block text-xs font-semibold text-gray-600 dark:text-gray-300">
-                                            Action Taken: {{ $document->action_type }}
+                                            Action Taken: {{ $document->action_type_label }}
                                         </span>
                                     @endif
 

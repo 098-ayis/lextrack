@@ -69,6 +69,11 @@ class ActionTypeResource extends Resource
                 ColorColumn::make('color')
                     ->label('Color')
                     ->copyable(),
+                TextColumn::make('allows_custom_value')
+                    ->label('Custom values')
+                    ->badge()
+                    ->formatStateUsing(fn (bool $state): string => $state ? 'Allowed' : 'No')
+                    ->color(fn (bool $state): string => $state ? 'success' : 'gray'),
                 TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable(),
@@ -82,7 +87,8 @@ class ActionTypeResource extends Resource
                     ->modalWidth('xs')
                     ->successNotificationTitle('Action type updated successfully')
                     ->successRedirectUrl(fn (): string => ActionTypeResource::getUrl('index')),
-                \Filament\Actions\DeleteAction::make(),
+                \Filament\Actions\DeleteAction::make()
+                    ->hidden(fn (ActionType $record): bool => $record->allows_custom_value || $record->documents()->exists()),
             ])
             ->toolbarActions([
                 \Filament\Actions\CreateAction::make()
@@ -91,9 +97,6 @@ class ActionTypeResource extends Resource
                     ->createAnother(false)
                     ->successNotificationTitle('Action type created successfully')
                     ->successRedirectUrl(fn (): string => ActionTypeResource::getUrl('index')),
-                \Filament\Actions\BulkActionGroup::make([
-                    \Filament\Actions\DeleteBulkAction::make(),
-                ]),
             ])
             ->defaultSort('action_name');
     }

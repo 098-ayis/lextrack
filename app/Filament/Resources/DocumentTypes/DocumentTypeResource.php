@@ -86,6 +86,11 @@ class DocumentTypeResource extends Resource
                     ->suffix(' days')
                     ->placeholder('Not set')
                     ->sortable(),
+                TextColumn::make('allows_custom_value')
+                    ->label('Custom values')
+                    ->badge()
+                    ->formatStateUsing(fn (bool $state): string => $state ? 'Allowed' : 'No')
+                    ->color(fn (bool $state): string => $state ? 'success' : 'gray'),
                 ColorColumn::make('color')
                     ->label('Color')
                     ->copyable(),
@@ -102,7 +107,8 @@ class DocumentTypeResource extends Resource
                     ->modalWidth('md')
                     ->successNotificationTitle('Document type updated successfully')
                     ->successRedirectUrl(fn (): string => DocumentTypeResource::getUrl('index')),
-                \Filament\Actions\DeleteAction::make(),
+                \Filament\Actions\DeleteAction::make()
+                    ->hidden(fn (DocumentType $record): bool => $record->allows_custom_value || $record->documents()->exists()),
             ])
             ->toolbarActions([
                 \Filament\Actions\CreateAction::make()
@@ -111,9 +117,6 @@ class DocumentTypeResource extends Resource
                     ->createAnother(false)
                     ->successNotificationTitle('Document type created successfully')
                     ->successRedirectUrl(fn (): string => DocumentTypeResource::getUrl('index')),
-                \Filament\Actions\BulkActionGroup::make([
-                    \Filament\Actions\DeleteBulkAction::make(),
-                ]),
             ])
             ->defaultSort('type_name');
     }

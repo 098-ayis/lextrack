@@ -123,7 +123,6 @@ class DocumentVersion extends Model
         if (
             static::query()->where('file_path', $file)->exists()
             || MessageAttachment::query()->where('path', $file)->exists()
-            || Document::query()->where('transmittal', $file)->exists()
             || DocumentTransmittal::query()->where('file_path', $file)->exists()
         ) {
             return;

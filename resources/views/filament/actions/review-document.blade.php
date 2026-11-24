@@ -25,7 +25,7 @@
                 Office
             </p>
             <p class="mt-1 break-words text-sm font-medium text-gray-900 dark:text-gray-100">
-                {{ $document->office_unit ?: 'Not specified' }}
+                {{ $document->office_unit_label ?: 'Not specified' }}
             </p>
         </div>
 
@@ -34,7 +34,7 @@
                 Document type
             </p>
             <p class="mt-1 break-words text-sm font-medium text-gray-900 dark:text-gray-100">
-                {{ $document->document_type ?? 'Unknown' }}
+                {{ $document->document_type_label ?? 'Unknown' }}
             </p>
         </div>
     </div>

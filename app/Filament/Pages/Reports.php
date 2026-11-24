@@ -3,10 +3,13 @@
 namespace App\Filament\Pages;
 
 use App\Models\Document;
+use App\Models\DocumentType;
+use App\Models\OfficeUnit;
 use App\Support\RoleSecurity;
 use Filament\Pages\Page;
 use Filament\Support\Enums\Width;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Schema;
 use Livewire\WithPagination;
 use UnitEnum;
 
@@ -71,21 +74,15 @@ class Reports extends Page
         $counts = (clone $query)->selectRaw('status, COUNT(*) as total')->groupBy('status')->pluck('total', 'status');
 
         return [
-            'documents' => (clone $query)->with(['user', 'activityLogs'])->latest('created_at')->orderByDesc('document_id')->paginate(15),
+            'documents' => (clone $query)->with(['user', 'activityLogs', 'documentType', 'officeUnit', 'actionType'])->latest('created_at')->orderByDesc('document_id')->paginate(15),
             'counts' => $counts,
             'total' => $counts->sum(),
-            'types' => Document::query()
-                ->whereNotNull('document_type')
-                ->where('document_type', '<>', '')
-                ->distinct()
-                ->orderBy('document_type')
-                ->pluck('document_type'),
-            'offices' => Document::query()
-                ->whereNotNull('office_unit')
-                ->where('office_unit', '<>', '')
-                ->distinct()
-                ->orderBy('office_unit')
-                ->pluck('office_unit'),
+            'types' => Schema::hasTable('document_types')
+                ? DocumentType::query()->orderBy('type_name')->pluck('type_name')
+                : Document::query()->whereNotNull('document_type')->distinct()->orderBy('document_type')->pluck('document_type'),
+            'offices' => Schema::hasTable('office_units')
+                ? OfficeUnit::query()->orderBy('name')->pluck('name')
+                : Document::query()->whereNotNull('office_unit')->distinct()->orderBy('office_unit')->pluck('office_unit'),
         ];
     }
 
@@ -96,8 +93,8 @@ class Reports extends Page
         return Document::query()
             ->whereDate('created_at', '>=', $this->from)
             ->whereDate('created_at', '<=', $this->to)
-            ->when(filled($this->type), fn (Builder $query) => $query->where('document_type', $this->type))
-            ->when(filled($this->office), fn (Builder $query) => $query->where('office_unit', $this->office))
+            ->when(filled($this->type), fn (Builder $query) => $query->forDocumentType($this->type))
+            ->when(filled($this->office), fn (Builder $query) => $query->forOfficeUnit($this->office))
             ->when(filled($this->status), fn (Builder $query) => $query->where('status', $this->status))
             ->when($search !== '', function (Builder $query) use ($search): void {
                 $term = '%'.$search.'%';

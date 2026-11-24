@@ -74,6 +74,9 @@ class ViewDocument extends Page
                     );
             })
             ->with([
+                'documentType',
+                'officeUnit',
+                'actionType',
                 'latestVersion',
                 'versions.user',
                 'versions' => fn ($query) => $query
@@ -127,7 +130,6 @@ class ViewDocument extends Page
                 ->exists();
 
         $previewFilePath = $this->documentRecord->transmittalAttachments->first()?->file_path
-            ?: $this->documentRecord->transmittal
             ?: $this->documentRecord->latestVersion?->file_path;
 
         if ($canAccessFile && filled($previewFilePath)) {

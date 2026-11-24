@@ -133,7 +133,6 @@ Route::get('/client/document-preview/{document}', function (string $document) {
     $transmittal = $documentRecord->transmittalAttachments()->first();
 
     $filePath = $transmittal?->file_path
-        ?: $documentRecord->transmittal
         ?: $versionRecord?->file_path;
 
     $preferredDisk = $transmittal?->file_path
@@ -198,7 +197,6 @@ Route::get('/client/document-thumbnail/{document}', function (string $document) 
     $transmittal = $documentRecord->transmittalAttachments()->first();
 
     $filePath = $transmittal?->file_path
-        ?: $documentRecord->transmittal
         ?: $versionRecord?->file_path;
 
     $preferredDisk = $transmittal?->file_path
@@ -370,13 +368,8 @@ Route::get('/client/document-transmittal/{document}/preview', function (string $
         404,
     );
 
-    $filePath = $documentRecord->transmittal;
-
-    $attachment = $filePath
-        ? $documentRecord->transmittalAttachments()
-            ->where('file_path', $filePath)
-            ->first()
-        : null;
+    $attachment = $documentRecord->transmittalAttachments()->first();
+    $filePath = $attachment?->file_path;
 
     $diskName = $attachment?->file_disk ?: 'local';
 
@@ -412,12 +405,8 @@ Route::get('/client/document-transmittal/{document}/download', function (string 
         404,
     );
 
-    $filePath = $documentRecord->transmittal;
-    $attachment = $filePath
-        ? $documentRecord->transmittalAttachments()
-            ->where('file_path', $filePath)
-            ->first()
-        : null;
+    $attachment = $documentRecord->transmittalAttachments()->first();
+    $filePath = $attachment?->file_path;
     $diskName = $attachment?->file_disk ?: 'local';
 
     abort_unless(
@@ -648,13 +637,8 @@ Route::get('/admin/documents/{document}/thumbnail', function (string $document) 
 
 Route::get('/admin/documents/{document}/transmittal-preview', function (string $document) {
     $documentRecord = Document::findForRoute($document);
-    $filePath = $documentRecord->transmittal;
-
-    $attachment = $filePath
-        ? $documentRecord->transmittalAttachments()
-            ->where('file_path', $filePath)
-            ->first()
-        : null;
+    $attachment = $documentRecord->transmittalAttachments()->first();
+    $filePath = $attachment?->file_path;
 
     $diskName = $attachment?->file_disk ?: 'local';
 
@@ -677,12 +661,8 @@ Route::get('/admin/documents/{document}/transmittal-preview', function (string $
 
 Route::get('/admin/documents/{document}/transmittal-download', function (string $document) {
     $documentRecord = Document::findForRoute($document);
-    $filePath = $documentRecord->transmittal;
-    $attachment = $filePath
-        ? $documentRecord->transmittalAttachments()
-            ->where('file_path', $filePath)
-            ->first()
-        : null;
+    $attachment = $documentRecord->transmittalAttachments()->first();
+    $filePath = $attachment?->file_path;
     $diskName = $attachment?->file_disk ?: 'local';
 
     abort_unless(
@@ -886,7 +866,7 @@ Route::post('/api/track/qr', function (Request $request) {
             'found' => true,
             'document' => [
                 'tracking_number' => $document->lao_number,
-                'document_type' => $document->document_type ?? 'N/A',
+                'document_type' => $document->document_type_label ?? 'N/A',
                 'particulars' => $document->particulars,
                 'date_submitted' => $document->created_at?->format('F d, Y'),
                 'status' => $document->status,

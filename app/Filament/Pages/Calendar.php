@@ -460,7 +460,7 @@ class Calendar extends Page
 
                 $details = collect([
                     'Document deadline',
-                    $document->action_type,
+                    $document->action_type_label,
                     $document->office_unit,
                     $document->lao_number,
                 ])->filter()->implode(' · ');

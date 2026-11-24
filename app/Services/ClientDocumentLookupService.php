@@ -1061,8 +1061,8 @@ class ClientDocumentLookupService
             $statusLabel = $this->statusLabel($status);
             $reply = $status !== 'in_progress'
                 ? "{$label} is currently {$statusLabel}. An assigned action type is available only for an In Progress document."
-                : (filled($document->action_type)
-                ? "{$label} is currently {$statusLabel}. Assigned action type: {$document->action_type}."
+                : (filled($document->action_type_label)
+                ? "{$label} is currently {$statusLabel}. Assigned action type: {$document->action_type_label}."
                 : "{$label} is currently {$statusLabel}. No assigned action type has been recorded.");
         } elseif ($topic === 'status') {
             $reply = $this->statusResponse(
@@ -1283,10 +1283,10 @@ class ClientDocumentLookupService
             return 'The current document status is unavailable.';
         }
 
-        return filled($document->action_type)
+        return filled($document->action_type_label)
             ? ($filipinoLike
-                ? "{$label} ay In Progress. Assigned action type: {$document->action_type}."
-                : "{$label} is In Progress. Assigned action type: {$document->action_type}.")
+                ? "{$label} ay In Progress. Assigned action type: {$document->action_type_label}."
+                : "{$label} is In Progress. Assigned action type: {$document->action_type_label}.")
             : ($filipinoLike
                 ? "{$label} ay In Progress. Walang assigned action type na nakatala."
                 : "{$label} is In Progress. No assigned action type has been recorded.");

@@ -7,9 +7,11 @@ use Filament\Forms\Contracts\HasForms;
 use Filament\Pages\Page;
 use Filament\Schemas\Schema; 
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\FileUpload;
 use Filament\Notifications\Notification;
+use Filament\Schemas\Components\Utilities\Get;
 use App\Models\Document;
 use App\Models\DocumentVersion;
 use App\Models\DocumentTransmittal;
@@ -69,29 +71,53 @@ class Upload extends Page implements HasForms
                     ->columnSpan('full')
                     ->required(),
 
-                Select::make('office_unit')
+                Select::make('office_unit_id')
                     ->label('Office From')
                     ->options(fn () => OfficeUnit::query()
                         ->orderBy('name')
-                        ->pluck('name', 'name')
-                        ->prepend('Others', 'Others')
+                        ->pluck('name', 'office_unit_id')
                         ->toArray())
                     ->searchable()
                     ->preload()
                     ->live()
                     ->required(),
 
-                Select::make('document_type')
+                TextInput::make('office_unit')
+                    ->label('Other Office / Unit')
+                    ->placeholder('Enter the office or unit')
+                    ->maxLength(255)
+                    ->visible(fn (Get $get): bool => OfficeUnit::query()
+                        ->whereKey($get('office_unit_id'))
+                        ->where('allows_custom_value', true)
+                        ->exists())
+                    ->required(fn (Get $get): bool => OfficeUnit::query()
+                        ->whereKey($get('office_unit_id'))
+                        ->where('allows_custom_value', true)
+                        ->exists()),
+
+                Select::make('document_type_id')
                     ->label('Document Type')
                     ->options(fn () => DocumentType::query()
                         ->orderBy('type_name')
-                        ->pluck('type_name', 'type_name')
-                        ->prepend('Others', 'Others')
+                        ->pluck('type_name', 'type_id')
                         ->toArray())
                     ->searchable()
                     ->preload()
                     ->live()
                     ->required(),
+
+                TextInput::make('document_type')
+                    ->label('Other Document Type')
+                    ->placeholder('Enter the document type')
+                    ->maxLength(255)
+                    ->visible(fn (Get $get): bool => DocumentType::query()
+                        ->whereKey($get('document_type_id'))
+                        ->where('allows_custom_value', true)
+                        ->exists())
+                    ->required(fn (Get $get): bool => DocumentType::query()
+                        ->whereKey($get('document_type_id'))
+                        ->where('allows_custom_value', true)
+                        ->exists()),
                     
                 FileUpload::make('transmittal')
                     ->label('Transmittal/Endorsement')
@@ -264,8 +290,14 @@ class Upload extends Page implements HasForms
             return;
         }
 
-        $officeUnit = trim((string) ($data['office_unit'] ?? ''));
-        $documentType = trim((string) ($data['document_type'] ?? ''));
+        $officeUnitRecord = OfficeUnit::query()->findOrFail($data['office_unit_id']);
+        $documentTypeRecord = DocumentType::query()->findOrFail($data['document_type_id']);
+        $officeUnit = $officeUnitRecord->allows_custom_value
+            ? trim((string) ($data['office_unit'] ?? ''))
+            : $officeUnitRecord->name;
+        $documentType = $documentTypeRecord->allows_custom_value
+            ? trim((string) ($data['document_type'] ?? ''))
+            : $documentTypeRecord->type_name;
         $fileHashes = array_column($uploads, 'hash');
         $existingDocumentHashes = DocumentVersion::query()
             ->where('user_id', $userId)
@@ -341,16 +373,17 @@ class Upload extends Page implements HasForms
         }
 
         try {
-            $documents = DB::transaction(function () use ($data, $officeUnit, $documentType, $uploadedFiles, $transmittalFiles, $filePaths, $transmittalPaths, $uploads, $transmittalUploads, $userId): array {
+            $documents = DB::transaction(function () use ($data, $officeUnitRecord, $documentTypeRecord, $officeUnit, $documentType, $uploadedFiles, $transmittalFiles, $filePaths, $transmittalPaths, $uploads, $transmittalUploads, $userId): array {
                 $transmittalPath = $transmittalPaths[0] ?? null;
                 $document = Document::create([
                     'user_id' => $userId,
                     'particulars' => null,
                     'description' => $data['description'],
                     'document_name' => $this->uploadedFileName($uploadedFiles[0] ?? null, $filePaths[0] ?? ''),
+                    'office_unit_id' => $officeUnitRecord->office_unit_id,
                     'office_unit' => $officeUnit,
+                    'document_type_id' => $documentTypeRecord->type_id,
                     'document_type' => $documentType,
-                    'transmittal' => $transmittalPath,
                     'status' => 'pending',
                 ]);
 

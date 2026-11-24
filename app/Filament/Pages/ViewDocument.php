@@ -44,6 +44,10 @@ class ViewDocument extends Page implements HasForms
 
     public const string OTHER_DOCUMENT_TYPE_VALUE = '__custom_document_type__';
 
+    public const string OTHER_OFFICE_UNIT_VALUE = '__custom_office_unit__';
+
+    public const string OTHER_ACTION_TYPE_VALUE = '__custom_action_type__';
+
     private const string REVISION_UPLOAD_PREFIX = 'A revised document was uploaded';
 
     private const string REVISION_UPLOADS_PREFIX = 'Revised documents were uploaded';
@@ -126,6 +130,9 @@ class ViewDocument extends Page implements HasForms
         $this->documentRecord = Document::findForRoute($document);
         $this->documentRecord->load([
             'user',
+            'documentType',
+            'officeUnit',
+            'actionType',
             'notes.user',
             'latestVersion',
             'transmittalAttachments',
@@ -242,13 +249,42 @@ class ViewDocument extends Page implements HasForms
             return;
         }
 
+        $usesCustomDocumentType = $this->documentRecord->documentType?->allows_custom_value
+            ?? ! DocumentType::query()
+                ->whereRaw('LOWER(TRIM(type_name)) = ?', [mb_strtolower(trim((string) $this->documentRecord->document_type))])
+                ->exists();
+        $usesCustomOfficeUnit = $this->documentRecord->officeUnit?->allows_custom_value
+            ?? ! OfficeUnit::query()
+                ->whereRaw('LOWER(TRIM(name)) = ?', [mb_strtolower(trim((string) $this->documentRecord->office_unit))])
+                ->exists();
+        $usesCustomActionType = filled($this->documentRecord->action_type) && (
+            $this->documentRecord->actionType?->allows_custom_value
+            ?? ! ActionType::query()
+                ->whereRaw('LOWER(TRIM(action_name)) = ?', [mb_strtolower(trim((string) $this->documentRecord->action_type))])
+                ->exists()
+        );
+
         $this->documentDetailsForm = [
             'lao_number' => $this->documentRecord->lao_number,
-            'document_type' => $this->documentRecord->document_type,
-            'document_type_other' => '',
-            'office_unit' => $this->documentRecord->office_unit,
+            'document_type' => $usesCustomDocumentType
+                ? self::OTHER_DOCUMENT_TYPE_VALUE
+                : $this->documentRecord->document_type,
+            'document_type_other' => $usesCustomDocumentType
+                ? $this->documentRecord->document_type
+                : '',
+            'office_unit' => $usesCustomOfficeUnit
+                ? self::OTHER_OFFICE_UNIT_VALUE
+                : $this->documentRecord->office_unit,
+            'office_unit_other' => $usesCustomOfficeUnit
+                ? $this->documentRecord->office_unit
+                : '',
             'particulars' => $this->documentRecord->particulars ?: $this->documentRecord->description,
-            'action_type' => $this->documentRecord->action_type,
+            'action_type' => $usesCustomActionType
+                ? self::OTHER_ACTION_TYPE_VALUE
+                : $this->documentRecord->action_type,
+            'action_type_other' => $usesCustomActionType
+                ? $this->documentRecord->action_type
+                : '',
             'deadline' => $this->documentRecord->deadline?->format('Y-m-d'),
             'outgoing_date' => $this->documentRecord->outgoing_date?->format('Y-m-d'),
             'sent_date' => $this->documentRecord->sent_date?->format('Y-m-d'),
@@ -292,7 +328,38 @@ class ViewDocument extends Page implements HasForms
                 : ($original['document_type'] ?? null);
         }
 
-        unset($original['document_type_other'], $current['document_type_other']);
+        if (($current['office_unit'] ?? null) === self::OTHER_OFFICE_UNIT_VALUE) {
+            $customOffice = trim((string) ($current['office_unit_other'] ?? ''));
+            $current['office_unit'] = $customOffice !== ''
+                ? $customOffice
+                : ($original['office_unit'] ?? null);
+        }
+
+        if (($current['action_type'] ?? null) === self::OTHER_ACTION_TYPE_VALUE) {
+            $customAction = trim((string) ($current['action_type_other'] ?? ''));
+            $current['action_type'] = $customAction !== ''
+                ? $customAction
+                : ($original['action_type'] ?? null);
+        }
+
+        if (($original['document_type'] ?? null) === self::OTHER_DOCUMENT_TYPE_VALUE) {
+            $original['document_type'] = trim((string) ($original['document_type_other'] ?? ''));
+        }
+        if (($original['office_unit'] ?? null) === self::OTHER_OFFICE_UNIT_VALUE) {
+            $original['office_unit'] = trim((string) ($original['office_unit_other'] ?? ''));
+        }
+        if (($original['action_type'] ?? null) === self::OTHER_ACTION_TYPE_VALUE) {
+            $original['action_type'] = trim((string) ($original['action_type_other'] ?? ''));
+        }
+
+        unset(
+            $original['document_type_other'],
+            $current['document_type_other'],
+            $original['office_unit_other'],
+            $current['office_unit_other'],
+            $original['action_type_other'],
+            $current['action_type_other'],
+        );
 
         $normalize = static fn (array $values): array => array_map(
             static fn ($value) => $value === '' ? null : $value,
@@ -305,15 +372,20 @@ class ViewDocument extends Page implements HasForms
     public function getActionTypeOptions(): array
     {
         $options = ActionType::query()
+            ->where('allows_custom_value', false)
             ->orderBy('action_name')
             ->pluck('action_name', 'action_name')
             ->all();
 
         $currentActionType = $this->documentRecord->action_type;
 
-        if (filled($currentActionType) && ! array_key_exists($currentActionType, $options)) {
+        if (filled($currentActionType)
+            && ! $this->documentRecord->actionType?->allows_custom_value
+            && ! array_key_exists($currentActionType, $options)) {
             $options = [$currentActionType => $currentActionType.' (existing)'] + $options;
         }
+
+        $options[self::OTHER_ACTION_TYPE_VALUE] = 'Others';
 
         return $options;
     }
@@ -321,13 +393,16 @@ class ViewDocument extends Page implements HasForms
     public function getDocumentTypeOptions(): array
     {
         $options = DocumentType::query()
+            ->where('allows_custom_value', false)
             ->orderedForChoices()
             ->pluck('type_name', 'type_name')
             ->all();
 
         $currentDocumentType = $this->documentRecord->document_type;
 
-        if (filled($currentDocumentType) && ! array_key_exists($currentDocumentType, $options)) {
+        if (filled($currentDocumentType)
+            && ! $this->documentRecord->documentType?->allows_custom_value
+            && ! array_key_exists($currentDocumentType, $options)) {
             $options = [$currentDocumentType => $currentDocumentType.' (existing)'] + $options;
         }
 
@@ -339,15 +414,20 @@ class ViewDocument extends Page implements HasForms
     public function getOfficeUnitOptions(): array
     {
         $options = OfficeUnit::query()
+            ->where('allows_custom_value', false)
             ->orderBy('name')
             ->pluck('name', 'name')
             ->all();
 
         $currentOfficeUnit = $this->documentRecord->office_unit;
 
-        if (filled($currentOfficeUnit) && ! array_key_exists($currentOfficeUnit, $options)) {
+        if (filled($currentOfficeUnit)
+            && ! $this->documentRecord->officeUnit?->allows_custom_value
+            && ! array_key_exists($currentOfficeUnit, $options)) {
             $options = [$currentOfficeUnit => $currentOfficeUnit.' (existing)'] + $options;
         }
+
+        $options[self::OTHER_OFFICE_UNIT_VALUE] = 'Others';
 
         return $options;
     }
@@ -373,6 +453,7 @@ class ViewDocument extends Page implements HasForms
         }
 
         $actionTypeOptions = ActionType::query()
+            ->where('allows_custom_value', false)
             ->pluck('action_name', 'action_name')
             ->all();
 
@@ -381,6 +462,7 @@ class ViewDocument extends Page implements HasForms
         }
 
         $documentTypeOptions = DocumentType::query()
+            ->where('allows_custom_value', false)
             ->orderedForChoices()
             ->pluck('type_name', 'type_name')
             ->all();
@@ -390,6 +472,7 @@ class ViewDocument extends Page implements HasForms
         }
 
         $officeUnitOptions = OfficeUnit::query()
+            ->where('allows_custom_value', false)
             ->pluck('name', 'name')
             ->all();
 
@@ -401,9 +484,11 @@ class ViewDocument extends Page implements HasForms
             'documentDetailsForm.lao_number' => ['required', 'string', 'max:255'],
             'documentDetailsForm.document_type' => ['required', 'string', Rule::in([...array_keys($documentTypeOptions), self::OTHER_DOCUMENT_TYPE_VALUE])],
             'documentDetailsForm.document_type_other' => ['nullable', 'required_if:documentDetailsForm.document_type,'.self::OTHER_DOCUMENT_TYPE_VALUE, 'string', 'max:255'],
-            'documentDetailsForm.office_unit' => ['required', 'string', 'max:255', Rule::in(array_keys($officeUnitOptions))],
+            'documentDetailsForm.office_unit' => ['required', 'string', 'max:255', Rule::in([...array_keys($officeUnitOptions), self::OTHER_OFFICE_UNIT_VALUE])],
+            'documentDetailsForm.office_unit_other' => ['nullable', 'required_if:documentDetailsForm.office_unit,'.self::OTHER_OFFICE_UNIT_VALUE, 'string', 'max:255'],
             'documentDetailsForm.particulars' => ['required', 'string', 'max:200'],
-            'documentDetailsForm.action_type' => ['nullable', 'string', 'max:255', Rule::in(array_keys($actionTypeOptions))],
+            'documentDetailsForm.action_type' => ['nullable', 'string', 'max:255', Rule::in([...array_keys($actionTypeOptions), self::OTHER_ACTION_TYPE_VALUE])],
+            'documentDetailsForm.action_type_other' => ['nullable', 'required_if:documentDetailsForm.action_type,'.self::OTHER_ACTION_TYPE_VALUE, 'string', 'max:255'],
             'documentDetailsForm.deadline' => ['nullable', 'date'],
             'documentDetailsForm.outgoing_date' => ['nullable', 'date'],
             'documentDetailsForm.sent_date' => ['nullable', 'date'],
@@ -421,7 +506,13 @@ class ViewDocument extends Page implements HasForms
         if (($data['document_type'] ?? null) === self::OTHER_DOCUMENT_TYPE_VALUE) {
             $data['document_type'] = trim($data['document_type_other']);
         }
-        unset($data['document_type_other']);
+        if (($data['office_unit'] ?? null) === self::OTHER_OFFICE_UNIT_VALUE) {
+            $data['office_unit'] = trim($data['office_unit_other']);
+        }
+        if (($data['action_type'] ?? null) === self::OTHER_ACTION_TYPE_VALUE) {
+            $data['action_type'] = trim($data['action_type_other']);
+        }
+        unset($data['document_type_other'], $data['office_unit_other'], $data['action_type_other']);
 
         if ($document->status === 'outgoing') {
             $data['returned_from'] = $data['sent_to'] ?? null;
@@ -685,6 +776,7 @@ class ViewDocument extends Page implements HasForms
                     Select::make('action_type')
                         ->label('Action Taken')
                         ->options(fn () => ActionType::query()
+                            ->where('allows_custom_value', false)
                             ->orderBy('action_name')
                             ->pluck('action_name', 'action_name'))
                         ->searchable()
@@ -1599,28 +1691,20 @@ JS;
     public function selectTransmittal(?int $attachmentId = null): void
     {
         $attachment = $attachmentId === null
-            ? $this->documentRecord->transmittalAttachments()
-                ->where('file_path', $this->documentRecord->transmittal)
-                ->first()
+            ? $this->documentRecord->transmittalAttachments()->first()
             : $this->documentRecord->transmittalAttachments()->find($attachmentId);
-        $filePath = $attachmentId === null
-            ? (string) ($attachment?->file_path ?: $this->documentRecord->transmittal)
-            : (string) ($attachment?->file_path ?? '');
+        $filePath = (string) ($attachment?->file_path ?? '');
         $diskName = $attachment?->file_disk ?: 'local';
 
         abort_unless(filled($filePath), 404, 'No transmittal is available.');
 
         $this->selectedVersionId = null;
         $this->isTransmittalSelected = true;
-        $this->selectedTransmittalId = $attachmentId;
-        $this->previewUrl = $attachmentId === null
-            ? route('admin.documents.transmittal.preview', [
-                'document' => $this->documentRecord->getPublicRouteKey(),
-            ])
-            : route('admin.documents.transmittal-attachment.preview', [
-                'document' => $this->documentRecord->getPublicRouteKey(),
-                'attachment' => $attachmentId,
-            ]);
+        $this->selectedTransmittalId = $attachment->transmittal_id;
+        $this->previewUrl = route('admin.documents.transmittal-attachment.preview', [
+            'document' => $this->documentRecord->getPublicRouteKey(),
+            'attachment' => $attachment->transmittal_id,
+        ]);
         $this->previewPageCount = $this->pageCountForStoredFile($filePath, $diskName);
     }
 

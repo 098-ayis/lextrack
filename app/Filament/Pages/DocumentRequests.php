@@ -222,12 +222,12 @@ class DocumentRequests extends Page implements HasTable
             })
             ->when($this->actionTypeFilter !== '', function (Builder $query): void {
                 $query->whereHas('document', function (Builder $query): void {
-                    $query->where('action_type', $this->actionTypeFilter);
+                    $query->forActionType($this->actionTypeFilter);
                 });
             })
             ->when($this->officeUnitFilter !== '', function (Builder $query): void {
                 $query->whereHas('document', function (Builder $query): void {
-                    $query->where('office_unit', $this->officeUnitFilter);
+                    $query->forOfficeUnit($this->officeUnitFilter);
                 });
             })
             ->when($this->dateFilter !== '', function (Builder $query): void {

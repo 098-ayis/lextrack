@@ -27,7 +27,6 @@ class DocumentPublicIdTest extends TestCase
             $table->string('public_id', 26)->unique();
             $table->unsignedBigInteger('user_id');
             $table->string('document_type')->nullable();
-            $table->string('transmittal')->nullable();
             $table->string('lao_number')->nullable();
             $table->string('status')->default('in_progress');
             $table->string('document_name')->nullable();

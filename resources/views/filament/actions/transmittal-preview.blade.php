@@ -1,8 +1,9 @@
 @php
     $compact = $compact ?? false;
+    $transmittalAttachment = $document->transmittalAttachments->first();
 @endphp
 
-@if (filled($document->transmittal))
+@if ($transmittalAttachment)
     <div
         x-data="{ transmittalPreviewOpen: false }"
         class="{{ $compact ? 'inline-flex' : 'mt-4 border-t border-gray-200 pt-4 dark:border-gray-700' }}"
@@ -68,7 +69,7 @@
                 </div>
 
                 <iframe
-                    src="{{ route('admin.documents.transmittal.preview', ['document' => $document->public_id]) }}"
+                    src="{{ route('admin.documents.transmittal-attachment.preview', ['document' => $document->public_id, 'attachment' => $transmittalAttachment->transmittal_id]) }}"
                     title="Transmittal/Endorsement document preview"
                     class="min-h-0 w-full flex-1 border-0"
                 ></iframe>

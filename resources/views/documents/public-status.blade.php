@@ -124,7 +124,7 @@
         ];
 
         $statusStyle = implode('; ', $statusColors[$document->status] ?? ['background: #f1f5f9', 'color: #475569']);
-        $documentType = $document->document_type ?? 'Not specified';
+        $documentType = $document->document_type_label ?? 'Not specified';
     @endphp
 
     <main>
@@ -152,7 +152,7 @@
                 </div>
                 <div class="row">
                     <dt>Office / Unit</dt>
-                    <dd>{{ $document->office_unit ?: 'Not specified' }}</dd>
+                    <dd>{{ $document->office_unit_label ?: 'Not specified' }}</dd>
                 </div>
                 <div class="row">
                     <dt>Particulars</dt>
@@ -160,7 +160,7 @@
                 </div>
                 <div class="row">
                     <dt>Action Taken</dt>
-                    <dd>{{ $document->action_type ?? 'Not specified' }}</dd>
+                    <dd>{{ $document->action_type_label ?? 'Not specified' }}</dd>
                 </div>
                 <div class="row">
                     <dt>Deadline</dt>

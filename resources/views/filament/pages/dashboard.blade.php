@@ -417,7 +417,7 @@
                                     </p>
 
                                     <p class="mt-1 truncate text-xs text-gray-500 dark:text-gray-400">
-                                        {{ $document->office_unit ?: 'No office specified' }}
+                                        {{ $document->office_unit_label ?: 'No office specified' }}
                                     </p>
 
                                     <div class="mt-auto flex items-center justify-between gap-2 pt-3">

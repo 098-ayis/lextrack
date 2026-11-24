@@ -3,7 +3,6 @@
         $latestVersion = $documentRecord->latestVersion;
         $latestFilePath = $latestVersion?->file_path;
         $previewFilePath = $documentRecord->transmittalAttachments->first()?->file_path
-            ?: $documentRecord->transmittal
             ?: $latestFilePath;
         $documentSubject = $documentRecord->particulars ?: $documentRecord->description;
         $displayedFileName = filled($previewFilePath)
@@ -41,16 +40,17 @@
             : '';
         $isSoftCopyRequest = $requestRecord?->copy_type === 'soft_copy';
         $statusValue = $documentRecord->status;
-        $actionTypeColor = filled($documentRecord->action_type)
-            ? \App\Models\ActionType::query()->where('action_name', $documentRecord->action_type)->value('color')
+        $actionTypeColor = filled($documentRecord->action_type_label)
+            ? ($documentRecord->actionType?->color
+                ?? \App\Models\ActionType::query()->where('action_name', $documentRecord->action_type)->value('color'))
             : null;
         if (! is_string($actionTypeColor) || ! preg_match('/^#[0-9a-f]{6}$/i', $actionTypeColor)) {
             $actionTypeColor = '#64748B';
         }
-        $showActionTypeStatus = filled($documentRecord->action_type)
+        $showActionTypeStatus = filled($documentRecord->action_type_label)
             && in_array(strtolower((string) $statusValue), ['in_progress', 'outgoing'], true);
         $statusLabel = $showActionTypeStatus
-            ? (string) $documentRecord->action_type
+            ? (string) $documentRecord->action_type_label
             : (blank($statusValue)
                 ? '—'
                 : match (strtolower((string) $statusValue)) {
@@ -96,12 +96,6 @@
                     'path' => (string) $attachment->file_path,
                 ]);
             }
-        }
-        if ($transmittalFiles->isEmpty() && filled($documentRecord->transmittal)) {
-            $transmittalFiles->push([
-                'id' => null,
-                'path' => (string) $documentRecord->transmittal,
-            ]);
         }
         $submittedFiles = $allVersions
             ->filter(fn ($version): bool =>
@@ -219,8 +213,8 @@
                                         <div class="client-document-detail-row"><dt>LAO Number</dt><dd>{{ $documentRecord->lao_number ?: '—' }}</dd></div>
                                     @endif
                                     <div class="client-document-detail-row"><dt>Status</dt><dd><span class="client-document-table-status" style="--badge-color: {{ $statusBadgeColor }}; color: {{ $statusBadgeColor }};">{{ $statusLabel }}</span></dd></div>
-                                    <div class="client-document-detail-row"><dt>Document Type</dt><dd>{{ $documentRecord->document_type ?: '—' }}</dd></div>
-                                    <div class="client-document-detail-row"><dt>Office / Unit</dt><dd>{{ $documentRecord->office_unit ?: '—' }}</dd></div>
+                                    <div class="client-document-detail-row"><dt>Document Type</dt><dd>{{ $documentRecord->document_type_label ?: '—' }}</dd></div>
+                                    <div class="client-document-detail-row"><dt>Office / Unit</dt><dd>{{ $documentRecord->office_unit_label ?: '—' }}</dd></div>
                                     <div class="client-document-detail-row"><dt>Particulars</dt><dd>{{ $documentSubject ?: '—' }}</dd></div>
                                     @if ($documentRecord->deadline)
                                         <div class="client-document-detail-row"><dt>Deadline</dt><dd>{{ $documentRecord->deadline->format('F d, Y') }}</dd></div>
@@ -241,12 +235,8 @@
                                 @foreach ($transmittalFiles as $transmittalFile)
                                     @php
                                         $transmittalFileName = basename($transmittalFile['path']);
-                                        $transmittalPreviewUrl = $transmittalFile['id'] === null
-                                            ? route('client.document.transmittal.preview', ['document' => $documentRecord->getPublicRouteKey(), 'qr' => 1])
-                                            : route('client.document.transmittal-attachment.preview', ['document' => $documentRecord->getPublicRouteKey(), 'attachment' => $transmittalFile['id'], 'qr' => 1]);
-                                        $transmittalDownloadUrl = $transmittalFile['id'] === null
-                                            ? route('client.document.transmittal.download', ['document' => $documentRecord->getPublicRouteKey()])
-                                            : route('client.document.transmittal-attachment.download', ['document' => $documentRecord->getPublicRouteKey(), 'attachment' => $transmittalFile['id']]);
+                                        $transmittalPreviewUrl = route('client.document.transmittal-attachment.preview', ['document' => $documentRecord->getPublicRouteKey(), 'attachment' => $transmittalFile['id'], 'qr' => 1]);
+                                        $transmittalDownloadUrl = route('client.document.transmittal-attachment.download', ['document' => $documentRecord->getPublicRouteKey(), 'attachment' => $transmittalFile['id']]);
                                     @endphp
                                     <div class="client-document-file-row">
                                         <button
@@ -441,9 +431,9 @@
             font-weight: 700;
             line-height: 1;
         }
-        .client-document-preview-frame { min-height: 0; flex: 1 1 auto; overflow: auto; background: #f3f4f6; }
-        .client-document-preview-frame iframe { display: block; width: 100%; height: 100%; min-height: 38rem; border: 0; }
-        .client-document-image-preview { display: flex; min-height: 100%; align-items: center; justify-content: center; overflow: auto; padding: 1rem; }
+        .client-document-preview-frame { min-height: 0; flex: 1 1 auto; overflow: hidden; background: #f3f4f6; }
+        .client-document-preview-frame iframe { display: block; width: 100%; height: 100%; min-height: 0; border: 0; overflow: auto; }
+        .client-document-image-preview { display: flex; min-height: 0; height: 100%; align-items: center; justify-content: center; overflow: auto; padding: 1rem; }
         .client-document-image-preview img { max-width: 100%; max-height: 100%; object-fit: contain; }
         .client-document-preview-empty { display: flex; min-height: 100%; flex-direction: column; align-items: center; justify-content: center; gap: 0.6rem; padding: 1.5rem; color: #6b7280; text-align: center; }
         .client-document-preview-empty p { margin: 0; font-size: 0.9rem; }

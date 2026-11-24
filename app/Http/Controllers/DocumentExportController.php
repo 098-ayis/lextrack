@@ -35,7 +35,7 @@ class DocumentExportController extends Controller
             };
 
             $documents = Document::query()
-                ->with(['user'])
+                ->with(['user', 'documentType', 'officeUnit', 'actionType'])
                 ->where('status', $status)
                 ->when($search !== '', function ($query) use ($search): void {
                     $likeSearch = "%{$search}%";
@@ -48,13 +48,13 @@ class DocumentExportController extends Controller
                     });
                 })
                 ->when($typeFilter !== '', function ($query) use ($typeFilter): void {
-                    $query->where('document_type', $typeFilter);
+                    $query->forDocumentType($typeFilter);
                 })
                 ->when($actionTypeFilter !== '', function ($query) use ($actionTypeFilter): void {
-                    $query->where('action_type', $actionTypeFilter);
+                    $query->forActionType($actionTypeFilter);
                 })
                 ->when($officeUnitFilter !== '', function ($query) use ($officeUnitFilter): void {
-                    $query->where('office_unit', $officeUnitFilter);
+                    $query->forOfficeUnit($officeUnitFilter);
                 })
                 ->when($dateFilter !== '', function ($query) use ($dateFilter): void {
                     $query->whereDate('created_at', $dateFilter);
@@ -103,14 +103,14 @@ class DocumentExportController extends Controller
     {
         $rows = collect();
         foreach ($documents as $index => $document) {
-            $type = $document->document_type ?? 'Unknown';
+            $type = $document->document_type_label ?? 'Unknown';
             $status = ucwords(str_replace('_', ' ', (string) $document->status));
-            $action = $document->action_type ?? '—';
+            $action = $document->action_type_label ?? '—';
 
             $rows->push([
                 $index + 1,
                 $document->lao_number,
-                $document->office_unit,
+                $document->office_unit_label,
                 $document->particulars,
                 $type,
                 $document->user?->historical_display_name ?? '—',

@@ -18,11 +18,6 @@ class UserForm
                 TextInput::make('name')
                     ->required()
                     ->maxLength(255),
-                TextInput::make('user_id')
-                    ->label('User ID')
-                    ->disabled()
-                    ->dehydrated(false)
-                    ->visible(fn (?User $record): bool => $record !== null),
                 TextInput::make('email')
                     ->label('Email address')
                     ->email()

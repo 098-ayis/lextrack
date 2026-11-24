@@ -331,7 +331,7 @@
                                         </span>
 
                                         <span class="font-medium text-gray-800">
-                                            {{ $document->office_unit }}
+                                            {{ $document->office_unit_label }}
                                         </span>
                                     </div>
 
@@ -352,7 +352,7 @@
                             {{-- Document Type --}}
                             <td class="px-4 py-4 align-middle">
 
-                                @if ($document->document_type)
+                                @if ($document->document_type_label)
                                     @php
                                         $documentTypeColor = \App\Models\DocumentType::query()
                                             ->where('type_name', $document->document_type)
@@ -362,7 +362,7 @@
                                         class="inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-semibold leading-4"
                                         style="background-color: color-mix(in srgb, {{ $documentTypeColor }} 14%, white); color: {{ $documentTypeColor }}; border-color: color-mix(in srgb, {{ $documentTypeColor }} 18%, transparent);"
                                     >
-                                        {{ $document->document_type }}
+                                        {{ $document->document_type_label }}
                                     </span>
 
                                 @else
@@ -612,7 +612,7 @@
                                         </span>
 
                                         <span class="font-medium text-gray-800">
-                                            {{ $document->office_unit }}
+                                            {{ $document->office_unit_label }}
                                         </span>
                                     </div>
 
@@ -634,7 +634,7 @@
                             
                             <td class="px-4 py-4 align-middle">
 
-                                @if ($document->document_type)
+                                @if ($document->document_type_label)
                                     @php
                                         $documentTypeColor = \App\Models\DocumentType::query()
                                             ->where('type_name', $document->document_type)
@@ -644,7 +644,7 @@
                                         class="inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-semibold leading-4"
                                         style="background-color: color-mix(in srgb, {{ $documentTypeColor }} 14%, white); color: {{ $documentTypeColor }}; border-color: color-mix(in srgb, {{ $documentTypeColor }} 18%, transparent);"
                                     >
-                                        {{ $document->document_type }}
+                                        {{ $document->document_type_label }}
                                     </span>
 
                                 @else
@@ -936,7 +936,7 @@
                                             Office/Unit:
                                         </span>
                                         <span class="font-semibold text-gray-900">
-                                            {{ $document->office_unit }}
+                                            {{ $document->office_unit_label }}
                                         </span>
                                     </div>
 
@@ -956,7 +956,7 @@
                             {{-- DOCUMENT TYPE --}}
                             <td class="px-4 py-4 align-middle text-center">
 
-                                @if ($document->document_type)
+                                @if ($document->document_type_label)
                                     @php
                                         $documentTypeColor = \App\Models\DocumentType::query()
                                             ->where('type_name', $document->document_type)
@@ -966,7 +966,7 @@
                                         class="inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-semibold leading-4"
                                         style="background-color: color-mix(in srgb, {{ $documentTypeColor }} 14%, white); color: {{ $documentTypeColor }}; border-color: color-mix(in srgb, {{ $documentTypeColor }} 18%, transparent);"
                                     >
-                                        {{ $document->document_type }}
+                                        {{ $document->document_type_label }}
                                     </span>
                                 @else
                                     <span class="text-xs italic text-gray-500">
@@ -1009,14 +1009,14 @@
                                 {{-- Action Taken --}}
                                 <td class="px-4 py-4 align-middle">
 
-                                    @if ($document->action_type)
+                                    @if ($document->action_type_label)
 
                                         <span
                                             class="inline-flex items-center gap-1 px-3 py-1
                                                 text-xs font-semibold rounded-full text-white"
                                             style="background-color: #64748B;"
                                         >
-                                            {{ $document->action_type }}
+                                            {{ $document->action_type_label }}
                                         </span>
 
                                     @else

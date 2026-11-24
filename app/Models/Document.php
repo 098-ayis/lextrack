@@ -26,6 +26,10 @@ class Document extends Model
                 $document->public_id = (string) Str::ulid();
             }
         });
+
+        static::saving(function (self $document): void {
+            $document->synchronizeCatalogReferences();
+        });
     }
 
     public function getRouteKeyName(): string
@@ -62,12 +66,14 @@ class Document extends Model
     
     protected $fillable = [
         'user_id',
+        'document_type_id',
         'document_type',
-        'transmittal',
         'description',
+        'action_type_id',
         'action_type',
         'lao_number',
         'document_name',
+        'office_unit_id',
         'office_unit',
         'particulars',
         'deadline',
@@ -99,8 +105,39 @@ class Document extends Model
             return null;
         }
 
-        $daysToProcess = DocumentType::query()
+        $type = DocumentType::query()
             ->where('type_name', $documentType)
+            ->first();
+
+        if ($type === null && Schema::hasColumn('document_types', 'allows_custom_value')) {
+            $type = DocumentType::query()
+                ->where('allows_custom_value', true)
+                ->orderBy('type_id')
+                ->first();
+        }
+
+        $daysToProcess = $type?->days_to_process;
+
+        if ($daysToProcess === null) {
+            return null;
+        }
+
+        return ($startsAt ?? now())
+            ->copy()
+            ->addDays((int) $daysToProcess)
+            ->toDateString();
+    }
+
+    public static function deadlineForTypeId(
+        int|string|null $documentTypeId,
+        ?CarbonInterface $startsAt = null,
+    ): ?string {
+        if (blank($documentTypeId)) {
+            return null;
+        }
+
+        $daysToProcess = DocumentType::query()
+            ->whereKey($documentTypeId)
             ->value('days_to_process');
 
         if ($daysToProcess === null) {
@@ -111,6 +148,170 @@ class Document extends Model
             ->copy()
             ->addDays((int) $daysToProcess)
             ->toDateString();
+    }
+
+    public function documentType(): BelongsTo
+    {
+        return $this->belongsTo(DocumentType::class, 'document_type_id', 'type_id');
+    }
+
+    public function officeUnit(): BelongsTo
+    {
+        return $this->belongsTo(OfficeUnit::class, 'office_unit_id', 'office_unit_id');
+    }
+
+    public function actionType(): BelongsTo
+    {
+        return $this->belongsTo(ActionType::class, 'action_type_id', 'action_id');
+    }
+
+    public function getDocumentTypeLabelAttribute(): ?string
+    {
+        $catalog = $this->documentType;
+        $snapshot = trim((string) $this->getRawOriginal('document_type'));
+
+        if ($catalog?->allows_custom_value && $snapshot !== '') {
+            return $snapshot;
+        }
+
+        return $catalog?->type_name ?: ($snapshot !== '' ? $snapshot : null);
+    }
+
+    public function getOfficeUnitLabelAttribute(): ?string
+    {
+        $catalog = $this->officeUnit;
+        $snapshot = trim((string) $this->getRawOriginal('office_unit'));
+
+        if ($catalog?->allows_custom_value && $snapshot !== '') {
+            return $snapshot;
+        }
+
+        return $catalog?->name ?: ($snapshot !== '' ? $snapshot : null);
+    }
+
+    public function getActionTypeLabelAttribute(): ?string
+    {
+        $catalog = $this->actionType;
+        $snapshot = trim((string) $this->getRawOriginal('action_type'));
+
+        if ($catalog?->allows_custom_value && $snapshot !== '') {
+            return $snapshot;
+        }
+
+        return $catalog?->action_name ?: ($snapshot !== '' ? $snapshot : null);
+    }
+
+    private function synchronizeCatalogReferences(): void
+    {
+        if (Schema::hasTable('document_types')
+            && Schema::hasColumn($this->getTable(), 'document_type_id')) {
+            $this->synchronizeDocumentType();
+        }
+
+        if (Schema::hasTable('office_units')
+            && Schema::hasColumn($this->getTable(), 'office_unit_id')) {
+            $this->synchronizeOfficeUnit();
+        }
+
+        if (Schema::hasTable('action_types')
+            && Schema::hasColumn($this->getTable(), 'action_type_id')) {
+            $this->synchronizeActionType();
+        }
+    }
+
+    private function synchronizeDocumentType(): void
+    {
+        $snapshot = trim((string) $this->document_type);
+        $catalog = filled($this->document_type_id)
+            ? DocumentType::query()->find($this->document_type_id)
+            : null;
+
+        if ($catalog === null && $snapshot !== '') {
+            $catalog = DocumentType::query()
+                ->whereRaw('LOWER(TRIM(type_name)) = ?', [mb_strtolower($snapshot)])
+                ->first();
+
+            $catalog ??= DocumentType::query()
+                ->where('allows_custom_value', true)
+                ->orderBy('type_id')
+                ->first();
+        }
+
+        if ($catalog === null) {
+            return;
+        }
+
+        $this->document_type_id = $catalog->type_id;
+        $this->document_type = $catalog->allows_custom_value && $snapshot !== ''
+            ? $snapshot
+            : $catalog->type_name;
+        $this->setRelation('documentType', $catalog);
+    }
+
+    private function synchronizeOfficeUnit(): void
+    {
+        $snapshot = trim((string) $this->office_unit);
+        $catalog = filled($this->office_unit_id)
+            ? OfficeUnit::query()->find($this->office_unit_id)
+            : null;
+
+        if ($catalog === null && $snapshot !== '') {
+            $catalog = OfficeUnit::query()
+                ->whereRaw('LOWER(TRIM(name)) = ?', [mb_strtolower($snapshot)])
+                ->first();
+
+            $catalog ??= OfficeUnit::query()
+                ->where('allows_custom_value', true)
+                ->orderBy('office_unit_id')
+                ->first();
+        }
+
+        if ($catalog === null) {
+            return;
+        }
+
+        $this->office_unit_id = $catalog->office_unit_id;
+        $this->office_unit = $catalog->allows_custom_value && $snapshot !== ''
+            ? $snapshot
+            : $catalog->name;
+        $this->setRelation('officeUnit', $catalog);
+    }
+
+    private function synchronizeActionType(): void
+    {
+        $snapshot = trim((string) $this->action_type);
+        if ($this->isDirty('action_type') && $snapshot === '') {
+            $this->action_type_id = null;
+            $this->unsetRelation('actionType');
+
+            return;
+        }
+
+        $catalog = ! $this->isDirty('action_type') && filled($this->action_type_id)
+            ? ActionType::query()->find($this->action_type_id)
+            : null;
+
+        if ($catalog === null && $snapshot !== '') {
+            $catalog = ActionType::query()
+                ->whereRaw('LOWER(TRIM(action_name)) = ?', [mb_strtolower($snapshot)])
+                ->orderBy('action_id')
+                ->first();
+
+            $catalog ??= ActionType::query()
+                ->where('allows_custom_value', true)
+                ->orderBy('action_id')
+                ->first();
+        }
+
+        if ($catalog === null) {
+            return;
+        }
+
+        $this->action_type_id = $catalog->action_id;
+        $this->action_type = $catalog->allows_custom_value && $snapshot !== ''
+            ? $snapshot
+            : $catalog->action_name;
+        $this->setRelation('actionType', $catalog);
     }
 
     /**
@@ -323,6 +524,106 @@ class Document extends Model
             ->whereNotNull('lao_number')
             ->where('lao_number', '!=', '')
             ->whereNotIn('status', ['pending', 'rejected']);
+    }
+
+    public function scopeForDocumentType(Builder $query, int|string|null $value): Builder
+    {
+        if (blank($value)) {
+            return $query;
+        }
+
+        if (! Schema::hasTable('document_types')
+            || ! Schema::hasColumn($this->getTable(), 'document_type_id')) {
+            return $query->whereRaw(
+                'LOWER(TRIM(document_type)) = ?',
+                [mb_strtolower(trim((string) $value))],
+            );
+        }
+
+        $type = is_numeric($value)
+            ? DocumentType::query()->find((int) $value)
+            : DocumentType::query()
+                ->whereRaw('LOWER(TRIM(type_name)) = ?', [mb_strtolower(trim((string) $value))])
+                ->first();
+
+        return $query->where(function (Builder $query) use ($type, $value): void {
+            if ($type) {
+                $query->where('document_type_id', $type->type_id);
+            }
+
+            $method = $type ? 'orWhereRaw' : 'whereRaw';
+            $query->{$method}(
+                'LOWER(TRIM(document_type)) = ?',
+                [mb_strtolower(trim((string) $value))],
+            );
+        });
+    }
+
+    public function scopeForOfficeUnit(Builder $query, int|string|null $value): Builder
+    {
+        if (blank($value)) {
+            return $query;
+        }
+
+        if (! Schema::hasTable('office_units')
+            || ! Schema::hasColumn($this->getTable(), 'office_unit_id')) {
+            return $query->whereRaw(
+                'LOWER(TRIM(office_unit)) = ?',
+                [mb_strtolower(trim((string) $value))],
+            );
+        }
+
+        $office = is_numeric($value)
+            ? OfficeUnit::query()->find((int) $value)
+            : OfficeUnit::query()
+                ->whereRaw('LOWER(TRIM(name)) = ?', [mb_strtolower(trim((string) $value))])
+                ->first();
+
+        return $query->where(function (Builder $query) use ($office, $value): void {
+            if ($office) {
+                $query->where('office_unit_id', $office->office_unit_id);
+            }
+
+            $method = $office ? 'orWhereRaw' : 'whereRaw';
+            $query->{$method}(
+                'LOWER(TRIM(office_unit)) = ?',
+                [mb_strtolower(trim((string) $value))],
+            );
+        });
+    }
+
+    public function scopeForActionType(Builder $query, int|string|null $value): Builder
+    {
+        if (blank($value)) {
+            return $query;
+        }
+
+        if (! Schema::hasTable('action_types')
+            || ! Schema::hasColumn($this->getTable(), 'action_type_id')) {
+            return $query->whereRaw(
+                'LOWER(TRIM(action_type)) = ?',
+                [mb_strtolower(trim((string) $value))],
+            );
+        }
+
+        $actionType = is_numeric($value)
+            ? ActionType::query()->find((int) $value)
+            : ActionType::query()
+                ->whereRaw('LOWER(TRIM(action_name)) = ?', [mb_strtolower(trim((string) $value))])
+                ->orderBy('action_id')
+                ->first();
+
+        return $query->where(function (Builder $query) use ($actionType, $value): void {
+            if ($actionType) {
+                $query->where('action_type_id', $actionType->action_id);
+            }
+
+            $method = $actionType ? 'orWhereRaw' : 'whereRaw';
+            $query->{$method}(
+                'LOWER(TRIM(action_type)) = ?',
+                [mb_strtolower(trim((string) $value))],
+            );
+        });
     }
 
     public function isAvailableForMessaging(): bool

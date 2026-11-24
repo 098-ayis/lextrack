@@ -485,6 +485,10 @@ class Document extends Page implements HasTable
                 'user',
                 'rejections',
                 'latestVersion',
+                'transmittalAttachments',
+                'documentType',
+                'officeUnit',
+                'actionType',
                 'views' => fn (HasMany $viewQuery) => $viewQuery
                     ->where('user_id', auth()->id()),
             ])
@@ -512,13 +516,13 @@ class Document extends Page implements HasTable
                 });
             })
             ->when($this->typeFilter !== '', function (Builder $query): void {
-                $query->where('document_type', $this->typeFilter);
+                $query->forDocumentType($this->typeFilter);
             })
             ->when($this->actionTypeFilter !== '', function (Builder $query): void {
-                $query->where('action_type', $this->actionTypeFilter);
+                $query->forActionType($this->actionTypeFilter);
             })
             ->when($this->officeUnitFilter !== '', function (Builder $query): void {
-                $query->where('office_unit', $this->officeUnitFilter);
+                $query->forOfficeUnit($this->officeUnitFilter);
             })
             ->when($this->dateFilter !== '', function (Builder $query): void {
                 $query->whereDate('created_at', $this->dateFilter);
@@ -601,12 +605,6 @@ class Document extends Page implements HasTable
                     ? $record->description
                     : null)
                 ->wrap()
-                ->extraCellAttributes(['class' => 'align-middle']);
-
-            $columns[] = ViewColumn::make('transmittal')
-                ->label('TRANSMITTAL')
-                ->view('filament.tables.columns.transmittal')
-                ->alignCenter()
                 ->extraCellAttributes(['class' => 'align-middle']);
 
             $columns[] = ViewColumn::make('uploaded_by')
@@ -743,15 +741,6 @@ class Document extends Page implements HasTable
                 ->action(fn (DocumentModel $record) => $this->messageDocument($record->document_id));
         }
 
-        if ($this->activeSection === 'returned') {
-            $menuActions[] = $this->editReturnedDocumentAction();
-
-            $menuActions[] = Action::make('messageReturnedDocumentTable')
-                ->label('Message')
-                ->icon('heroicon-o-chat-bubble-left-right')
-                ->color('gray')
-                ->action(fn (DocumentModel $record) => $this->messageDocument($record->document_id));
-        }
 
         $options = ActionGroup::make($menuActions)
             ->icon('heroicon-m-ellipsis-vertical')
@@ -961,6 +950,7 @@ class Document extends Page implements HasTable
                             ->label('Document Type')
                             ->placeholder('Select document type')
                             ->options(fn () => DocumentType::query()
+                                ->where('allows_custom_value', false)
                                 ->orderBy('type_name')
                                 ->pluck('type_name', 'type_name')
                                 ->prepend('Others', self::OTHER_DOCUMENT_TYPE)
@@ -1012,6 +1002,7 @@ class Document extends Page implements HasTable
                         Select::make('action_type')
                             ->label('Action Taken')
                             ->options(fn () => ActionType::query()
+                                ->where('allows_custom_value', false)
                                 ->orderBy('action_name')
                                 ->pluck('action_name', 'action_name')
                                 ->prepend('Others', self::OTHER_ACTION_TYPE)
@@ -1053,6 +1044,7 @@ class Document extends Page implements HasTable
                         Select::make('office_unit')
                             ->label('Office / Unit')
                             ->options(fn () => OfficeUnit::query()
+                                ->where('allows_custom_value', false)
                                 ->orderBy('name')
                                 ->pluck('name', 'name')
                                 ->prepend('Others', self::OTHER_OFFICE_UNIT)
@@ -1242,7 +1234,6 @@ class Document extends Page implements HasTable
                 unset($data['file_path'], $data['transmittal']);
 
                 $data['user_id'] = auth()->id();
-                $data['transmittal'] = $transmittalPaths[0] ?? null;
                 $data['deadline'] ??= DocumentModel::deadlineForType($data['document_type'] ?? null);
                 $firstFilePath = $filePaths[0] ?? null;
 
@@ -1542,6 +1533,7 @@ class Document extends Page implements HasTable
                                 ->label('Action Taken')
                                 ->placeholder('Select action')
                                 ->options(fn () => ActionType::query()
+                                    ->where('allows_custom_value', false)
                                     ->orderBy('action_name')
                                     ->pluck('action_name', 'action_name'))
                                 ->searchable()
@@ -1776,6 +1768,7 @@ class Document extends Page implements HasTable
                             ->label('Document Type')
                             ->placeholder('Select document type')
                             ->options(fn () => DocumentType::query()
+                                ->where('allows_custom_value', false)
                                 ->orderBy('type_name')
                                 ->pluck('type_name', 'type_name')
                                 ->prepend('Others', self::OTHER_DOCUMENT_TYPE)
@@ -1818,6 +1811,7 @@ class Document extends Page implements HasTable
                             ->label('Action Taken')
                             ->placeholder('Select action')
                             ->options(fn () => ActionType::query()
+                                ->where('allows_custom_value', false)
                                 ->orderBy('action_name')
                                 ->pluck('action_name', 'action_name')
                                 ->prepend('Others', self::OTHER_ACTION_TYPE)
@@ -2175,6 +2169,7 @@ class Document extends Page implements HasTable
                          Select::make('action_type')
                                 ->label('Action Taken')
                                 ->options(fn () => ActionType::query()
+                                    ->where('allows_custom_value', false)
                                     ->orderBy('action_name')
                                     ->pluck('action_name', 'action_name')
                                     ->toArray())

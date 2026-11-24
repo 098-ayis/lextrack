@@ -90,10 +90,6 @@ class Cabinet extends Page
 
     public ?string $selectedFolderOffice = null;
 
-    public ?string $newFolderParentType = null;
-
-    public ?string $newFolderParentOffice = null;
-
     public ?string $newDocumentType = null;
 
     public ?string $newDocumentOffice = null;
@@ -119,7 +115,7 @@ class Cabinet extends Page
         $folders = $folderRecords->whereNull('recycled_at')->pluck('name', 'id');
 
         $documents = Document::query()
-            ->with(['latestVersion'])
+            ->with(['latestVersion', 'documentType', 'officeUnit'])
             ->where('status', '!=', 'archived')
             ->whereNotNull('document_type')
             ->whereNotNull('office_unit')
@@ -134,17 +130,19 @@ class Cabinet extends Page
                 fn (Document $document) =>
                     in_array($document->document_id, $recycled)
                         ? 'Recycle Bin'
-                        : ($knownTypes[strtolower(trim($document->document_type))] ?? 'Others')
+                        : $this->cabinetDocumentType($document, $knownTypes)
             )
             ->map(function ($documentsByType, string $type) use ($recycled) {
                 return $documentsByType
                     ->groupBy(function (Document $document) use ($type, $recycled) {
                         if (in_array($document->document_id, $recycled)) { return 'Documents'; }
                         if (strcasecmp($type, 'Others') === 0) {
-                            return trim($document->document_type);
+                            return trim((string) $document->document_type_label);
                         }
 
-                        $office = trim((string) $document->office_unit);
+                        $office = $document->officeUnit?->allows_custom_value
+                            ? 'Others'
+                            : trim((string) $document->office_unit_label);
 
                         return $office !== ''
                             ? $office
@@ -184,11 +182,11 @@ class Cabinet extends Page
                                         ? $document->updated_at->format('M d, Y')
                                         : '—',
 
-                                    'type' => $document->document_type
+                                    'type' => $document->document_type_label
                                         ?? 'Unknown',
 
                                     'office_unit' =>
-                                        $document->office_unit,
+                                        $document->office_unit_label,
 
                                     'status' =>
                                         $document->status,
@@ -204,10 +202,12 @@ class Cabinet extends Page
             ->toArray();
         // Folder visibility is independent of whether its documents are archived or recycled.
         foreach (Document::query()->whereNotNull('document_type')->whereNotNull('office_unit')->get(['document_type', 'office_unit']) as $document) {
-            $type = $knownTypes[strtolower(trim($document->document_type))] ?? 'Others';
+            $type = $this->cabinetDocumentType($document, $knownTypes);
             $office = strcasecmp($type, 'Others') === 0
-                ? trim($document->document_type)
-                : (trim($document->office_unit) ?: 'Unspecified Office');
+                ? (trim((string) $document->document_type_label) ?: 'Unspecified Type')
+                : ($document->officeUnit?->allows_custom_value
+                    ? 'Others'
+                    : (trim((string) $document->office_unit_label) ?: 'Unspecified Office'));
             $this->cabinet[$type][$office] ??= [];
         }
         foreach (array_values($knownTypes) as $type) { $this->cabinet[$type] ??= []; }
@@ -252,7 +252,7 @@ class Cabinet extends Page
         $legacyCabinet = $this->cabinet;
 
         $allDocuments = Document::query()
-            ->with(['latestVersion'])
+            ->with(['latestVersion', 'documentType', 'officeUnit'])
             ->whereNotNull('document_type')
             ->get();
 
@@ -275,7 +275,11 @@ class Cabinet extends Page
             }
 
             $type = $this->cabinetDocumentType($document, $knownTypes);
-            $office = trim((string) $document->office_unit) ?: 'Unspecified Office';
+            $office = strcasecmp($type, 'Others') === 0
+                ? (trim((string) $document->document_type_label) ?: 'Unspecified Type')
+                : ($document->officeUnit?->allows_custom_value
+                    ? 'Others'
+                    : (trim((string) $document->office_unit_label) ?: 'Unspecified Office'));
 
             if ($document->status === 'archived') {
                 $this->addTreeDocument($this->cabinetTree, ['Archived', $type, $office], $entry);
@@ -379,8 +383,8 @@ class Cabinet extends Page
             'lao_number' => $document->lao_number,
             'size' => $fileSize,
             'date' => $document->updated_at?->format('M d, Y') ?? '—',
-            'type' => $document->document_type ?? 'Unknown',
-            'office_unit' => $document->office_unit,
+            'type' => $document->document_type_label ?? 'Unknown',
+            'office_unit' => $document->office_unit_label,
             'status' => $document->status,
             'file_path' => $filePath,
         ];
@@ -388,9 +392,15 @@ class Cabinet extends Page
 
     protected function cabinetDocumentType(Document $document, array $knownTypes): string
     {
-        $documentType = trim((string) $document->document_type);
+        if ($document->documentType?->allows_custom_value) {
+            return 'Others';
+        }
 
-        return $knownTypes[strtolower($documentType)] ?? ($documentType ?: 'Unspecified Type');
+        $documentType = trim((string) $document->document_type_label);
+
+        return $knownTypes[strtolower($documentType)] ?? ($document->document_type_id === null
+            ? 'Others'
+            : ($documentType ?: 'Unspecified Type'));
     }
 
     protected function addTreeDocument(array &$tree, array $path, array $document): void
@@ -456,11 +466,11 @@ class Cabinet extends Page
         }
 
         if (in_array($folder->id, $seen, true)) {
-            return ['Document Types', $folder->name];
+            return [$folder->name];
         }
         $seen[] = $folder->id;
 
-        $memo[$folder->id] = ['Document Types', $folder->name];
+        $memo[$folder->id] = [$folder->name];
 
         if ($folder->parent_type === null) {
             return $memo[$folder->id];
@@ -959,25 +969,6 @@ class Cabinet extends Page
 
     public function prepareAddFolder(): void
     {
-        if ($this->currentPath !== []) {
-            $node = $this->nodeAtPath($this->currentPath);
-
-            if (($node['folder_id'] ?? null) !== null) {
-                $this->newFolderParentType = $node['name'];
-                $this->newFolderParentOffice = null;
-            } else {
-                $this->newFolderParentType = $this->currentPath[0];
-                $this->newFolderParentOffice = count($this->currentPath) > 1
-                    ? implode('/', array_slice($this->currentPath, 1))
-                    : null;
-            }
-        } else {
-            // Custom folders belong below one of the fixed cabinet roots.
-            // Keeping them under Document Types preserves the three-root
-            // layout while still allowing folders at every nested level.
-            $this->newFolderParentType = 'Document Types';
-            $this->newFolderParentOffice = null;
-        }
         $this->mountAction('addFolder');
     }
 
@@ -993,13 +984,25 @@ class Cabinet extends Page
                 if ($name === '' || collect($reserved)->contains(fn ($value) => strcasecmp($value, $name) === 0)) {
                     throw \Illuminate\Validation\ValidationException::withMessages(['name' => 'Choose a unique folder name.']);
                 }
+
                 DB::table('cabinet_folders')->insert([
                     'name' => $name,
-                    'parent_type' => $this->newFolderParentType,
-                    'parent_office' => $this->newFolderParentOffice,
+                    // User-created folders are always top-level Cabinet
+                    // folders, regardless of the currently open folder.
+                    'parent_type' => null,
+                    'parent_office' => null,
                     'created_at' => now(), 'updated_at' => now(),
                 ]);
+
                 $this->loadCabinet();
+                $this->goToRoot();
+                $this->selectNode([$name]);
+
+                Notification::make()
+                    ->title('Folder created')
+                    ->body($name.' is ready in Cabinet.')
+                    ->success()
+                    ->send();
             });
     }
 
