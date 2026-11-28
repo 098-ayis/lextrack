@@ -334,6 +334,43 @@ class Documents extends Page implements HasTable
         };
     }
 
+    /**
+     * @return array{label: string, color: string}
+     */
+    protected function statusBadgeState(?string $status, bool $isRequestStatus = false): array
+    {
+        $normalizedStatus = strtolower(trim((string) $status));
+
+        $label = $isRequestStatus
+            ? (blank($status)
+                ? '—'
+                : match ($normalizedStatus) {
+                    'for_release' => 'Accepted',
+                    'ready_for_pickup' => 'Ready for Pickup',
+                    default => ucfirst((string) $status),
+                })
+            : (blank($status)
+                ? '—'
+                : match ($normalizedStatus) {
+                    'archived' => 'Completed',
+                    'outgoing' => 'In Progress',
+                    'accepted' => 'Accepted',
+                    default => ucwords(str_replace('_', ' ', (string) $status)),
+                });
+
+        return [
+            'label' => $label,
+            'color' => match ($normalizedStatus) {
+                'pending', 'for filing' => '#f59e0b',
+                'for_release', 'accepted' => '#3b82f6',
+                'ready_for_pickup', 'completed', 'archived' => '#16a34a',
+                'rejected' => '#dc2626',
+                'active', 'in_progress', 'outgoing' => '#2563eb',
+                default => '#64748b',
+            },
+        ];
+    }
+
     public function table(Table $table): Table
     {
         if ($this->activeTab === 'requested') {
@@ -484,28 +521,11 @@ class Documents extends Page implements HasTable
                     ->placeholder('—')
                     ->alignCenter(),
 
-                TextColumn::make('status')
+                ViewColumn::make('status')
                     ->label('STATUS')
-                    ->formatStateUsing(
-                        fn (?string $state): string => blank($state)
-                            ? '—'
-                            : match (strtolower((string) $state)) {
-                                'for_release' => 'Accepted',
-                                'ready_for_pickup' => 'Ready for Pickup',
-                                default => ucfirst((string) $state),
-                            }
-                    )
-                    ->color(
-                        fn (string $state): string => match (strtolower($state)) {
-                            'pending' => 'warning',
-                            'for_release',
-                            'accepted' => 'info',
-                            'ready_for_pickup' => 'success',
-                            'completed' => 'success',
-                            'rejected' => 'danger',
-                            default => 'gray',
-                        }
-                    ),
+                    ->view('filament.tables.columns.status-badge')
+                    ->state(fn (DocumentRequest $record): array => $this->statusBadgeState($record->status, true))
+                    ->alignCenter(),
 
                 TextColumn::make('rejection_reason')
                     ->label('REASON')
@@ -703,46 +723,21 @@ class Documents extends Page implements HasTable
                     ->placeholder('—')
                     ->alignCenter(),
 
-                TextColumn::make('status')
+                ViewColumn::make('status')
                     ->label('STATUS')
                     ->state(
-                        function (Document $record): string {
+                        function (Document $record): array {
                             if ($this->activeTab === 'requested') {
-                                return (string) ($record->documentRequests->first()?->status ?? '');
+                                return $this->statusBadgeState(
+                                    $record->documentRequests->first()?->status,
+                                    true,
+                                );
                             }
 
-                            return (string) $record->status;
+                            return $this->statusBadgeState((string) $record->status);
                         }
                     )
-                    ->color(
-                        fn (string $state): string => match (strtolower($state)) {
-                            'pending',
-                            'for filing' => 'warning',
-
-                            'accepted' => 'success',
-
-                            'completed',
-                            'archived' => 'success',
-
-                            'rejected' => 'danger',
-
-                            'active',
-                            'in_progress',
-                            'outgoing' => 'info',
-
-                            default => 'gray',
-                        }
-                    )
-                    ->formatStateUsing(
-                        fn (?string $state): string => blank($state)
-                            ? '—'
-                            : match (strtolower($state)) {
-                            'archived' => 'Completed',
-                            'outgoing' => 'In Progress',
-                            'accepted' => 'Accepted',
-                            default => ucwords(str_replace('_', ' ', (string) $state)),
-                        }
-                    )
+                    ->view('filament.tables.columns.status-badge')
                     ->alignCenter(),
 
                 TextColumn::make('rejection_reason')

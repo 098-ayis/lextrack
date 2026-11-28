@@ -38,19 +38,18 @@
           >
             {{ link.name }}
           </RouterLink>
+          <RouterLink
+            to="/login"
+            class="uppercase transition-colors pb-1 border-b-2 text-white border-transparent hover:text-[#6366F1]"
+          >
+            SIGN IN
+          </RouterLink>
         </nav>
         
       </div> 
 
       <!-- Right Side -->
       <div class="flex shrink-0 items-center gap-3 sm:gap-5">
-        <RouterLink
-          to="/login"
-          class="hidden lg:flex items-center justify-center bg-[#6b77ff] hover:bg-[#5a65e0] px-8 py-3 rounded-full font-bold text-[13px] tracking-wider transition"
-        >
-          SIGN IN
-        </RouterLink> 
-
         <button
           @click="menuOpen = !menuOpen"
           :aria-expanded="menuOpen"
